@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { SimTelemetry } from '@shared/ipc'
-import { isMapVisible, taxiPosition } from './map-state'
+import { isMapVisible } from './map-state'
 
 describe('isMapVisible', () => {
   const following = { live: true, framed: false, followEnabled: true, trackLoading: false, hasAircraft: true }
@@ -24,28 +23,5 @@ describe('isMapVisible', () => {
   it('shows it with no flight to follow, but not while the track is still loading', () => {
     expect(isMapVisible({ ...following, hasAircraft: false })).toBe(true)
     expect(isMapVisible({ ...following, hasAircraft: false, trackLoading: true })).toBe(false)
-  })
-})
-
-describe('taxiPosition', () => {
-  it('is null with no telemetry', () => {
-    expect(taxiPosition(null)).toBeNull()
-    expect(taxiPosition(undefined)).toBeNull()
-  })
-
-  it('takes the position, true heading and ground speed from the telemetry', () => {
-    // Taxiing at EGLL, on Alpha towards 27R.
-    const telemetry = {
-      latitude: 51.4706,
-      longitude: -0.4619,
-      headingTrueDeg: 268.4,
-      groundSpeedMs: 7.7
-    } as SimTelemetry
-    expect(taxiPosition(telemetry)).toEqual({
-      lat: 51.4706,
-      lon: -0.4619,
-      headingDeg: 268.4,
-      groundSpeedMs: 7.7
-    })
   })
 })

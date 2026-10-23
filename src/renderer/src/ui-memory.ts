@@ -1,11 +1,10 @@
 /**
  * The renderer's one store for screen state that must survive a component unmounting: leaving the
- * Track tab and coming back keeps the map's camera, its toggles and the taxi clearance as the
+ * Track tab and coming back keeps the map's camera and its toggles as the
  * pilot left them (winglog-backend docs/coding-standards.md §4). In-session only, never saved.
  * Values are read when a component mounts and written as they change; nothing subscribes.
  */
 import type { Airfield, NavdataTaxiSegment } from '@shared/ipc'
-import { INITIAL_TAXI_MEMORY, type TaxiMemory } from '@shared/taxi/clearance-step'
 
 /** Everything remembered between mounts. */
 export interface UiMemory {
@@ -28,8 +27,6 @@ export interface UiMemory {
   vfrEnabled: boolean
   /** The airfield list, fetched once (~43k rows), so it isn't sent over IPC again. */
   vfrAirfields: Airfield[] | null
-  /** The taxi line's clearance and what's been read, so a remount doesn't re-take old ones. */
-  taxiRoute: TaxiMemory
 }
 
 function initial(): UiMemory {
@@ -42,8 +39,7 @@ function initial(): UiMemory {
     taxiSegments: new Map(),
     approachCleared: new Set(),
     vfrEnabled: false,
-    vfrAirfields: null,
-    taxiRoute: { ...INITIAL_TAXI_MEMORY }
+    vfrAirfields: null
   }
 }
 

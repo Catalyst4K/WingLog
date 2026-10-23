@@ -63,6 +63,7 @@ import { createUpdaterEngine } from './updates/updater-engine'
 import { LiveHub } from './live/LiveHub'
 import { SimFacilitiesProvider } from './navdata/sim-facilities-provider'
 import { wireFlightNavdata } from './navdata/wire-flight-navdata'
+import { seedE2eTaxiNetwork } from './e2e-taxi-network'
 import { startTaxiRoute } from './taxi/start-taxi-route'
 import { SimAirfieldResolver } from './airports/sim-airfield'
 import { TrackingController } from './tracking/TrackingController'
@@ -116,6 +117,7 @@ function openDatabase(userDataPath: string): {
   // isn't reliable once the app is launched from a shortcut rather than a terminal.
   migrateDb(dbPath, join(app.getAppPath(), 'drizzle'))
   const handle = createDb(dbPath)
+  seedE2eTaxiNetwork(handle.db, app.isPackaged)
   return { db: handle.db, sqlite: handle.sqlite, dbPath, backedUp }
 }
 

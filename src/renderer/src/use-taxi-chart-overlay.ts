@@ -77,8 +77,6 @@ export interface TaxiChartOverlay {
    *  EGLL..." message from (translated at the call site, not baked in here) — null once
    *  every known airport is loaded (or none are known), whether the overlay is on or off. */
   loadingIcao: string | null
-  /** Each loaded airport's segments — what useTaxiRouteHighlight traces through. */
-  segmentsByIcao: Record<string, NavdataTaxiSegment[]>
 }
 
 async function loadAirport(
@@ -175,22 +173,9 @@ export function useTaxiChartOverlay({
   }, [mapRef, mapReady, enabled, loadedVersion, icaos])
 
   // loadedVersion is the signal that uiMemory().taxiSegments gained an airport.
-  const segmentsByIcao = useMemo(
-    () =>
-      Object.fromEntries(
-        icaos.flatMap((icao): [string, NavdataTaxiSegment[]][] => {
-          const segments = uiMemory().taxiSegments.get(icao)
-          return segments ? [[icao, segments]] : []
-        })
-      ),
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- loadedVersion isn't read inside: it's the signal to re-read uiMemory
-    [icaos, loadedVersion]
-  )
-
   return {
     enabled,
     toggle: () => setEnabled((v) => !v),
-    loadingIcao,
-    segmentsByIcao
+    loadingIcao
   }
 }

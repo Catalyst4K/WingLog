@@ -1,6 +1,5 @@
-import { createServer } from 'node:net'
 import { expect, test, type Page } from '@playwright/test'
-import { WebSocket } from 'ws'
+import { Device, freePort } from './lan-device'
 import { launchApp } from './launch-app'
 import { FakeGsxRemoteServer, VHHH_BOOT_SNAPSHOT } from './gsx-remote-server'
 
@@ -9,52 +8,6 @@ import { FakeGsxRemoteServer, VHHH_BOOT_SNAPSHOT } from './gsx-remote-server'
  * device with the code the PC shows, the page it serves, and revoking the device. The server listens on loopback here (the app's
  * WINGLOG_E2E_LAN_ADDRESS, honoured by an unpackaged build only), so no real network or firewall is touched.
  */
-
-/** A port nothing listens on. */
-function freePort(): Promise<number> {
-  return new Promise((resolve, reject) => {
-    const server = createServer()
-    server.once('error', reject)
-    server.listen(0, '127.0.0.1', () => {
-      const { port } = server.address() as { port: number }
-      server.close(() => resolve(port))
-    })
-  })
-}
-
-/** A device talking to the PC the way the page does, remembering what it was sent. */
-class Device {
-  readonly received: Record<string, unknown>[] = []
-  closed = false
-  private readonly ws: WebSocket
-
-  constructor(port: number) {
-    this.ws = new WebSocket(`ws://127.0.0.1:${port}/live`)
-    this.ws.on('message', (data) => this.received.push(JSON.parse(data.toString())))
-    this.ws.on('close', () => (this.closed = true))
-    this.ws.on('error', () => undefined)
-  }
-
-  opened(): Promise<void> {
-    return new Promise((resolve, reject) => {
-      this.ws.once('open', () => resolve())
-      this.ws.once('error', reject)
-    })
-  }
-
-  send(message: unknown): void {
-    this.ws.send(JSON.stringify(message))
-  }
-
-  async message(type: string): Promise<Record<string, unknown>> {
-    await expect.poll(() => this.received.some((m) => m.t === type)).toBe(true)
-    return this.received.find((m) => m.t === type) as Record<string, unknown>
-  }
-
-  close(): void {
-    this.ws.terminate()
-  }
-}
 
 /**
  * Switches the second screen on in Settings, on a free port.

@@ -17,6 +17,7 @@ import REPLAY_225 from '@shared/taxi/__fixtures__/ybbn-225-taxi-out.json'
 import YBBN_225_RAW from '@shared/taxi/__fixtures__/ybbn-225-taxi-network.json'
 import REPLAY_227 from '@shared/taxi/__fixtures__/zjsy-227-taxi-out.json'
 import REPLAY_253 from '@shared/taxi/__fixtures__/zjsy-253-taxi-out.json'
+import VHHH_HOLD_RAW from '@shared/taxi/__fixtures__/vhhh-taxi-c7-y-f-hold-07c.json'
 import ZJSY_RAW from '@shared/taxi/__fixtures__/zjsy-taxi-d-b7-a.json'
 
 vi.mock('../logging/logger', () => ({ logger: { info: vi.fn(), warn: vi.fn() } }))
@@ -35,6 +36,7 @@ const toSegments = (raw: unknown): NavdataTaxiSegment[] =>
     endHoldShort: endHoldShort === 1
   }))
 const ZJSY = toSegments(ZJSY_RAW)
+const VHHH_HOLD = toSegments(VHHH_HOLD_RAW)
 const YBBN = toSegments(YBBN_225_RAW)
 type Sample = [number, number, number, number, number, string]
 
@@ -398,6 +400,43 @@ describe('TaxiRouteService: re-routing, on the recorded taxis', () => {
       ...samples.map(([, lat, lon]) => distanceM({ lat, lon }, { lat: end[1], lon: end[0] }))
     )
     expect(closest).toBeLessThan(40)
+  })
+})
+
+describe('TaxiRouteService: more clearance shapes, and the pushback', () => {
+  it('traces the first half of a split arrival clearance, "taxi via C7, Y, F, hold short of runway 07C" (VHHH), to the hold short on F', () => {
+    const w = setup({
+      networks: { VHHH: VHHH_HOLD, ZJSY },
+      flight: { flightId: 1, depIcao: 'ZJSY', arrIcao: 'VHHH', ofpJson: null },
+      active: { flightId: 1, phase: 'taxi' }
+    })
+    // The top of C7, just off 07L, as the aircraft is when the clearance comes.
+    w.telemetry([0, 22.3267351, 113.9016593, 90, 5, 'taxi'])
+    w.clearance([
+      { title: 'Taxi to Ramp', info: 'Ramp W122' },
+      { title: 'Taxi Via 1', info: 'C7' },
+      { title: 'Taxi Via 2', info: 'Y' },
+      { title: 'Taxi Via 3', info: 'F' },
+      { title: 'Hold Short', info: '07C' }
+    ])
+    expect(w.last()).toMatchObject({
+      icao: 'VHHH',
+      kind: 'exact',
+      clearance: { holdShortRunway: '07C', holdingPoint: null }
+    })
+    const [lon, lat] = w.last()!.line.at(-1)!
+    expect(distanceM({ lat, lon }, { lat: 22.32092, lon: 113.92363 })).toBeLessThan(30)
+  })
+
+  it('does not re-route during pushback, when the aircraft moves tail first', () => {
+    const samples = REPLAY_227 as Sample[]
+    const pushback = samples.filter((s) => s[5] === 'pushback')
+    expect(pushback.length).toBeGreaterThan(5)
+    const w = setup({ active: { flightId: 1, phase: 'pushback' } })
+    w.telemetry(pushback[0])
+    w.clearance(D_B7_A)
+    for (const s of pushback) w.telemetry(s)
+    expect(vi.mocked(logger.info).mock.calls.some((c) => String(c[0]).includes('re-routed'))).toBe(false)
   })
 })
 
