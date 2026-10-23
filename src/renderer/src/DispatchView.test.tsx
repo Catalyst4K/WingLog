@@ -947,6 +947,17 @@ describe('DispatchView', () => {
     })
   })
 
+  it("suggests the plan's approach in the Procedures card, which SimBrief never plans", async () => {
+    window.winglog = createWinglog({
+      navdataListApproaches: vi.fn().mockResolvedValue([
+        { identifier: 'RNAV Z 25R', transition: null },
+        { identifier: 'ILS 25R', transition: null }
+      ])
+    })
+    render(<Harness initialOfp={makeOfp()} />)
+    await waitFor(() => expect(selectTriggerNear('Approach')).toHaveTextContent('ILS 25R'))
+  })
+
   it('allows opening and setting an Advanced dispatch option, reflected in the button label', async () => {
     const user = userEvent.setup()
     render(<Harness />)

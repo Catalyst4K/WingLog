@@ -21,8 +21,8 @@ export interface UiMemory {
   taxiChartEnabled: boolean
   /** Taxi networks already loaded, by ICAO, so switching airports or tabs doesn't re-fetch. */
   taxiSegments: Map<string, NavdataTaxiSegment[]>
-  /** Plans and airports whose approach the pilot cleared with "None" in the Procedures dialog,
-   *  so the auto-default doesn't put one straight back when the dialog reopens. */
+  /** Plans and airports whose approach the pilot cleared with "None", on the PC or a phone, so
+   *  the suggested approach (useDefaultApproach) doesn't put one straight back. */
   approachCleared: Set<string>
   /** The VFR overlay's toggle. */
   vfrEnabled: boolean

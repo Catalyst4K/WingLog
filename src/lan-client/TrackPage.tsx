@@ -14,7 +14,6 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { FlightMap } from '@/FlightMap'
 import { realIcao } from '@/display-icao'
-import type { Waypoint } from '@shared/route'
 import {
   computeTrackTimes,
   formatDuration,
@@ -159,14 +158,13 @@ export function TrackPage({
 /**
  * The Procedures button and what is chosen, as on the Track screen: the SID, STAR and approach, which the PC saves with the flight.
  *
- * @param props The flight's airports, the choice, what to do when it changes, and the route it builds.
+ * @param props The flight's airports, the choice, and what to do when it changes.
  * @returns The element.
  */
 function ProceduresBar(props: {
   airports: ProcedureAirports
   selection: ProcedureSelection
   onSelectionChange: (next: ProcedureSelection) => void
-  liveWaypoints: Waypoint[]
   /** The last choice made here could not be confirmed by the PC. */
   unconfirmed: boolean
 }): React.JSX.Element {
@@ -258,11 +256,7 @@ function FlightView(props: {
       <FlightHeader
         snapshot={snapshot}
         times={times}
-        procedures={
-          airports
-            ? { airports, selection, onSelectionChange: choose, liveWaypoints: waypoints, unconfirmed }
-            : null
-        }
+        procedures={airports ? { airports, selection, onSelectionChange: choose, unconfirmed } : null}
       />
       <div className="min-h-0 flex-1">
         <FlightMap
