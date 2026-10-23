@@ -136,10 +136,9 @@ function flatten(route: TracedRoute): { xy: Xy[]; lengthM: number } {
 function startsBehind(route: TracedRoute, headingDeg: number | null | undefined): boolean {
   if (headingDeg === null || headingDeg === undefined) return false
   const start = { lat: route[0][1], lon: route[0][0] }
-  let travelled = 0
   for (let i = 1; i < route.length; i++) {
     const to = { lat: route[i][1], lon: route[i][0] }
-    travelled = greatCircleM(start, to)
+    const travelled = greatCircleM(start, to)
     // A route that never gets this far from its start is too short to point anywhere.
     if (travelled >= START_WINDOW_M || i === route.length - 1) {
       return travelled >= 5 && angleBetweenDeg(initialBearingDeg(start, to), headingDeg) > START_MAX_DEG
@@ -160,9 +159,9 @@ function endpoints(segments: NavdataTaxiSegment[]): { lat: number; lon: number; 
 }
 
 /**
- * Whether the route stops where the clearance ends: at the end the caller gave; else, for a stand, at the stand or the network point
- * nearest it; for a hold short of a runway, at a hold short; for a holding point, at the end of a segment of that taxiway; otherwise on
- * the last cleared taxiway. A clearance with none of those has nothing to check.
+ * Whether the route stops where the clearance ends: at the end the caller gave; else, for a hold short of a runway, at a hold short;
+ * for a holding point, at the end of a segment of that taxiway; for a stand, at the stand or the network point nearest it; otherwise
+ * on the last cleared taxiway. A clearance with none of those has nothing to check.
  *
  * @param route The route.
  * @param request The clearance and network.
@@ -172,6 +171,13 @@ function missesEnd(route: TracedRoute, request: RouteCheckRequest): boolean {
   const last = { lat: route[route.length - 1][1], lon: route[route.length - 1][0] }
   const near = (p: { lat: number; lon: number }): boolean => greatCircleM(last, p) <= END_WITHIN_M
   if (request.end) return !near(request.end)
+  // The same order the tracer decides in: a stand is ignored when the clearance has a hold short or a holding point (the first half of
+  // a split arrival clearance carries the stand it will go to next).
+  if (request.holdShortRunway) return !endpoints(request.segments).some((p) => p.holdShort && near(p))
+  if (request.holdingPoint) {
+    const name = request.holdingPoint
+    return !request.segments.some((s) => s.name === name && (near(startOf(s)) || near(endOf(s))))
+  }
   if (request.stand) {
     const stand = request.stand
     const link = endpoints(request.segments).reduce<{ lat: number; lon: number } | null>(
@@ -179,11 +185,6 @@ function missesEnd(route: TracedRoute, request: RouteCheckRequest): boolean {
       null
     )
     return !near(stand) && !(link && near(link))
-  }
-  if (request.holdShortRunway) return !endpoints(request.segments).some((p) => p.holdShort && near(p))
-  if (request.holdingPoint) {
-    const name = request.holdingPoint
-    return !request.segments.some((s) => s.name === name && (near(startOf(s)) || near(endOf(s))))
   }
   const lastTaxiway = request.taxiways.at(-1)
   if (lastTaxiway === undefined) return false

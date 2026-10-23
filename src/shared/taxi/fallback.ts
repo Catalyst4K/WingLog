@@ -10,11 +10,14 @@ import { itemAt } from '@shared/item-at'
 import { MinQueue } from './min-queue'
 import { startOfRunwayHolds, type RunwayThreshold } from './runway-hold'
 import { crossingHolds, isHoldShortBeside } from './runway-crossing'
+import { routeProblems, type RouteProblem } from './route-checks'
 import {
   buildGraph,
   edgesOf,
   isWrongWay,
+  MAX_CLEARANCE_TAXIWAYS,
   MAX_ROUTE_LENGTH_M,
+  MAX_TRACE_STATES,
   nearestNode,
   nodeKey,
   standLinkNode,
@@ -45,6 +48,11 @@ export interface TracedClearance {
   route: TracedRoute
   kind: TraceKind
   match: ClearanceMatch
+  /** What is wrong with the line (route-checks.ts); empty when it passes. A line with problems is still drawn when nothing better exists. */
+  problems: RouteProblem[]
+  /** What the traced (exact) line was found wrong with, when a different line was drawn instead or the traced line was kept in spite of it;
+   *  null when there was no traced line at all. Empty when the traced line passed. */
+  exactProblems: RouteProblem[] | null
 }
 
 /**
@@ -150,6 +158,7 @@ function startOfRunwayNodes(
  * @returns The line, or null with no destination, an aircraft off the network, or a way longer than MAX_ROUTE_LENGTH_M.
  */
 export function findTaxiPath(request: TaxiTraceRequest): TracedRoute | null {
+  if (request.taxiways.length > MAX_CLEARANCE_TAXIWAYS) return null
   const { holdingPoint } = request
   if (holdingPoint && request.segments.some((s) => s.name === holdingPoint)) {
     return traceTaxiRoute({ ...request, taxiways: [holdingPoint] })
@@ -230,15 +239,52 @@ function routeFrom(
 }
 
 /**
- * The line for a clearance: traced through the cleared taxiways when that works, otherwise a shortest way to where the clearance ends.
+ * The line for a clearance (winglog-backend's docs/plans/taxi-and-second-screen-robustness.md, decision 2):
+ * 1. the line traced through the cleared taxiways, when it passes every check (route-checks.ts);
+ * 2. otherwise the shortest way to where the clearance ends, when that has fewer problems than the traced line (or there is none);
+ * 3. otherwise the traced line, with its problems, when there is one: a pathfinder line no better than it is no reason to change it;
+ * 4. otherwise nothing. The line stays blank; whole taxiways are no longer drawn in its place.
+ * The traced and the pathfinder searches share one MAX_TRACE_STATES budget.
  *
- * @param request The clearance, the network and where the aircraft is.
- * @returns The line, how it was made and how well it matches the clearance; null when neither works.
+ * @param input The clearance, the network and where the aircraft is.
+ * @returns The line, how it was made, how well it matches the clearance and what is wrong with it; null when there is none.
  */
-export function traceWithFallback(request: TaxiTraceRequest): TracedClearance | null {
+export function traceWithFallback(input: TaxiTraceRequest): TracedClearance | null {
+  const request = { ...input, budget: input.budget ?? { left: MAX_TRACE_STATES } }
   // An aircraft already past the clearance's start (Track opened mid-taxi) joins it where it is: taxi-route-trace.ts's SKIP_COST_M.
   const exact = traceTaxiRoute(request)
-  if (exact) return { route: exact, kind: 'exact', match: matchClearance(request, exact) }
-  const found = findTaxiPath(request)
-  return found ? { route: found, kind: 'pathfinder', match: matchClearance(request, found) } : null
+  const exactLine = exact && { route: exact, problems: routeProblems(exact, request) }
+  // The shortest way is only looked for when the traced line is missing or has a problem.
+  const found = exactLine?.problems.length === 0 ? null : findTaxiPath(request)
+  const foundLine = found && { route: found, problems: routeProblems(found, request) }
+  const chosen = chooseLine(exactLine, foundLine)
+  const line = chosen === 'exact' ? exactLine : chosen === 'pathfinder' ? foundLine : null
+  if (!chosen || !line) return null
+  return {
+    route: line.route,
+    kind: chosen,
+    match: matchClearance(request, line.route),
+    problems: line.problems,
+    exactProblems: exactLine?.problems ?? null
+  }
+}
+
+/** A line and what is wrong with it. */
+interface Candidate {
+  route: TracedRoute
+  problems: RouteProblem[]
+}
+
+/**
+ * Which line to draw (traceWithFallback's policy): the traced one when it passes; else the shortest way when it has fewer problems than
+ * the traced one or there is no traced one; else the traced one, which a no-better shortest way is no reason to change; else none.
+ *
+ * @param exact The traced line, or null when there is none.
+ * @param found The shortest way, or null when there is none or it wasn't looked for.
+ * @returns Which one to draw, or null for neither.
+ */
+export function chooseLine(exact: Candidate | null, found: Candidate | null): TraceKind | null {
+  if (exact && exact.problems.length === 0) return 'exact'
+  if (found && (!exact || found.problems.length < exact.problems.length)) return 'pathfinder'
+  return exact ? 'exact' : null
 }

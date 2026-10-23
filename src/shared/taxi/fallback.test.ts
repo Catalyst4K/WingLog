@@ -1,7 +1,15 @@
 import type { NavdataTaxiSegment } from '@shared/ipc'
 import { describe, expect, it } from 'vitest'
-import { findTaxiPath, matchClearance, traceWithFallback } from './fallback'
-import { traceTaxiRoute, type TaxiTraceRequest } from './route-trace'
+import { chooseLine, findTaxiPath, matchClearance, traceWithFallback } from './fallback'
+import {
+  MAX_CLEARANCE_TAXIWAYS,
+  traceTaxiRoute,
+  type TaxiTraceRequest,
+  type TracedRoute
+} from './route-trace'
+import REPLAY_227 from './__fixtures__/zjsy-227-taxi-out.json'
+import REPLAY_253 from './__fixtures__/zjsy-253-taxi-out.json'
+import ZJSY_RAW from './__fixtures__/zjsy-taxi-d-b7-a.json'
 
 const seg = (
   a: [number, number],
@@ -187,5 +195,113 @@ describe('traceWithFallback', () => {
 
   it('has nothing when neither way works', () => {
     expect(traceWithFallback(request({ from: { lat: 30, lon: 107 } }))).toBeNull()
+  })
+})
+
+// The whole of ZJSY (MSFS facility data from WingLog's cache). Rows: [startLat, startLon, endLat, endLon, name, startHoldShort,
+// endHoldShort]. The two replays are flights 227 and 253's taxi out, rows [t, lat, lon, headingDeg, groundSpeedMs, phase].
+type Row = [number, number, number, number, string | null, number, number]
+const ZJSY: NavdataTaxiSegment[] = (ZJSY_RAW as Row[]).map(
+  ([startLat, startLon, endLat, endLon, name, startHoldShort, endHoldShort]) => ({
+    startLat,
+    startLon,
+    endLat,
+    endLon,
+    name,
+    startHoldShort: startHoldShort === 1,
+    endHoldShort: endHoldShort === 1
+  })
+)
+type Sample = [number, number, number, number, number, string]
+
+describe('chooseLine', () => {
+  const line = (...problems: ('sharp-turn' | 'misses-end' | 'starts-behind-nose')[]) => ({
+    route: [] as TracedRoute,
+    problems
+  })
+
+  it('keeps the traced line when it passes, whatever the shortest way is', () => {
+    expect(chooseLine(line(), line())).toBe('exact')
+    expect(chooseLine(line(), null)).toBe('exact')
+  })
+
+  it('takes the shortest way when the traced line has a problem and it has fewer', () => {
+    expect(chooseLine(line('sharp-turn'), line())).toBe('pathfinder')
+    expect(chooseLine(line('sharp-turn', 'misses-end'), line('misses-end'))).toBe('pathfinder')
+  })
+
+  it('keeps the traced line when the shortest way is no better: equal problems, or more', () => {
+    expect(chooseLine(line('starts-behind-nose'), line('starts-behind-nose'))).toBe('exact')
+    expect(chooseLine(line('starts-behind-nose'), line('sharp-turn', 'starts-behind-nose'))).toBe('exact')
+    expect(chooseLine(line('sharp-turn'), null)).toBe('exact')
+  })
+
+  it('draws the shortest way even with problems when there is no traced line, and nothing when there is neither', () => {
+    expect(chooseLine(null, line('sharp-turn'))).toBe('pathfinder')
+    expect(chooseLine(null, null)).toBeNull()
+  })
+})
+
+describe('traceWithFallback on the real ZJSY clearance "via D, A3, A" to holding point A', () => {
+  const cleared = { segments: ZJSY, taxiways: ['D', 'A3', 'A'], holdingPoint: 'A' }
+  const at = (samples: Sample[]) => {
+    const [, lat, lon, headingDeg] = samples[0]
+    return { from: { lat, lon }, headingDeg }
+  }
+
+  it("draws the shortest way when the traced line would start behind the nose (flight 253's start, nose to the west)", () => {
+    const result = traceWithFallback({ ...cleared, ...at(REPLAY_253 as Sample[]) })!
+    expect(result.kind).toBe('pathfinder')
+    expect(result.problems).toEqual([])
+    expect(result.exactProblems).toEqual(['starts-behind-nose'])
+  })
+
+  it('keeps the traced line, and says what is wrong with it, when the shortest way is no better (flight 227)', () => {
+    const result = traceWithFallback({ ...cleared, ...at(REPLAY_227 as Sample[]) })!
+    expect(result.kind).toBe('exact')
+    expect(result.problems).toEqual(['starts-behind-nose'])
+    expect(result.exactProblems).toEqual(['starts-behind-nose'])
+  })
+
+  it('draws the traced line, with nothing wrong, when the aircraft is on D and the heading is unknown', () => {
+    const result = traceWithFallback({
+      ...cleared,
+      taxiways: ['D', 'B7', 'A'],
+      from: { lat: 18.3074072, lon: 109.4093493 }
+    })!
+    expect(result.kind).toBe('exact')
+    expect(result.problems).toEqual([])
+    expect(result.exactProblems).toEqual([])
+  })
+
+  it('draws nothing when there is no network to trace through', () => {
+    expect(traceWithFallback({ ...cleared, segments: [], from: { lat: 18.3, lon: 109.4 } })).toBeNull()
+  })
+})
+
+describe('traceWithFallback guards', () => {
+  const onD = { lat: 18.3074072, lon: 109.4093493 }
+  const cleared = { segments: ZJSY, taxiways: ['D', 'B7', 'A'], holdingPoint: 'A', from: onD }
+
+  it('draws nothing for a clearance of more than 20 taxiways, however it is built', () => {
+    const long = Array.from({ length: MAX_CLEARANCE_TAXIWAYS + 1 }, (_, i) => (i % 2 ? 'A' : 'D'))
+    expect(traceWithFallback({ ...cleared, taxiways: long })).toBeNull()
+    expect(traceTaxiRoute({ ...cleared, taxiways: long })).toBeNull()
+    expect(findTaxiPath({ ...cleared, taxiways: long })).toBeNull()
+    expect(
+      traceWithFallback({ ...cleared, taxiways: long.slice(0, MAX_CLEARANCE_TAXIWAYS - 17) })
+    ).not.toBeNull()
+  })
+
+  it('gives up when the search takes more states than its budget, and does not when it has them', () => {
+    expect(traceWithFallback(cleared)).not.toBeNull()
+    expect(traceWithFallback({ ...cleared, budget: { left: 50 } })).toBeNull()
+    expect(traceTaxiRoute({ ...cleared, budget: { left: 50 } })).toBeNull()
+  })
+
+  it('shares one budget between the traced line and the shortest way', () => {
+    const budget = { left: 100_000 }
+    traceWithFallback({ ...cleared, budget })
+    expect(budget.left).toBeLessThan(100_000)
   })
 })

@@ -62,6 +62,14 @@ const MAX_START_DISTANCE_M = 300
 const START_AHEAD_M = 40
 /** A cleared taxi route longer than this is almost certainly a wrong trace, not a real one. */
 export const MAX_ROUTE_LENGTH_M = 15_000
+/** More taxiways than this is not a clearance: ATC's longest in the 23 recorded taxis names 5, and the trace's search grows with the list. */
+export const MAX_CLEARANCE_TAXIWAYS = 20
+/**
+ * How many search states one trace may take from the queue, all its searches together. The recorded taxis need up to 39,828 (a flown EGLL
+ * clearance, 418 ms); a clearance that cannot be resolved on RKSI's 16,000 segments searched 109,489 (1 s) before giving up. The budget
+ * bounds that second kind; it does not make the first fast.
+ */
+export const MAX_TRACE_STATES = 60_000
 /** How near the cleared runway's threshold a holding point's hold short is for the runway to say anything about it. A first hold short
  *  farther than this is replaced by the one nearest the threshold, when there is one this near; none this near (an intersection
  *  departure's holding point), or the first already this near, and the first stays. */
@@ -109,6 +117,9 @@ export interface TaxiTraceRequest {
   onlyAtRunwayHold?: boolean
   /** With onlyAtRunwayHold, ends only where the route crosses the runway (taxi-runway-crossing.ts), not at a hold short on an exit. */
   crossingOnly?: boolean
+  /** The states left for the searches of this trace (MAX_TRACE_STATES when absent), shared by them all. Callers set it to share one budget
+   *  between the trace and its fallback; the searches count it down. */
+  budget?: { left: number }
 }
 
 interface Edge {
@@ -385,10 +396,13 @@ export function isWrongWay(graph: Graph, from: number, to: number, headingDeg: n
  * taxi-route-repeats.ts) has doubled back to reach cleared taxiways the aircraft is already past, so the clearance is joined later
  * instead: at the first of its taxiways from which the route keeps to it. With none, the route stands.
  *
- * @param request The clearance, the network and where the aircraft is.
- * @returns The route, or null if it can't be traced.
+ * @param input The clearance, the network and where the aircraft is.
+ * @returns The route, or null if it can't be traced, if the clearance names more than MAX_CLEARANCE_TAXIWAYS taxiways, or if the search
+ *   takes more than MAX_TRACE_STATES states.
  */
-export function traceTaxiRoute(request: TaxiTraceRequest): TracedRoute | null {
+export function traceTaxiRoute(input: TaxiTraceRequest): TracedRoute | null {
+  if (input.taxiways.length > MAX_CLEARANCE_TAXIWAYS) return null
+  const request = { ...input, budget: input.budget ?? { left: MAX_TRACE_STATES } }
   const route = traceClearanceRoute(request)
   const cleared = [...request.taxiways, ...(request.holdingPoint ? [request.holdingPoint] : [])]
   if (!route || !drivesTaxiwayAgain(route, request.segments, cleared)) return route
@@ -624,6 +638,7 @@ function searchRoute(
   seedStarts(search, starts, request)
 
   while (queue.size > 0) {
+    if (request.budget && request.budget.left-- <= 0) return null
     const [state, stateCost] = queue.pop()
     if (stateCost > (cost.get(state) ?? Infinity)) continue
     const node = nodeOfState(search, state)
