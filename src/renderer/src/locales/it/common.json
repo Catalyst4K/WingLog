@@ -945,6 +945,10 @@
       "body": "Puoi cambiare tutto questo nelle Impostazioni. Per rivedere questa configurazione vai in Impostazioni → Informazioni → Ripeti la configurazione."
     }
   },
+  "errorBoundary": {
+    "message": "Qualcosa è andato storto nel mostrare questa parte. Il resto di WingLog funziona ancora.",
+    "reload": "Ricarica"
+  },
   "lanPage": {
     "connecting": "Connessione a WingLog…",
     "pairTitle": "Associa con WingLog",

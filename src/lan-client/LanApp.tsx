@@ -15,6 +15,7 @@ import { NavBar, type PageId } from './NavBar'
 import { InfoPage } from './InfoPages'
 import { TrackPage } from './TrackPage'
 import { useLinkState } from './use-link'
+import { ErrorBoundary } from '@/ErrorBoundary'
 import { usePages } from './use-pages'
 import { usePcAppearance } from './use-pc-appearance'
 import { usePcSettings } from './use-pc-settings'
@@ -125,11 +126,15 @@ function Shell({ link, offline }: { link: LanConnection; offline: boolean }): Re
       <StorageBanner />
       <main className="min-h-0 flex-1">
         <div className={shown === 'track' ? 'h-full' : 'hidden'}>
-          <TrackPage link={link} mapLanguage={settings.mapLanguage} />
+          <ErrorBoundary name="track">
+            <TrackPage link={link} mapLanguage={settings.mapLanguage} />
+          </ErrorBoundary>
         </div>
         {shown !== 'track' && (
           <div className="h-full overflow-y-auto">
-            <InfoPage page={shown} link={link} settings={settings} />
+            <ErrorBoundary name={shown} resetKey={shown}>
+              <InfoPage page={shown} link={link} settings={settings} />
+            </ErrorBoundary>
           </div>
         )}
       </main>

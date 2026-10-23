@@ -935,6 +935,10 @@
       "body": "這裡的所有內容都可以在設定中變更。要再次查看此精靈，請前往「設定 → 關於 → 重新執行設定精靈」。"
     }
   },
+  "errorBoundary": {
+    "message": "顯示此內容時發生錯誤。WingLog 的其餘部分仍正常運作。",
+    "reload": "重新載入"
+  },
   "lanPage": {
     "connecting": "正在連線到 WingLog…",
     "pairTitle": "與 WingLog 配對",

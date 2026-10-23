@@ -935,6 +935,10 @@
       "body": "这里的所有内容都可以在设置中更改。要再次查看此向导，请前往“设置 → 关于 → 重新运行设置向导”。"
     }
   },
+  "errorBoundary": {
+    "message": "显示此内容时出错。WingLog 的其余部分仍在正常运行。",
+    "reload": "重新加载"
+  },
   "lanPage": {
     "connecting": "正在连接 WingLog…",
     "pairTitle": "与 WingLog 配对",
