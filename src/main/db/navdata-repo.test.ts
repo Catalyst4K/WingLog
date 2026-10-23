@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
+import { eq } from 'drizzle-orm'
 import type {
   FetchedAirportNavdata,
   FetchedApproach,
@@ -491,6 +492,8 @@ describe('navdata repo', () => {
   })
 
   describe('taxi network', () => {
+    const TAXIWAY = { pathType: 1, widthM: 23, weight: 0, runwayNumber: null, runwayDesignator: null }
+
     function fetchedTaxi(overrides: Partial<FetchedTaxiNetwork> = {}): FetchedTaxiNetwork {
       return {
         icao: 'EGKB',
@@ -502,7 +505,8 @@ describe('navdata repo', () => {
             endLon: 0.02683,
             name: null,
             startHoldShort: false,
-            endHoldShort: false
+            endHoldShort: false,
+            ...TAXIWAY
           },
           {
             startLat: 51.334,
@@ -511,9 +515,12 @@ describe('navdata repo', () => {
             endLon: 0.033,
             name: 'A',
             startHoldShort: false,
-            endHoldShort: true
+            endHoldShort: true,
+            ...TAXIWAY,
+            pathType: 4
           }
         ],
+        stands: [],
         ...overrides
       }
     }
@@ -582,6 +589,45 @@ describe('navdata repo', () => {
 
       expect(hasCachedTaxiNetwork(db, 'EGKB')).toBe(false)
       expect(listCachedTaxiSegments(db, 'EGKB').every((s) => !s.startHoldShort && !s.endHoldShort)).toBe(true)
+    })
+
+    it('keeps a runway path, with its runway, but leaves it out of the drivable network', () => {
+      const runway = {
+        startLat: 51.3283,
+        startLon: 0.0298,
+        endLat: 51.3335,
+        endLon: 0.0352,
+        name: null,
+        startHoldShort: false,
+        endHoldShort: false,
+        pathType: 2,
+        widthM: 35,
+        weight: 0,
+        runwayNumber: 3,
+        runwayDesignator: 0
+      }
+      const network = fetchedTaxi()
+      replaceAirportTaxiSegments(
+        db,
+        'EGKB',
+        { ...network, segments: [...network.segments, runway] },
+        '2026-10-23T12:00:00.000Z'
+      )
+
+      expect(listCachedTaxiSegments(db, 'EGKB')).toHaveLength(2)
+      const stored = db.select().from(navdataTaxiSegment).where(eq(navdataTaxiSegment.pathType, 2)).all()
+      expect(stored).toMatchObject([{ widthM: 35, runwayNumber: 3, runwayDesignator: 0 }])
+    })
+
+    it('still serves a network cached before path types were stored, as drivable', () => {
+      replaceAirportTaxiSegments(db, 'EGKB', fetchedTaxi(), '2026-10-20T12:00:00.000Z')
+      // What migration 0037 leaves behind for a pre-existing cache: the new columns NULL.
+      db.update(navdataTaxiSegment)
+        .set({ pathType: null, widthM: null, weight: null, runwayNumber: null, runwayDesignator: null })
+        .run()
+
+      expect(hasCachedTaxiNetwork(db, 'EGKB')).toBe(true)
+      expect(listCachedTaxiSegments(db, 'EGKB')).toHaveLength(2)
     })
 
     it('replaces wholesale on a second fetch, not appends', () => {

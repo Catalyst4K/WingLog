@@ -486,10 +486,9 @@ export const navdataProcedureLeg = sqliteTable(
 // One row per taxi-network segment (a single TAXI_PATH record, resolved down to real lat/lon
 // endpoints — see fetchTaxiNetwork in sim-facilities-fetch.ts). Deliberately flat, no separate
 // points table: BIAS_X/BIAS_Z -> lat/lon conversion and NAME_INDEX -> name resolution both
-// happen before a row is ever written, so a read is a plain SELECT, no join. No `type` column —
-// both TYPE 1 and TYPE 4 (see facility-fields.ts's NavdataDefId comment) are fetched and
-// merged, since which is really "Taxi" vs "Path" is unconfirmed and this app doesn't
-// distinguish them for rendering purposes.
+// happen before a row is ever written, so a read is a plain SELECT, no join. Paths of TYPE 1, 2
+// and 4 are kept (facility-fields.ts's TaxiPathType); listCachedTaxiSegments returns the drivable
+// 1 and 4.
 export const navdataTaxiSegment = sqliteTable(
   'navdata_taxi_segment',
   {
@@ -504,6 +503,14 @@ export const navdataTaxiSegment = sqliteTable(
     // treats such a cache as stale so it's re-fetched once, rather than silently lacking them.
     startHoldShort: integer('start_hold_short', { mode: 'boolean' }),
     endHoldShort: integer('end_hold_short', { mode: 'boolean' }),
+    // Null = cached before the whole network was fetched in one request (taxi-network-as-flown.md), when only TYPE 1 and 4 were
+    // kept: such a row is drivable, as it always was.
+    pathType: integer('path_type'),
+    widthM: real('width_m'),
+    weight: integer('weight'),
+    // A runway path's runway (TYPE 2 only); null on every other path.
+    runwayNumber: integer('runway_number'),
+    runwayDesignator: integer('runway_designator'),
     source: text('source', { enum: ['sim-facility'] }).notNull(),
     fetchedAt: text('fetched_at').notNull()
   },

@@ -32,7 +32,7 @@ import type {
   ProcedureKind
 } from './navdata-provider'
 import type { NavdataStand } from '@shared/ipc'
-import { fetchAirportNavdata, fetchStands, fetchTaxiNetwork } from './sim-facilities-fetch'
+import { fetchAirportNavdata, fetchTaxiNetwork, type FetchedStand } from './sim-facilities-fetch'
 
 const APP_NAME = 'WingLog navdata'
 
@@ -99,8 +99,8 @@ export class SimFacilitiesProvider implements NavdataProvider {
     this.background = this.background.then(async () => {
       try {
         if (stale.airport) await this.refreshAirport(icao)
-        if (stale.taxi) await this.refreshTaxiNetwork(icao)
-        if (stale.stands) await this.refreshStands(icao)
+        // One request brings the taxi network and the stands.
+        if (stale.taxi || stale.stands) await this.refreshTaxiNetwork(icao)
         this.cycleChecks.set(icao, { cycleStartMs, retryAtMs: Infinity })
         logger.info(`[navdata] ${icao} refreshed for the new AIRAC cycle`)
       } catch (error) {
@@ -171,19 +171,42 @@ export class SimFacilitiesProvider implements NavdataProvider {
     return listCachedProcedureLegs(this.db, icao, kind, identifier, runway, transition)
   }
 
+  /**
+   * Fetches an airport's taxi network and stands from the sim, as the scenery installed now has them, and replaces the cached ones.
+   *
+   * @param icao The airport.
+   */
   async refreshTaxiNetwork(icao: string): Promise<void> {
     const { handle } = await this.openSimConnect(APP_NAME, Protocol.SunRise)
     try {
       const fetched = await fetchTaxiNetwork(handle, icao)
+      const at = this.now().toISOString()
+      this.storeStands(icao, fetched.stands, at)
       // An empty answer would delete a good cache and leave nothing: keep what is cached, as the failure it likely is.
       if (fetched.segments.length === 0 && this.hasTaxiNetwork(icao)) {
         logger.info(`[navdata] ${icao} taxi network came back empty; keeping the cached one`)
         return
       }
-      replaceAirportTaxiSegments(this.db, icao, fetched, this.now().toISOString())
+      replaceAirportTaxiSegments(this.db, icao, fetched, at)
       for (const listener of this.refreshedListeners) listener(icao)
     } finally {
       handle.close()
+    }
+  }
+
+  /**
+   * @param icao The airport.
+   * @param stands Its stands, as just fetched.
+   * @param at When, as an ISO time.
+   */
+  private storeStands(icao: string, stands: FetchedStand[], at: string): void {
+    if (stands.length > 0) {
+      this.noStands.delete(icao)
+      replaceAirportStands(this.db, icao, stands, at)
+    } else if (listCachedStands(this.db, icao).length === 0) {
+      this.noStands.add(icao)
+    } else {
+      logger.info(`[navdata] ${icao} stands came back empty; keeping the cached ones`)
     }
   }
 
@@ -205,26 +228,10 @@ export class SimFacilitiesProvider implements NavdataProvider {
     if (cached.length > 0) this.refreshIfStale(icao)
     if (cached.length > 0 || this.noStands.has(icao)) return cached
     try {
-      await this.refreshStands(icao)
+      await this.refreshTaxiNetwork(icao)
     } catch {
       return []
     }
     return listCachedStands(this.db, icao)
-  }
-
-  /**
-   * Fetches an airport's stands from the sim and replaces the cached ones.
-   *
-   * @param icao The airport.
-   */
-  private async refreshStands(icao: string): Promise<void> {
-    const { handle } = await this.openSimConnect(APP_NAME, Protocol.SunRise)
-    try {
-      const stands = await fetchStands(handle, icao)
-      if (stands.length === 0) this.noStands.add(icao)
-      replaceAirportStands(this.db, icao, stands, this.now().toISOString())
-    } finally {
-      handle.close()
-    }
   }
 }

@@ -39,9 +39,15 @@ export function seedE2eTaxiNetwork(
       endLon,
       name,
       startHoldShort: startHoldShort === 1,
-      endHoldShort: endHoldShort === 1
+      endHoldShort: endHoldShort === 1,
+      // The recorded networks are the drivable paths only, from before path types were stored.
+      pathType: 1,
+      widthM: 0,
+      weight: 0,
+      runwayNumber: null,
+      runwayDesignator: null
     })
   )
-  replaceAirportTaxiSegments(db, icao, { icao, segments }, new Date().toISOString())
+  replaceAirportTaxiSegments(db, icao, { icao, segments, stands: [] }, new Date().toISOString())
   return segments.length
 }
