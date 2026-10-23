@@ -17,7 +17,7 @@ import { useConfirm } from './hooks/use-confirm'
 import { realIcao } from './display-icao'
 import { flightLabel } from './flight-label'
 import type { ProcedureAirports } from '@shared/procedure-selection'
-import { useLiveWaypoints } from './procedure-selection'
+import { useShownRoute } from './use-shown-route'
 import { useDefaultApproach } from './use-default-approach'
 import { parseTransitionAltitudes } from '@shared/route'
 import { StartFreeFlightDialog } from './StartFreeFlightDialog'
@@ -192,10 +192,9 @@ export function TrackView(props: {
     () => previewAirports(previewFlight, flightOfp, props.previewOfp),
     [previewFlight, flightOfp, props.previewOfp]
   )
-  // The live route with the current selection spliced in — the same function Dispatch's
-  // preview uses, so the two can never disagree (docs/plans/navdata-without-navigraph.md,
-  // Phase 5).
-  const liveWaypoints = useLiveWaypoints(airports, props.selection)
+  // A saved flight's route is the one the main process built, as on a second screen; a plan that is not a flight yet is assembled here
+  // with the current selection spliced in, by the function Dispatch's preview uses (docs/plans/navdata-without-navigraph.md, Phase 5).
+  const liveWaypoints = useShownRoute(previewFlight, airports, props.selection)
   // The approach is suggested here only for a plan that is not a flight yet (Dispatch's fetched OFP, previewed): for a saved flight the
   // main process suggests it, with its navdata, whichever page is open. Telemetry only arrives while the sim is connected, so this also
   // retries navdata that couldn't be fetched before it was.

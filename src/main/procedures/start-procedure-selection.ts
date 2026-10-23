@@ -1,4 +1,4 @@
-/** Starts the procedure selection store and answers the PC window's asks of it. */
+/** Starts the procedure selection store and answers the PC window's asks of it, and of the planned route built from it. */
 
 import type { IpcMain } from 'electron'
 import { IpcChannels } from '@shared/ipc'
@@ -24,7 +24,7 @@ export function startProcedureSelection(
     navdata
   }: {
     db: WingLogDb
-    liveHub: Pick<LiveHub, 'publish'>
+    liveHub: Pick<LiveHub, 'publish' | 'snapshot'>
     trackingController: Pick<TrackingController, 'getActive' | 'on'>
     navdata: ProcedureSelectionStoreDeps['navdata']
   }
@@ -43,6 +43,8 @@ export function startProcedureSelection(
   )
   // A window that opens later (or after a restart) asks for the choice it should show: it is only pushed when it changes.
   ipcMain.handle(IpcChannels.trackingGetProcedureSelection, () => store.current() ?? null)
+  // Likewise the route built from it (PlannedRoutePublisher): it is only pushed when it changes.
+  ipcMain.handle(IpcChannels.plannedRouteGet, () => liveHub.snapshot().plannedRoute ?? null)
   store.refresh()
   return store
 }

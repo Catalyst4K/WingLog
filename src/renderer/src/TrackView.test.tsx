@@ -250,6 +250,8 @@ function buildWinglog(overrides: Partial<WingLogApi> = {}): WingLogApi {
     trackPointList: vi.fn().mockResolvedValue([]),
     onTrackingPoint: vi.fn(() => () => {}),
     onTrackingPointsUpdated: vi.fn(() => () => {}),
+    getPlannedRoute: vi.fn().mockResolvedValue(null),
+    onPlannedRoute: vi.fn(() => () => {}),
     trackingStart: vi.fn().mockResolvedValue(undefined),
     trackingStartFree: vi.fn().mockResolvedValue(1),
     trackingGetFreeFlightPrefill: vi.fn().mockResolvedValue({
