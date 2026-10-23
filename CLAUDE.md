@@ -53,7 +53,9 @@ It currently holds:
 - the branching model (`main`/`develop`/`fixes`/`fix/<name>`);
 - working across two machines;
 - dependency updates (Dependabot);
-- release notes (what goes in them, including which fixes are listed).
+- release notes (what goes in them, including which fixes are listed);
+- keeping "how it works" docs current: a change to the taxi line, the procedure choice or the second screen updates
+  `winglog-backend`'s `docs/taxi-and-second-screen-how-it-works.md` in the same branch (2026-10-23).
 
 The plan-doc workflow, branching model and two-machine sync moved there 2026-09-13
 (`docs/decisions.md` has why). In the other direction, that file treats this file's code
