@@ -27,10 +27,8 @@ async function freePort(): Promise<number> {
 
 const NAVDATA = {
   hasTaxiNetwork: (icao: string) => icao === 'WSSS',
-  refreshTaxiNetwork: () => Promise.resolve(),
   getTaxiNetwork: (icao: string) => [{ icao }] as never,
   getStands: (icao: string) => Promise.resolve([{ icao }] as never),
-  refreshAirport: () => Promise.resolve(),
   onAirportRefreshed: () => () => undefined,
   listRunways: (icao: string) => [{ ident: '02L', icao }] as never,
   listSids: (icao: string, runway: string | null) => [{ kind: 'sid', icao, runway }] as never,
@@ -88,7 +86,14 @@ describe('lanQueries', () => {
     expect(queries['taxi.has']('EGLL')).toBe(false)
     expect(queries['taxi.get']('WSSS')).toEqual([{ icao: 'WSSS' }])
     await expect(queries.stands('K1B2')).resolves.toEqual([{ icao: 'K1B2' }])
-    await expect(queries['taxi.refresh']('EGLL')).resolves.toBeUndefined()
+  })
+
+  it('never makes the PC fetch from the sim for a device: the refresh lookups answer at once and do nothing', () => {
+    // The provider here has no refresh methods at all, so a call that reached one would throw.
+    expect(queries['taxi.refresh']('EGLL')).toBeUndefined()
+    expect(queries['navdata.refreshAirport']('WSSS')).toBeUndefined()
+    expect(() => queries['taxi.refresh']('../x')).toThrow('Invalid airport')
+    expect(() => queries['navdata.refreshAirport'](5)).toThrow('Invalid airport')
   })
 
   it('lists the airfields', () => {
@@ -105,7 +110,6 @@ describe('lanQueries', () => {
     expect(queries['navdata.procedureWaypoints']('WSSS', 'star', 'TEBU1B', '20R', undefined)).toEqual([
       { icao: 'WSSS', kind: 'star', identifier: 'TEBU1B', runway: '20R', transition: null }
     ])
-    await expect(queries['navdata.refreshAirport']('WSSS')).resolves.toBeUndefined()
   })
 
   it('refuses a procedure query with a bad airport, kind, name or runway', () => {

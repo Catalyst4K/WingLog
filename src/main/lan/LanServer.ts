@@ -11,6 +11,7 @@ import { WebSocketServer, type WebSocket } from 'ws'
 import { laneOf, type LanQueryLane } from '@shared/lan-queries'
 import { parseReport } from '@shared/lan-report'
 import type { LiveCommand, LiveSnapshot, LiveTopic } from '@shared/live'
+import { describeError } from '../logging/describe-error'
 import { logger } from '../logging/logger'
 import type { LiveHub } from '../live/LiveHub'
 import { dispatchCommand } from '../live/commands'
@@ -436,9 +437,7 @@ export class LanServer {
           this.send(client, { t: 'result', id, data })
         },
         (error: unknown) => {
-          logger.warn(
-            `[lan] lookup ${logName(name)} failed: ${error instanceof Error ? error.message : String(error)}`
-          )
+          logger.warn(`[lan] lookup ${logName(name)} failed: ${describeError(error)}`)
           this.send(client, { t: 'result', id, error: true })
         }
       )

@@ -48,10 +48,8 @@ export interface CreateLanDeps {
   navdata: Pick<
     SimFacilitiesProvider,
     | 'hasTaxiNetwork'
-    | 'refreshTaxiNetwork'
     | 'getTaxiNetwork'
     | 'getStands'
-    | 'refreshAirport'
     | 'listRunways'
     | 'listSids'
     | 'listStars'
@@ -131,10 +129,12 @@ export function lanQueries(
       return local.metars(codes)
     },
     'taxi.has': (icao) => navdata.hasTaxiNetwork(icaoArg(icao)),
-    'taxi.refresh': (icao) => navdata.refreshTaxiNetwork(icaoArg(icao)),
+    // The PC fetches the shown flight's navdata itself (FlightNavdataFetcher); a device never makes it open a sim connection. The
+    // lookups stay, answering at once, for pages that still ask.
+    'taxi.refresh': (icao) => void icaoArg(icao),
     'taxi.get': (icao) => navdata.getTaxiNetwork(icaoArg(icao)),
     stands: (icao) => navdata.getStands(icaoArg(icao)),
-    'navdata.refreshAirport': (icao) => navdata.refreshAirport(icaoArg(icao)),
+    'navdata.refreshAirport': (icao) => void icaoArg(icao),
     'navdata.listRunways': (icao) => navdata.listRunways(icaoArg(icao)),
     'navdata.listSids': (icao, runway) => navdata.listSids(icaoArg(icao), nameArg(runway)),
     'navdata.listStars': (icao, runway) => navdata.listStars(icaoArg(icao), nameArg(runway)),

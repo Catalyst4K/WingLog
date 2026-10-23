@@ -62,6 +62,7 @@ import { canInstallInApp, UpdateInstaller } from './updates/update-install'
 import { createUpdaterEngine } from './updates/updater-engine'
 import { LiveHub } from './live/LiveHub'
 import { SimFacilitiesProvider } from './navdata/sim-facilities-provider'
+import { wireFlightNavdata } from './navdata/wire-flight-navdata'
 import { SimAirfieldResolver } from './airports/sim-airfield'
 import { TrackingController } from './tracking/TrackingController'
 import { AutoStartDetector } from './tracking/AutoStartDetector'
@@ -283,6 +284,34 @@ function startSecondScreen(
   app.on('before-quit', () => runLogged('second screen stop', lan.stop()))
 }
 
+/**
+ * Records where each flight finished (stand-positions.md), after it completes, best effort.
+ *
+ * @param db The database.
+ * @param sim The sim connection, for where the aircraft is.
+ * @param trackingController Tracking, which says when a flight completes.
+ * @param navdataProvider The stands of the airport.
+ */
+function recordParkedStandOnCompletion(
+  db: WingLogDb,
+  sim: SimConnectService | ReplaySimConnectService,
+  trackingController: TrackingController,
+  navdataProvider: SimFacilitiesProvider
+): void {
+  trackingController.on('completed', (flightId: number) => {
+    const telemetry = sim.getLastTelemetry()
+    void recordParkedStand(
+      {
+        getArrivalIcao: (id) => getFlight(db, id)?.arrIcao ?? null,
+        getStands: (icao) => navdataProvider.getStands(icao),
+        setParkedStand: (id, icao, stand) => setParkedStand(db, id, icao, stand)
+      },
+      flightId,
+      telemetry ? { lat: telemetry.latitude, lon: telemetry.longitude } : null
+    ).catch((err: unknown) => logger.warn('parked stand not recorded:', err))
+  })
+}
+
 /** Opens the database and the window, starts the services, and registers every IPC area. */
 function startApp(): void {
   const { db, sqlite, dbPath, backedUp } = openDatabase(app.getPath('userData'))
@@ -342,6 +371,11 @@ function startApp(): void {
   registerDiagnosticsHandlers(ipcMain, { diag, flightCapture })
   const autoStartDetector = wireTracking(db, sim, trackingController, liveHub, scheduleBackgroundSync)
 
+  // Navdata: its own short-lived SimConnect connection per refresh, separate from the live one (docs/navdata-notes.md); the
+  // fetcher gets the shown flight's runways, procedures and taxi charts through it, whichever screen is open.
+  const navdataProvider = new SimFacilitiesProvider(db)
+  const flightNavdata = wireFlightNavdata({ db, sim, trackingController, provider: navdataProvider })
+
   const trackingDeps = {
     db,
     trackingController,
@@ -351,7 +385,8 @@ function startApp(): void {
     releaseReplay: () => {
       if (sim instanceof ReplaySimConnectService) sim.release()
     },
-    scheduleBackgroundSync
+    scheduleBackgroundSync,
+    onFlightsChanged: () => flightNavdata.refresh()
   }
   registerTrackingHandlers(ipcMain, trackingDeps)
   registerFlightHandlers(ipcMain, trackingDeps)
@@ -367,9 +402,6 @@ function startApp(): void {
   })
   app.on('before-quit', () => gsxRemote.stop())
 
-  // Navdata: its own short-lived SimConnect connection per refresh, deliberately separate
-  // from the live tracking connection (docs/navdata-notes.md's isolation finding).
-  const navdataProvider = new SimFacilitiesProvider(db)
   const beyondAtc = registerBeyondAtcHandlers(ipcMain, {
     db,
     liveHub,
@@ -401,19 +433,7 @@ function startApp(): void {
   registerAppHandlers(ipcMain, { updateService })
 
   registerNavdataHandlers(ipcMain, { navdataProvider })
-  // Where each flight finished (stand-positions.md) — after completion, best effort.
-  trackingController.on('completed', (flightId: number) => {
-    const telemetry = sim.getLastTelemetry()
-    void recordParkedStand(
-      {
-        getArrivalIcao: (id) => getFlight(db, id)?.arrIcao ?? null,
-        getStands: (icao) => navdataProvider.getStands(icao),
-        setParkedStand: (id, icao, stand) => setParkedStand(db, id, icao, stand)
-      },
-      flightId,
-      telemetry ? { lat: telemetry.latitude, lon: telemetry.longitude } : null
-    ).catch((err: unknown) => logger.warn('parked stand not recorded:', err))
-  })
+  recordParkedStandOnCompletion(db, sim, trackingController, navdataProvider)
 
   // CI packaging check (see .github/workflows/package.yml): proves the built
   // binary launches, migrates the DB and renders a first frame, then exits

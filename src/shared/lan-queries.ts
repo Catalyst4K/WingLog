@@ -25,12 +25,13 @@ export const LAN_QUERY_KINDS: Record<string, LanQueryKind> = {
   // Reaches the internet.
   'weather.metars': SLOW,
   'taxi.has': FAST,
-  // Fetches the whole chart from the sim, which can take minutes for a large airport.
+  // Does nothing now: the PC fetches the shown flight's chart itself (flight-navdata-fetcher.ts). Kept, and left in this lane,
+  // for pages that still ask.
   'taxi.refresh': SLOW,
   'taxi.get': FAST_KEPT,
   // Fetched from the sim the first time it is asked.
   stands: SLOW,
-  // Fetched from the sim, about 12 seconds an airport.
+  // Does nothing now, as `taxi.refresh`.
   'navdata.refreshAirport': SLOW,
   'navdata.listRunways': FAST_KEPT,
   'navdata.listSids': FAST_KEPT,
