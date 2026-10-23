@@ -19,7 +19,6 @@ import {
 } from './route-graph'
 import { edgeKey, linksBetween } from './route-links'
 import {
-  HOLD_NEAR_THRESHOLD_M,
   MAX_ROUTE_LENGTH_M,
   SKIP_COST_M,
   type RunwayStrip,
@@ -27,6 +26,7 @@ import {
   type TracedRoute
 } from './route-types'
 import { crossingHolds, isHoldShortBeside } from './runway-crossing'
+import { HOLD_NEAR_THRESHOLD_M } from './runway-hold'
 import { turnCost, turnedBefore, TURN_WINDOW_M } from './route-turns'
 
 const OFF_ROUTE_COST_FACTOR = 5

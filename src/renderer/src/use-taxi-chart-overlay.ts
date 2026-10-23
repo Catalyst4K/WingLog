@@ -13,9 +13,7 @@ import type { NavdataTaxiSegment } from '@shared/ipc'
 import { uiMemory } from './ui-memory'
 import { setSourceData } from './map-source'
 
-// Exported so use-taxi-route-highlight.ts can add its own filtered layer on the same source
-// rather than fetching/holding a second copy of the same segment data.
-export const TAXI_SOURCE_ID = 'taxi-chart'
+const TAXI_SOURCE_ID = 'taxi-chart'
 const TAXI_LAYER_ID = 'taxi-chart-line'
 const TAXI_CHART_MINZOOM = 12
 
@@ -27,12 +25,10 @@ const emptyLines = { type: 'FeatureCollection' as const, features: [] }
 function segmentsToFeatureCollection(segmentsByIcao: [string, NavdataTaxiSegment[]][]): GeoData {
   return {
     type: 'FeatureCollection',
-    // `icao` lets useTaxiRouteHighlight limit a clearance to its own airport — the same
-    // taxiway letters exist at both ends of a flight.
-    features: segmentsByIcao.flatMap(([icao, segments]) =>
+    features: segmentsByIcao.flatMap(([, segments]) =>
       segments.map((s) => ({
         type: 'Feature' as const,
-        properties: { name: s.name, icao },
+        properties: { name: s.name },
         geometry: {
           type: 'LineString',
           coordinates: [

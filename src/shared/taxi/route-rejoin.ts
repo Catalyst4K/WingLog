@@ -39,7 +39,7 @@ export interface RejoinRequest {
  * costs plain distance on any taxiway; pulling the pilot back to the next cleared taxiway instead pointed back along
  * the route for a whole taxi while the aircraft went the other way to the same hold. The way back keeps the cleared route's
  * driving rules (winglog-backend's docs/plans/taxi-routing-rules.md): it starts ahead of the nose (rule 5) and turns no sharper
- * than an airliner can, from the nose on, on the way and onto the cleared route (rule 4, taxi-route-turns.ts).
+ * than an airliner can, from the nose on, on the way and onto the cleared route (rule 4, route-turns.ts).
  *
  * Joins only from `fromSegment` on, so never back onto a part already driven. The end (the hold or the stand) is the original
  * route's, or for a "hold short of runway" route another hold short of that runway on the same side, if nearer (holdsOnSide).
@@ -275,7 +275,7 @@ const cameFromOf = (graph: Graph, state: number): number => Math.floor(state / g
 
 /**
  * The cheapest way from the aircraft to every node, by the node come from: plain distance, plus WRONG_WAY_PENALTY_M for a first edge
- * against the heading and the cost of turning more than an airliner can (taxi-route-turns.ts), from the nose on. No immediate U-turns.
+ * against the heading and the cost of turning more than an airliner can (route-turns.ts), from the nose on. No immediate U-turns.
  *
  * @param graph The graph, with the nose added.
  * @param nose The nose (addNose).

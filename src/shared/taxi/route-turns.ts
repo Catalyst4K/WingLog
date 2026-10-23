@@ -1,6 +1,6 @@
 /**
  * How sharply a taxi route turns (winglog-backend's docs/plans/taxi-routing-rules.md, rule 4), shared by the cleared route's trace
- * (taxi-route-trace.ts) and a re-route's way back to it (taxi-route-rejoin.ts), so neither draws a turn an airliner can't make.
+ * (route-search.ts) and a re-route's way back to it (route-rejoin.ts), so neither draws a turn an airliner can't make.
  */
 import { itemAt } from '@shared/item-at'
 import type { Graph } from './route-graph'
