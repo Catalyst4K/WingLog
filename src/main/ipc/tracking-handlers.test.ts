@@ -39,7 +39,6 @@ function fakeTracking(): Record<string, ReturnType<typeof vi.fn>> {
     getActive: vi.fn(() => undefined),
     setDestination: vi.fn(),
     setDeparture: vi.fn(),
-    setProcedureSelection: vi.fn(),
     resume: vi.fn()
   }
 }
@@ -133,15 +132,13 @@ describe('tracking and flight IPC handlers', () => {
     expect(prefill).toMatchObject({ suggestedDepIcao: 'EGLL', rememberedAircraftId: null })
   })
 
-  it('passes stop, finish, the active flight and the procedures to the controller', () => {
+  it('passes stop, finish and the active flight to the controller', () => {
     const invoke = register()
     invoke(IpcChannels.trackingStop)
     invoke(IpcChannels.trackingFinish)
     expect(invoke(IpcChannels.trackingGetActive)).toBeNull()
-    invoke(IpcChannels.trackingSetProcedureSelection, { sid: 'OCEAN2A' })
     expect(tracking.stop).toHaveBeenCalled()
     expect(tracking.finish).toHaveBeenCalled()
-    expect(tracking.setProcedureSelection).toHaveBeenCalledWith({ sid: 'OCEAN2A' })
   })
 
   it('takes a departure or destination ICAO, or null, and rejects anything else', () => {

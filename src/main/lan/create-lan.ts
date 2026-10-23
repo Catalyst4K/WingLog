@@ -22,6 +22,7 @@ import {
   setLanSettings
 } from '../db/settings-repo'
 import type { LiveHub } from '../live/LiveHub'
+import type { ProcedureSelectionStore } from '../tracking/ProcedureSelectionStore'
 import type { TrackingController } from '../tracking/TrackingController'
 import { listAirfields } from '../airports/airfields'
 import type { SimFacilitiesProvider } from '../navdata/sim-facilities-provider'
@@ -40,10 +41,9 @@ import { staticFilesFrom } from './static-files'
 export interface CreateLanDeps {
   db: WingLogDb
   liveHub: Pick<LiveHub, 'subscribe' | 'snapshot' | 'publish'>
-  trackingController: Pick<
-    TrackingController,
-    'getActive' | 'getProcedureSelection' | 'setProcedureSelection' | 'on'
-  >
+  trackingController: Pick<TrackingController, 'getActive' | 'on'>
+  /** The procedure choice for the flight shown: the one every screen follows. */
+  selection: Pick<ProcedureSelectionStore, 'current' | 'set' | 'on'>
   /** The cached taxi charts, stands and procedures a device's map and Procedures dialog show. */
   navdata: Pick<
     SimFacilitiesProvider,
@@ -159,6 +159,7 @@ export function createLan({
   db,
   liveHub,
   trackingController,
+  selection,
   navdata,
   addOnCommands,
   userAgent,
@@ -173,9 +174,10 @@ export function createLan({
     hub: liveHub,
     navdata,
     activeFlightId: () => trackingController.getActive()?.flightId,
-    chosenSelection: () => trackingController.getProcedureSelection()
+    chosenSelection: () => selection.current()
   })
-  for (const event of ['selectionChanged', 'started', 'stopped', 'completed'] as const)
+  selection.on('changed', () => route.refresh())
+  for (const event of ['started', 'stopped', 'completed'] as const)
     trackingController.on(event, () => route.refresh())
   navdata.onAirportRefreshed(() => route.refresh())
   route.refresh()
@@ -186,9 +188,9 @@ export function createLan({
     commands: {
       ...addOnCommands,
       ...trackCommands({
-        setProcedureSelection: (selection) => {
+        setProcedureSelection: (chosen) => {
           const before = route.publishedCount
-          trackingController.setProcedureSelection(selection)
+          selection.set(chosen, 'phone')
           // A choice the PC already had changes nothing and so builds no new route: answer it with the current one, which is how the
           // device learns it was heard.
           if (route.publishedCount === before) route.resend()
@@ -218,12 +220,7 @@ export function createLan({
     }),
     flightKey: () => lanFlightKey(db, trackingController.getActive()?.flightId),
     onFlightChanged: () => route.refresh(),
-    flight: () =>
-      lanFlightSnapshot(
-        db,
-        trackingController.getActive()?.flightId,
-        trackingController.getProcedureSelection()
-      ),
+    flight: () => lanFlightSnapshot(db, trackingController.getActive()?.flightId, selection.current()),
     staticFile: (path) => (files ??= staticFilesFrom(pageFolder))(path),
     now: () => Date.now()
   })

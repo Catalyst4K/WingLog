@@ -62,9 +62,8 @@ import { canInstallInApp, UpdateInstaller } from './updates/update-install'
 import { createUpdaterEngine } from './updates/updater-engine'
 import { LiveHub } from './live/LiveHub'
 import { SimFacilitiesProvider } from './navdata/sim-facilities-provider'
-import { wireFlightNavdata } from './navdata/wire-flight-navdata'
 import { seedE2eTaxiNetwork } from './e2e-taxi-network'
-import { startTaxiRoute } from './taxi/start-taxi-route'
+import { startFlightServices } from './flight-services'
 import { SimAirfieldResolver } from './airports/sim-airfield'
 import { TrackingController } from './tracking/TrackingController'
 import { AutoStartDetector } from './tracking/AutoStartDetector'
@@ -190,7 +189,6 @@ function wireTracking(
 ): AutoStartDetector {
   trackingController.on('point', (point) => liveHub.publish('trackingPoint', point))
   trackingController.on('pointsUpdated', (points) => liveHub.publish('trackingPointsUpdated', points))
-  trackingController.on('selectionChanged', (selection) => liveHub.publish('procedureSelection', selection))
   // Push-on-mutation's real-time case: a flight reaching 'completed' (auto shutdown
   // detection or a manual finish()) is the highest-value moment to sync promptly, whether
   // or not the user touches any other IPC channel afterward.
@@ -272,7 +270,7 @@ function startUpdates(db: WingLogDb, window: BrowserWindow, isFlightActive: () =
 function startSecondScreen(
   deps: Pick<
     Parameters<typeof createLan>[0],
-    'db' | 'liveHub' | 'trackingController' | 'navdata' | 'addOnCommands'
+    'db' | 'liveHub' | 'trackingController' | 'selection' | 'navdata' | 'addOnCommands'
   >
 ): void {
   const lan = createLan({
@@ -374,14 +372,17 @@ function startApp(): void {
   registerDiagnosticsHandlers(ipcMain, { diag, flightCapture })
   const autoStartDetector = wireTracking(db, sim, trackingController, liveHub, scheduleBackgroundSync)
 
-  // Navdata: its own short-lived SimConnect connection per refresh, separate from the live one (docs/navdata-notes.md); the
-  // fetcher gets the shown flight's runways, procedures and taxi charts through it, whichever screen is open.
+  // Navdata: its own short-lived SimConnect connection per refresh, separate from the live one (docs/navdata-notes.md). The services that
+  // follow the flight shown (its navdata, taxi line and procedure choice) run here, whichever screen is open.
   const navdataProvider = new SimFacilitiesProvider(db)
-  const flightNavdata = wireFlightNavdata({ db, sim, trackingController, provider: navdataProvider })
-  app.on(
-    'before-quit',
-    startTaxiRoute(ipcMain, { db, liveHub, trackingController, navdata: navdataProvider })
-  )
+  const flightServices = startFlightServices(ipcMain, {
+    db,
+    sim,
+    liveHub,
+    trackingController,
+    navdata: navdataProvider
+  })
+  app.on('before-quit', flightServices.stop)
 
   const trackingDeps = {
     db,
@@ -393,7 +394,7 @@ function startApp(): void {
       if (sim instanceof ReplaySimConnectService) sim.release()
     },
     scheduleBackgroundSync,
-    onFlightsChanged: () => flightNavdata.refresh()
+    onFlightsChanged: flightServices.onFlightsChanged
   }
   registerTrackingHandlers(ipcMain, trackingDeps)
   registerFlightHandlers(ipcMain, trackingDeps)
@@ -425,6 +426,7 @@ function startApp(): void {
     db,
     liveHub,
     trackingController,
+    selection: flightServices.selection,
     navdata: navdataProvider,
     addOnCommands: { ...beyondAtc.commands, ...gsxRemote.commands }
   })

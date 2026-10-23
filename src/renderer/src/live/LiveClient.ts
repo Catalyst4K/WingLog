@@ -30,6 +30,7 @@ export const electronLiveClient: LiveClient = {
     const getters: Getters = {
       simConnectionStatus: w.getSimConnectionStatus,
       taxiRoute: w.getTaxiRoute,
+      procedureSelection: w.trackingGetProcedureSelection,
       storageStatus: w.getStorageStatus,
       gsxRemoteStatus: w.gsxRemoteGetStatus,
       gsxRemoteServices: w.gsxRemoteGetServices,

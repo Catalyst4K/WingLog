@@ -123,6 +123,7 @@ export const IpcChannels = {
   navdataGetStands: 'navdata:get-stands',
   fleetListLastParked: 'fleet:list-last-parked',
   trackingSetProcedureSelection: 'tracking:set-procedure-selection',
+  trackingGetProcedureSelection: 'tracking:get-procedure-selection',
   trackingSetDestination: 'tracking:set-destination',
   trackingSetDeparture: 'tracking:set-departure',
   trackingGetOrphanedFlight: 'tracking:get-orphaned-flight',
