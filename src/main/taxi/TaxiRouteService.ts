@@ -13,11 +13,9 @@
 
 import type { BeyondAtcState, FlightPhase, NavdataStand, NavdataTaxiSegment, SimTelemetry } from '@shared/ipc'
 import type { LiveTopic, LiveTopics, TaxiRoute } from '@shared/live'
-import { findStand } from '@shared/stands'
 import {
   clearanceAirport,
-  clearanceRunway,
-  clearanceRunwayThreshold,
+  clearanceEnds,
   startOf,
   traceClearanceDetailed,
   type TaxiClearance
@@ -25,8 +23,6 @@ import {
 import { INITIAL_TAXI_MEMORY, isDeparted, stepTaxiBoxes, type TaxiMemory } from '@shared/taxi/clearance-step'
 import type { TracedClearance } from '@shared/taxi/fallback'
 import { startTracker, trackPosition, type RerouteTracker } from '@shared/taxi/reroute'
-import type { RunwayStrip } from '@shared/taxi/route-trace'
-import type { RunwayThreshold } from '@shared/taxi/runway-hold'
 import { logger } from '../logging/logger'
 import type { LiveHub } from '../live/LiveHub'
 import type { ShownFlight } from '../navdata/flight-navdata-fetcher'
@@ -209,37 +205,16 @@ export class TaxiRouteService {
       this.publish(null)
       return
     }
-    const { stand, threshold, holdShortRunway } = this.endsOf(icao, clearance)
+    const { stand, threshold, holdShortRunway } = clearanceEnds(
+      clearance,
+      this.standsOf(icao),
+      this.deps.navdata.listRunways(icao)
+    )
     const startedAt = this.deps.now()
     this.traced = traceClearanceDetailed(clearance, segments, stand, threshold, holdShortRunway)
     this.tracker = this.traced ? startTracker(this.traced.route, holdShortRunway) : null
     this.logTrace(icao, clearance, this.deps.now() - startedAt)
     this.follow(this.deps.active()?.phase ?? null)
-  }
-
-  /**
-   * Where a clearance ends, as far as the cache and the sim's stands say: its stand, the threshold of the runway of a holding point, or
-   * the runway of a hold short.
-   *
-   * @param icao The clearance's airport.
-   * @param clearance The clearance.
-   * @returns What the trace needs to know of the end; each null when the clearance has none or the cache lacks it.
-   */
-  private endsOf(
-    icao: string,
-    clearance: TaxiClearance
-  ): {
-    stand: NavdataStand | null
-    threshold: RunwayThreshold | null
-    holdShortRunway: RunwayStrip | null
-  } {
-    const stand = clearance.stand ? findStand(this.standsOf(icao), clearance.stand) : null
-    const runways = this.deps.navdata.listRunways(icao)
-    return {
-      stand,
-      threshold: clearance.holdingPoint ? clearanceRunwayThreshold(clearance.taxiToRunway, runways) : null,
-      holdShortRunway: clearance.holdingPoint ? null : clearanceRunway(clearance.holdShortRunway, runways)
-    }
   }
 
   /**

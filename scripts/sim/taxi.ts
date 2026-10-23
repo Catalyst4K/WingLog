@@ -16,13 +16,11 @@ import type {
   NavdataTaxiSegment,
   TrackPoint
 } from '../../src/shared/ipc'
-import { findStand } from '../../src/shared/stands'
 import { flatDistanceM } from '../../src/shared/geo'
 import {
   boxTaxiClearance,
   startOf,
-  clearanceRunway,
-  clearanceRunwayThreshold,
+  clearanceEnds,
   clearanceRequest,
   traceClearance,
   type TaxiClearance
@@ -246,11 +244,9 @@ export function runTaxi(
   runways: NavdataRunway[] = []
 ): TaxiRun {
   const clearance = clearanceFor(sc)
-  const stand = clearance?.stand ? findStand(stands, clearance.stand) : null
-  const threshold = clearance?.holdingPoint ? clearanceRunwayThreshold(clearance.taxiToRunway, runways) : null
-  const holdShortRunway = clearance?.holdingPoint
-    ? null
-    : clearanceRunway(clearance?.holdShortRunway, runways)
+  const { stand, threshold, holdShortRunway } = clearance
+    ? clearanceEnds(clearance, stands, runways)
+    : { stand: null, threshold: null, holdShortRunway: null }
   const cleared = clearance ? traceClearance(clearance, segments, stand, threshold, holdShortRunway) : null
   const request = clearance ? clearanceRequest(clearance, segments, stand, threshold, holdShortRunway) : null
   const pathfinder = request ? findTaxiPath(request) : null
