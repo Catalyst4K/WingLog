@@ -109,6 +109,8 @@ export class LanConnection {
   private readonly kept = new Map<string, { data: unknown; subject: unknown }>()
   /** When the link dropped with lookups waiting, so they can be given up on if it does not come back. */
   private downSince: number | null = null
+  /** Whether the link has been up before, so a later one is a reconnection. */
+  private hasConnected = false
   private readonly topics: Partial<LiveTopics> = {}
   private readonly stateListeners = new Set<StateListener>()
   private readonly topicListeners = new Map<LiveTopic, Set<(payload: never) => void>>()
@@ -177,13 +179,17 @@ export class LanConnection {
   }
 
   /**
-   * Tells the PC about something the page gave up on, so its log shows both sides of a problem. A code from a fixed list
-   * (shared/lan-report.ts); nothing is sent while the link is down.
+   * Tells the PC about something that happened on the page, so its log shows both sides of a problem. A code from a fixed list
+   * (shared/lan-report.ts), with a short detail for the few codes that take one; nothing is sent while the link is down.
    *
    * @param code What happened.
+   * @param detail A revision ("r12") or an error's message, for the codes that carry one.
    */
-  report(code: string): void {
-    if (this.socket && this.current === 'connected') this.socket.send(JSON.stringify({ t: 'report', code }))
+  report(code: string, detail?: string): void {
+    if (this.socket && this.current === 'connected')
+      this.socket.send(
+        JSON.stringify(detail === undefined ? { t: 'report', code } : { t: 'report', code, detail })
+      )
   }
 
   /** Sends waiting lookups while the PC has a slot free for them in their lane. */
@@ -521,6 +527,9 @@ export class LanConnection {
     for (const key of Object.keys(this.topics)) delete this.topics[key as LiveTopic]
     Object.assign(this.topics, topics)
     this.setState('connected')
+    // The PC's log then shows when a locked or roaming phone rejoined, beside what it did while the PC could not hear it.
+    if (this.hasConnected) this.report('reconnected')
+    this.hasConnected = true
     this.sendWaiting()
     this.replaceFlight(flight)
     for (const [topic, value] of Object.entries(topics)) this.emit(topic as LiveTopic, value)
