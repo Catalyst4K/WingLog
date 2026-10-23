@@ -18,9 +18,9 @@ import {
   type GraphNode,
   type RunwayStrip,
   type TracedRoute
-} from './taxi-route-trace'
-import { holdsOnSide } from './taxi-runway-crossing'
-import { turnCost, turnedBefore, TURN_WINDOW_M } from './taxi-route-turns'
+} from './route-trace'
+import { holdsOnSide } from './runway-crossing'
+import { turnCost, turnedBefore, TURN_WINDOW_M } from './route-turns'
 
 export interface RejoinRequest {
   segments: NavdataTaxiSegment[]

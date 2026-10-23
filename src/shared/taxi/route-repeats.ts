@@ -7,7 +7,7 @@
  */
 import type { NavdataTaxiSegment } from '@shared/ipc'
 import { itemAt } from '@shared/item-at'
-import { nodeKey, type TracedRoute } from './taxi-route-trace'
+import { nodeKey, type TracedRoute } from './route-trace'
 
 /**
  * The named taxiways a route drives, in order, one entry per run: unnamed segments (fillets, lead-ins) don't break a run.

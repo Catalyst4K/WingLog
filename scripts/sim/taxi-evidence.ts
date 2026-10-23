@@ -10,7 +10,7 @@ import type { WingLogDb } from '../../src/main/db/client'
 import { getFlight, listFlights } from '../../src/main/db/flight-repo'
 import { listCachedRunways } from '../../src/main/db/navdata-repo'
 import { listTrackPoints } from '../../src/main/db/track-point-repo'
-import { boxTaxiClearance } from '../../src/renderer/src/taxi-clearance'
+import { boxTaxiClearance } from '../../src/shared/taxi/clearance'
 import { readInfoBoxesLogs } from './local-data'
 import { simOutputDir } from './report'
 import {

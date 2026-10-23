@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { renderHook, waitFor } from '@testing-library/react'
 import type { NavdataRunwayOption } from '@shared/ipc'
-import type { TaxiClearance } from './taxi-clearance'
+import type { TaxiClearance } from '@shared/taxi/clearance'
 import { useClearanceRunway, useHoldShortRunway } from './use-taxi-route-highlight'
 
 // EGCC 05L from the sim's own runway data (2026-10-17).

@@ -1,7 +1,7 @@
 import type { NavdataTaxiSegment } from '@shared/ipc'
 import { describe, expect, it } from 'vitest'
-import { findTaxiPath, matchClearance, traceWithFallback } from './taxi-fallback'
-import { traceTaxiRoute, type TaxiTraceRequest } from './taxi-route-trace'
+import { findTaxiPath, matchClearance, traceWithFallback } from './fallback'
+import { traceTaxiRoute, type TaxiTraceRequest } from './route-trace'
 
 const seg = (
   a: [number, number],

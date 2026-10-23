@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { renderHook } from '@testing-library/react'
-import type { TaxiClearance } from './taxi-clearance'
+import type { TaxiClearance } from '@shared/taxi/clearance'
 import { useLogUntraced } from './use-taxi-route-highlight'
 
 const diagMap = vi.hoisted(() => vi.fn())

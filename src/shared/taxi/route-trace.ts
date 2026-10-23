@@ -32,11 +32,11 @@ import type { NavdataTaxiSegment } from '@shared/ipc'
 import { flatDistanceM, pointToSegmentM } from '@shared/geo'
 import { itemAt } from '@shared/item-at'
 import { MinQueue } from './min-queue'
-import { edgeKey, linksBetween } from './taxi-route-links'
-import { drivesTaxiwayAgain } from './taxi-route-repeats'
-import { crossingHolds, isHoldShortBeside } from './taxi-runway-crossing'
-import { turnCost, turnedBefore, TURN_WINDOW_M } from './taxi-route-turns'
-import { furthestBackHold, type RunwayThreshold } from './taxi-runway-hold'
+import { edgeKey, linksBetween } from './route-links'
+import { drivesTaxiwayAgain } from './route-repeats'
+import { crossingHolds, isHoldShortBeside } from './runway-crossing'
+import { turnCost, turnedBefore, TURN_WINDOW_M } from './route-turns'
+import { furthestBackHold, type RunwayThreshold } from './runway-hold'
 
 const OFF_ROUTE_COST_FACTOR = 5
 /** What taking a link costs on top of its length: where two cleared taxiways meet, the route switches there rather than by a link

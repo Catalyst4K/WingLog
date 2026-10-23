@@ -12,7 +12,7 @@ import { it } from 'vitest'
 import { listCachedRunways, listCachedStands, listCachedTaxiSegments } from '../../src/main/db/navdata-repo'
 import type { NavdataTaxiSegment } from '../../src/shared/ipc'
 import { toLocalXy } from '../../src/shared/geo'
-import { traceWithFallback } from '../../src/renderer/src/taxi-fallback'
+import { traceWithFallback } from '../../src/shared/taxi/fallback'
 import { openUserDb } from './local-data'
 import { simOutputDir, writeReport, type ReportSection } from './report'
 import {

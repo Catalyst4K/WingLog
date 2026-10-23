@@ -5,7 +5,7 @@
  * Values are read when a component mounts and written as they change; nothing subscribes.
  */
 import type { Airfield, NavdataTaxiSegment } from '@shared/ipc'
-import { INITIAL_TAXI_MEMORY, type TaxiMemory } from './taxi-clearance-step'
+import { INITIAL_TAXI_MEMORY, type TaxiMemory } from '@shared/taxi/clearance-step'
 
 /** Everything remembered between mounts. */
 export interface UiMemory {

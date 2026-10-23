@@ -1,6 +1,6 @@
 import type { NavdataTaxiSegment } from '@shared/ipc'
 import { describe, expect, it } from 'vitest'
-import { aliasSplitTaxiways } from './taxi-name-alias'
+import { aliasSplitTaxiways } from './name-alias'
 
 const seg = (name: string | null, at = 0): NavdataTaxiSegment => ({
   startLat: at,

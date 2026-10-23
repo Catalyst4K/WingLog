@@ -1,12 +1,6 @@
 import type { NavdataTaxiSegment } from '@shared/ipc'
 import { describe, expect, it } from 'vitest'
-import {
-  boxTaxiClearance,
-  clearanceAirport,
-  clearanceRequest,
-  startOf,
-  traceClearance
-} from './taxi-clearance'
+import { boxTaxiClearance, clearanceAirport, clearanceRequest, startOf, traceClearance } from './clearance'
 
 describe('boxTaxiClearance', () => {
   it('reads a departure clearance to a holding point (real VHHH boxes, 2026-10-05)', () => {

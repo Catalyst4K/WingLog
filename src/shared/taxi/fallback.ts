@@ -8,8 +8,8 @@
 import type { NavdataTaxiSegment } from '@shared/ipc'
 import { itemAt } from '@shared/item-at'
 import { MinQueue } from './min-queue'
-import { startOfRunwayHolds, type RunwayThreshold } from './taxi-runway-hold'
-import { crossingHolds, isHoldShortBeside } from './taxi-runway-crossing'
+import { startOfRunwayHolds, type RunwayThreshold } from './runway-hold'
+import { crossingHolds, isHoldShortBeside } from './runway-crossing'
 import {
   buildGraph,
   edgesOf,
@@ -23,7 +23,7 @@ import {
   type Graph,
   type TaxiTraceRequest,
   type TracedRoute
-} from './taxi-route-trace'
+} from './route-trace'
 
 /** A named taxiway the clearance doesn't mention costs this many times its length, so cleared taxiways win without being required: the
  *  sim's names for a taxiway don't always match ATC's. */

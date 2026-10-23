@@ -26,20 +26,16 @@ import {
   clearanceRequest,
   traceClearance,
   type TaxiClearance
-} from '../../src/renderer/src/taxi-clearance'
-import { findTaxiPath } from '../../src/renderer/src/taxi-fallback'
-import { remainingRoute } from '../../src/renderer/src/taxi-route-rejoin'
-import {
-  traceTaxiRoute,
-  type TaxiTraceRequest,
-  type TracedRoute
-} from '../../src/renderer/src/taxi-route-trace'
+} from '../../src/shared/taxi/clearance'
+import { findTaxiPath } from '../../src/shared/taxi/fallback'
+import { remainingRoute } from '../../src/shared/taxi/route-rejoin'
+import { traceTaxiRoute, type TaxiTraceRequest, type TracedRoute } from '../../src/shared/taxi/route-trace'
 import {
   REROUTE_DISTANCE_M,
   REROUTE_MIN_SPEED_MS,
   startTracker,
   trackPosition
-} from '../../src/renderer/src/taxi-reroute'
+} from '../../src/shared/taxi/reroute'
 import type { LoggedInfoBoxes } from './local-data'
 
 /** How long before off-blocks or after on-blocks a clearance still belongs to a flight, in ms. */

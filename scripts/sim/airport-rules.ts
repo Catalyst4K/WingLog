@@ -8,8 +8,8 @@
  */
 import type { NavdataStand, NavdataTaxiSegment } from '../../src/shared/ipc'
 import { flatDistanceM } from '../../src/shared/geo'
-import { traceClearance, type TaxiClearance } from '../../src/renderer/src/taxi-clearance'
-import type { TracedRoute } from '../../src/renderer/src/taxi-route-trace'
+import { traceClearance, type TaxiClearance } from '../../src/shared/taxi/clearance'
+import type { TracedRoute } from '../../src/shared/taxi/route-trace'
 
 /** A traced route may be this many times the walk it was made from (the VHHH B8 zigzag was far over it). */
 export const MAX_LENGTH_RATIO = 1.3

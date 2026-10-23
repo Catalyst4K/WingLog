@@ -27,7 +27,7 @@ import { useEffect, useMemo, useRef, useState, type MutableRefObject } from 'rea
 import type { Map as MapLibreMap } from 'maplibre-gl'
 import type { BeyondAtcState, FlightPhase, NavdataStand, NavdataTaxiSegment } from '@shared/ipc'
 import { findStand } from '@shared/stands'
-import type { RunwayStrip, TracedRoute } from './taxi-route-trace'
+import type { RunwayStrip, TracedRoute } from '@shared/taxi/route-trace'
 import {
   clearanceAirport,
   clearanceRunway,
@@ -35,10 +35,10 @@ import {
   startOf,
   traceClearanceDetailed,
   type TaxiClearance
-} from './taxi-clearance'
-import type { TracedClearance } from './taxi-fallback'
-import { startTracker, trackPosition, type RerouteTracker } from './taxi-reroute'
-import { isDeparted, stepTaxiBoxes } from './taxi-clearance-step'
+} from '@shared/taxi/clearance'
+import type { TracedClearance } from '@shared/taxi/fallback'
+import { startTracker, trackPosition, type RerouteTracker } from '@shared/taxi/reroute'
+import { isDeparted, stepTaxiBoxes } from '@shared/taxi/clearance-step'
 import { diagMap } from './diag'
 import { setSourceData } from './map-source'
 import { TAXI_SOURCE_ID } from './use-taxi-chart-overlay'

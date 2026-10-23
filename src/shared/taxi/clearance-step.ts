@@ -5,7 +5,7 @@
  * same code.
  */
 import type { BeyondAtcInfoBox, FlightPhase } from '@shared/ipc'
-import { boxTaxiClearance, startOf, type TaxiClearance } from './taxi-clearance'
+import { boxTaxiClearance, startOf, type TaxiClearance } from './clearance'
 
 /** The taxi line's clearance and what's been read, so a remount doesn't re-take old ones. */
 export interface TaxiMemory {

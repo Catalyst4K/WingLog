@@ -9,16 +9,16 @@ import {
   type RunwayStrip,
   type TaxiTraceRequest,
   type TracedRoute
-} from './taxi-route-trace'
+} from './route-trace'
 import VHHH_253_RAW from './__fixtures__/vhhh-taxi-253-c7-c-d-c-f-hold-07c.json'
 import VHHH_253_SECOND_RAW from './__fixtures__/vhhh-taxi-253-f7-a-b-w.json'
 import VHHH_238_RAW from './__fixtures__/vhhh-taxi-238-u-v-h-j.json'
 import EGCC_243_RAW from './__fixtures__/egcc-taxi-243-on-bz.json'
 import YBBN_225_RAW from './__fixtures__/ybbn-225-taxi-network.json'
 import VHHH_227_RAW from './__fixtures__/vhhh-taxi-227-c7-y-f-cross-07c.json'
-import { crossingHolds } from './taxi-runway-crossing'
-import { nodeAheadOnTaxiway, rejoinTaxiRoute } from './taxi-route-rejoin'
-import { drivesTaxiwayAgain, namedRuns } from './taxi-route-repeats'
+import { crossingHolds } from './runway-crossing'
+import { nodeAheadOnTaxiway, rejoinTaxiRoute } from './route-rejoin'
+import { drivesTaxiwayAgain, namedRuns } from './route-repeats'
 
 // The taxi routing rules (winglog-backend's docs/plans/taxi-routing-rules.md), each on the real taxi it was worked out from: MSFS
 // facility data from WingLog's navdata cache, trimmed to 250 m either side of the taxi. Rows: [startLat, startLon, endLat, endLon,
