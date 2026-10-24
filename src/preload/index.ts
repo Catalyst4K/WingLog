@@ -45,6 +45,7 @@ import {
   type WindSpeedUnit
 } from '@shared/ipc'
 import type { PlannedRoute, TaxiRoute } from '@shared/live'
+import type { NetworkTraffic, OnlineNetworkSettings, TrafficLayers } from '@shared/types/online'
 
 const api: WingLogApi = {
   aircraftList: () => ipcRenderer.invoke(IpcChannels.aircraftList),
@@ -154,6 +155,19 @@ const api: WingLogApi = {
     ipcRenderer.on(IpcChannels.plannedRoute, handler)
     return () => ipcRenderer.removeListener(IpcChannels.plannedRoute, handler)
   },
+  getNetworkTraffic: () => ipcRenderer.invoke(IpcChannels.networkTrafficGet),
+  onNetworkTraffic: (listener: (traffic: NetworkTraffic) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, traffic: NetworkTraffic): void => listener(traffic)
+    ipcRenderer.on(IpcChannels.networkTraffic, handler)
+    return () => ipcRenderer.removeListener(IpcChannels.networkTraffic, handler)
+  },
+  getTrafficLayers: () => ipcRenderer.invoke(IpcChannels.trafficLayersGet),
+  onTrafficLayers: (listener: (layers: TrafficLayers) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, layers: TrafficLayers): void => listener(layers)
+    ipcRenderer.on(IpcChannels.trafficLayers, handler)
+    return () => ipcRenderer.removeListener(IpcChannels.trafficLayers, handler)
+  },
+  trafficSetNetworkOn: (on: boolean) => ipcRenderer.invoke(IpcChannels.trafficSetNetworkOn, on),
   logbookListCompletedFlights: () => ipcRenderer.invoke(IpcChannels.logbookListCompletedFlights),
   logbookGetFlight: (id: number) => ipcRenderer.invoke(IpcChannels.logbookGetFlight, id),
   logbookGetStats: () => ipcRenderer.invoke(IpcChannels.logbookGetStats),
@@ -294,6 +308,9 @@ const api: WingLogApi = {
     ipcRenderer.invoke(IpcChannels.gsxRemoteSubmitPrompt, gen, text),
   gsxRemoteCancelPrompt: (gen: number) => ipcRenderer.invoke(IpcChannels.gsxRemoteCancelPrompt, gen),
   gsxRemoteRunCommand: (id: GsxRemoteCommandId) => ipcRenderer.invoke(IpcChannels.gsxRemoteRunCommand, id),
+  settingsGetOnlineNetwork: () => ipcRenderer.invoke(IpcChannels.settingsGetOnlineNetwork),
+  settingsSetOnlineNetwork: (settings: OnlineNetworkSettings) =>
+    ipcRenderer.invoke(IpcChannels.settingsSetOnlineNetwork, settings),
   settingsGetBeyondAtc: () => ipcRenderer.invoke(IpcChannels.settingsGetBeyondAtc),
   settingsSetBeyondAtc: (settings: BeyondAtcSettings) =>
     ipcRenderer.invoke(IpcChannels.settingsSetBeyondAtc, settings),

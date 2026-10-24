@@ -37,6 +37,8 @@ export const electronLiveClient: LiveClient = {
       simConnectionStatus: w.getSimConnectionStatus,
       taxiRoute: w.getTaxiRoute,
       plannedRoute: w.getPlannedRoute,
+      networkTraffic: w.getNetworkTraffic,
+      trafficLayers: w.getTrafficLayers,
       procedureSelection: w.trackingGetProcedureSelection,
       storageStatus: w.getStorageStatus,
       gsxRemoteStatus: w.gsxRemoteGetStatus,
@@ -82,7 +84,9 @@ export const electronLiveClient: LiveClient = {
       beyondAtcTranscript: w.onBeyondAtcTranscript,
       beyondAtcStepClimb: w.onBeyondAtcStepClimb,
       beyondAtcArrival: w.onBeyondAtcArrival,
-      plannedRoute: w.onPlannedRoute
+      plannedRoute: w.onPlannedRoute,
+      networkTraffic: w.onNetworkTraffic,
+      trafficLayers: w.onTrafficLayers
     }
     return subscribers[topic](listener)
   },
@@ -108,7 +112,8 @@ export const electronLiveClient: LiveClient = {
       'gsx.submitPrompt': (gen, text) => w.gsxRemoteSubmitPrompt(gen, text),
       'gsx.cancelPrompt': (gen) => w.gsxRemoteCancelPrompt(gen),
       'gsx.runCommand': (id) => w.gsxRemoteRunCommand(id),
-      'track.setProcedureSelection': (selection) => w.trackingSetProcedureSelection(selection)
+      'track.setProcedureSelection': (selection) => w.trackingSetProcedureSelection(selection),
+      'traffic.setNetworkOn': (on) => w.trafficSetNetworkOn(on)
     }
     return (commands[name] as (...a: LiveCommands[typeof name]) => Promise<void>)(...args)
   }
