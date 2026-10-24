@@ -30,7 +30,8 @@ const INPUT: SelfStatusInput = {
   memberId: '42',
   flight: { departure: 'EGLL', arrival: 'LFPG' },
   position: HERE,
-  pretendCallsign: null
+  pretendCallsign: null,
+  keepBeyondAtc: false
 }
 
 describe('selfStatus', () => {
@@ -40,7 +41,8 @@ describe('selfStatus', () => {
       network: 'vatsim',
       state: 'online',
       callsign: 'BAW1',
-      filedPlan: { departure: 'EGLL', arrival: 'LFPG', aircraftIcao: 'A320' }
+      filedPlan: { departure: 'EGLL', arrival: 'LFPG', aircraftIcao: 'A320' },
+      hidesBeyondAtc: true
     })
     expect(result.pilot?.memberId).toBe('42')
   })

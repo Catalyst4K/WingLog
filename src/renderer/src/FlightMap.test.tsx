@@ -1301,6 +1301,48 @@ describe('FlightMap', () => {
       expect(map.sources['taxi-route-trace']).toBeUndefined()
     })
 
+    describe('while the pilot is online and BeyondATC is hidden', () => {
+      const status = (hidesBeyondAtc: boolean): object => ({
+        network: 'vatsim',
+        state: hidesBeyondAtc ? 'online' : 'offline',
+        callsign: null,
+        filedPlan: null,
+        hidesBeyondAtc
+      })
+
+      function withOnlineStatus(initial: boolean): { push: (hidden: boolean) => void } {
+        let listener: ((s: object) => void) | undefined
+        Object.assign((window as unknown as { winglog: object }).winglog, {
+          getOnlineStatus: vi.fn().mockResolvedValue(status(initial)),
+          onOnlineStatus: vi.fn((l: (s: object) => void) => {
+            listener = l
+            return () => {}
+          })
+        })
+        return { push: (hidden) => act(() => listener?.(status(hidden))) }
+      }
+
+      it('never draws the BeyondATC line', async () => {
+        withTaxiRoute(ROUTE)
+        withOnlineStatus(true)
+        const map = await chartOn()
+        await waitFor(() => expect(map.sources['taxi-chart']?.setData).toHaveBeenCalled())
+        await new Promise((resolve) => setTimeout(resolve, 50))
+        expect(map.sources['taxi-route-trace']).toBeUndefined()
+      })
+
+      it('hides the line it had drawn, and draws it again when the pilot is offline', async () => {
+        withTaxiRoute(ROUTE)
+        const { push } = withOnlineStatus(false)
+        const map = await chartOn()
+        await waitFor(() => expect(visibility(map)).toBe('visible'))
+        await push(true)
+        await waitFor(() => expect(visibility(map)).toBe('none'))
+        await push(false)
+        await waitFor(() => expect(visibility(map)).toBe('visible'))
+      })
+    })
+
     it('draws nothing, and hides what was drawn, when the PC found no route', async () => {
       const { push } = withTaxiRoute(ROUTE)
       const map = await chartOn()

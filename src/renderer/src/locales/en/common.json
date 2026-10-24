@@ -201,7 +201,9 @@
       "cid": "CID",
       "cidHint": "Your VATSIM member number (optional). It is used to leave your own aircraft out of the traffic.",
       "vid": "VID",
-      "vidHint": "Your IVAO member number. IVAO shows other pilots only to its members, so traffic stays off until it is entered."
+      "vidHint": "Your IVAO member number. IVAO shows other pilots only to its members, so traffic stays off until it is entered.",
+      "keepBeyondAtc": "Keep BeyondATC while online",
+      "keepBeyondAtcHint": "While you are online, BeyondATC's prompts, taxi line, frequencies and step climbs are hidden or silent, since the network's controllers are the only voice. Turn this on to keep them."
     }
   },
   "app": {
@@ -1013,6 +1015,7 @@
   },
   "online": {
     "fileOn": "File on {{network}}",
-    "noPrefileLink": "This plan has no {{network}} filing link."
+    "noPrefileLink": "This plan has no {{network}} filing link.",
+    "beyondAtcHidden": "BeyondATC is hidden while you are online on {{network}}. The network's controllers are the only voice."
   }
 }

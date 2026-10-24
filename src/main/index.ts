@@ -444,9 +444,7 @@ function startApp(): void {
     port: e2eBeyondAtcPort(process.env.WINGLOG_E2E_BEYONDATC_PORT)
   })
   app.on('before-quit', () => beyondAtc.stop())
-
   const onlineNetwork = startOnlineNetwork({ db, liveHub, sim, trackingController })
-
   startSecondScreen({
     db,
     liveHub,

@@ -46,7 +46,12 @@ test.describe('Online network traffic', () => {
 
       const code = await page.evaluate(async (p) => {
         const w = (globalThis as unknown as { winglog: Winglog }).winglog
-        await w.settingsSetOnlineNetwork({ network: 'vatsim', vatsimCid: null, ivaoVid: null })
+        await w.settingsSetOnlineNetwork({
+          network: 'vatsim',
+          vatsimCid: null,
+          ivaoVid: null,
+          keepBeyondAtcOnline: false
+        })
         await w.lanSetSettings({ enabled: true, port: p })
         return (await w.lanStartPairing()).pairing?.code ?? ''
       }, port)
@@ -113,7 +118,12 @@ test.describe('Online network traffic', () => {
     try {
       await page.evaluate(async () => {
         const w = (globalThis as unknown as { winglog: Winglog }).winglog
-        await w.settingsSetOnlineNetwork({ network: 'ivao', vatsimCid: null, ivaoVid: null })
+        await w.settingsSetOnlineNetwork({
+          network: 'ivao',
+          vatsimCid: null,
+          ivaoVid: null,
+          keepBeyondAtcOnline: false
+        })
         await w.trafficSetNetworkOn(true)
       })
       await expect.poll(async () => (await traffic(page)).state).toBe('needsVid')
@@ -128,7 +138,8 @@ test.describe('Online network traffic', () => {
         (globalThis as unknown as { winglog: Winglog }).winglog.settingsSetOnlineNetwork({
           network: 'ivao',
           vatsimCid: null,
-          ivaoVid: '900099'
+          ivaoVid: '900099',
+          keepBeyondAtcOnline: false
         })
       )
       await expect.poll(() => feed.requests.length, { timeout: 20_000 }).toBeGreaterThan(0)
@@ -153,7 +164,7 @@ test.describe('Online network traffic', () => {
       await card.getByRole('textbox').blur()
       await expect
         .poll(() => page.evaluate(() => (globalThis as unknown as Window).winglog.settingsGetOnlineNetwork()))
-        .toEqual({ network: 'vatsim', vatsimCid: '1234567', ivaoVid: null })
+        .toEqual({ network: 'vatsim', vatsimCid: '1234567', ivaoVid: null, keepBeyondAtcOnline: false })
     } finally {
       await cleanup()
     }

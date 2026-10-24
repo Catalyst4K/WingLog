@@ -12,6 +12,7 @@ const IVAO_VID_KEY = 'ivaoVid'
 const NETWORK_ON_KEY = 'trafficNetworkOn'
 const SIM_ON_KEY = 'trafficSimOn'
 const PRETEND_CALLSIGN_KEY = 'devPretendCallsign'
+const KEEP_BEYONDATC_KEY = 'onlineKeepBeyondAtc'
 
 /** A callsign: letters, digits, underscore and hyphen, at most 12. */
 const CALLSIGN = /^[A-Za-z0-9_-]{1,12}$/
@@ -48,7 +49,8 @@ export function getOnlineNetworkSettings(db: WingLogDb): OnlineNetworkSettings {
   return {
     network: asNetwork(getSetting(db, NETWORK_KEY)),
     vatsimCid: cid && MEMBER_NUMBER.test(cid) ? cid : null,
-    ivaoVid: vid && MEMBER_NUMBER.test(vid) ? vid : null
+    ivaoVid: vid && MEMBER_NUMBER.test(vid) ? vid : null,
+    keepBeyondAtcOnline: getSetting(db, KEEP_BEYONDATC_KEY) === '1'
   }
 }
 
@@ -66,6 +68,8 @@ export function setOnlineNetworkSettings(db: WingLogDb, settings: unknown): void
   if (network !== null && network !== 'vatsim' && network !== 'ivao') throw new Error('Invalid network')
   const cid = memberNumberOrNull(record.vatsimCid)
   const vid = memberNumberOrNull(record.ivaoVid)
+  if (typeof record.keepBeyondAtcOnline !== 'boolean') throw new Error('Invalid setting')
+  setSetting(db, KEEP_BEYONDATC_KEY, record.keepBeyondAtcOnline ? '1' : '0')
   setSetting(db, NETWORK_KEY, network ?? '')
   setSetting(db, VATSIM_CID_KEY, cid ?? '')
   setSetting(db, IVAO_VID_KEY, vid ?? '')

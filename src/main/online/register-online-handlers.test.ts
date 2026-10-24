@@ -69,9 +69,15 @@ describe('online network handlers', () => {
     expect(invoke(IpcChannels.settingsGetOnlineNetwork)).toEqual({
       network: null,
       vatsimCid: null,
-      ivaoVid: null
+      ivaoVid: null,
+      keepBeyondAtcOnline: false
     })
-    invoke(IpcChannels.settingsSetOnlineNetwork, { network: 'ivao', vatsimCid: null, ivaoVid: null })
+    invoke(IpcChannels.settingsSetOnlineNetwork, {
+      network: 'ivao',
+      vatsimCid: null,
+      ivaoVid: null,
+      keepBeyondAtcOnline: false
+    })
     expect(invoke(IpcChannels.settingsGetOnlineNetwork)).toMatchObject({ network: 'ivao' })
     expect(invoke(IpcChannels.networkTrafficGet)).toEqual({
       network: 'ivao',
@@ -82,16 +88,31 @@ describe('online network handlers', () => {
 
   it('refuses settings that are not valid, and keeps the old ones', () => {
     const { invoke } = register()
-    invoke(IpcChannels.settingsSetOnlineNetwork, { network: 'vatsim', vatsimCid: '123', ivaoVid: null })
+    invoke(IpcChannels.settingsSetOnlineNetwork, {
+      network: 'vatsim',
+      vatsimCid: '123',
+      ivaoVid: null,
+      keepBeyondAtcOnline: false
+    })
     expect(() =>
-      invoke(IpcChannels.settingsSetOnlineNetwork, { network: 'vatsim', vatsimCid: '12;DROP', ivaoVid: null })
+      invoke(IpcChannels.settingsSetOnlineNetwork, {
+        network: 'vatsim',
+        vatsimCid: '12;DROP',
+        ivaoVid: null,
+        keepBeyondAtcOnline: false
+      })
     ).toThrow('Invalid member number')
     expect(invoke(IpcChannels.settingsGetOnlineNetwork)).toMatchObject({ vatsimCid: '123' })
   })
 
   it('turns the shared switch on from the window, remembers it, and starts reading the feed', async () => {
     const { invoke } = register()
-    setOnlineNetworkSettings(db, { network: 'vatsim', vatsimCid: null, ivaoVid: null })
+    setOnlineNetworkSettings(db, {
+      network: 'vatsim',
+      vatsimCid: null,
+      ivaoVid: null,
+      keepBeyondAtcOnline: false
+    })
     invoke(IpcChannels.trafficSetNetworkOn, true)
     expect(getTrafficSwitches(db).networkOn).toBe(true)
     expect(invoke(IpcChannels.trafficLayersGet)).toMatchObject({ networkOn: true, drawNetwork: true })
@@ -120,7 +141,12 @@ describe('online network handlers', () => {
   it('has no centre without a position, and finds one when the sim reports it', async () => {
     sim.getLastTelemetry = () => undefined
     const { invoke } = register()
-    setOnlineNetworkSettings(db, { network: 'vatsim', vatsimCid: null, ivaoVid: null })
+    setOnlineNetworkSettings(db, {
+      network: 'vatsim',
+      vatsimCid: null,
+      ivaoVid: null,
+      keepBeyondAtcOnline: false
+    })
     invoke(IpcChannels.trafficSetNetworkOn, true)
     expect(invoke(IpcChannels.networkTrafficGet)).toEqual({
       network: 'vatsim',
@@ -149,7 +175,12 @@ describe('online network handlers', () => {
         depIcao: own.flight_plan!.departure,
         arrIcao: own.flight_plan!.arrival
       })
-      setOnlineNetworkSettings(db, { network: 'vatsim', vatsimCid: String(own.cid), ivaoVid: null })
+      setOnlineNetworkSettings(db, {
+        network: 'vatsim',
+        vatsimCid: String(own.cid),
+        ivaoVid: null,
+        keepBeyondAtcOnline: false
+      })
       tracking.getActive = () => ({ flightId: flight.id })
       return { flightId: flight.id, callsign: own.callsign }
     }
@@ -215,7 +246,12 @@ describe('online network handlers', () => {
   it('looks again when tracking starts or stops, since the flight shown may change', () => {
     sim.getLastTelemetry = () => undefined
     const { invoke } = register()
-    setOnlineNetworkSettings(db, { network: 'vatsim', vatsimCid: null, ivaoVid: null })
+    setOnlineNetworkSettings(db, {
+      network: 'vatsim',
+      vatsimCid: null,
+      ivaoVid: null,
+      keepBeyondAtcOnline: false
+    })
     invoke(IpcChannels.trafficSetNetworkOn, true)
     for (const event of ['started', 'stopped', 'completed']) tracking.emit(event)
     expect(invoke(IpcChannels.networkTrafficGet)).toMatchObject({ state: 'noCentre' })

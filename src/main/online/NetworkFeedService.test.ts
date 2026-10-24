@@ -109,7 +109,7 @@ describe('NetworkFeedService', () => {
   beforeEach(() => {
     clock = new FakeClock()
     published = { traffic: [], layers: [], status: [] }
-    settings = { network: 'vatsim', vatsimCid: null, ivaoVid: null }
+    settings = { network: 'vatsim', vatsimCid: null, ivaoVid: null, keepBeyondAtcOnline: false }
     switches = { networkOn: true, simOn: false }
     centre = EGLL
     tracked = null
@@ -132,7 +132,7 @@ describe('NetworkFeedService', () => {
     })
 
     it('says no network is chosen, without a request', async () => {
-      settings = { network: null, vatsimCid: null, ivaoVid: null }
+      settings = { network: null, vatsimCid: null, ivaoVid: null, keepBeyondAtcOnline: false }
       service.start()
       await clock.advance(60_000)
       expect(last()).toEqual({ network: null, state: 'noNetwork', aircraft: [] })
@@ -140,7 +140,7 @@ describe('NetworkFeedService', () => {
     })
 
     it('makes no request at all for IVAO without a VID, however long it runs', async () => {
-      settings = { network: 'ivao', vatsimCid: null, ivaoVid: null }
+      settings = { network: 'ivao', vatsimCid: null, ivaoVid: null, keepBeyondAtcOnline: false }
       service.start()
       await clock.advance(10 * 60_000)
       expect(last()).toEqual({ network: 'ivao', state: 'needsVid', aircraft: [] })
@@ -170,7 +170,7 @@ describe('NetworkFeedService', () => {
       expect(own).toBeDefined()
       service.stop()
       published.traffic = []
-      settings = { network: 'vatsim', vatsimCid: String(own?.cid), ivaoVid: null }
+      settings = { network: 'vatsim', vatsimCid: String(own?.cid), ivaoVid: null, keepBeyondAtcOnline: false }
       clock = new FakeClock()
       build()
       service.start()
@@ -259,7 +259,7 @@ describe('NetworkFeedService', () => {
     })
 
     it('reads IVAO from its own address', async () => {
-      settings = { network: 'ivao', vatsimCid: null, ivaoVid: '900001' }
+      settings = { network: 'ivao', vatsimCid: null, ivaoVid: '900001', keepBeyondAtcOnline: false }
       fetchMock.mockImplementation(() => Promise.resolve(okResponse(fixtureText('ivao-synthetic.json'))))
       service.start()
       await settle()
@@ -268,7 +268,7 @@ describe('NetworkFeedService', () => {
     })
 
     it('leaves out the pilot’s own VID on IVAO', async () => {
-      settings = { network: 'ivao', vatsimCid: null, ivaoVid: '900001' }
+      settings = { network: 'ivao', vatsimCid: null, ivaoVid: '900001', keepBeyondAtcOnline: false }
       fetchMock.mockImplementation(() => Promise.resolve(okResponse(fixtureText('ivao-synthetic.json'))))
       service.start()
       await settle()
@@ -377,10 +377,10 @@ describe('NetworkFeedService', () => {
     it('drops the old network’s aircraft when the network changes', async () => {
       service.start()
       await settle()
-      settings = { network: 'ivao', vatsimCid: null, ivaoVid: null }
+      settings = { network: 'ivao', vatsimCid: null, ivaoVid: null, keepBeyondAtcOnline: false }
       service.refresh()
       expect(last()).toEqual({ network: 'ivao', state: 'needsVid', aircraft: [] })
-      settings = { network: 'ivao', vatsimCid: null, ivaoVid: '900001' }
+      settings = { network: 'ivao', vatsimCid: null, ivaoVid: '900001', keepBeyondAtcOnline: false }
       fetchMock.mockImplementation(() => Promise.resolve(okResponse(fixtureText('ivao-synthetic.json'))))
       service.refresh()
       expect(last()?.aircraft).toEqual([])
@@ -390,7 +390,7 @@ describe('NetworkFeedService', () => {
       let release: (response: Response) => void = () => undefined
       fetchMock.mockImplementation(() => new Promise<Response>((resolve) => (release = resolve)))
       service.start()
-      settings = { network: 'ivao', vatsimCid: null, ivaoVid: null }
+      settings = { network: 'ivao', vatsimCid: null, ivaoVid: null, keepBeyondAtcOnline: false }
       service.refresh()
       release(okResponse(fixtureText('vatsim-busy.json')))
       await settle()
@@ -538,7 +538,7 @@ describe('NetworkFeedService', () => {
     it('is looked up every 60 s while a flight is tracked, even with the traffic layer off', async () => {
       const self = planned()
       switches = { networkOn: false, simOn: false }
-      settings = { network: 'vatsim', vatsimCid: String(self.cid), ivaoVid: null }
+      settings = { network: 'vatsim', vatsimCid: String(self.cid), ivaoVid: null, keepBeyondAtcOnline: false }
       tracked = { departure: self.departure, arrival: self.arrival }
       service.start()
       await settle()
@@ -552,7 +552,7 @@ describe('NetworkFeedService', () => {
 
     it('is offline when the member number is not in the feed', async () => {
       const self = planned()
-      settings = { network: 'vatsim', vatsimCid: '42', ivaoVid: null }
+      settings = { network: 'vatsim', vatsimCid: '42', ivaoVid: null, keepBeyondAtcOnline: false }
       tracked = { departure: self.departure, arrival: self.arrival }
       service.start()
       await settle()
@@ -561,7 +561,7 @@ describe('NetworkFeedService', () => {
 
     it('uses the same fetch for the traffic and the status: one request every 15 s, not two', async () => {
       const self = planned()
-      settings = { network: 'vatsim', vatsimCid: String(self.cid), ivaoVid: null }
+      settings = { network: 'vatsim', vatsimCid: String(self.cid), ivaoVid: null, keepBeyondAtcOnline: false }
       tracked = { departure: self.departure, arrival: self.arrival }
       service.start()
       await settle()
@@ -573,7 +573,7 @@ describe('NetworkFeedService', () => {
 
     it("leaves the pilot's own aircraft out of the traffic, found by CID", async () => {
       const self = planned()
-      settings = { network: 'vatsim', vatsimCid: String(self.cid), ivaoVid: null }
+      settings = { network: 'vatsim', vatsimCid: String(self.cid), ivaoVid: null, keepBeyondAtcOnline: false }
       service.start()
       await settle()
       expect(last()?.aircraft.some((a) => a.callsign === self.callsign)).toBe(false)
@@ -594,7 +594,7 @@ describe('NetworkFeedService', () => {
     })
 
     it('does nothing for IVAO without a VID, even with a flight tracked', async () => {
-      settings = { network: 'ivao', vatsimCid: null, ivaoVid: null }
+      settings = { network: 'ivao', vatsimCid: null, ivaoVid: null, keepBeyondAtcOnline: false }
       tracked = { departure: 'EGLL', arrival: 'LFPG' }
       service.start()
       await clock.advance(10 * 60_000)
@@ -604,7 +604,7 @@ describe('NetworkFeedService', () => {
 
     it('publishes only when the status changes', async () => {
       const self = planned()
-      settings = { network: 'vatsim', vatsimCid: String(self.cid), ivaoVid: null }
+      settings = { network: 'vatsim', vatsimCid: String(self.cid), ivaoVid: null, keepBeyondAtcOnline: false }
       tracked = { departure: self.departure, arrival: self.arrival }
       service.start()
       await settle()
@@ -623,9 +623,32 @@ describe('NetworkFeedService', () => {
       expect(statuses().at(-1)).toMatchObject({ state: 'online', callsign: self.callsign })
     })
 
+    it('notices at take-off, from the position updates, without waiting for the next look at the feed', async () => {
+      const self = planned()
+      settings = { network: 'vatsim', vatsimCid: String(self.cid), ivaoVid: null, keepBeyondAtcOnline: false }
+      tracked = { departure: self.departure, arrival: self.arrival }
+      service.start()
+      await settle()
+      expect(service.takeOnlineSeen()).toBeNull() // online, but still on the ground
+      airborne = true
+      service.onPositionChanged()
+      expect(service.takeOnlineSeen()).toEqual({ network: 'vatsim', callsign: self.callsign })
+    })
+
+    it('does not mark a flight online at take-off when the pilot was not online', async () => {
+      const self = planned()
+      settings = { network: 'vatsim', vatsimCid: '42', ivaoVid: null, keepBeyondAtcOnline: false }
+      tracked = { departure: self.departure, arrival: self.arrival }
+      service.start()
+      await settle()
+      airborne = true
+      service.onPositionChanged()
+      expect(service.takeOnlineSeen()).toBeNull()
+    })
+
     it('remembers the network and callsign only while airborne, hands them over once, and forgets them on reset', async () => {
       const self = planned()
-      settings = { network: 'vatsim', vatsimCid: String(self.cid), ivaoVid: null }
+      settings = { network: 'vatsim', vatsimCid: String(self.cid), ivaoVid: null, keepBeyondAtcOnline: false }
       tracked = { departure: self.departure, arrival: self.arrival }
       service.start()
       await settle()

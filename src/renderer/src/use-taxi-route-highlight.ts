@@ -11,6 +11,7 @@ import { useEffect, useRef, useState, type MutableRefObject } from 'react'
 import type { Map as MapLibreMap } from 'maplibre-gl'
 import type { TaxiRoute } from '@shared/live'
 import { useLiveClient } from './live/LiveClient'
+import { useBeyondAtcHidden } from './live/use-online-status'
 import { setSourceData } from './map-source'
 
 const TRACE_SOURCE_ID = 'taxi-route-trace'
@@ -75,6 +76,7 @@ export function useTaxiRouteHighlight({
   arrIcao
 }: UseTaxiRouteHighlightArgs): void {
   const client = useLiveClient()
+  const hidden = useBeyondAtcHidden()
   const [route, setRoute] = useState<TaxiRoute | null>(null)
   // Whether this hook has itself created its layer. Checked instead of calling map.getLayer() on every mount: App.tsx and LogbookView's own
   // FlightMap hosts use a simpler test fake that doesn't implement it, since nothing needed it there before.
@@ -100,7 +102,8 @@ export function useTaxiRouteHighlight({
   useEffect(() => {
     const map = mapRef.current
     if (!mapReady || !map) return
-    const line = enabled ? lineToDraw(route, depIcao, arrIcao) : null
+    // The line comes from BeyondATC's clearance: online, the network's controllers give those instead.
+    const line = enabled && !hidden ? lineToDraw(route, depIcao, arrIcao) : null
     if (!line) {
       if (createdRef.current) map.setLayoutProperty(TRACE_LAYER_ID, 'visibility', 'none')
       return
@@ -113,5 +116,5 @@ export function useTaxiRouteHighlight({
       geometry: { type: 'LineString', coordinates: line }
     })
     map.setLayoutProperty(TRACE_LAYER_ID, 'visibility', 'visible')
-  }, [mapRef, mapReady, enabled, route, depIcao, arrIcao])
+  }, [mapRef, mapReady, enabled, hidden, route, depIcao, arrIcao])
 }

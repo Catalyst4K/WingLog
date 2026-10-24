@@ -248,7 +248,9 @@ function buildWinglog(overrides: Partial<WingLogApi> = {}): WingLogApi {
     aircraftList: vi.fn().mockResolvedValue([]),
     flightList: vi.fn().mockResolvedValue([]),
     logbookGetFlight: vi.fn().mockResolvedValue(null),
-    settingsGetOnlineNetwork: vi.fn().mockResolvedValue({ network: null, vatsimCid: null, ivaoVid: null }),
+    settingsGetOnlineNetwork: vi
+      .fn()
+      .mockResolvedValue({ network: null, vatsimCid: null, ivaoVid: null, keepBeyondAtcOnline: false }),
     onlinePrefileForFlight: vi.fn().mockResolvedValue(true),
     trackingGetActive: vi.fn().mockResolvedValue(null),
     trackPointList: vi.fn().mockResolvedValue([]),
@@ -386,9 +388,12 @@ describe('TrackView', () => {
         aircraftList: vi.fn().mockResolvedValue([]),
         flightList: vi.fn().mockResolvedValue([makeFlight({ id: 5, status: 'active', ofpJson: '{}' })]),
         trackingGetActive: vi.fn().mockResolvedValue({ flightId: 5, phase: 'taxi' }),
-        settingsGetOnlineNetwork: vi
-          .fn()
-          .mockResolvedValue({ network: 'vatsim', vatsimCid: null, ivaoVid: null }),
+        settingsGetOnlineNetwork: vi.fn().mockResolvedValue({
+          network: 'vatsim',
+          vatsimCid: null,
+          ivaoVid: null,
+          keepBeyondAtcOnline: false
+        }),
         onlinePrefileForFlight
       })
       renderTrack({ telemetry: makeTelemetry({ onGround: true, groundSpeedMs: 8 }) })
@@ -397,6 +402,25 @@ describe('TrackView', () => {
 
       await waitFor(() => expect(onlinePrefileForFlight).toHaveBeenCalledWith(5, 'vatsim'))
       expect(screen.queryByRole('button', { name: 'File on IVAO' })).not.toBeInTheDocument()
+    })
+
+    it('says why BeyondATC is hidden while the pilot is online, and says nothing otherwise', async () => {
+      setWinglog({
+        aircraftList: vi.fn().mockResolvedValue([]),
+        flightList: vi.fn().mockResolvedValue([]),
+        getOnlineStatus: vi.fn().mockResolvedValue({
+          network: 'vatsim',
+          state: 'online',
+          callsign: 'BAW1',
+          filedPlan: null,
+          hidesBeyondAtc: true
+        }),
+        onOnlineStatus: vi.fn(() => () => {})
+      })
+      renderTrack()
+      expect(
+        await screen.findByText(/BeyondATC is hidden while you are online on VATSIM/)
+      ).toBeInTheDocument()
     })
 
     it('has no filing button for a free flight, which has no OFP', async () => {

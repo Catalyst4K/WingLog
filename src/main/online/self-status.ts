@@ -4,6 +4,7 @@
  */
 import type { LatLon } from '@shared/geo'
 import type { OnlineNetwork, OnlineStatus } from '@shared/ipc'
+import { beyondAtcSuppressed } from '@shared/beyondatc-online'
 import { detectSelf } from './detect-self'
 import type { FeedPilot, FeedSnapshot } from './feed-snapshot'
 
@@ -18,6 +19,8 @@ export interface SelfStatusInput {
   position: LatLon | null
   /** Dev build only. */
   pretendCallsign: string | null
+  /** The "Keep BeyondATC while online" setting. */
+  keepBeyondAtc: boolean
 }
 
 /** The status and the pilot found (main only: the pilot carries a member number and is never published). */
@@ -31,7 +34,7 @@ export interface SelfStatus {
  * @returns The status before anything has been looked up.
  */
 export function unknownStatus(network: OnlineNetwork | null): OnlineStatus {
-  return { network, state: 'unknown', callsign: null, filedPlan: null }
+  return { network, state: 'unknown', callsign: null, filedPlan: null, hidesBeyondAtc: false }
 }
 
 /**
@@ -49,5 +52,6 @@ export function selfStatus(snapshot: FeedSnapshot | null, input: SelfStatusInput
     position: input.position,
     pretendCallsign: input.pretendCallsign
   })
-  return { status: { network: input.network, ...match.status }, pilot: match.pilot }
+  const hidesBeyondAtc = beyondAtcSuppressed(match.status.state, input.keepBeyondAtc)
+  return { status: { network: input.network, ...match.status, hidesBeyondAtc }, pilot: match.pilot }
 }

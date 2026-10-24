@@ -196,7 +196,9 @@
       "cid": "CID",
       "cidHint": "你的 VATSIM 会员号（可选），用于在交通中排除你自己的飞机。",
       "vid": "VID",
-      "vidHint": "你的 IVAO 会员号。IVAO 只向其会员显示其他飞行员，因此在输入之前交通保持关闭。"
+      "vidHint": "你的 IVAO 会员号。IVAO 只向其会员显示其他飞行员，因此在输入之前交通保持关闭。",
+      "keepBeyondAtc": "在线时保留 BeyondATC",
+      "keepBeyondAtcHint": "在线时，BeyondATC 的提示、滑行线、频率和阶梯爬升会被隐藏或静音，因为网络的管制员是唯一的声音。打开此项可保留它们。"
     }
   },
   "app": {
@@ -1004,6 +1006,7 @@
   },
   "online": {
     "fileOn": "在 {{network}} 提交",
-    "noPrefileLink": "此计划没有 {{network}} 的提交链接。"
+    "noPrefileLink": "此计划没有 {{network}} 的提交链接。",
+    "beyondAtcHidden": "你在 {{network}} 在线时，BeyondATC 已隐藏。网络的管制员是唯一的声音。"
   }
 }

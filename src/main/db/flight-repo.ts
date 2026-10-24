@@ -868,26 +868,6 @@ export function setParkedStand(db: WingLogDb, id: number, icao: string, stand: s
 }
 
 /**
- * Records that a flight was flown on an online network.
- *
- * @param db The database.
- * @param id The flight.
- * @param network The network.
- * @param callsign The callsign used there.
- */
-export function setFlightOnline(
-  db: WingLogDb,
-  id: number,
-  network: 'vatsim' | 'ivao',
-  callsign: string
-): void {
-  db.update(flight)
-    .set({ onlineNetwork: network, onlineCallsign: callsign, updatedAt: new Date().toISOString() })
-    .where(eq(flight.id, id))
-    .run()
-}
-
-/**
  * Each fleet aircraft's latest completed (not deleted) flight that recorded a stand.
  *
  * @param db The database.

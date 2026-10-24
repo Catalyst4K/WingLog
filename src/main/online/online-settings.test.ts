@@ -21,36 +21,98 @@ describe('online network settings', () => {
   })
 
   it('starts with no network and no member numbers', () => {
-    expect(getOnlineNetworkSettings(db)).toEqual({ network: null, vatsimCid: null, ivaoVid: null })
+    expect(getOnlineNetworkSettings(db)).toEqual({
+      network: null,
+      vatsimCid: null,
+      ivaoVid: null,
+      keepBeyondAtcOnline: false
+    })
+  })
+
+  it('keeps BeyondATC while online only when asked to, and refuses anything but a boolean', () => {
+    expect(getOnlineNetworkSettings(db).keepBeyondAtcOnline).toBe(false)
+    setOnlineNetworkSettings(db, {
+      network: 'vatsim',
+      vatsimCid: null,
+      ivaoVid: null,
+      keepBeyondAtcOnline: true
+    })
+    expect(getOnlineNetworkSettings(db).keepBeyondAtcOnline).toBe(true)
+    for (const bad of ['true', 1, null, undefined]) {
+      expect(() =>
+        setOnlineNetworkSettings(db, {
+          network: 'vatsim',
+          vatsimCid: null,
+          ivaoVid: null,
+          keepBeyondAtcOnline: bad
+        })
+      ).toThrow('Invalid setting')
+    }
+    expect(getOnlineNetworkSettings(db).keepBeyondAtcOnline).toBe(true)
   })
 
   it('stores and reads a network and its member numbers', () => {
-    setOnlineNetworkSettings(db, { network: 'ivao', vatsimCid: '1234567', ivaoVid: '654321' })
-    expect(getOnlineNetworkSettings(db)).toEqual({ network: 'ivao', vatsimCid: '1234567', ivaoVid: '654321' })
+    setOnlineNetworkSettings(db, {
+      network: 'ivao',
+      vatsimCid: '1234567',
+      ivaoVid: '654321',
+      keepBeyondAtcOnline: false
+    })
+    expect(getOnlineNetworkSettings(db)).toEqual({
+      network: 'ivao',
+      vatsimCid: '1234567',
+      ivaoVid: '654321',
+      keepBeyondAtcOnline: false
+    })
   })
 
   it('clears a member number sent as null or empty, and the network sent as null', () => {
-    setOnlineNetworkSettings(db, { network: 'vatsim', vatsimCid: '1', ivaoVid: '2' })
-    setOnlineNetworkSettings(db, { network: null, vatsimCid: '', ivaoVid: null })
-    expect(getOnlineNetworkSettings(db)).toEqual({ network: null, vatsimCid: null, ivaoVid: null })
+    setOnlineNetworkSettings(db, {
+      network: 'vatsim',
+      vatsimCid: '1',
+      ivaoVid: '2',
+      keepBeyondAtcOnline: false
+    })
+    setOnlineNetworkSettings(db, { network: null, vatsimCid: '', ivaoVid: null, keepBeyondAtcOnline: false })
+    expect(getOnlineNetworkSettings(db)).toEqual({
+      network: null,
+      vatsimCid: null,
+      ivaoVid: null,
+      keepBeyondAtcOnline: false
+    })
   })
 
   it.each(['1234567890123', 'abc', '12 34', '-5', '1e5', '١٢٣', 12345, {}])(
     'refuses the member number %j',
     (bad) => {
       expect(() =>
-        setOnlineNetworkSettings(db, { network: 'vatsim', vatsimCid: bad, ivaoVid: null })
+        setOnlineNetworkSettings(db, {
+          network: 'vatsim',
+          vatsimCid: bad,
+          ivaoVid: null,
+          keepBeyondAtcOnline: false
+        })
       ).toThrow('Invalid member number')
-      expect(() => setOnlineNetworkSettings(db, { network: 'ivao', vatsimCid: null, ivaoVid: bad })).toThrow(
-        'Invalid member number'
-      )
+      expect(() =>
+        setOnlineNetworkSettings(db, {
+          network: 'ivao',
+          vatsimCid: null,
+          ivaoVid: bad,
+          keepBeyondAtcOnline: false
+        })
+      ).toThrow('Invalid member number')
     }
   )
 
   it.each(['poscon', '', undefined, 5])('refuses the network %j', (bad) => {
-    expect(() => setOnlineNetworkSettings(db, { network: bad, vatsimCid: null, ivaoVid: null })).toThrow(
-      'Invalid network'
-    )
+    expect(() =>
+      setOnlineNetworkSettings(db, {
+        network: bad,
+        vatsimCid: null,
+        ivaoVid: null,
+        keepBeyondAtcOnline: false
+      })
+    ).toThrow('Invalid network')
   })
 
   it.each([null, undefined, 'vatsim', 3])('refuses settings that are not an object: %j', (bad) => {
@@ -58,15 +120,37 @@ describe('online network settings', () => {
   })
 
   it('stores nothing when a later field is refused', () => {
-    setOnlineNetworkSettings(db, { network: 'vatsim', vatsimCid: '111', ivaoVid: null })
-    expect(() => setOnlineNetworkSettings(db, { network: 'ivao', vatsimCid: '222', ivaoVid: 'x' })).toThrow()
-    expect(getOnlineNetworkSettings(db)).toEqual({ network: 'vatsim', vatsimCid: '111', ivaoVid: null })
+    setOnlineNetworkSettings(db, {
+      network: 'vatsim',
+      vatsimCid: '111',
+      ivaoVid: null,
+      keepBeyondAtcOnline: false
+    })
+    expect(() =>
+      setOnlineNetworkSettings(db, {
+        network: 'ivao',
+        vatsimCid: '222',
+        ivaoVid: 'x',
+        keepBeyondAtcOnline: false
+      })
+    ).toThrow()
+    expect(getOnlineNetworkSettings(db)).toEqual({
+      network: 'vatsim',
+      vatsimCid: '111',
+      ivaoVid: null,
+      keepBeyondAtcOnline: false
+    })
   })
 
   it('ignores a stored value that is not a valid network or member number', () => {
     setSetting(db, 'onlineNetwork', 'poscon')
     setSetting(db, 'vatsimCid', 'not-a-number')
-    expect(getOnlineNetworkSettings(db)).toEqual({ network: null, vatsimCid: null, ivaoVid: null })
+    expect(getOnlineNetworkSettings(db)).toEqual({
+      network: null,
+      vatsimCid: null,
+      ivaoVid: null,
+      keepBeyondAtcOnline: false
+    })
   })
 })
 

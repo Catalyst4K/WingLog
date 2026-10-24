@@ -13,6 +13,8 @@ export interface OnlineNetworkSettings {
   vatsimCid: string | null
   /** IVAO VID: digits only. Required before any IVAO traffic or controller is shown (Regulation D.2). */
   ivaoVid: string | null
+  /** Keep BeyondATC's prompts, taxi line, frequencies and auto step climb while online (default off: human ATC is the only voice). */
+  keepBeyondAtcOnline: boolean
 }
 
 /** One aircraft as a screen draws it: the network's, or the sim's. */
@@ -56,6 +58,8 @@ export interface OnlineStatus {
   callsign: string | null
   /** The plan filed on the network, when online or probably and one is filed. */
   filedPlan: { departure: string | null; arrival: string | null; aircraftIcao: string | null } | null
+  /** True when BeyondATC should be hidden and silent: online (or probably) and not asked to keep it. Decided in main, once. */
+  hidesBeyondAtc: boolean
 }
 
 /** The `trafficLayers` live topic: the shared switches and what actually draws. Decided in main, in one function. */

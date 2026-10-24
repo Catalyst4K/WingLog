@@ -151,6 +151,8 @@ export class NetworkFeedService {
 
   /** Call when the aircraft's position or the flight shown may have changed: a layer waiting for a centre gets one. */
   onPositionChanged(): void {
+    // Online at the last look, and now in the air: the flight was flown online, however soon the next look is.
+    this.noteSeen(this.status)
     if (this.lastState === 'noCentre') this.refresh()
   }
 
@@ -290,6 +292,18 @@ export class NetworkFeedService {
   }
 
   /**
+   * Remembers the network and callsign when the pilot is online and the aircraft is in the air.
+   *
+   * @param status The pilot's latest status.
+   */
+  private noteSeen(status: OnlineStatus): void {
+    const { state, callsign, network } = status
+    if ((state === 'online' || state === 'probably') && callsign && network && this.deps.isAirborne()) {
+      this.seen = { network, callsign }
+    }
+  }
+
+  /**
    * Works out the pilot's own status from the latest feed and publishes it when it changes. While the pilot is online and airborne it
    * also remembers the network and callsign, which are written on the flight when it completes.
    */
@@ -300,13 +314,11 @@ export class NetworkFeedService {
       memberId: settings.network === 'ivao' ? settings.ivaoVid : settings.vatsimCid,
       flight: this.deps.trackedFlight(),
       position: this.deps.centre(),
-      pretendCallsign: this.deps.pretendCallsign()
+      pretendCallsign: this.deps.pretendCallsign(),
+      keepBeyondAtc: settings.keepBeyondAtcOnline
     })
     this.ownCallsign = result.status.state === 'probably' ? result.status.callsign : null
-    const { state, callsign, network } = result.status
-    if ((state === 'online' || state === 'probably') && callsign && network && this.deps.isAirborne()) {
-      this.seen = { network, callsign }
-    }
+    this.noteSeen(result.status)
     if (JSON.stringify(result.status) === JSON.stringify(this.status)) return
     this.status = result.status
     this.deps.hub.publish('onlineStatus', result.status)
