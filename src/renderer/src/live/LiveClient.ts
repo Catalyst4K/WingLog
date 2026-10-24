@@ -25,6 +25,12 @@ type Commands = { [C in LiveCommand]: (...args: LiveCommands[C]) => Promise<void
 /** Over Electron's preload. Looks `window.winglog` up on every call rather than capturing
  *  it once, so renderer tests that swap the mock between tests keep working. */
 export const electronLiveClient: LiveClient = {
+  /**
+   * Reads one live topic's current value through the matching preload getter.
+   *
+   * @param topic The topic.
+   * @returns Its current value, or undefined for a topic with no getter.
+   */
   get(topic) {
     const w = window.winglog
     const getters: Getters = {
@@ -80,6 +86,13 @@ export const electronLiveClient: LiveClient = {
     }
     return subscribers[topic](listener)
   },
+  /**
+   * Sends one live command through the matching preload call.
+   *
+   * @param name The command.
+   * @param args Its arguments.
+   * @returns Resolves once the main process has taken it.
+   */
   command(name, ...args) {
     const w = window.winglog
     const commands: Commands = {
