@@ -4,7 +4,9 @@ import { createDb, type WingLogDb } from '../db/client'
 import { setSetting } from '../db/settings-repo'
 import {
   getOnlineNetworkSettings,
+  getPretendCallsign,
   getTrafficSwitches,
+  setPretendCallsign,
   setOnlineNetworkSettings,
   setTrafficSwitches
 } from './online-settings'
@@ -65,6 +67,36 @@ describe('online network settings', () => {
     setSetting(db, 'onlineNetwork', 'poscon')
     setSetting(db, 'vatsimCid', 'not-a-number')
     expect(getOnlineNetworkSettings(db)).toEqual({ network: null, vatsimCid: null, ivaoVid: null })
+  })
+})
+
+describe('the dev "Pretend I am this pilot" callsign', () => {
+  let db: WingLogDb
+
+  beforeEach(() => {
+    const created = createDb(':memory:')
+    migrate(created.db, { migrationsFolder: 'drizzle' })
+    db = created.db
+  })
+
+  it('starts empty, and stores and clears a callsign', () => {
+    expect(getPretendCallsign(db)).toBeNull()
+    setPretendCallsign(db, 'BAW-123_A')
+    expect(getPretendCallsign(db)).toBe('BAW-123_A')
+    setPretendCallsign(db, '')
+    expect(getPretendCallsign(db)).toBeNull()
+    setPretendCallsign(db, 'X')
+    setPretendCallsign(db, null)
+    expect(getPretendCallsign(db)).toBeNull()
+  })
+
+  it.each(['has space', 'way-too-long-callsign', '<img>', 5, {}])('refuses %j', (bad) => {
+    expect(() => setPretendCallsign(db, bad)).toThrow('Invalid callsign')
+  })
+
+  it('ignores a stored value that is not a callsign', () => {
+    setSetting(db, 'devPretendCallsign', 'bad value')
+    expect(getPretendCallsign(db)).toBeNull()
   })
 })
 

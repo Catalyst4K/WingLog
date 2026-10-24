@@ -70,6 +70,8 @@ export interface TrafficNearOptions {
   max: number
   /** The pilot's own member number: that aircraft is left out. */
   excludeMemberId?: string | null
+  /** The pilot's own callsign when found by plan rather than member number: that aircraft is left out too. */
+  excludeCallsign?: string | null
   nowMs: number
 }
 
@@ -89,6 +91,7 @@ export function trafficNear(
   const sinceReceivedS = Math.max(0, (options.nowMs - snapshot.receivedMs) / 1000)
   return snapshot.pilots
     .filter((pilot) => options.excludeMemberId == null || pilot.memberId !== options.excludeMemberId)
+    .filter((pilot) => options.excludeCallsign == null || pilot.callsign !== options.excludeCallsign)
     .map((pilot) => ({
       pilot,
       distanceM: greatCircleM(centre, { lat: pilot.latitude, lon: pilot.longitude })

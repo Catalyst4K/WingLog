@@ -6,11 +6,13 @@ import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import { IpcChannels } from '@shared/ipc'
 import type { SimTelemetry } from '@shared/ipc'
 import { createDb, type WingLogDb } from '../db/client'
+import { createAircraft } from '../db/aircraft-repo'
+import { createFlight, getFlight } from '../db/flight-repo'
 import { fakeIpc } from '../ipc/fake-ipc'
 import { dispatchCommand } from '../live/commands'
 import { LiveHub } from '../live/LiveHub'
 import { REAL_FEED_URLS } from './feed-urls'
-import { getTrafficSwitches, setOnlineNetworkSettings } from './online-settings'
+import { getTrafficSwitches, setOnlineNetworkSettings, setPretendCallsign } from './online-settings'
 import { registerOnlineHandlers } from './register-online-handlers'
 
 const busy = readFileSync(join(__dirname, '__fixtures__', 'vatsim-busy.json'), 'utf8')
@@ -19,17 +21,18 @@ describe('online network handlers', () => {
   let db: WingLogDb
   let liveHub: LiveHub
   let sim: EventEmitter & { getLastTelemetry: () => SimTelemetry | undefined }
-  let tracking: EventEmitter & { getActive: () => undefined }
+  let tracking: EventEmitter & { getActive: () => { flightId: number } | undefined }
   let fetchMock: ReturnType<typeof vi.fn>
   let stop: (() => void) | undefined
 
-  function register(ipc = fakeIpc()) {
+  function register(ipc = fakeIpc(), options: { isDevBuild?: boolean } = {}) {
     const registered = registerOnlineHandlers(ipc.ipcMain, {
       db,
       liveHub,
       sim: sim as never,
       trackingController: tracking as never,
       appVersion: '1.6.0',
+      isDevBuild: options.isDevBuild ?? false,
       urls: { ...REAL_FEED_URLS, vatsimStatus: null, vatsimData: 'http://feed.test/vatsim' }
     })
     stop = registered.stop
@@ -127,6 +130,86 @@ describe('online network handlers', () => {
     sim.getLastTelemetry = () => ({ latitude: 51.4706, longitude: -0.4619 }) as SimTelemetry
     sim.emit('telemetry', {})
     await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+  })
+
+  describe('a flight flown online', () => {
+    /** A flight tracked from the busy fixture's first planned pilot's airports, with that pilot's CID. */
+    function trackPlannedPilot(): { flightId: number; callsign: string } {
+      const raw = JSON.parse(busy) as {
+        pilots: {
+          cid: number
+          callsign: string
+          flight_plan: { departure: string; arrival: string } | null
+        }[]
+      }
+      const own = raw.pilots.find((p) => p.flight_plan?.departure && p.flight_plan.arrival)!
+      const aircraft = createAircraft(db, { registration: 'G-TEST', icaoType: 'A320' })
+      const flight = createFlight(db, {
+        aircraftId: aircraft.id,
+        depIcao: own.flight_plan!.departure,
+        arrIcao: own.flight_plan!.arrival
+      })
+      setOnlineNetworkSettings(db, { network: 'vatsim', vatsimCid: String(own.cid), ivaoVid: null })
+      tracking.getActive = () => ({ flightId: flight.id })
+      return { flightId: flight.id, callsign: own.callsign }
+    }
+
+    it('is recorded on the flight when it completes, with the network and callsign seen while airborne', async () => {
+      sim.getLastTelemetry = () =>
+        ({ latitude: 51.4706, longitude: -0.4619, onGround: false }) as SimTelemetry
+      const { flightId, callsign } = trackPlannedPilot()
+      const { invoke } = register()
+      await vi.waitFor(() =>
+        expect((invoke(IpcChannels.onlineStatusGet) as { state: string }).state).toBe('online')
+      )
+      tracking.emit('completed', flightId)
+      expect(getFlight(db, flightId)).toMatchObject({ onlineNetwork: 'vatsim', onlineCallsign: callsign })
+    })
+
+    it('is not recorded for a flight flown offline, or seen online only on the ground', async () => {
+      sim.getLastTelemetry = () => ({ latitude: 51.4706, longitude: -0.4619, onGround: true }) as SimTelemetry
+      const { flightId } = trackPlannedPilot()
+      const { invoke } = register()
+      await vi.waitFor(() =>
+        expect((invoke(IpcChannels.onlineStatusGet) as { state: string }).state).toBe('online')
+      )
+      tracking.emit('completed', flightId)
+      expect(getFlight(db, flightId)).toMatchObject({ onlineNetwork: null, onlineCallsign: null })
+    })
+
+    it('forgets what was seen when the flight is dropped or a new one starts', async () => {
+      sim.getLastTelemetry = () =>
+        ({ latitude: 51.4706, longitude: -0.4619, onGround: false }) as SimTelemetry
+      const { flightId } = trackPlannedPilot()
+      const { invoke } = register()
+      await vi.waitFor(() =>
+        expect((invoke(IpcChannels.onlineStatusGet) as { state: string }).state).toBe('online')
+      )
+      tracking.getActive = () => undefined
+      tracking.emit('stopped')
+      tracking.emit('completed', flightId)
+      expect(getFlight(db, flightId)?.onlineNetwork).toBeNull()
+    })
+  })
+
+  describe('"Pretend I am this pilot"', () => {
+    it('is stored and read back in the dev build, and refused if it is not a callsign', () => {
+      const { invoke } = register(fakeIpc(), { isDevBuild: true })
+      expect(invoke(IpcChannels.onlineGetPretend)).toBeNull()
+      invoke(IpcChannels.onlineSetPretend, 'BAW123')
+      expect(invoke(IpcChannels.onlineGetPretend)).toBe('BAW123')
+      expect(() => invoke(IpcChannels.onlineSetPretend, 'bad callsign!')).toThrow('Invalid callsign')
+      invoke(IpcChannels.onlineSetPretend, null)
+      expect(invoke(IpcChannels.onlineGetPretend)).toBeNull()
+    })
+
+    it('does nothing in a release build: not stored, and always null', () => {
+      const { invoke } = register()
+      invoke(IpcChannels.onlineSetPretend, 'BAW123')
+      expect(invoke(IpcChannels.onlineGetPretend)).toBeNull()
+      setPretendCallsign(db, 'BAW123')
+      expect(invoke(IpcChannels.onlineGetPretend)).toBeNull()
+    })
   })
 
   it('looks again when tracking starts or stops, since the flight shown may change', () => {

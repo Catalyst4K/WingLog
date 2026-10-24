@@ -283,6 +283,10 @@ export interface WingLogApi {
   getNetworkTraffic: () => Promise<NetworkTraffic>
   /** Pushed each time main has a new set of aircraft (or a new state). */
   onNetworkTraffic: (listener: (traffic: NetworkTraffic) => void) => () => void
+  /** Dev build only: the callsign taken to be the pilot (null elsewhere). */
+  onlineGetPretend: () => Promise<string | null>
+  /** Dev build only: sets it; empty clears. Ignored in a release build. */
+  onlineSetPretend: (callsign: string | null) => Promise<void>
   /** Whether the pilot's own flight is on the chosen network. */
   getOnlineStatus: () => Promise<OnlineStatus>
   /** Pushed when that changes. */

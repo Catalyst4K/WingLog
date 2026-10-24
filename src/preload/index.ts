@@ -167,6 +167,8 @@ const api: WingLogApi = {
     ipcRenderer.on(IpcChannels.networkTraffic, handler)
     return () => ipcRenderer.removeListener(IpcChannels.networkTraffic, handler)
   },
+  onlineGetPretend: () => ipcRenderer.invoke(IpcChannels.onlineGetPretend),
+  onlineSetPretend: (callsign: string | null) => ipcRenderer.invoke(IpcChannels.onlineSetPretend, callsign),
   getOnlineStatus: () => ipcRenderer.invoke(IpcChannels.onlineStatusGet),
   onOnlineStatus: (listener: (status: OnlineStatus) => void) => {
     const handler = (_event: Electron.IpcRendererEvent, status: OnlineStatus): void => listener(status)

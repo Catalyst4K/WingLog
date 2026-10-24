@@ -278,6 +278,7 @@ function startOnlineNetwork(
   const online = registerOnlineHandlers(ipcMain, {
     ...deps,
     appVersion: app.getVersion(),
+    isDevBuild: __WINGLOG_DEV_BUILD__,
     urls: resolveFeedUrls(app.isPackaged, process.env)
   })
   app.on('before-quit', () => online.stop())

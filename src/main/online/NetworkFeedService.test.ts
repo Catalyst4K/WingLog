@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
 import type { LatLon } from '@shared/geo'
-import type { NetworkTraffic, OnlineNetworkSettings, TrafficLayers } from '@shared/ipc'
+import type { NetworkTraffic, OnlineNetworkSettings, OnlineStatus, TrafficLayers } from '@shared/ipc'
 import {
   FAILURE_LOG_INTERVAL_MS,
   FEED_TIMEOUT_MS,
@@ -64,10 +64,14 @@ function okResponse(body: string): Response {
 
 describe('NetworkFeedService', () => {
   let clock: FakeClock
-  let published: { traffic: NetworkTraffic[]; layers: TrafficLayers[] }
+  let published: { traffic: NetworkTraffic[]; layers: TrafficLayers[]; status: OnlineStatus[] }
   let settings: OnlineNetworkSettings
   let switches: { networkOn: boolean; simOn: boolean }
   let centre: LatLon | null
+  let tracked: { departure: string; arrival: string } | null
+  let airborne: boolean
+  let pretend: string | null
+  const statuses = (): OnlineStatus[] => published.status
   let fetchMock: ReturnType<typeof vi.fn>
   let warn: Mock<(message: string) => void>
   let urls: FeedUrls
@@ -79,6 +83,7 @@ describe('NetworkFeedService', () => {
         publish: ((topic: string, payload: unknown) => {
           if (topic === 'networkTraffic') published.traffic.push(payload as NetworkTraffic)
           if (topic === 'trafficLayers') published.layers.push(payload as TrafficLayers)
+          if (topic === 'onlineStatus') published.status.push(payload as OnlineStatus)
         }) as never
       },
       fetch: fetchMock as unknown as typeof fetch,
@@ -92,6 +97,9 @@ describe('NetworkFeedService', () => {
         switches = next
       },
       centre: () => centre,
+      trackedFlight: () => tracked,
+      isAirborne: () => airborne,
+      pretendCallsign: () => pretend,
       log: { warn }
     })
   }
@@ -100,10 +108,13 @@ describe('NetworkFeedService', () => {
 
   beforeEach(() => {
     clock = new FakeClock()
-    published = { traffic: [], layers: [] }
+    published = { traffic: [], layers: [], status: [] }
     settings = { network: 'vatsim', vatsimCid: null, ivaoVid: null }
     switches = { networkOn: true, simOn: false }
     centre = EGLL
+    tracked = null
+    airborne = false
+    pretend = null
     fetchMock = vi.fn(() => Promise.resolve(okResponse(fixtureText('vatsim-busy.json'))))
     warn = vi.fn()
     urls = { vatsimStatus: null, vatsimData: 'http://feed.test/vatsim', ivao: 'http://feed.test/ivao' }
@@ -487,11 +498,146 @@ describe('NetworkFeedService', () => {
       switches: () => switches,
       saveSwitches: () => undefined,
       centre: () => centre,
+      trackedFlight: () => tracked,
+      isAirborne: () => airborne,
+      pretendCallsign: () => pretend,
       log: { warn }
     })
     service.start()
     await settle()
     expect(warn).toHaveBeenCalledWith('[online] handling a feed response failed')
+  })
+
+  describe("the pilot's own status", () => {
+    /** A pilot in the busy fixture who has filed a plan, with the CID and plan the status should report. */
+    function planned(): { cid: number; callsign: string; departure: string; arrival: string } {
+      const raw = JSON.parse(fixtureText('vatsim-busy.json')) as {
+        pilots: {
+          cid: number
+          callsign: string
+          flight_plan: { departure: string; arrival: string } | null
+        }[]
+      }
+      const found = raw.pilots.find((p) => p.flight_plan?.departure && p.flight_plan.arrival)!
+      return {
+        cid: found.cid,
+        callsign: found.callsign,
+        departure: found.flight_plan!.departure,
+        arrival: found.flight_plan!.arrival
+      }
+    }
+
+    it('is unknown, with nothing fetched, while no flight is tracked and the layer is off', async () => {
+      switches = { networkOn: false, simOn: false }
+      service.start()
+      await clock.advance(5 * 60_000)
+      expect(statuses().at(-1) ?? { state: 'unknown' }).toMatchObject({ state: 'unknown' })
+      expect(fetchMock).not.toHaveBeenCalled()
+    })
+
+    it('is looked up every 60 s while a flight is tracked, even with the traffic layer off', async () => {
+      const self = planned()
+      switches = { networkOn: false, simOn: false }
+      settings = { network: 'vatsim', vatsimCid: String(self.cid), ivaoVid: null }
+      tracked = { departure: self.departure, arrival: self.arrival }
+      service.start()
+      await settle()
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+      expect(statuses().at(-1)).toMatchObject({ network: 'vatsim', state: 'online', callsign: self.callsign })
+      await clock.advance(59_999)
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+      await clock.advance(1)
+      expect(fetchMock).toHaveBeenCalledTimes(2)
+    })
+
+    it('is offline when the member number is not in the feed', async () => {
+      const self = planned()
+      settings = { network: 'vatsim', vatsimCid: '42', ivaoVid: null }
+      tracked = { departure: self.departure, arrival: self.arrival }
+      service.start()
+      await settle()
+      expect(statuses().at(-1)).toMatchObject({ state: 'offline', callsign: null })
+    })
+
+    it('uses the same fetch for the traffic and the status: one request every 15 s, not two', async () => {
+      const self = planned()
+      settings = { network: 'vatsim', vatsimCid: String(self.cid), ivaoVid: null }
+      tracked = { departure: self.departure, arrival: self.arrival }
+      service.start()
+      await settle()
+      await clock.advance(15_000)
+      expect(fetchMock).toHaveBeenCalledTimes(2)
+      expect(last()?.state).toBe('shown')
+      expect(statuses().at(-1)?.state).toBe('online')
+    })
+
+    it("leaves the pilot's own aircraft out of the traffic, found by CID", async () => {
+      const self = planned()
+      settings = { network: 'vatsim', vatsimCid: String(self.cid), ivaoVid: null }
+      service.start()
+      await settle()
+      expect(last()?.aircraft.some((a) => a.callsign === self.callsign)).toBe(false)
+    })
+
+    it('leaves out the aircraft it found by plan and position when there is no CID', async () => {
+      const self = planned()
+      const raw = JSON.parse(fixtureText('vatsim-busy.json')) as {
+        pilots: { callsign: string; latitude: number; longitude: number }[]
+      }
+      const own = raw.pilots.find((p) => p.callsign === self.callsign)!
+      centre = { lat: own.latitude, lon: own.longitude }
+      tracked = { departure: self.departure, arrival: self.arrival }
+      service.start()
+      await settle()
+      expect(statuses().at(-1)).toMatchObject({ state: 'probably', callsign: self.callsign })
+      expect(last()?.aircraft.some((a) => a.callsign === self.callsign)).toBe(false)
+    })
+
+    it('does nothing for IVAO without a VID, even with a flight tracked', async () => {
+      settings = { network: 'ivao', vatsimCid: null, ivaoVid: null }
+      tracked = { departure: 'EGLL', arrival: 'LFPG' }
+      service.start()
+      await clock.advance(10 * 60_000)
+      expect(fetchMock).not.toHaveBeenCalled()
+      expect(statuses().at(-1) ?? { state: 'unknown' }).toMatchObject({ state: 'unknown' })
+    })
+
+    it('publishes only when the status changes', async () => {
+      const self = planned()
+      settings = { network: 'vatsim', vatsimCid: String(self.cid), ivaoVid: null }
+      tracked = { departure: self.departure, arrival: self.arrival }
+      service.start()
+      await settle()
+      const count = statuses().length
+      await clock.advance(45_000)
+      expect(fetchMock.mock.calls.length).toBeGreaterThan(2)
+      expect(statuses().length).toBe(count)
+    })
+
+    it('takes the pilot with the dev callsign to be the pilot', async () => {
+      const self = planned()
+      pretend = self.callsign
+      tracked = { departure: 'ZZZZ', arrival: 'YYYY' }
+      service.start()
+      await settle()
+      expect(statuses().at(-1)).toMatchObject({ state: 'online', callsign: self.callsign })
+    })
+
+    it('remembers the network and callsign only while airborne, hands them over once, and forgets them on reset', async () => {
+      const self = planned()
+      settings = { network: 'vatsim', vatsimCid: String(self.cid), ivaoVid: null }
+      tracked = { departure: self.departure, arrival: self.arrival }
+      service.start()
+      await settle()
+      expect(service.takeOnlineSeen()).toBeNull()
+      airborne = true
+      await clock.advance(15_000)
+      expect(service.takeOnlineSeen()).toEqual({ network: 'vatsim', callsign: self.callsign })
+      expect(service.takeOnlineSeen()).toBeNull()
+      await clock.advance(15_000)
+      service.resetOnlineSeen()
+      expect(service.takeOnlineSeen()).toBeNull()
+    })
   })
 
   describe('stopping', () => {
