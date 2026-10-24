@@ -326,7 +326,7 @@ Library.
 | [drizzle-orm](https://github.com/drizzle-team/drizzle-orm) | 0.45.4 | Apache-2.0 |
 | [earcut](git://github.com/mapbox/earcut) | 3.2.4 | ISC |
 | [electron-log](megahertz/electron-log) | 5.4.4 | MIT |
-| [electron-updater](https://github.com/electron-userland/electron-builder) | 6.8.9 | MIT |
+| [electron-updater](https://github.com/electron-userland/electron-builder) | 6.8.11 | MIT |
 | [es-toolkit](https://github.com/toss/es-toolkit) | 1.52.0 | MIT |
 | [eventemitter3](git://github.com/primus/eventemitter3) | 5.0.4 | MIT |
 | [fs-extra](https://github.com/jprichardson/node-fs-extra) | 10.1.0 | MIT |
@@ -334,7 +334,7 @@ Library.
 | [gl-matrix](https://github.com/toji/gl-matrix) | 3.4.4 | MIT |
 | [graceful-fs](https://github.com/isaacs/node-graceful-fs) | 4.2.11 | ISC |
 | [html-parse-stringify](https://github.com/i18next/html-parse-stringify) | 4.0.1 | MIT |
-| [i18next](https://github.com/i18next/i18next) | 26.5.2 | MIT |
+| [i18next](https://github.com/i18next/i18next) | 26.5.4 | MIT |
 | [immer](https://github.com/immerjs/immer) | 11.1.18 | MIT |
 | [ini](git://github.com/isaacs/ini) | 2.0.0 | ISC |
 | [internmap](https://github.com/mbostock/internmap) | 2.0.3 | ISC |
@@ -345,7 +345,7 @@ Library.
 | [lazy-val](develar/lazy-val) | 1.0.5 | MIT |
 | [lodash.escaperegexp](lodash/lodash) | 4.1.2 | MIT |
 | [lodash.isequal](lodash/lodash) | 4.5.0 | MIT |
-| [lucide-react](https://github.com/lucide-icons/lucide) | 1.59.0 | ISC |
+| [lucide-react](https://github.com/lucide-icons/lucide) | 1.61.0 | ISC |
 | [maplibre-gl](https://github.com/maplibre/maplibre-gl-js) | 6.15.0 | BSD-3-Clause |
 | [minimist](git://github.com/minimistjs/minimist) | 1.2.8 | MIT |
 | [ms](vercel/ms) | 2.1.3 | MIT |
@@ -4260,7 +4260,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### electron-updater 6.8.9 — MIT
+### electron-updater 6.8.11 — MIT
 
 ```
 The MIT License (MIT)
@@ -4455,7 +4455,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### i18next 26.5.2 — MIT
+### i18next 26.5.4 — MIT
 
 ```
 The MIT License (MIT)
@@ -4769,7 +4769,7 @@ licenses; we recommend you read them, as their terms may differ from the
 terms above.
 ```
 
-### lucide-react 1.59.0 — ISC
+### lucide-react 1.61.0 — ISC
 
 ```
 ISC License
