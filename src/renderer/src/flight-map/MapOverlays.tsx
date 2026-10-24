@@ -98,13 +98,14 @@ function NetworkTrafficButton(props: {
   if (!network) return null
   const name = NETWORK_NAMES[network]
   const needsVid = props.traffic?.state === 'needsVid'
-  const on = props.layers?.networkOn === true
+  // IVAO without a VID shows nothing whatever the switch says, so the button reads as off and offers to show.
+  const on = props.layers?.networkOn === true && !needsVid
   const label = on
     ? t('flightMap.hideNetworkTraffic', { network: name })
     : t('flightMap.showNetworkTraffic', { network: name })
   return (
     <ToggleControl
-      on={on && !needsVid}
+      on={on}
       label={label}
       title={needsVid ? t('flightMap.networkTrafficNeedsVid') : label}
       onClick={props.onToggle}
