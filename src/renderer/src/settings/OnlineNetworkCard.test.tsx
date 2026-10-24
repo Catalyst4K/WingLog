@@ -9,7 +9,7 @@ function setup(initial: OnlineNetworkSettings) {
     settingsGetOnlineNetwork: vi.fn(() => Promise.resolve(initial)),
     settingsSetOnlineNetwork: vi.fn(() => Promise.resolve()),
     onlineGetPretend: vi.fn((): Promise<string | null> => Promise.resolve(null)),
-    onlineSetPretend: vi.fn((_callsign: string | null) => Promise.resolve()),
+    onlineSetPretend: vi.fn(() => Promise.resolve()),
     appLogRendererError: vi.fn(() => Promise.resolve())
   }
   window.winglog = api as unknown as typeof window.winglog
