@@ -171,9 +171,7 @@ function fullFlight(overrides: Partial<Flight> = {}): Flight {
     selectedApproachIdent: null,
     selectedApproachTransition: null,
     selectedArrivalIcao: null,
-
     onlineNetwork: null,
-
     onlineCallsign: null,
     ...overrides
   }

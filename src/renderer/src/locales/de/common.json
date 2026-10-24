@@ -692,7 +692,8 @@
       "blockTime": "Blockzeit",
       "airTime": "Flugzeit",
       "fuelBurn": "Treibstoffverbrauch",
-      "fuelPlanned": "Geplanter Treibstoff"
+      "fuelPlanned": "Geplanter Treibstoff",
+      "online": "Online"
     },
     "altitude": "Höhe",
     "trueAltitude": "Wahre Höhe",
@@ -730,7 +731,12 @@
       "landings": "Landungen"
     },
     "noCompletedFlights": "Noch keine abgeschlossenen Flüge — einen tracken oder ein CSV-Logbuch über Einstellungen → Daten importieren.",
-    "flightNotFound": "Flug nicht gefunden."
+    "flightNotFound": "Flug nicht gefunden.",
+    "onlineFilter": {
+      "label": "Anzeigen",
+      "all": "Alle",
+      "online": "Online"
+    }
   },
   "gsxRemoteView": {
     "title": "Bodendienste"

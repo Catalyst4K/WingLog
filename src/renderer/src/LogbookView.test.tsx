@@ -225,9 +225,7 @@ function makeFlight(overrides: Partial<Flight> = {}): Flight {
     selectedApproachIdent: null,
     selectedApproachTransition: null,
     selectedArrivalIcao: null,
-
     onlineNetwork: null,
-
     onlineCallsign: null,
     ...overrides
   }
@@ -474,6 +472,83 @@ describe('LogbookView list', () => {
     expect(within(freeRow).getByText('Free flight')).toBeInTheDocument()
     const dispatchedRow = screen.getByText('DISPATCHED').closest('tr')!
     expect(within(dispatchedRow).queryByText('Free flight')).not.toBeInTheDocument()
+  })
+
+  describe('flights flown online', () => {
+    function setupOnline(): void {
+      setWinglog({
+        logbookListCompletedFlights: vi
+          .fn()
+          .mockResolvedValue([
+            makeFlight({ id: 1, flightNumber: 'OFFLINE1' }),
+            makeFlight({ id: 2, flightNumber: 'VAT1', onlineNetwork: 'vatsim', onlineCallsign: 'BAW123' }),
+            makeFlight({ id: 3, flightNumber: 'IVAO1', onlineNetwork: 'ivao', onlineCallsign: 'BAW456' })
+          ]),
+        aircraftList: vi.fn().mockResolvedValue([makeAircraft()]),
+        logbookListFlightScores: vi.fn().mockResolvedValue([])
+      })
+    }
+
+    it('badges a flight with its network, naming the callsign on hover, and badges none of the offline ones', async () => {
+      setupOnline()
+      render(<LogbookView weightUnit="kg" landingDistanceUnit="ft" />)
+      const vatsimRow = (await screen.findByText('VAT1')).closest('tr')!
+      const badge = within(vatsimRow).getByText('VATSIM')
+      expect(badge).toHaveAttribute('title', 'BAW123')
+      expect(within(screen.getByText('IVAO1').closest('tr')!).getByText('IVAO')).toBeInTheDocument()
+      const offlineRow = screen.getByText('OFFLINE1').closest('tr')!
+      expect(within(offlineRow).queryByText('VATSIM')).not.toBeInTheDocument()
+      expect(within(offlineRow).queryByText('IVAO')).not.toBeInTheDocument()
+    })
+
+    it('filters by All, Online, VATSIM and IVAO', async () => {
+      setupOnline()
+      const user = userEvent.setup()
+      render(<LogbookView weightUnit="kg" landingDistanceUnit="ft" />)
+      await screen.findByText('OFFLINE1')
+      const group = screen.getByRole('group', { name: 'Show' })
+
+      await user.click(within(group).getByRole('button', { name: 'Online' }))
+      expect(screen.queryByText('OFFLINE1')).not.toBeInTheDocument()
+      expect(screen.getByText('VAT1')).toBeInTheDocument()
+      expect(screen.getByText('IVAO1')).toBeInTheDocument()
+
+      await user.click(within(group).getByRole('button', { name: 'IVAO' }))
+      expect(screen.queryByText('VAT1')).not.toBeInTheDocument()
+      expect(screen.getByText('IVAO1')).toBeInTheDocument()
+
+      await user.click(within(group).getByRole('button', { name: 'VATSIM' }))
+      expect(screen.getByText('VAT1')).toBeInTheDocument()
+      expect(screen.queryByText('IVAO1')).not.toBeInTheDocument()
+
+      await user.click(within(group).getByRole('button', { name: 'All' }))
+      expect(screen.getByText('OFFLINE1')).toBeInTheDocument()
+    })
+
+    it('shows the network and callsign on the detail of a flight, and no Online line for an offline flight', async () => {
+      setupOnline()
+      const user = userEvent.setup()
+      render(<LogbookView weightUnit="kg" landingDistanceUnit="ft" />)
+      await user.click((await screen.findByText('VAT1')).closest('tr')!)
+      expect(await screen.findByText('VATSIM · BAW123')).toBeInTheDocument()
+      await user.click(screen.getByRole('button', { name: /Back/ }))
+      await user.click((await screen.findByText('OFFLINE1')).closest('tr')!)
+      await screen.findByText('Block time')
+      expect(screen.queryByText('Online')).not.toBeInTheDocument()
+    })
+
+    it('shows no filter while no flight was flown online', async () => {
+      setWinglog({
+        logbookListCompletedFlights: vi
+          .fn()
+          .mockResolvedValue([makeFlight({ id: 1, flightNumber: 'OFFLINE1' })]),
+        aircraftList: vi.fn().mockResolvedValue([makeAircraft()]),
+        logbookListFlightScores: vi.fn().mockResolvedValue([])
+      })
+      render(<LogbookView weightUnit="kg" landingDistanceUnit="ft" />)
+      await screen.findByText('OFFLINE1')
+      expect(screen.queryByRole('group', { name: 'Show' })).not.toBeInTheDocument()
+    })
   })
 
   it("shows the flight's own sim-reported registration for a free flight tracked with no fleet aircraft — not mandatory to add one", async () => {

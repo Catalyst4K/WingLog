@@ -715,7 +715,8 @@
       "blockTime": "Блочное время",
       "airTime": "Полётное время",
       "fuelBurn": "Расход топлива",
-      "fuelPlanned": "Плановое топливо"
+      "fuelPlanned": "Плановое топливо",
+      "online": "Онлайн"
     },
     "altitude": "Высота",
     "trueAltitude": "Истинная высота",
@@ -753,7 +754,12 @@
       "landings": "Посадки"
     },
     "noCompletedFlights": "Пока нет завершённых рейсов — начните отслеживание или импортируйте CSV-логбук через Настройки → Данные.",
-    "flightNotFound": "Рейс не найден."
+    "flightNotFound": "Рейс не найден.",
+    "onlineFilter": {
+      "label": "Показать",
+      "all": "Все",
+      "online": "Онлайн"
+    }
   },
   "gsxRemoteView": {
     "title": "Наземное обслуживание"

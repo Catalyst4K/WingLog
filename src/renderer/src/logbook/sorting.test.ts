@@ -50,9 +50,7 @@ const baseFlight: LogbookFlight = {
   selectedApproachIdent: null,
   selectedApproachTransition: null,
   selectedArrivalIcao: null,
-
   onlineNetwork: null,
-
   onlineCallsign: null,
   hasOfp: true
 }

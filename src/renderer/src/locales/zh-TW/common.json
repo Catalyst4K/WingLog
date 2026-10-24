@@ -685,7 +685,8 @@
       "blockTime": "輪檔時間",
       "airTime": "空中時間",
       "fuelBurn": "燃油消耗",
-      "fuelPlanned": "計畫燃油"
+      "fuelPlanned": "計畫燃油",
+      "online": "線上"
     },
     "altitude": "高度",
     "trueAltitude": "真實高度",
@@ -723,7 +724,12 @@
       "landings": "落地"
     },
     "noCompletedFlights": "尚無已完成的航班 — 去追蹤一趟飛行，或從「設定 → 資料」匯入 CSV 飛行日誌。",
-    "flightNotFound": "找不到該航班。"
+    "flightNotFound": "找不到該航班。",
+    "onlineFilter": {
+      "label": "顯示",
+      "all": "全部",
+      "online": "線上"
+    }
   },
   "gsxRemoteView": {
     "title": "地面服務"

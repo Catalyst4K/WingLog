@@ -685,7 +685,8 @@
       "blockTime": "轮档时间",
       "airTime": "空中时间",
       "fuelBurn": "燃油消耗",
-      "fuelPlanned": "计划燃油"
+      "fuelPlanned": "计划燃油",
+      "online": "在线"
     },
     "altitude": "高度",
     "trueAltitude": "真实高度",
@@ -723,7 +724,12 @@
       "landings": "落地"
     },
     "noCompletedFlights": "暂无已完成的航班 — 去追踪一次飞行，或从“设置 → 数据”导入 CSV 飞行日志。",
-    "flightNotFound": "未找到该航班。"
+    "flightNotFound": "未找到该航班。",
+    "onlineFilter": {
+      "label": "显示",
+      "all": "全部",
+      "online": "在线"
+    }
   },
   "gsxRemoteView": {
     "title": "地面服务"
