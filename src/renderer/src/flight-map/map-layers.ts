@@ -441,6 +441,10 @@ function addTaxiwayLabels(map: MapLibreMap, dark: boolean): void {
   })
 }
 
+/** The aircraft outline, nose up, in a 24 by 24 box: the own-aircraft marker and the traffic icon both draw it. */
+export const AIRCRAFT_PATH_D =
+  'M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2.5 1.5V22l4-1 4 1v-1.5L13 19v-5.5l8 2.5z'
+
 function aircraftMarker(): Marker {
   // A text glyph (e.g. '✈') isn't drawn pointing true north in every font, so
   // setRotation(heading) comes out offset by whatever the glyph's own heading is.
@@ -450,7 +454,7 @@ function aircraftMarker(): Marker {
   el.style.height = '22px'
   el.innerHTML =
     '<svg width="22" height="22" viewBox="0 0 24 24">' +
-    '<path d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2.5 1.5V22l4-1 4 1v-1.5L13 19v-5.5l8 2.5z" fill="#1a73e8" stroke="#0b3d91" stroke-width="0.5"/>' +
+    `<path d="${AIRCRAFT_PATH_D}" fill="#1a73e8" stroke="#0b3d91" stroke-width="0.5"/>` +
     '</svg>'
   return new Marker({ element: el, rotationAlignment: 'map' })
 }
