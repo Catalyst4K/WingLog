@@ -6,7 +6,7 @@
  * Writes release/sim/taxi-score/index.html and results.json (gitignored). TAXI_SCORE_BASELINE=1 also saves the results as the
  * baseline the next runs compare with; TAXI_SCORE_ONLY=253-in,250-in limits the run to those taxis.
  */
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { it } from 'vitest'
 import { listCachedRunways, listCachedStands, listCachedTaxiSegments } from '../../src/main/db/navdata-repo'
@@ -186,15 +186,26 @@ function section(sc: TaxiScenario, s: Score, was: Score | undefined, figure: str
   }
 }
 
+/**
+ * @param path Where the baseline is saved.
+ * @returns The saved scores, or none when no baseline has been saved yet. Read without checking first, so the file can't change in between.
+ */
+function readBaseline(path: string): Score[] {
+  try {
+    return JSON.parse(readFileSync(path, 'utf8')) as Score[]
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return []
+    throw error
+  }
+}
+
 it('scores the taxi line against the taxis as driven', () => {
   const { db, close } = openUserDb()
   try {
     const only = process.env.TAXI_SCORE_ONLY?.split(',')
     const dir = simOutputDir('taxi-score')
     const baselinePath = join(dir, 'baseline.json')
-    const baseline = existsSync(baselinePath)
-      ? (JSON.parse(readFileSync(baselinePath, 'utf8')) as Score[])
-      : []
+    const baseline = readBaseline(baselinePath)
     const outcomes = loadTaxiScenarios(db)
       .filter((sc) => !only || only.includes(sc.id))
       .map((sc) => {
