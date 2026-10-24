@@ -76,7 +76,7 @@ describe('the network traffic button', () => {
 
   it('does not read as on for IVAO without a VID even if the switch was left on', () => {
     controls({ layers: LAYERS_ON, traffic: traffic('ivao', 'needsVid'), onToggle: () => {} })
-    expect(screen.getByRole('button', { name: /IVAO traffic/ })).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.getByRole('button', { name: 'Show IVAO traffic' })).toHaveAttribute('aria-pressed', 'false')
   })
 
   it('has no button when the map was given no traffic', () => {
