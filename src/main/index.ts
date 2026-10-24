@@ -53,6 +53,8 @@ import { registerGsxRemoteHandlers } from './ipc/gsx-remote-handlers'
 import { registerBeyondAtcHandlers } from './ipc/beyondatc-handlers'
 import { registerLanHandlers } from './ipc/lan-handlers'
 import { createLan } from './lan/create-lan'
+import { resolveFeedUrls } from './online/feed-urls'
+import { registerOnlineHandlers } from './online/register-online-handlers'
 import { registerDiagnosticsHandlers, registerSimHandlers } from './ipc/sim-handlers'
 import { createBackgroundSync, registerSyncHandlers, startPeriodicSync } from './ipc/sync-handlers'
 import { e2eBeyondAtcPort } from './beyondatc/BeyondAtcService'
@@ -422,13 +424,23 @@ function startApp(): void {
   })
   app.on('before-quit', () => beyondAtc.stop())
 
+  const onlineNetwork = registerOnlineHandlers(ipcMain, {
+    db,
+    liveHub,
+    sim,
+    trackingController,
+    appVersion: app.getVersion(),
+    urls: resolveFeedUrls(app.isPackaged, process.env)
+  })
+  app.on('before-quit', () => onlineNetwork.stop())
+
   startSecondScreen({
     db,
     liveHub,
     trackingController,
     selection: flightServices.selection,
     navdata: navdataProvider,
-    addOnCommands: { ...beyondAtc.commands, ...gsxRemote.commands }
+    addOnCommands: { ...beyondAtc.commands, ...gsxRemote.commands, ...onlineNetwork.commands }
   })
 
   registerSyncHandlers(ipcMain, { cloudSync, enabled: __WINGLOG_CLOUD_SYNC_ENABLED__ })

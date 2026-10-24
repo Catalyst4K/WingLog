@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
 import type { LatLon } from '@shared/geo'
 import type { NetworkTraffic, OnlineNetworkSettings, TrafficLayers } from '@shared/ipc'
 import {
@@ -69,7 +69,7 @@ describe('NetworkFeedService', () => {
   let switches: { networkOn: boolean; simOn: boolean }
   let centre: LatLon | null
   let fetchMock: ReturnType<typeof vi.fn>
-  let warn: ReturnType<typeof vi.fn>
+  let warn: Mock<(message: string) => void>
   let urls: FeedUrls
   let service: NetworkFeedService
 

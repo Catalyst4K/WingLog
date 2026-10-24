@@ -274,11 +274,11 @@ export interface WingLogApi {
   /** Pushed each time that route changes. */
   onPlannedRoute: (listener: (route: PlannedRoute | null) => void) => () => void
   /** The chosen network's traffic near the aircraft, for a window that opens mid-flight. */
-  getNetworkTraffic: () => Promise<NetworkTraffic | undefined>
+  getNetworkTraffic: () => Promise<NetworkTraffic>
   /** Pushed each time main has a new set of aircraft (or a new state). */
   onNetworkTraffic: (listener: (traffic: NetworkTraffic) => void) => () => void
   /** The shared traffic switches and which layers draw. */
-  getTrafficLayers: () => Promise<TrafficLayers | undefined>
+  getTrafficLayers: () => Promise<TrafficLayers>
   /** Pushed when a switch or a setting changes which layers draw. */
   onTrafficLayers: (listener: (layers: TrafficLayers) => void) => () => void
   /** Turns the network traffic layer on or off, for every screen (the switch is kept in main and remembered). */
