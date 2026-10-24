@@ -408,6 +408,12 @@ function createWinglog(overrides: Partial<WingLogApi> = {}): WingLogApi {
     gsxRemoteCancelPrompt: vi.fn().mockResolvedValue(undefined),
     gsxRemoteRunCommand: vi.fn().mockResolvedValue(undefined),
     settingsGetBeyondAtc: vi.fn().mockResolvedValue({ enabled: false, host: 'localhost' }),
+    settingsGetOnlineNetwork: vi.fn().mockResolvedValue({
+      network: null,
+      vatsimCid: null,
+      ivaoVid: null,
+      keepBeyondAtcOnline: false
+    }),
     settingsSetBeyondAtc: vi.fn().mockResolvedValue(undefined),
     beyondAtcGetStatus: vi.fn().mockResolvedValue({ state: 'disconnected', lastError: null }),
     onBeyondAtcStatus: vi.fn(() => () => {}),
