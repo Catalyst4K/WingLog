@@ -63,10 +63,10 @@ function centreOf(deps: Pick<OnlineHandlerDeps, 'db' | 'sim' | 'trackingControll
  */
 function trackedFlightOf(
   deps: Pick<OnlineHandlerDeps, 'db' | 'trackingController'>
-): { departure: string; arrival: string } | null {
+): { departure: string; arrival: string; alternate: string | null } | null {
   const id = deps.trackingController.getActive()?.flightId
   const flight = id === undefined ? undefined : getFlight(deps.db, id)
-  return flight ? { departure: flight.depIcao, arrival: flight.arrIcao } : null
+  return flight ? { departure: flight.depIcao, arrival: flight.arrIcao, alternate: flight.altnIcao } : null
 }
 
 /**
@@ -119,6 +119,7 @@ export function registerOnlineHandlers(
   ipcMain.handle(IpcChannels.networkTrafficGet, () => liveHub.snapshot().networkTraffic)
   ipcMain.handle(IpcChannels.trafficLayersGet, () => liveHub.snapshot().trafficLayers)
   ipcMain.handle(IpcChannels.onlineStatusGet, () => liveHub.snapshot().onlineStatus)
+  ipcMain.handle(IpcChannels.networkControllersGet, () => liveHub.snapshot().networkControllers)
   ipcMain.handle(IpcChannels.onlineGetPretend, () => (deps.isDevBuild ? getPretendCallsign(db) : null))
   ipcMain.handle(IpcChannels.onlineSetPretend, (_event, callsign: unknown) => {
     if (!deps.isDevBuild) return

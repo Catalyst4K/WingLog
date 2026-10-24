@@ -15,7 +15,11 @@ const CID = 1234567
 type Winglog = Window['winglog']
 
 test('a flight flown while online is recorded with its network and callsign, and BeyondATC is hidden meanwhile', async () => {
-  const feed = await startNetworkFeedServer({ centre: VHHH, self: { cid: CID, callsign: 'TSTPIL1' } })
+  const feed = await startNetworkFeedServer({
+    centre: VHHH,
+    self: { cid: CID, callsign: 'TSTPIL1' },
+    station: 'VHHH'
+  })
   const { window, cleanup } = await launchApp({
     env: {
       WINGLOG_E2E_FIXTURE: FIXTURE,
@@ -50,6 +54,12 @@ test('a flight flown while online is recorded with its network and callsign, and
       .toMatchObject({ network: 'vatsim', state: 'online', callsign: 'TSTPIL1', hidesBeyondAtc: true })
     await expect(window.getByText(/BeyondATC is hidden while you are online on VATSIM/)).toBeVisible()
     expect(feed.requests.length).toBeGreaterThan(0)
+
+    // The controllers and ATIS at the flight's airport are listed on Track.
+    const atc = window.getByRole('region', { name: 'VHHH' })
+    await expect(atc.getByText('VHHH_TWR')).toBeVisible()
+    await expect(atc.getByText('118.700')).toBeVisible()
+    await expect(atc.getByText('RUNWAY 07R IN USE')).toBeVisible()
 
     // Fly it, finish it, and find it in the Logbook with its network and callsign.
     await window.evaluate(

@@ -1007,6 +1007,11 @@
   "online": {
     "fileOn": "在 {{network}} 提交",
     "noPrefileLink": "此计划没有 {{network}} 的提交链接。",
-    "beyondAtcHidden": "你在 {{network}} 在线时，BeyondATC 已隐藏。网络的管制员是唯一的声音。"
+    "beyondAtcHidden": "你在 {{network}} 在线时，BeyondATC 已隐藏。网络的管制员是唯一的声音。",
+    "atc": {
+      "title": "你的机场在线管制 ({{network}})",
+      "nobody": "没有在线管制员",
+      "enrouteNote": "不列出航路管制员。"
+    }
   }
 }

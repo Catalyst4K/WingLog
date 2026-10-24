@@ -1018,6 +1018,11 @@
   "online": {
     "fileOn": "Déposer sur {{network}}",
     "noPrefileLink": "Ce plan n'a pas de lien de dépôt {{network}}.",
-    "beyondAtcHidden": "BeyondATC est masqué pendant que vous êtes en ligne sur {{network}}. Les contrôleurs du réseau sont la seule voix."
+    "beyondAtcHidden": "BeyondATC est masqué pendant que vous êtes en ligne sur {{network}}. Les contrôleurs du réseau sont la seule voix.",
+    "atc": {
+      "title": "ATC en ligne à vos aéroports ({{network}})",
+      "nobody": "Aucun contrôleur en ligne",
+      "enrouteNote": "Les contrôleurs en route ne sont pas listés."
+    }
   }
 }

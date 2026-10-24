@@ -46,6 +46,7 @@ import {
 } from '@shared/ipc'
 import type { PlannedRoute, TaxiRoute } from '@shared/live'
 import type {
+  NetworkControllers,
   NetworkTraffic,
   OnlineNetwork,
   OnlineNetworkSettings,
@@ -169,6 +170,13 @@ const api: WingLogApi = {
   },
   onlineGetPretend: () => ipcRenderer.invoke(IpcChannels.onlineGetPretend),
   onlineSetPretend: (callsign: string | null) => ipcRenderer.invoke(IpcChannels.onlineSetPretend, callsign),
+  getNetworkControllers: () => ipcRenderer.invoke(IpcChannels.networkControllersGet),
+  onNetworkControllers: (listener: (controllers: NetworkControllers) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, controllers: NetworkControllers): void =>
+      listener(controllers)
+    ipcRenderer.on(IpcChannels.networkControllers, handler)
+    return () => ipcRenderer.removeListener(IpcChannels.networkControllers, handler)
+  },
   getOnlineStatus: () => ipcRenderer.invoke(IpcChannels.onlineStatusGet),
   onOnlineStatus: (listener: (status: OnlineStatus) => void) => {
     const handler = (_event: Electron.IpcRendererEvent, status: OnlineStatus): void => listener(status)

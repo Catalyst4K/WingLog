@@ -12,6 +12,7 @@ import type {
   NetworkTraffic,
   OnlineNetwork,
   OnlineNetworkSettings,
+  NetworkControllers,
   OnlineStatus,
   TrafficLayers
 } from '@shared/ipc'
@@ -20,6 +21,7 @@ import { feedUserAgent, vatsimDataUrl, type FeedUrls } from './feed-urls'
 import { initialPollState, pollFinished, stepPoll, type PollState } from './feed-poll-step'
 import { TRAFFIC_MAX_AIRCRAFT, TRAFFIC_RADIUS_M, trafficNear, type FeedSnapshot } from './feed-snapshot'
 import { parseIvaoFeed } from './ivao-feed'
+import { stationsAt } from './airport-stations'
 import { selfStatus, unknownStatus } from './self-status'
 import { decideTrafficLayers } from './traffic-layers'
 import { parseVatsimFeed } from './vatsim-feed'
@@ -58,7 +60,7 @@ export interface NetworkFeedDeps {
   /** Where to look around: the aircraft, else the departure airport of the flight shown, else null. */
   centre: () => LatLon | null
   /** The flight being tracked (its filed airports), or null when none is: the pilot's status is only looked up while one is. */
-  trackedFlight: () => { departure: string; arrival: string } | null
+  trackedFlight: () => { departure: string; arrival: string; alternate?: string | null } | null
   /** Whether the aircraft is in the air, for recording that the flight was flown online. */
   isAirborne: () => boolean
   /** Dev build only: the callsign to take to be the pilot. */
@@ -80,6 +82,8 @@ export class NetworkFeedService {
   private stopped = false
   private lastState: NetworkTraffic['state'] | null = null
   private status: OnlineStatus = unknownStatus(null)
+  /** The last controllers payload published, as text, so only a change is published. */
+  private lastControllers = ''
   /** The callsign found by plan rather than member number: left out of the traffic. */
   private ownCallsign: string | null = null
   /** The network and callsign the pilot was last seen online with while airborne, for the flight's record. */
@@ -319,9 +323,26 @@ export class NetworkFeedService {
     })
     this.ownCallsign = result.status.state === 'probably' ? result.status.callsign : null
     this.noteSeen(result.status)
+    this.updateControllers()
     if (JSON.stringify(result.status) === JSON.stringify(this.status)) return
     this.status = result.status
     this.deps.hub.publish('onlineStatus', result.status)
+  }
+
+  /** Publishes who is online at the flight's departure, arrival and alternate airports when that changes. */
+  private updateControllers(): void {
+    const network = this.deps.settings().network
+    const flight = this.deps.trackedFlight()
+    const snapshot = this.snapshot
+    const airports =
+      network && flight && snapshot && snapshot.network === network
+        ? stationsAt(snapshot, [flight.departure, flight.arrival, flight.alternate ?? ''])
+        : []
+    const payload: NetworkControllers = { network, airports }
+    const text = JSON.stringify(payload)
+    if (text === this.lastControllers) return
+    this.lastControllers = text
+    this.deps.hub.publish('networkControllers', payload)
   }
 
   /**

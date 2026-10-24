@@ -1016,6 +1016,11 @@
   "online": {
     "fileOn": "Bei {{network}} aufgeben",
     "noPrefileLink": "Dieser Plan hat keinen {{network}}-Aufgabelink.",
-    "beyondAtcHidden": "BeyondATC ist ausgeblendet, solange du online bei {{network}} bist. Nur die Lotsen des Netzwerks sprechen."
+    "beyondAtcHidden": "BeyondATC ist ausgeblendet, solange du online bei {{network}} bist. Nur die Lotsen des Netzwerks sprechen.",
+    "atc": {
+      "title": "ATC online an deinen Flughäfen ({{network}})",
+      "nobody": "Keine Lotsen online",
+      "enrouteNote": "Streckenlotsen werden nicht aufgeführt."
+    }
   }
 }

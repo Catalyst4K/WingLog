@@ -1016,6 +1016,11 @@
   "online": {
     "fileOn": "File on {{network}}",
     "noPrefileLink": "This plan has no {{network}} filing link.",
-    "beyondAtcHidden": "BeyondATC is hidden while you are online on {{network}}. The network's controllers are the only voice."
+    "beyondAtcHidden": "BeyondATC is hidden while you are online on {{network}}. The network's controllers are the only voice.",
+    "atc": {
+      "title": "Online ATC at your airports ({{network}})",
+      "nobody": "No controllers online",
+      "enrouteNote": "Enroute controllers are not listed."
+    }
   }
 }

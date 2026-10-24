@@ -92,7 +92,7 @@ function readAtc(value: unknown): { controller: FeedController | null; atis: Fee
   const frequency = frequencyMhz === null ? null : formatFrequency(frequencyMhz)
   const lines = textLines(asRecord(atc?.atis)?.lines)
   return {
-    controller: position && frequency ? { callsign, frequency, position } : null,
+    controller: position && frequency ? { callsign, frequency, position, name: null } : null,
     atis: lines.length > 0 ? { callsign, code: clippedText(asRecord(atc?.atis)?.revision, 2), lines } : null
   }
 }

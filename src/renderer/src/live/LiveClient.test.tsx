@@ -15,6 +15,7 @@ const SUBSCRIBERS: Record<LiveTopic, keyof WingLogApi> = {
   networkTraffic: 'onNetworkTraffic',
   trafficLayers: 'onTrafficLayers',
   onlineStatus: 'onOnlineStatus',
+  networkControllers: 'onNetworkControllers',
   storageStatus: 'onStorageStatus',
   gsxRemoteStatus: 'onGsxRemoteStatus',
   gsxRemoteServices: 'onGsxRemoteServices',

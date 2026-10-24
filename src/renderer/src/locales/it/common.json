@@ -1018,6 +1018,11 @@
   "online": {
     "fileOn": "Deposita su {{network}}",
     "noPrefileLink": "Questo piano non ha un link di deposito {{network}}.",
-    "beyondAtcHidden": "BeyondATC è nascosto mentre sei online su {{network}}. I controllori della rete sono l'unica voce."
+    "beyondAtcHidden": "BeyondATC è nascosto mentre sei online su {{network}}. I controllori della rete sono l'unica voce.",
+    "atc": {
+      "title": "ATC online ai tuoi aeroporti ({{network}})",
+      "nobody": "Nessun controllore online",
+      "enrouteNote": "I controllori in rotta non sono elencati."
+    }
   }
 }

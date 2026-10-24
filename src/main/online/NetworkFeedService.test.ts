@@ -2,7 +2,13 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
 import type { LatLon } from '@shared/geo'
-import type { NetworkTraffic, OnlineNetworkSettings, OnlineStatus, TrafficLayers } from '@shared/ipc'
+import type {
+  NetworkControllers,
+  NetworkTraffic,
+  OnlineNetworkSettings,
+  OnlineStatus,
+  TrafficLayers
+} from '@shared/ipc'
 import {
   FAILURE_LOG_INTERVAL_MS,
   FEED_TIMEOUT_MS,
@@ -64,11 +70,16 @@ function okResponse(body: string): Response {
 
 describe('NetworkFeedService', () => {
   let clock: FakeClock
-  let published: { traffic: NetworkTraffic[]; layers: TrafficLayers[]; status: OnlineStatus[] }
+  let published: {
+    traffic: NetworkTraffic[]
+    layers: TrafficLayers[]
+    status: OnlineStatus[]
+    controllers: NetworkControllers[]
+  }
   let settings: OnlineNetworkSettings
   let switches: { networkOn: boolean; simOn: boolean }
   let centre: LatLon | null
-  let tracked: { departure: string; arrival: string } | null
+  let tracked: { departure: string; arrival: string; alternate?: string | null } | null
   let airborne: boolean
   let pretend: string | null
   const statuses = (): OnlineStatus[] => published.status
@@ -84,6 +95,7 @@ describe('NetworkFeedService', () => {
           if (topic === 'networkTraffic') published.traffic.push(payload as NetworkTraffic)
           if (topic === 'trafficLayers') published.layers.push(payload as TrafficLayers)
           if (topic === 'onlineStatus') published.status.push(payload as OnlineStatus)
+          if (topic === 'networkControllers') published.controllers.push(payload as NetworkControllers)
         }) as never
       },
       fetch: fetchMock as unknown as typeof fetch,
@@ -108,7 +120,7 @@ describe('NetworkFeedService', () => {
 
   beforeEach(() => {
     clock = new FakeClock()
-    published = { traffic: [], layers: [], status: [] }
+    published = { traffic: [], layers: [], status: [], controllers: [] }
     settings = { network: 'vatsim', vatsimCid: null, ivaoVid: null, keepBeyondAtcOnline: false }
     switches = { networkOn: true, simOn: false }
     centre = EGLL
@@ -660,6 +672,50 @@ describe('NetworkFeedService', () => {
       await clock.advance(15_000)
       service.resetOnlineSeen()
       expect(service.takeOnlineSeen()).toBeNull()
+    })
+  })
+
+  describe("the controllers and ATIS at the flight's airports", () => {
+    it("lists who is online at the tracked flight's airports, from the same fetch", async () => {
+      tracked = { departure: 'EGLL', arrival: 'LFPG', alternate: 'EGKK' }
+      service.start()
+      await settle()
+      const last = published.controllers.at(-1)
+      expect(last?.network).toBe('vatsim')
+      expect(last?.airports.map((a) => a.icao)).toEqual(['EGLL', 'LFPG', 'EGKK'])
+      const heathrow = last?.airports[0]
+      expect(heathrow?.stations.length).toBeGreaterThan(0)
+      expect(heathrow?.stations.every((s) => /^\d{3}\.\d{3}$/.test(s.frequency))).toBe(true)
+      expect(heathrow?.atis.length).toBeGreaterThan(0)
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+    })
+
+    it('lists no airports while no flight is tracked, and nothing was fetched for it', async () => {
+      switches = { networkOn: false, simOn: false }
+      service.start()
+      await settle()
+      expect(published.controllers.at(-1) ?? { airports: [] }).toMatchObject({ airports: [] })
+      expect(fetchMock).not.toHaveBeenCalled()
+    })
+
+    it('publishes only when the list changes', async () => {
+      tracked = { departure: 'EGLL', arrival: 'LFPG' }
+      service.start()
+      await settle()
+      const count = published.controllers.length
+      await clock.advance(45_000)
+      expect(fetchMock.mock.calls.length).toBeGreaterThan(2)
+      expect(published.controllers.length).toBe(count)
+    })
+
+    it('empties the list when the flight ends', async () => {
+      tracked = { departure: 'EGLL', arrival: 'LFPG' }
+      service.start()
+      await settle()
+      expect(published.controllers.at(-1)?.airports.length).toBe(2)
+      tracked = null
+      service.refresh()
+      expect(published.controllers.at(-1)?.airports).toEqual([])
     })
   })
 

@@ -23,6 +23,7 @@ import { parseTransitionAltitudes } from '@shared/route'
 import { StartFreeFlightDialog } from './StartFreeFlightDialog'
 import { runAsync } from './report-error'
 import { BeyondAtcHiddenNote } from './online/BeyondAtcHiddenNote'
+import { OnlineAtcCard } from './online/OnlineAtcCard'
 import { ActiveFlightCard, FlightEndedDialog, FlightToolbar, NotTrackingCards } from './track/TrackCards'
 import { useFlightOfp, useFreeFlightBanner, useTrackedFlights, useTrackTimes } from './track/use-track-state'
 
@@ -226,6 +227,7 @@ export function TrackView(props: {
     <div className="flex h-full flex-col gap-4">
       <h1 className="font-heading text-2xl font-semibold text-foreground">{t('trackView.title')}</h1>
       <BeyondAtcHiddenNote />
+      <OnlineAtcCard />
 
       {active ? (
         <ActiveFlightCard

@@ -62,6 +62,40 @@ export interface OnlineStatus {
   hidesBeyondAtc: boolean
 }
 
+/** The kinds of station WingLog lists (VATSIM's facility numbers and IVAO's positions, in one set). */
+export type OnlineStationPosition = 'fss' | 'del' | 'gnd' | 'twr' | 'app' | 'ctr'
+
+/** One controller online at an airport. */
+export interface OnlineStation {
+  callsign: string
+  /** MHz with three decimals, for example "118.700". Only ever shown, never tuned. */
+  frequency: string
+  position: OnlineStationPosition
+  /** The controller's name when the network publishes it (VATSIM does, IVAO does not), else null. */
+  name: string | null
+}
+
+/** An airport's ATIS, as text: never parsed into anything here, never HTML. */
+export interface OnlineAtis {
+  callsign: string
+  /** The information letter, or null when none is given. */
+  code: string | null
+  lines: string[]
+}
+
+/** Who is online at one airport. */
+export interface OnlineAirportStations {
+  icao: string
+  stations: OnlineStation[]
+  atis: OnlineAtis[]
+}
+
+/** The networkControllers live topic: the controllers and ATIS at the flight's departure, arrival and alternate airports. */
+export interface NetworkControllers {
+  network: OnlineNetwork | null
+  airports: OnlineAirportStations[]
+}
+
 /** The `trafficLayers` live topic: the shared switches and what actually draws. Decided in main, in one function. */
 export interface TrafficLayers {
   networkOn: boolean

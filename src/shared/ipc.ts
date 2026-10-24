@@ -61,6 +61,7 @@ import type {
 } from './types/gsx'
 import type { PlannedRoute, TaxiRoute } from './live'
 import type {
+  NetworkControllers,
   NetworkTraffic,
   OnlineNetwork,
   OnlineNetworkSettings,
@@ -287,6 +288,10 @@ export interface WingLogApi {
   onlineGetPretend: () => Promise<string | null>
   /** Dev build only: sets it; empty clears. Ignored in a release build. */
   onlineSetPretend: (callsign: string | null) => Promise<void>
+  /** The controllers and ATIS online at the flight's airports. */
+  getNetworkControllers: () => Promise<NetworkControllers>
+  /** Pushed when that changes. */
+  onNetworkControllers: (listener: (controllers: NetworkControllers) => void) => () => void
   /** Whether the pilot's own flight is on the chosen network. */
   getOnlineStatus: () => Promise<OnlineStatus>
   /** Pushed when that changes. */

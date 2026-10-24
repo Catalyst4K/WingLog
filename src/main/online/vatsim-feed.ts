@@ -25,6 +25,9 @@ import type { ControllerPosition, FeedAtis, FeedController, FeedPilot, FeedSnaps
 
 const NETWORK: OnlineNetwork = 'vatsim'
 
+/** The longest controller name kept. */
+const MAX_NAME_CHARS = 40
+
 /**
  * VATSIM has no on-ground flag, so a pilot at or under this ground speed is taken to be on the ground. In the 2026-10-24 captures 585 of
  * 1,791 pilots were under it, and on IVAO (which does flag it) only 2 of 725 airborne pilots were.
@@ -92,7 +95,8 @@ function readController(value: unknown): FeedController | null {
     typeof controller.facility === 'number' ? FACILITY_POSITIONS[controller.facility] : undefined
   const callsign = cleanText(controller.callsign, MAX_CALLSIGN_CHARS + 8)
   const frequency = formatFrequency(Number(controller.frequency))
-  return position && callsign && frequency ? { callsign, frequency, position } : null
+  const name = clippedText(controller.name, MAX_NAME_CHARS)
+  return position && callsign && frequency ? { callsign, frequency, position, name } : null
 }
 
 /**

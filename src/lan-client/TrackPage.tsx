@@ -25,6 +25,7 @@ import { ProcedureSelector } from '@/ProcedureSelector'
 import { AtcClearanceDialog } from '@/app/AppDialogs'
 import { useAtcClearancePrompt } from '@/app/use-prompts'
 import { BeyondAtcHiddenNote } from '@/online/BeyondAtcHiddenNote'
+import { OnlineAtcCard } from '@/online/OnlineAtcCard'
 import type { ProcedureAirports } from '@shared/procedure-selection'
 import { parseTransitionAltitudes } from '@shared/route'
 import type { LanConnection } from './lan-connection'
@@ -321,6 +322,7 @@ function FlightHeader(props: {
       )}
       {snapshot && <FlightBanner flight={snapshot.flight} />}
       <BeyondAtcHiddenNote />
+      <OnlineAtcCard compact />
       {snapshot && <TimesBanner times={times} />}
       {snapshot && procedures && <ProceduresBar {...procedures} />}
     </>
