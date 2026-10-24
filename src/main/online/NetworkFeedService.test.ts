@@ -471,6 +471,29 @@ describe('NetworkFeedService', () => {
     })
   })
 
+  it('logs, without feed content, if handling a response throws', async () => {
+    const publish = vi.fn((topic: string, payload: unknown) => {
+      if (topic === 'networkTraffic' && (payload as NetworkTraffic).aircraft.length > 0)
+        throw new Error('Test Pilot NEAR1')
+    })
+    service = new NetworkFeedService({
+      hub: { publish: publish as never },
+      fetch: fetchMock as unknown as typeof fetch,
+      now: () => clock.nowMs,
+      timers: clock,
+      urls,
+      appVersion: '1.6.0',
+      settings: () => settings,
+      switches: () => switches,
+      saveSwitches: () => undefined,
+      centre: () => centre,
+      log: { warn }
+    })
+    service.start()
+    await settle()
+    expect(warn).toHaveBeenCalledWith('[online] handling a feed response failed')
+  })
+
   describe('stopping', () => {
     it('stops all timers and ignores a late answer', async () => {
       let release: (response: Response) => void = () => undefined

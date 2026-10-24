@@ -1,0 +1,120 @@
+import { createServer, type Server } from 'node:http'
+import type { AddressInfo } from 'node:net'
+
+/**
+ * A fake VATSIM and IVAO feed for the acceptance tests: plain `node:http`, like the update server in updates.spec.ts. It records each
+ * request (path, time, headers) and serves a small SYNTHETIC feed (invented callsigns, no real pilot) placed around a point, so no test
+ * run ever reaches the real networks (launch-app.ts points both feeds at a closed port unless a test passes this server's addresses).
+ */
+
+/** One request the server received. */
+export interface FeedRequest {
+  path: '/vatsim' | '/ivao'
+  atMs: number
+  headers: Record<string, string | string[] | undefined>
+}
+
+/** Where the invented aircraft are put: the near ones around this point, the far one on the other side of the world. */
+export interface FeedScene {
+  centre: { lat: number; lon: number }
+}
+
+/**
+ * @param scene Where to put the aircraft.
+ * @returns A VATSIM-shaped feed with NEAR1 and NEAR2 close to the centre and FAR1 on the other side of the world.
+ */
+export function vatsimBody(scene: FeedScene): string {
+  const now = new Date().toISOString()
+  const pilot = (cid: number, callsign: string, lat: number, lon: number, groundspeed: number): object => ({
+    cid,
+    name: 'Test Pilot',
+    callsign,
+    latitude: lat,
+    longitude: lon,
+    altitude: groundspeed > 40 ? 12000 : 80,
+    groundspeed,
+    heading: 90,
+    last_updated: now,
+    flight_plan: { aircraft_short: 'A320', departure: 'EGLL', arrival: 'LFPG', remarks: '' }
+  })
+  return JSON.stringify({
+    general: { update_timestamp: now },
+    pilots: [
+      pilot(1000001, 'NEAR1', scene.centre.lat + 0.3, scene.centre.lon + 0.3, 250),
+      pilot(1000002, 'NEAR2', scene.centre.lat - 0.2, scene.centre.lon + 0.1, 0),
+      pilot(1000003, 'FAR1', -33.9, 151.2, 450)
+    ],
+    controllers: [],
+    atis: []
+  })
+}
+
+/**
+ * @param scene Where to put the aircraft.
+ * @returns An IVAO-shaped feed with the same three aircraft.
+ */
+export function ivaoBody(scene: FeedScene): string {
+  const now = new Date().toISOString()
+  const pilot = (id: number, callsign: string, lat: number, lon: number): object => ({
+    id,
+    userId: 900000 + id,
+    callsign,
+    lastTrack: {
+      latitude: lat,
+      longitude: lon,
+      altitude: 12000,
+      groundSpeed: 250,
+      heading: 90,
+      onGround: false,
+      timestamp: now
+    },
+    flightPlan: null
+  })
+  return JSON.stringify({
+    updatedAt: now,
+    clients: {
+      pilots: [
+        pilot(1, 'NEAR1', scene.centre.lat + 0.3, scene.centre.lon + 0.3),
+        pilot(2, 'FAR1', -33.9, 151.2)
+      ],
+      atcs: [],
+      observers: [],
+      followMe: []
+    }
+  })
+}
+
+/** The running fake. */
+export interface NetworkFeedServer {
+  /** The address of the VATSIM feed (the whole data file, skipping the status page). */
+  vatsimUrl: string
+  ivaoUrl: string
+  requests: FeedRequest[]
+  server: Server
+  close: () => Promise<void>
+}
+
+/**
+ * Starts the fake feed server on a free loopback port.
+ *
+ * @param scene Where the invented aircraft are.
+ * @returns The server, its two addresses and the requests it has seen.
+ */
+export async function startNetworkFeedServer(scene: FeedScene): Promise<NetworkFeedServer> {
+  const requests: FeedRequest[] = []
+  const server = createServer((req, res) => {
+    const path = req.url === '/ivao' ? '/ivao' : '/vatsim'
+    requests.push({ path, atMs: Date.now(), headers: req.headers })
+    res.writeHead(200, { 'Content-Type': 'application/json' })
+    res.end(path === '/ivao' ? ivaoBody(scene) : vatsimBody(scene))
+  })
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
+  const { port } = server.address() as AddressInfo
+  return {
+    vatsimUrl: `http://127.0.0.1:${port}/vatsim`,
+    ivaoUrl: `http://127.0.0.1:${port}/ivao`,
+    requests,
+    server,
+    close: () => new Promise<void>((resolve) => server.close(() => resolve()))
+  }
+}

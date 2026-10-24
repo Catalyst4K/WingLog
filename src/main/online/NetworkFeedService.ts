@@ -180,6 +180,8 @@ export class NetworkFeedService {
         else this.onFailure(network, error)
         this.tick()
       })
+      // Nothing above should throw; if it does, say so without any feed content in the message.
+      .catch(() => this.deps.log.warn('[online] handling a feed response failed'))
   }
 
   /**

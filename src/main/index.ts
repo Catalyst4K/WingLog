@@ -266,6 +266,24 @@ function startUpdates(db: WingLogDb, window: BrowserWindow, isFlightActive: () =
 }
 
 /**
+ * The online network's traffic (VATSIM or IVAO): off until a network is chosen and its switch turned on.
+ *
+ * @param deps The database, the live hub, the sim and tracking.
+ * @returns The traffic command table, for the second screen to send from.
+ */
+function startOnlineNetwork(
+  deps: Pick<Parameters<typeof registerOnlineHandlers>[1], 'db' | 'liveHub' | 'sim' | 'trackingController'>
+): ReturnType<typeof registerOnlineHandlers>['commands'] {
+  const online = registerOnlineHandlers(ipcMain, {
+    ...deps,
+    appVersion: app.getVersion(),
+    urls: resolveFeedUrls(app.isPackaged, process.env)
+  })
+  app.on('before-quit', () => online.stop())
+  return online.commands
+}
+
+/**
  * The second screen (a phone or tablet in a browser): off until the pilot turns it on in Settings.
  *
  * @param deps The database, the live hub, tracking, navdata and the add-on commands a second screen may send.
@@ -424,15 +442,7 @@ function startApp(): void {
   })
   app.on('before-quit', () => beyondAtc.stop())
 
-  const onlineNetwork = registerOnlineHandlers(ipcMain, {
-    db,
-    liveHub,
-    sim,
-    trackingController,
-    appVersion: app.getVersion(),
-    urls: resolveFeedUrls(app.isPackaged, process.env)
-  })
-  app.on('before-quit', () => onlineNetwork.stop())
+  const onlineNetwork = startOnlineNetwork({ db, liveHub, sim, trackingController })
 
   startSecondScreen({
     db,
@@ -440,7 +450,7 @@ function startApp(): void {
     trackingController,
     selection: flightServices.selection,
     navdata: navdataProvider,
-    addOnCommands: { ...beyondAtc.commands, ...gsxRemote.commands, ...onlineNetwork.commands }
+    addOnCommands: { ...beyondAtc.commands, ...gsxRemote.commands, ...onlineNetwork }
   })
 
   registerSyncHandlers(ipcMain, { cloudSync, enabled: __WINGLOG_CLOUD_SYNC_ENABLED__ })

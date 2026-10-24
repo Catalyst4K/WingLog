@@ -49,24 +49,23 @@ export function OnlineNetworkCard(): React.JSX.Element | null {
   if (!settings) return null
   const network = settings.network
 
-  async function save(next: OnlineNetworkSettings): Promise<void> {
+  const save = async (next: OnlineNetworkSettings): Promise<void> => {
     setSettings(next)
     await winglogApi().settingsSetOnlineNetwork(next)
   }
 
-  function choose(choice: NetworkChoice): void {
+  const choose = (choice: NetworkChoice): void => {
     const chosen = choice === 'none' ? null : choice
-    const stored = chosen === 'ivao' ? settings?.ivaoVid : settings?.vatsimCid
-    setMemberNumber(stored ?? '')
-    runAsync('OnlineNetworkCard settingsSetOnlineNetwork', save({ ...settings!, network: chosen }))
+    setMemberNumber((chosen === 'ivao' ? settings.ivaoVid : settings.vatsimCid) ?? '')
+    runAsync('OnlineNetworkCard settingsSetOnlineNetwork', save({ ...settings, network: chosen }))
   }
 
-  async function saveMemberNumber(): Promise<void> {
+  const saveMemberNumber = async (): Promise<void> => {
     if (!network) return
     const value = memberNumber === '' ? null : memberNumber
     const field = network === 'ivao' ? 'ivaoVid' : 'vatsimCid'
-    if (settings?.[field] === value) return
-    await save({ ...settings!, [field]: value })
+    if (settings[field] === value) return
+    await save({ ...settings, [field]: value })
   }
 
   return (
