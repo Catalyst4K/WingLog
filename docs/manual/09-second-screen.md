@@ -38,7 +38,8 @@ A bar along the bottom switches between four pages:
 - **Track**: the live map, following your aircraft. A banner shows the flight number, times, the
   time flown, the time remaining and your estimated arrival. Buttons switch the VFR overlay and the
   taxi chart on and off, and **Procedures** lets you choose departure and arrival procedures in two
-  tabs. Your choice is saved on the PC, just as if you'd made it there.
+  tabs. Your choice is saved on the PC, just as if you'd made it there. If the sim isn't connected to
+  WingLog on the PC, the page says so and shows no speed or altitude until it is.
 - **Dispatch**: the weather for your airports above your flight plan's figures (weights, fuel,
   step climbs and so on). It shows the flight being tracked, or your newest planned flight.
 - **Ground services**: the same GSX menu, gate, commands and services as on the PC. Needs **GSX
