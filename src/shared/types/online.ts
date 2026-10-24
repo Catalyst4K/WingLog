@@ -44,6 +44,20 @@ export interface NetworkTraffic {
   aircraft: TrafficAircraft[]
 }
 
+/** The onlineStatus live topic: whether the pilot's own flight is on the chosen network. */
+export interface OnlineStatus {
+  network: OnlineNetwork | null
+  /**
+   * 'unknown': not looked (no flight tracked, no network, or no answer from the feed yet). 'offline': the feed was read and the pilot is not
+   * in it. 'online': found by member number. 'probably': found by a filed plan matching the flight, near the aircraft, with no member number.
+   */
+  state: 'unknown' | 'offline' | 'online' | 'probably'
+  /** The callsign used on the network, when online or probably. */
+  callsign: string | null
+  /** The plan filed on the network, when online or probably and one is filed. */
+  filedPlan: { departure: string | null; arrival: string | null; aircraftIcao: string | null } | null
+}
+
 /** The `trafficLayers` live topic: the shared switches and what actually draws. Decided in main, in one function. */
 export interface TrafficLayers {
   networkOn: boolean

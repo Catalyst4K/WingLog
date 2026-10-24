@@ -72,7 +72,9 @@ function toFlight(row: typeof flight.$inferSelect): Flight {
     selectedStarTransition: row.selectedStarTransition,
     selectedApproachIdent: row.selectedApproachIdent,
     selectedApproachTransition: row.selectedApproachTransition,
-    selectedArrivalIcao: row.selectedArrivalIcao
+    selectedArrivalIcao: row.selectedArrivalIcao,
+    onlineNetwork: row.onlineNetwork,
+    onlineCallsign: row.onlineCallsign
   }
 }
 
@@ -861,6 +863,26 @@ export function getFlightUuidById(db: WingLogDb, id: number): string | null | un
 export function setParkedStand(db: WingLogDb, id: number, icao: string, stand: string): void {
   db.update(flight)
     .set({ parkedStandIcao: icao, parkedStand: stand, updatedAt: new Date().toISOString() })
+    .where(eq(flight.id, id))
+    .run()
+}
+
+/**
+ * Records that a flight was flown on an online network.
+ *
+ * @param db The database.
+ * @param id The flight.
+ * @param network The network.
+ * @param callsign The callsign used there.
+ */
+export function setFlightOnline(
+  db: WingLogDb,
+  id: number,
+  network: 'vatsim' | 'ivao',
+  callsign: string
+): void {
+  db.update(flight)
+    .set({ onlineNetwork: network, onlineCallsign: callsign, updatedAt: new Date().toISOString() })
     .where(eq(flight.id, id))
     .run()
 }

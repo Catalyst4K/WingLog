@@ -51,6 +51,10 @@ function makeFlight(overrides: Partial<Flight> = {}): Flight {
     selectedApproachIdent: null,
     selectedApproachTransition: null,
     selectedArrivalIcao: null,
+
+    onlineNetwork: null,
+
+    onlineCallsign: null,
     ...overrides
   } as Flight
 }

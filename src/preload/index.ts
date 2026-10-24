@@ -49,6 +49,7 @@ import type {
   NetworkTraffic,
   OnlineNetwork,
   OnlineNetworkSettings,
+  OnlineStatus,
   TrafficLayers
 } from '@shared/types/online'
 
@@ -165,6 +166,12 @@ const api: WingLogApi = {
     const handler = (_event: Electron.IpcRendererEvent, traffic: NetworkTraffic): void => listener(traffic)
     ipcRenderer.on(IpcChannels.networkTraffic, handler)
     return () => ipcRenderer.removeListener(IpcChannels.networkTraffic, handler)
+  },
+  getOnlineStatus: () => ipcRenderer.invoke(IpcChannels.onlineStatusGet),
+  onOnlineStatus: (listener: (status: OnlineStatus) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, status: OnlineStatus): void => listener(status)
+    ipcRenderer.on(IpcChannels.onlineStatus, handler)
+    return () => ipcRenderer.removeListener(IpcChannels.onlineStatus, handler)
   },
   getTrafficLayers: () => ipcRenderer.invoke(IpcChannels.trafficLayersGet),
   onTrafficLayers: (listener: (layers: TrafficLayers) => void) => {

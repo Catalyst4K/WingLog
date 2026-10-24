@@ -32,6 +32,8 @@ const NOT_QUERIES = {
     'networkTraffic',
     'networkTrafficGet',
     'trafficLayers',
+    'onlineStatus',
+    'onlineStatusGet',
     'trafficLayersGet',
     'storageStatus',
     'storageGetStatus',

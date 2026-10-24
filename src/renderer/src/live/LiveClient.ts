@@ -39,6 +39,7 @@ export const electronLiveClient: LiveClient = {
       plannedRoute: w.getPlannedRoute,
       networkTraffic: w.getNetworkTraffic,
       trafficLayers: w.getTrafficLayers,
+      onlineStatus: w.getOnlineStatus,
       procedureSelection: w.trackingGetProcedureSelection,
       storageStatus: w.getStorageStatus,
       gsxRemoteStatus: w.gsxRemoteGetStatus,
@@ -86,7 +87,8 @@ export const electronLiveClient: LiveClient = {
       beyondAtcArrival: w.onBeyondAtcArrival,
       plannedRoute: w.onPlannedRoute,
       networkTraffic: w.onNetworkTraffic,
-      trafficLayers: w.onTrafficLayers
+      trafficLayers: w.onTrafficLayers,
+      onlineStatus: w.onOnlineStatus
     }
     return subscribers[topic](listener)
   },

@@ -60,7 +60,13 @@ import type {
   GsxSettings
 } from './types/gsx'
 import type { PlannedRoute, TaxiRoute } from './live'
-import type { NetworkTraffic, OnlineNetwork, OnlineNetworkSettings, TrafficLayers } from './types/online'
+import type {
+  NetworkTraffic,
+  OnlineNetwork,
+  OnlineNetworkSettings,
+  OnlineStatus,
+  TrafficLayers
+} from './types/online'
 import type {
   AircraftLanding,
   LandingListRow,
@@ -277,6 +283,10 @@ export interface WingLogApi {
   getNetworkTraffic: () => Promise<NetworkTraffic>
   /** Pushed each time main has a new set of aircraft (or a new state). */
   onNetworkTraffic: (listener: (traffic: NetworkTraffic) => void) => () => void
+  /** Whether the pilot's own flight is on the chosen network. */
+  getOnlineStatus: () => Promise<OnlineStatus>
+  /** Pushed when that changes. */
+  onOnlineStatus: (listener: (status: OnlineStatus) => void) => () => void
   /** The shared traffic switches and which layers draw. */
   getTrafficLayers: () => Promise<TrafficLayers>
   /** Pushed when a switch or a setting changes which layers draw. */
