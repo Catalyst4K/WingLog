@@ -246,6 +246,8 @@ function buildWinglog(overrides: Partial<WingLogApi> = {}): WingLogApi {
     aircraftList: vi.fn().mockResolvedValue([]),
     flightList: vi.fn().mockResolvedValue([]),
     logbookGetFlight: vi.fn().mockResolvedValue(null),
+    settingsGetOnlineNetwork: vi.fn().mockResolvedValue({ network: null, vatsimCid: null, ivaoVid: null }),
+    onlinePrefileForFlight: vi.fn().mockResolvedValue(true),
     trackingGetActive: vi.fn().mockResolvedValue(null),
     trackPointList: vi.fn().mockResolvedValue([]),
     onTrackingPoint: vi.fn(() => () => {}),
@@ -374,6 +376,37 @@ describe('TrackView', () => {
       expect(screen.getByText('07:15Z')).toBeInTheDocument()
       expect(readout('ET')).toHaveTextContent('--:--:--')
       expect(readout('Remaining')).toHaveTextContent('--:--')
+    })
+
+    it('offers to file the tracked flight on the chosen network, by its id, and not for a flight with no OFP', async () => {
+      const onlinePrefileForFlight = vi.fn().mockResolvedValue(true)
+      setWinglog({
+        aircraftList: vi.fn().mockResolvedValue([]),
+        flightList: vi.fn().mockResolvedValue([makeFlight({ id: 5, status: 'active', ofpJson: '{}' })]),
+        trackingGetActive: vi.fn().mockResolvedValue({ flightId: 5, phase: 'taxi' }),
+        settingsGetOnlineNetwork: vi
+          .fn()
+          .mockResolvedValue({ network: 'vatsim', vatsimCid: null, ivaoVid: null }),
+        onlinePrefileForFlight
+      })
+      renderTrack({ telemetry: makeTelemetry({ onGround: true, groundSpeedMs: 8 }) })
+
+      await userEvent.click(await screen.findByRole('button', { name: 'File on VATSIM' }))
+
+      await waitFor(() => expect(onlinePrefileForFlight).toHaveBeenCalledWith(5, 'vatsim'))
+      expect(screen.queryByRole('button', { name: 'File on IVAO' })).not.toBeInTheDocument()
+    })
+
+    it('has no filing button for a free flight, which has no OFP', async () => {
+      setWinglog({
+        aircraftList: vi.fn().mockResolvedValue([]),
+        flightList: vi.fn().mockResolvedValue([makeFlight({ id: 5, status: 'active', ofpJson: null })]),
+        trackingGetActive: vi.fn().mockResolvedValue({ flightId: 5, phase: 'taxi' })
+      })
+      renderTrack({ telemetry: makeTelemetry({ onGround: true, groundSpeedMs: 8 }) })
+
+      await screen.findByText('Destination')
+      expect(screen.queryByRole('button', { name: /File on/ })).not.toBeInTheDocument()
     })
 
     it('in flight on a free flight: ET since takeoff, and an estimate along the great-circle route', async () => {

@@ -133,6 +133,8 @@ function createWinglog(overrides: Record<string, unknown> = {}): typeof window.w
     aircraftUpdate: vi.fn().mockImplementation((a) => Promise.resolve(a)),
     trackingGetActive: vi.fn().mockResolvedValue(null),
     dispatchOpenOfpPdf: vi.fn().mockResolvedValue(true),
+    settingsGetOnlineNetwork: vi.fn().mockResolvedValue({ network: null, vatsimCid: null, ivaoVid: null }),
+    onlinePrefileFromOfp: vi.fn().mockResolvedValue(true),
     flightCreate: vi.fn().mockResolvedValue(makeFlight()),
     weatherGetMetars: vi.fn().mockResolvedValue([]),
     airportSearch: vi.fn().mockResolvedValue([]),
@@ -734,6 +736,25 @@ describe('DispatchView', () => {
 
       await waitFor(() => expect(dispatchOpenOfpPdf).toHaveBeenCalledWith('{}'))
       expect(toast.error).not.toHaveBeenCalled()
+    })
+
+    it('offers to file the plan on a network, passing the OFP it holds and the network chosen', async () => {
+      const onlinePrefileFromOfp = vi.fn().mockResolvedValue(true)
+      window.winglog = createWinglog({
+        dispatchFetchOfp: vi.fn().mockResolvedValue(makeOfp()),
+        settingsGetOnlineNetwork: vi
+          .fn()
+          .mockResolvedValue({ network: null, vatsimCid: null, ivaoVid: null }),
+        onlinePrefileFromOfp
+      })
+      const user = userEvent.setup()
+      render(<Harness />)
+      await user.click(screen.getByRole('button', { name: 'Fetch latest OFP' }))
+      await screen.findByText('TA100: EGLL → EDDF (altn EDDL)')
+
+      await user.click(await screen.findByRole('button', { name: 'File on IVAO' }))
+
+      await waitFor(() => expect(onlinePrefileFromOfp).toHaveBeenCalledWith('{}', 'ivao'))
     })
 
     it('shows an error toast when no OFP PDF is available', async () => {

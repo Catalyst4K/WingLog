@@ -1004,5 +1004,9 @@
       "qrLabel": "QR-Code für die Adresse des zweiten Bildschirms",
       "qrHintPairing": "Mit dem Smartphone scannen, um die Seite zu öffnen und zu koppeln. Der Code ändert sich alle 5 Minuten."
     }
+  },
+  "online": {
+    "fileOn": "Bei {{network}} aufgeben",
+    "noPrefileLink": "Dieser Plan hat keinen {{network}}-Aufgabelink."
   }
 }

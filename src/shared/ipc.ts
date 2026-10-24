@@ -60,7 +60,7 @@ import type {
   GsxSettings
 } from './types/gsx'
 import type { PlannedRoute, TaxiRoute } from './live'
-import type { NetworkTraffic, OnlineNetworkSettings, TrafficLayers } from './types/online'
+import type { NetworkTraffic, OnlineNetwork, OnlineNetworkSettings, TrafficLayers } from './types/online'
 import type {
   AircraftLanding,
   LandingListRow,
@@ -281,6 +281,10 @@ export interface WingLogApi {
   getTrafficLayers: () => Promise<TrafficLayers>
   /** Pushed when a switch or a setting changes which layers draw. */
   onTrafficLayers: (listener: (layers: TrafficLayers) => void) => () => void
+  /** Opens the chosen network's filing page from the link SimBrief put in this OFP (Dispatch holds the OFP before a flight exists). False when the OFP has no valid link for that network. */
+  onlinePrefileFromOfp: (ofpJson: string, network: OnlineNetwork) => Promise<boolean>
+  /** The same, from a saved flight's stored OFP (Track and the Logbook). */
+  onlinePrefileForFlight: (flightId: number, network: OnlineNetwork) => Promise<boolean>
   /** Turns the network traffic layer on or off, for every screen (the switch is kept in main and remembered). */
   trafficSetNetworkOn: (on: boolean) => Promise<void>
   /** Manually re-runs the resume-cleanup pass for one already-completed flight — the

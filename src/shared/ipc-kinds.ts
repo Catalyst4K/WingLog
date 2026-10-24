@@ -112,7 +112,9 @@ const NOT_QUERIES = {
     'lanSetSettings',
     'lanStartPairing',
     'lanStopPairing',
-    'lanRevokeDevice'
+    'lanRevokeDevice',
+    'onlinePrefileFromOfp',
+    'onlinePrefileForFlight'
   ]
 } as const satisfies Record<Exclude<ChannelKind, 'query'>, readonly (keyof typeof IpcChannels)[]>
 

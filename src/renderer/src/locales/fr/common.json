@@ -1006,5 +1006,9 @@
       "qrLabel": "Code QR de l'adresse du deuxième écran",
       "qrHintPairing": "Scannez-le avec le téléphone pour ouvrir la page et associer. Le code change toutes les 5 minutes."
     }
+  },
+  "online": {
+    "fileOn": "Déposer sur {{network}}",
+    "noPrefileLink": "Ce plan n'a pas de lien de dépôt {{network}}."
   }
 }

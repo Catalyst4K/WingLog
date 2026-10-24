@@ -14,6 +14,8 @@ import { fromDatetimeLocalValue, toDatetimeLocalValue } from '../dispatch-time'
 import { formatEnrouteOnly } from '@shared/route'
 import { formatAltitude, formatWeight, mToFt } from '../units'
 import { asyncHandler } from '../report-error'
+import { winglogApi } from '../data/winglog-api'
+import { PrefileButtons } from '../online/PrefileButtons'
 import type { PlanForm } from './use-dispatch-state'
 
 function formatUtc(iso: string): string {
@@ -346,6 +348,7 @@ export function OfpCard(props: {
         </CardTitle>
         <CardAction className="flex items-center gap-2">
           {alreadyFlown && <Badge variant="secondary">{t('dispatchView.flying')}</Badge>}
+          <PrefileButtons file={(network) => winglogApi().onlinePrefileFromOfp(ofp.ofpJson, network)} />
           <Button
             type="button"
             variant="outline"
