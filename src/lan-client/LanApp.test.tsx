@@ -15,10 +15,11 @@ vi.mock('./selection-sync', async (original) => ({
 
 // The map itself needs WebGL (jsdom has none) and is covered by FlightMap.test.tsx and the second-screen acceptance test; here it only
 // records what the page hands it.
-const mapProps = vi.hoisted(() => ({ current: null as FlightMapProps | null }))
+const mapProps = vi.hoisted(() => ({ current: null as FlightMapProps | null, explode: false }))
 vi.mock('@/FlightMap', () => ({
   FlightMap: (props: FlightMapProps) => {
     mapProps.current = props
+    if (mapProps.explode) throw new Error('the map failed to draw')
     return <div data-testid="map" />
   }
 }))
@@ -411,6 +412,28 @@ describe('LanApp', () => {
     expect(screen.getByText('Connecting to WingLog…')).toBeInTheDocument()
   })
 
+  it('keeps the page bar, and the other pages, when the Track page fails to draw, and tells the PC', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    mapProps.explode = true
+    try {
+      const { link, sockets } = setup('tok')
+      render(<LanApp link={link} />)
+      act(() => {
+        sockets[0].onopen?.()
+        sockets[0].say({ t: 'snapshot', topics: {}, flight: null })
+      })
+      expect(screen.getByRole('alert')).toHaveTextContent('Something went wrong showing this.')
+      expect(screen.getByRole('navigation')).toBeInTheDocument()
+      // Another page still opens.
+      await userEvent.click(screen.getByRole('button', { name: 'Dispatch' }))
+      expect(
+        screen.getByText('No flight plan on the PC yet. Plan a flight in Dispatch on the PC.')
+      ).toBeInTheDocument()
+    } finally {
+      mapProps.explode = false
+    }
+  })
+
   it('says no flight is tracked when the PC has none, with the map behind it', () => {
     const { link, sockets } = setup('tok')
     render(<LanApp link={link} />)
@@ -472,6 +495,53 @@ describe('LanApp', () => {
 
     act(() => sockets[0].say({ t: 'topic', name: 'trackingPointsUpdated', payload: [point(2)] }))
     expect(mapProps.current?.trackPoints.map((p) => p.id)).toEqual([1, 2, 3])
+  })
+
+  it('says the sim is not connected, and gives the map no readings, while the PC has no sim: a phone that joins late is sent the last reading of one that has gone', () => {
+    const { link, sockets } = setup('tok')
+    render(<LanApp link={link} />)
+    const flight = {
+      flight: {
+        flightId: 7,
+        depIcao: 'WSSS',
+        arrIcao: 'EGLL',
+        flightNumber: 'SIA321',
+        schedInUtc: null,
+        registration: '9V-SKA',
+        icaoType: 'A388',
+        ofpJson: OFP
+      },
+      trackPoints: []
+    }
+    act(() => {
+      sockets[0].onopen?.()
+      sockets[0].say({
+        t: 'snapshot',
+        topics: {
+          simTelemetry: { latitude: 11, longitude: 20 },
+          simConnectionStatus: { state: 'disconnected' }
+        },
+        flight
+      })
+    })
+    expect(screen.getByText("The sim isn't connected to WingLog on the PC.")).toBeInTheDocument()
+    expect(mapProps.current?.telemetry).toBeNull()
+
+    // It comes back: the banner goes and the readings return.
+    act(() =>
+      sockets[0].say({
+        t: 'topic',
+        name: 'simConnectionStatus',
+        payload: { state: 'connected', simConnectVersion: 'test' }
+      })
+    )
+    expect(screen.queryByText("The sim isn't connected to WingLog on the PC.")).not.toBeInTheDocument()
+    expect(mapProps.current?.telemetry).toMatchObject({ latitude: 11 })
+
+    // And it goes again.
+    act(() => sockets[0].say({ t: 'topic', name: 'simConnectionStatus', payload: { state: 'connecting' } }))
+    expect(screen.getByText("The sim isn't connected to WingLog on the PC.")).toBeInTheDocument()
+    expect(mapProps.current?.telemetry).toBeNull()
   })
 
   it('draws the route the PC builds and pushes, follows each new one, and ignores one for another flight', () => {

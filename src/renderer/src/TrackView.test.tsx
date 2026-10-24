@@ -250,6 +250,8 @@ function buildWinglog(overrides: Partial<WingLogApi> = {}): WingLogApi {
     trackPointList: vi.fn().mockResolvedValue([]),
     onTrackingPoint: vi.fn(() => () => {}),
     onTrackingPointsUpdated: vi.fn(() => () => {}),
+    getPlannedRoute: vi.fn().mockResolvedValue(null),
+    onPlannedRoute: vi.fn(() => () => {}),
     trackingStart: vi.fn().mockResolvedValue(undefined),
     trackingStartFree: vi.fn().mockResolvedValue(1),
     trackingGetFreeFlightPrefill: vi.fn().mockResolvedValue({
@@ -1099,37 +1101,65 @@ describe('TrackView', () => {
     expect(winglog.flightCancel).not.toHaveBeenCalled()
   })
 
-  it('pushes the current procedure selection to the main process while a flight is active', async () => {
+  it('never pushes a procedure selection itself: the choice for a flight is held, saved and announced by the main process', async () => {
     const winglog = setWinglog({
       aircraftList: vi.fn().mockResolvedValue([AIRCRAFT]),
       flightList: vi.fn().mockResolvedValue([makeFlight({ status: 'active' })]),
       trackingGetActive: vi.fn().mockResolvedValue({ flightId: 1, phase: 'cruise' })
     })
-    const selection: ProcedureSelection = { ...emptyProcedureSelection(), sidIdent: 'DET2G' }
-    renderTrack({ selection })
+    renderTrack({ selection: { ...emptyProcedureSelection(), sidIdent: 'DET2G' } })
     await screen.findByText('cruise')
-    await waitFor(() => expect(winglog.trackingSetProcedureSelection).toHaveBeenCalledWith(selection))
-  })
-
-  it('does not push a procedure selection when nothing is being tracked', async () => {
-    const winglog = setWinglog({
-      aircraftList: vi.fn().mockResolvedValue([AIRCRAFT]),
-      flightList: vi.fn().mockResolvedValue([makeFlight()])
-    })
-    renderTrack()
-    await screen.findByText('Start tracking')
     expect(winglog.trackingSetProcedureSelection).not.toHaveBeenCalled()
   })
 
-  it('swallows a failure pushing the procedure selection rather than crashing', async () => {
+  // Flown 2026-10-22, EGLL to WMKK: Fly pressed before the sim was up, the app minimised, and only the phone used. The approach only
+  // appeared once the Procedures dialog was opened, an hour into the flight. The main process now suggests it for a flight that has been
+  // saved (src/main/procedures/ProcedureSelectionStore.test.ts), whichever page is open; this page leaves it to it.
+  it('leaves the suggested approach of a saved flight to the main process, whatever the sim and its navdata do', async () => {
+    let isSimUp = false
+    const winglog = setWinglog({
+      aircraftList: vi.fn().mockResolvedValue([AIRCRAFT]),
+      flightList: vi.fn().mockResolvedValue([makeFlight({ status: 'active', arrIcao: 'WMKK' })]),
+      trackingGetActive: vi.fn().mockResolvedValue({ flightId: 1, phase: 'cruise' }),
+      navdataListApproaches: vi.fn(() =>
+        Promise.resolve(isSimUp ? [{ identifier: 'ILS 14L', transition: null }] : [])
+      )
+    })
+    const onSelectionChange = vi.fn()
+    const { rerender } = render(
+      <TrackView
+        telemetry={null}
+        selection={emptyProcedureSelection()}
+        onSelectionChange={onSelectionChange}
+      />
+    )
+    await screen.findByText('cruise')
+    expect(screen.getByText('Nothing selected yet')).toBeInTheDocument()
+
+    isSimUp = true
+    rerender(
+      <TrackView
+        telemetry={makeTelemetry({ onGround: false })}
+        selection={emptyProcedureSelection()}
+        onSelectionChange={onSelectionChange}
+      />
+    )
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(onSelectionChange).not.toHaveBeenCalled()
+    expect(winglog.trackingSetProcedureSelection).not.toHaveBeenCalled()
+  })
+
+  it("still suggests an approach for a plan it previews before it is saved as a flight (Dispatch's fetched OFP)", async () => {
     setWinglog({
       aircraftList: vi.fn().mockResolvedValue([AIRCRAFT]),
-      flightList: vi.fn().mockResolvedValue([makeFlight({ status: 'active' })]),
-      trackingGetActive: vi.fn().mockResolvedValue({ flightId: 1, phase: 'cruise' }),
-      trackingSetProcedureSelection: vi.fn().mockRejectedValue(new Error('offline'))
+      flightList: vi.fn().mockResolvedValue([]),
+      navdataListApproaches: vi.fn().mockResolvedValue([{ identifier: 'ILS 14L', transition: null }])
     })
-    renderTrack()
-    expect(await screen.findByText('cruise')).toBeInTheDocument()
+    const onSelectionChange = vi.fn()
+    renderTrack({ previewOfp: makeDispatchOfp({ arrIcao: 'WMKK' }), onSelectionChange })
+    await waitFor(() =>
+      expect(onSelectionChange).toHaveBeenCalledWith(expect.objectContaining({ approachIdent: 'ILS 14L' }))
+    )
   })
 
   it('shows the "flight ended" dialog on an auto-detected shutdown and clears the active banner', async () => {

@@ -11,7 +11,6 @@ import { Tabs } from '@/components/ui/tabs'
 import { Toaster } from '@/components/ui/sonner'
 import { FleetView } from './FleetView'
 import { asyncHandler, runAsync } from './report-error'
-import { winglogApi } from './data/winglog-api'
 import { AppHeader } from './app/AppHeader'
 import { AtcClearanceDialog, ImportantGsxMenuDialog, OrphanedFlightDialog } from './app/AppDialogs'
 import {
@@ -26,6 +25,7 @@ import {
   type Navigation
 } from './app/use-app-state'
 import { lazyView } from './app/lazy-view'
+import { ErrorBoundary } from './ErrorBoundary'
 import { useDisplaySettings, type DisplaySettings } from './app/use-display-settings'
 
 // Fleet is the default/first tab, so it's the one view kept eager — every other tab is
@@ -218,13 +218,8 @@ export default function App(): React.JSX.Element {
   const plan = useFlightPlan()
   const nav = useNavigation(settings.gsxRemoteEnabled, settings.beyondAtcEnabled)
   const orphaned = useOrphanedFlight(plan, () => nav.setPage('track'))
-  // Accepting a clearance tells the PC's own copy of the choice at once, from whichever page is open: Track pushes it too, but only
-  // while it is showing, and the second screen reads the PC's copy.
-  const atcClearance = useAtcClearancePrompt(plan.procedureSelection, (action) => {
-    plan.setProcedureSelection(action)
-    const next = typeof action === 'function' ? action(plan.procedureSelection) : action
-    runAsync('App trackingSetProcedureSelection', winglogApi().trackingSetProcedureSelection(next))
-  })
+  // Accepting a clearance changes the choice like any other change: sent to the main process, which tells every screen.
+  const atcClearance = useAtcClearancePrompt(plan.procedureSelection, plan.setProcedureSelection)
   usePrefetchViews()
   const { setupOpen, setSetupOpen } = useFirstLaunchSetup()
   const gsxMenu = useImportantGsxMenu(nav.effectivePage === 'gsx')
@@ -254,13 +249,15 @@ export default function App(): React.JSX.Element {
             (flight-test-findings-2026-09-06.md #7 — confirmed live: the outer <main> was
             measurably taller than the viewport, not this div). */}
         <div className="min-h-0 flex-1 overflow-auto p-4 sm:p-8">
-          <CurrentPage
-            nav={nav}
-            settings={settings}
-            plan={plan}
-            telemetry={telemetry}
-            onRunSetup={() => setSetupOpen(true)}
-          />
+          <ErrorBoundary name={nav.effectivePage} resetKey={nav.effectivePage}>
+            <CurrentPage
+              nav={nav}
+              settings={settings}
+              plan={plan}
+              telemetry={telemetry}
+              onRunSetup={() => setSetupOpen(true)}
+            />
+          </ErrorBoundary>
         </div>
       </Tabs>
       <Toaster />

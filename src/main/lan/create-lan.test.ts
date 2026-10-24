@@ -27,10 +27,8 @@ async function freePort(): Promise<number> {
 
 const NAVDATA = {
   hasTaxiNetwork: (icao: string) => icao === 'WSSS',
-  refreshTaxiNetwork: () => Promise.resolve(),
   getTaxiNetwork: (icao: string) => [{ icao }] as never,
   getStands: (icao: string) => Promise.resolve([{ icao }] as never),
-  refreshAirport: () => Promise.resolve(),
   onAirportRefreshed: () => () => undefined,
   listRunways: (icao: string) => [{ ident: '02L', icao }] as never,
   listSids: (icao: string, runway: string | null) => [{ kind: 'sid', icao, runway }] as never,
@@ -45,11 +43,21 @@ const NAVDATA = {
   ) => [{ icao, kind, identifier, runway, transition }] as never
 }
 
-const TRACKING = Object.assign(new EventEmitter(), {
-  getActive: () => undefined,
-  getProcedureSelection: () => undefined,
-  setProcedureSelection: () => undefined
-}) as never
+const TRACKING = Object.assign(new EventEmitter(), { getActive: () => undefined }) as never
+
+/** The procedure selection store as the second screen sees it: the choice held, and a change (only) announced. */
+function fakeSelection(): EventEmitter & { current: () => unknown; set: (selection: unknown) => void } {
+  const emitter = new EventEmitter()
+  let current: unknown
+  return Object.assign(emitter, {
+    current: () => current,
+    set: (selection: unknown) => {
+      if (JSON.stringify(current) === JSON.stringify(selection)) return
+      current = selection
+      emitter.emit('changed', selection)
+    }
+  })
+}
 
 const LOCAL = {
   display: () => ({ weightUnit: 'kg', altitudeUnit: 'ft', windSpeedUnit: 'kt', mapLanguage: 'en' }),
@@ -88,7 +96,14 @@ describe('lanQueries', () => {
     expect(queries['taxi.has']('EGLL')).toBe(false)
     expect(queries['taxi.get']('WSSS')).toEqual([{ icao: 'WSSS' }])
     await expect(queries.stands('K1B2')).resolves.toEqual([{ icao: 'K1B2' }])
-    await expect(queries['taxi.refresh']('EGLL')).resolves.toBeUndefined()
+  })
+
+  it('never makes the PC fetch from the sim for a device: the refresh lookups answer at once and do nothing', () => {
+    // The provider here has no refresh methods at all, so a call that reached one would throw.
+    expect(queries['taxi.refresh']('EGLL')).toBeUndefined()
+    expect(queries['navdata.refreshAirport']('WSSS')).toBeUndefined()
+    expect(() => queries['taxi.refresh']('../x')).toThrow('Invalid airport')
+    expect(() => queries['navdata.refreshAirport'](5)).toThrow('Invalid airport')
   })
 
   it('lists the airfields', () => {
@@ -105,7 +120,6 @@ describe('lanQueries', () => {
     expect(queries['navdata.procedureWaypoints']('WSSS', 'star', 'TEBU1B', '20R', undefined)).toEqual([
       { icao: 'WSSS', kind: 'star', identifier: 'TEBU1B', runway: '20R', transition: null }
     ])
-    await expect(queries['navdata.refreshAirport']('WSSS')).resolves.toBeUndefined()
   })
 
   it('refuses a procedure query with a bad airport, kind, name or runway', () => {
@@ -151,6 +165,7 @@ describe('createLan', () => {
       db,
       liveHub: hub,
       trackingController: TRACKING,
+      selection: fakeSelection() as never,
       ...CREATE_DEPS,
       systemLocale: () => 'de-DE',
       pageFolder,
@@ -162,12 +177,8 @@ describe('createLan', () => {
   it('builds the route of the flight shown, and builds it again when the choice, the navdata or the flight changes', async () => {
     const { db, hub } = build()
     let refreshed: ((icao: string) => void) | undefined
-    const choice: { current: unknown } = { current: undefined }
-    const tracking = Object.assign(new EventEmitter(), {
-      getActive: () => undefined,
-      getProcedureSelection: () => choice.current,
-      setProcedureSelection: () => undefined
-    })
+    const tracking = Object.assign(new EventEmitter(), { getActive: () => undefined })
+    const selection = fakeSelection()
     const sent: { revision: number; selection: { sidIdent: string | null } }[] = []
     hub.subscribe((topic, payload) => {
       if (topic === 'plannedRoute' && payload) sent.push(payload as never)
@@ -179,6 +190,7 @@ describe('createLan', () => {
       db,
       liveHub: hub,
       trackingController: tracking as never,
+      selection: selection as never,
       ...CREATE_DEPS,
       navdata: {
         ...NAVDATA,
@@ -195,7 +207,7 @@ describe('createLan', () => {
     expect(hub.snapshot().plannedRoute).toMatchObject({ revision: 1 })
 
     // A choice made on any screen.
-    choice.current = {
+    selection.set({
       departureRunway: '27L',
       sidIdent: 'BPK7F',
       sidTransition: null,
@@ -204,8 +216,7 @@ describe('createLan', () => {
       approachIdent: null,
       approachTransition: null,
       arrivalIcao: null
-    }
-    tracking.emit('selectionChanged', choice.current)
+    })
     expect(sent.map((r) => r.revision)).toEqual([1, 2])
     expect(sent[1].selection.sidIdent).toBe('BPK7F')
 
@@ -219,24 +230,15 @@ describe('createLan', () => {
 
   it('answers a choice from a device with the route built for it, even when the PC already had that choice', async () => {
     const { db, hub } = build()
-    let current: unknown
-    const tracking = Object.assign(new EventEmitter(), {
-      getActive: () => undefined,
-      getProcedureSelection: () => current,
-      // As the real controller: only a change is announced.
-      setProcedureSelection: (selection: unknown) => {
-        if (JSON.stringify(current) === JSON.stringify(selection)) return
-        current = selection
-        tracking.emit('selectionChanged', selection)
-      }
-    })
+    const selection = fakeSelection()
     const aircraftId = createAircraft(db, { registration: '9V-SKA', icaoType: 'A388' }).id
     createFlight(db, { aircraftId, depIcao: 'EGLL', arrIcao: 'KJFK' })
     await lan?.stop()
     lan = createLan({
       db,
       liveHub: hub,
-      trackingController: tracking as never,
+      trackingController: TRACKING,
+      selection: selection as never,
       ...CREATE_DEPS,
       pageFolder: folders[0],
       testAddress: '127.0.0.1'

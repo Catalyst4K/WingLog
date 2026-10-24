@@ -12,8 +12,7 @@ import { SimFacilitiesProvider, type OpenSimConnect } from './sim-facilities-pro
 
 vi.mock('./sim-facilities-fetch', () => ({
   fetchAirportNavdata: vi.fn(),
-  fetchTaxiNetwork: vi.fn(),
-  fetchStands: vi.fn()
+  fetchTaxiNetwork: vi.fn()
 }))
 
 const FETCHED: FetchedAirportNavdata = {
@@ -124,10 +123,15 @@ describe('SimFacilitiesProvider', () => {
       lat: 22.3141453,
       lon: 113.9286249
     }
+    const withStands = (stands: (typeof N32)[]): FetchedTaxiNetwork => ({
+      icao: 'VHHH',
+      segments: [],
+      stands
+    })
 
-    it('fetches on first ask, caches, closes the connection, and serves the cache after', async () => {
-      const { fetchStands } = await import('./sim-facilities-fetch')
-      vi.mocked(fetchStands).mockResolvedValue([N32])
+    it('fetches on first ask, with the taxi network, caches, closes the connection, and serves the cache after', async () => {
+      const { fetchTaxiNetwork } = await import('./sim-facilities-fetch')
+      vi.mocked(fetchTaxiNetwork).mockResolvedValue(withStands([N32]))
       const provider = new SimFacilitiesProvider(db, openSimConnect)
 
       expect(await provider.getStands('VHHH')).toEqual([
@@ -146,12 +150,36 @@ describe('SimFacilitiesProvider', () => {
     })
 
     it('does not ask again this session for an airport with no stands', async () => {
-      const { fetchStands } = await import('./sim-facilities-fetch')
-      vi.mocked(fetchStands).mockResolvedValue([])
+      const { fetchTaxiNetwork } = await import('./sim-facilities-fetch')
+      vi.mocked(fetchTaxiNetwork).mockResolvedValue(withStands([]))
       const provider = new SimFacilitiesProvider(db, openSimConnect)
       await provider.getStands('EGKB')
       await provider.getStands('EGKB')
       expect(openSimConnect).toHaveBeenCalledTimes(1)
+    })
+
+    it('keeps the cached stands when a network refresh brings none, and replaces them when it brings some', async () => {
+      const { fetchTaxiNetwork } = await import('./sim-facilities-fetch')
+      const provider = new SimFacilitiesProvider(db, openSimConnect)
+      vi.mocked(fetchTaxiNetwork).mockResolvedValue(withStands([N32]))
+      await provider.refreshTaxiNetwork('VHHH')
+      vi.mocked(fetchTaxiNetwork).mockResolvedValue(withStands([]))
+      await provider.refreshTaxiNetwork('VHHH')
+      expect(await provider.getStands('VHHH')).toHaveLength(1)
+
+      vi.mocked(fetchTaxiNetwork).mockResolvedValue(withStands([{ ...N32, number: 33, name: 'N33' }]))
+      await provider.refreshTaxiNetwork('VHHH')
+      expect((await provider.getStands('VHHH')).map((s) => s.name)).toEqual(['N33'])
+    })
+
+    it('asks again for an airport that had no stands once a refresh brings some', async () => {
+      const { fetchTaxiNetwork } = await import('./sim-facilities-fetch')
+      const provider = new SimFacilitiesProvider(db, openSimConnect)
+      vi.mocked(fetchTaxiNetwork).mockResolvedValue(withStands([]))
+      expect(await provider.getStands('VHHH')).toEqual([])
+      vi.mocked(fetchTaxiNetwork).mockResolvedValue(withStands([N32]))
+      await provider.refreshTaxiNetwork('VHHH')
+      expect(await provider.getStands('VHHH')).toHaveLength(1)
     })
   })
 
@@ -166,10 +194,26 @@ describe('SimFacilitiesProvider', () => {
           endLon: 0.027,
           name: null,
           startHoldShort: false,
-          endHoldShort: false
+          endHoldShort: false,
+          pathType: 1,
+          widthM: 23,
+          weight: 0,
+          runwayNumber: null,
+          runwayDesignator: null
         }
-      ]
+      ],
+      stands: []
     }
+    // What the tracer is given: the position, name and hold-short flags, not the stored-only fields.
+    const TRACED = FETCHED_TAXI.segments.map((s) => ({
+      startLat: s.startLat,
+      startLon: s.startLon,
+      endLat: s.endLat,
+      endLon: s.endLon,
+      name: s.name,
+      startHoldShort: s.startHoldShort,
+      endHoldShort: s.endHoldShort
+    }))
 
     it('opens a connection, fetches, caches the result, and closes the connection', async () => {
       const { fetchTaxiNetwork } = await import('./sim-facilities-fetch')
@@ -195,6 +239,28 @@ describe('SimFacilitiesProvider', () => {
       expect(hasCachedTaxiNetwork(db, 'EGKB')).toBe(false)
     })
 
+    it('keeps the cached network when a refresh comes back with no segments', async () => {
+      const { fetchTaxiNetwork } = await import('./sim-facilities-fetch')
+      const provider = new SimFacilitiesProvider(db, openSimConnect)
+      vi.mocked(fetchTaxiNetwork).mockResolvedValue(FETCHED_TAXI)
+      await provider.refreshTaxiNetwork('EGKB')
+
+      vi.mocked(fetchTaxiNetwork).mockResolvedValue({ ...FETCHED_TAXI, segments: [] })
+      await provider.refreshTaxiNetwork('EGKB')
+
+      expect(provider.getTaxiNetwork('EGKB')).toEqual(TRACED)
+    })
+
+    it('stores nothing for an airport that has no taxi network and never had one', async () => {
+      const { fetchTaxiNetwork } = await import('./sim-facilities-fetch')
+      vi.mocked(fetchTaxiNetwork).mockResolvedValue({ ...FETCHED_TAXI, segments: [] })
+
+      const provider = new SimFacilitiesProvider(db, openSimConnect)
+      await provider.refreshTaxiNetwork('EGKB')
+
+      expect(provider.hasTaxiNetwork('EGKB')).toBe(false)
+    })
+
     it('reports no cached taxi network before any refresh', () => {
       const provider = new SimFacilitiesProvider(db, openSimConnect)
       expect(provider.hasTaxiNetwork('EGKB')).toBe(false)
@@ -209,7 +275,7 @@ describe('SimFacilitiesProvider', () => {
       await provider.refreshTaxiNetwork('EGKB')
 
       expect(provider.hasTaxiNetwork('EGKB')).toBe(true)
-      expect(provider.getTaxiNetwork('EGKB')).toEqual(FETCHED_TAXI.segments)
+      expect(provider.getTaxiNetwork('EGKB')).toEqual(TRACED)
     })
   })
 })

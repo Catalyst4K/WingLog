@@ -7,6 +7,7 @@ import i18n from './i18n'
 import { ProcedureSelector } from './ProcedureSelector'
 import { emptyProcedureSelection, type ProcedureAirports } from '@shared/procedure-selection'
 import type { Waypoint } from '@shared/route'
+import { useDefaultApproach } from './use-default-approach'
 
 function runway(ident: string): NavdataRunwayOption {
   return {
@@ -45,6 +46,9 @@ function withWinglog(overrides: Partial<WingLogApi> = {}): WingLogApi {
   return api
 }
 
+/** One empty route for every render, as a caller's memoized one would be. */
+const NO_WAYPOINTS: Waypoint[] = []
+
 function Harness(props: {
   airports: ProcedureAirports
   initialSelection?: ProcedureSelection
@@ -55,15 +59,17 @@ function Harness(props: {
   const [selection, setSelection] = useState<ProcedureSelection>(
     props.initialSelection ?? emptyProcedureSelection()
   )
+  const onSelectionChange = (next: ProcedureSelection): void => {
+    setSelection(next)
+    props.onSelectionChange?.(next)
+  }
+  // As Dispatch and Track use it: the view suggests the approach, the selector edits the choice.
+  useDefaultApproach(props.airports, selection, onSelectionChange, props.liveWaypoints ?? NO_WAYPOINTS)
   return (
     <ProcedureSelector
       airports={props.airports}
       selection={selection}
-      onSelectionChange={(next) => {
-        setSelection(next)
-        props.onSelectionChange?.(next)
-      }}
-      liveWaypoints={props.liveWaypoints ?? []}
+      onSelectionChange={onSelectionChange}
       compact={props.compact}
     />
   )

@@ -59,6 +59,7 @@ import type {
   GsxRescanResult,
   GsxSettings
 } from './types/gsx'
+import type { PlannedRoute, TaxiRoute } from './live'
 import type {
   AircraftLanding,
   LandingListRow,
@@ -262,6 +263,14 @@ export interface WingLogApi {
   onTrackingPointsUpdated: (listener: (points: TrackPoint[]) => void) => () => void
   /** Pushed when the procedures chosen for the tracked flight change, from this window or from a second screen, so every screen agrees. */
   onProcedureSelection: (listener: (selection: ProcedureSelection | null) => void) => () => void
+  /** The taxi line of ATC's latest clearance as the PC traced it, for a window that opens mid-taxi; null with no clearance. */
+  getTaxiRoute: () => Promise<TaxiRoute | null>
+  /** Pushed each time the taxi line or its clearance changes; every screen draws the same one. */
+  onTaxiRoute: (listener: (route: TaxiRoute | null) => void) => () => void
+  /** The planned route of the flight shown, as the main process built it from the flight's plan and the procedures chosen: the route every screen draws for a saved flight. Null with no flight shown. */
+  getPlannedRoute: () => Promise<PlannedRoute | null>
+  /** Pushed each time that route changes. */
+  onPlannedRoute: (listener: (route: PlannedRoute | null) => void) => () => void
   /** Manually re-runs the resume-cleanup pass for one already-completed flight — the
    *  Logbook detail page's "Clean up track" button, alongside the automatic live/
    *  completion-time pass TrackingController already runs on its own. Useful for a flight
@@ -450,12 +459,11 @@ export interface WingLogApi {
   navdataGetStands: (icao: string) => Promise<NavdataStand[]>
   /** Each fleet aircraft's last stand (stand-positions.md). */
   fleetListLastParked: () => Promise<AircraftLastParked[]>
-  /** Pushes the current live selection to the main process so it's available whenever the
-   *  active flight completes — manual finish *or* automatic shutdown detection, neither of
-   *  which round-trips through the renderer (TrackingController). Call on every change
-   *  while a flight is actively being tracked; a no-op call with nothing tracked is
-   *  harmless (TrackingController just caches it for the flight that starts next). */
+  /** Tells the main process the procedures chosen for the flight shown (a planned or tracked one), which holds them, saves them on the
+   *  flight and tells every screen. Ignored when no flight is shown; a plan not yet saved as a flight stays in the window. */
   trackingSetProcedureSelection: (selection: ProcedureSelection) => Promise<void>
+  /** The procedures chosen for the flight shown, or null with none: the choice a window should show, which main pushes only when it changes. */
+  trackingGetProcedureSelection: () => Promise<ProcedureSelection | null>
   /** Sets (or, with null/blank, clears) the destination of the free flight being tracked —
    *  the start dialog's Destination is optional, and this is how one is added afterwards. A
    *  plan, not a promise: the real touchdown still resolves the actual arrival. */

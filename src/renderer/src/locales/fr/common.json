@@ -945,6 +945,10 @@
       "body": "Tout cela se modifie dans les Paramètres. Pour revoir cette configuration, allez dans Paramètres → À propos → Relancer la configuration."
     }
   },
+  "errorBoundary": {
+    "message": "Un problème est survenu à l'affichage. Le reste de WingLog fonctionne toujours.",
+    "reload": "Recharger"
+  },
   "lanPage": {
     "connecting": "Connexion à WingLog…",
     "pairTitle": "Associer avec WingLog",
@@ -954,6 +958,7 @@
     "wrongCode": "Ce code n'a pas fonctionné. Vérifiez que le PC affiche un code, puis réessayez.",
     "offline": "Impossible de joindre le PC. Nouvelle tentative…",
     "noFlight": "Aucun vol n'est encore suivi sur le PC.",
+    "simGone": "Le simulateur n'est pas connecté à WingLog sur le PC.",
     "noPlan": "Aucun plan de vol sur le PC pour l'instant. Planifiez un vol dans Dispatch sur le PC."
   },
   "lan": {

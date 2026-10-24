@@ -7,13 +7,7 @@
  */
 import type { IpcMain } from 'electron'
 import { isRetired } from '@shared/aircraft'
-import {
-  IpcChannels,
-  type NewFlight,
-  type ProcedureSelection,
-  type SimTelemetry,
-  type StartFreeFlightInput
-} from '@shared/ipc'
+import { IpcChannels, type NewFlight, type SimTelemetry, type StartFreeFlightInput } from '@shared/ipc'
 import { t } from '../i18n'
 import type { WingLogDb } from '../db/client'
 import { getLiveAircraftById } from '../db/aircraft-repo'
@@ -43,6 +37,8 @@ export interface TrackingHandlerDeps {
   releaseReplay: () => void
   /** Pushes a change to the cloud copy, when signed in. */
   scheduleBackgroundSync: () => void
+  /** Called after a flight is planned, cancelled, deleted or linked to an aircraft: the flight a second screen shows may have changed. */
+  onFlightsChanged?: () => void
 }
 
 /**
@@ -134,9 +130,6 @@ export function registerTrackingHandlers(ipcMain: IpcMain, deps: TrackingHandler
     if (icao !== null && typeof icao !== 'string') throw new Error(t('errors.invalidDeparture'))
     trackingController.setDeparture(icao)
   })
-  ipcMain.handle(IpcChannels.trackingSetProcedureSelection, (_event, selection: ProcedureSelection) =>
-    trackingController.setProcedureSelection(selection)
-  )
 
   // The one flight left "in progress" (planned or already active) when the previous
   // process quit or crashed — its DB row (OFP, route, everything Dispatch/Track need)
@@ -169,7 +162,14 @@ export function registerTrackingHandlers(ipcMain: IpcMain, deps: TrackingHandler
  * @param deps The database, tracking, auto-start, the current telemetry and the background sync.
  */
 export function registerFlightHandlers(ipcMain: IpcMain, deps: TrackingHandlerDeps): void {
-  const { db, trackingController, autoStartDetector, getLastTelemetry, scheduleBackgroundSync } = deps
+  const {
+    db,
+    trackingController,
+    autoStartDetector,
+    getLastTelemetry,
+    scheduleBackgroundSync,
+    onFlightsChanged
+  } = deps
 
   // Only one flight is ever meant to be "in progress" (planned or active) at once —
   // pressing "Fly" on a new plan replaces whatever was already planned or being tracked,
@@ -184,12 +184,14 @@ export function registerFlightHandlers(ipcMain: IpcMain, deps: TrackingHandlerDe
     const flight = createFlight(db, input)
     autoStartDetector.arm(flight.id, getLastTelemetry(), flight.depIcao)
     scheduleBackgroundSync()
+    onFlightsChanged?.()
     return flight
   })
   ipcMain.handle(IpcChannels.flightCancel, (_event, id: number) => {
     abandonFlight(db, id)
     autoStartDetector.disarm()
     scheduleBackgroundSync()
+    onFlightsChanged?.()
   })
   ipcMain.handle(IpcChannels.flightDeleteLocationImpact, (_event, id: number) => {
     return getDeleteLocationImpact(db, id) ?? null
@@ -200,6 +202,7 @@ export function registerFlightHandlers(ipcMain: IpcMain, deps: TrackingHandlerDe
     if (trackingController.getActive()?.flightId === id) trackingController.stop()
     deleteFlight(db, id, revertLocation === true)
     scheduleBackgroundSync()
+    onFlightsChanged?.()
   })
   ipcMain.handle(IpcChannels.flightLinkAircraft, (_event, flightId: number, aircraftId: number) => {
     const existingFlight = getFlight(db, flightId)

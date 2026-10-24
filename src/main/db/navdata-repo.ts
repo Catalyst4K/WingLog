@@ -3,7 +3,7 @@
  * last fetched from the sim. Each kind is replaced wholesale per airport on every fetch, and every
  * lookup reads from here, never from the sim.
  */
-import { and, eq, inArray, isNotNull, isNull, min } from 'drizzle-orm'
+import { and, eq, inArray, isNotNull, isNull, min, or } from 'drizzle-orm'
 import type {
   NavdataLeg,
   NavdataProcedureOption,
@@ -22,7 +22,7 @@ import type {
   FetchedStand,
   FetchedTaxiNetwork
 } from '../navdata/sim-facilities-fetch'
-import type { ParsedLeg } from '../sim/facility-fields'
+import { TaxiPathType, type ParsedLeg } from '../sim/facility-fields'
 import type { WingLogDb } from './client'
 import {
   navdataProcedure,
@@ -544,6 +544,11 @@ export function replaceAirportTaxiSegments(
           name: segment.name,
           startHoldShort: segment.startHoldShort,
           endHoldShort: segment.endHoldShort,
+          pathType: segment.pathType,
+          widthM: segment.widthM,
+          weight: segment.weight,
+          runwayNumber: segment.runwayNumber,
+          runwayDesignator: segment.runwayDesignator,
           source: 'sim-facility',
           fetchedAt
         })
@@ -571,17 +576,21 @@ export function hasCachedTaxiNetwork(db: WingLogDb, icao: string): boolean {
 }
 
 /**
- * An airport's cached taxi network.
+ * An airport's cached taxi network: its drivable paths, TYPE 1 and 4. A row cached before the type was stored is one of those.
  *
  * @param db The database.
  * @param icao The airport.
  * @returns Its taxi segments, or none when it isn't cached.
  */
 export function listCachedTaxiSegments(db: WingLogDb, icao: string): NavdataTaxiSegment[] {
+  const drivable = or(
+    isNull(navdataTaxiSegment.pathType),
+    inArray(navdataTaxiSegment.pathType, [TaxiPathType.TAXI, TaxiPathType.PATH])
+  )
   return db
     .select()
     .from(navdataTaxiSegment)
-    .where(eq(navdataTaxiSegment.icao, icao))
+    .where(and(eq(navdataTaxiSegment.icao, icao), drivable))
     .all()
     .map((row) => ({
       startLat: row.startLat,

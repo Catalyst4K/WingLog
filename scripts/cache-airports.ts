@@ -21,7 +21,7 @@ import {
   replaceAirportStands,
   replaceAirportTaxiSegments
 } from '../src/main/db/navdata-repo'
-import { fetchStands, fetchTaxiNetwork } from '../src/main/navdata/sim-facilities-fetch'
+import { fetchTaxiNetwork } from '../src/main/navdata/sim-facilities-fetch'
 import Database from 'better-sqlite3'
 import { thisMachinesUserDataDirectory } from '../src/main/platform/this-machine'
 
@@ -78,7 +78,7 @@ async function main(): Promise<void> {
       for (let attempt = 1; attempt <= 2; attempt++) {
         try {
           const network = await fetchTaxiNetwork(handle, icao)
-          const stands = await fetchStands(handle, icao)
+          const stands = network.stands
           const now = new Date().toISOString()
           replaceAirportTaxiSegments(db, icao, network, now)
           replaceAirportStands(db, icao, stands, now)

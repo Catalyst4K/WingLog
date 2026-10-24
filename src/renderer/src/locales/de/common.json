@@ -943,6 +943,10 @@
       "body": "Alles hier lässt sich in den Einstellungen ändern. Diese Einrichtung findest du wieder unter Einstellungen → Über → Einrichtung erneut ausführen."
     }
   },
+  "errorBoundary": {
+    "message": "Beim Anzeigen ist etwas schiefgegangen. Der Rest von WingLog funktioniert weiter.",
+    "reload": "Neu laden"
+  },
   "lanPage": {
     "connecting": "Verbindung zu WingLog wird hergestellt…",
     "pairTitle": "Mit WingLog koppeln",
@@ -952,6 +956,7 @@
     "wrongCode": "Dieser Code hat nicht funktioniert. Prüfe, ob der PC einen Code anzeigt, und versuche es erneut.",
     "offline": "Der PC ist nicht erreichbar. Neuer Versuch…",
     "noFlight": "Auf dem PC wird noch kein Flug aufgezeichnet.",
+    "simGone": "Der Simulator ist nicht mit WingLog auf dem PC verbunden.",
     "noPlan": "Auf dem PC gibt es noch keinen Flugplan. Plane am PC einen Flug unter Dispatch."
   },
   "lan": {

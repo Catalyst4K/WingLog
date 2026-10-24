@@ -10,7 +10,6 @@
  */
 import type { LiveCommand } from '@shared/live'
 import type { ProcedureSelection } from '@shared/ipc'
-import type { TrackingController } from '../tracking/TrackingController'
 import type { BeyondAtcService } from '../beyondatc/BeyondAtcService'
 import type { GsxRemoteService } from '../gsx-remote/GsxRemoteService'
 import type { StepClimbController } from '../beyondatc/step-climb'
@@ -124,15 +123,14 @@ export function parseProcedureSelection(value: unknown): ProcedureSelection {
 /**
  * The tracking commands a second screen may send: choosing the SID, STAR and approach, which the flight is saved with.
  *
- * @param controller The tracking controller.
+ * @param selection Where a choice is sent: the flight shown's procedure selection.
  * @returns The table.
  */
-export function trackCommands(
-  controller: Pick<TrackingController, 'setProcedureSelection'>
-): CommandTable<TrackCommand> {
+export function trackCommands(selection: {
+  setProcedureSelection(selection: ProcedureSelection): void
+}): CommandTable<TrackCommand> {
   return {
-    'track.setProcedureSelection': (selection) =>
-      controller.setProcedureSelection(parseProcedureSelection(selection))
+    'track.setProcedureSelection': (value) => selection.setProcedureSelection(parseProcedureSelection(value))
   }
 }
 

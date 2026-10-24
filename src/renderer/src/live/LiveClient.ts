@@ -29,6 +29,9 @@ export const electronLiveClient: LiveClient = {
     const w = window.winglog
     const getters: Getters = {
       simConnectionStatus: w.getSimConnectionStatus,
+      taxiRoute: w.getTaxiRoute,
+      plannedRoute: w.getPlannedRoute,
+      procedureSelection: w.trackingGetProcedureSelection,
       storageStatus: w.getStorageStatus,
       gsxRemoteStatus: w.gsxRemoteGetStatus,
       gsxRemoteServices: w.gsxRemoteGetServices,
@@ -60,6 +63,7 @@ export const electronLiveClient: LiveClient = {
       trackingPoint: w.onTrackingPoint,
       trackingPointsUpdated: w.onTrackingPointsUpdated,
       procedureSelection: w.onProcedureSelection,
+      taxiRoute: w.onTaxiRoute,
       storageStatus: w.onStorageStatus,
       gsxRemoteStatus: w.onGsxRemoteStatus,
       gsxRemoteServices: w.onGsxRemoteServices,
@@ -72,8 +76,7 @@ export const electronLiveClient: LiveClient = {
       beyondAtcTranscript: w.onBeyondAtcTranscript,
       beyondAtcStepClimb: w.onBeyondAtcStepClimb,
       beyondAtcArrival: w.onBeyondAtcArrival,
-      // Built for the second screens (lan-sync.md); the window assembles its own route from IPC lookups and is never sent this.
-      plannedRoute: () => () => undefined
+      plannedRoute: w.onPlannedRoute
     }
     return subscribers[topic](listener)
   },

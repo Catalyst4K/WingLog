@@ -16,31 +16,25 @@ import type {
   NavdataTaxiSegment,
   TrackPoint
 } from '../../src/shared/ipc'
-import { findStand } from '../../src/shared/stands'
 import { flatDistanceM } from '../../src/shared/geo'
 import {
   boxTaxiClearance,
   startOf,
-  clearanceRunway,
-  clearanceRunwayThreshold,
+  clearanceEnds,
   clearanceRequest,
   traceClearance,
   type TaxiClearance
-} from '../../src/renderer/src/taxi-clearance'
-import { findTaxiPath } from '../../src/renderer/src/taxi-fallback'
-import {
-  remainingRoute,
-  traceTaxiRoute,
-  traceTaxiRouteFromFirstTaxiway,
-  type TaxiTraceRequest,
-  type TracedRoute
-} from '../../src/renderer/src/taxi-route-trace'
+} from '../../src/shared/taxi/clearance'
+import { findTaxiPath } from '../../src/shared/taxi/fallback'
+import { remainingRoute } from '../../src/shared/taxi/route-rejoin'
+import { traceTaxiRoute } from '../../src/shared/taxi/route-trace'
+import { type TaxiTraceRequest, type TracedRoute } from '../../src/shared/taxi/route-types'
 import {
   REROUTE_DISTANCE_M,
   REROUTE_MIN_SPEED_MS,
   startTracker,
   trackPosition
-} from '../../src/renderer/src/taxi-reroute'
+} from '../../src/shared/taxi/reroute'
 import type { LoggedInfoBoxes } from './local-data'
 
 /** How long before off-blocks or after on-blocks a clearance still belongs to a flight, in ms. */
@@ -251,15 +245,13 @@ export function runTaxi(
   runways: NavdataRunway[] = []
 ): TaxiRun {
   const clearance = clearanceFor(sc)
-  const stand = clearance?.stand ? findStand(stands, clearance.stand) : null
-  const threshold = clearance?.holdingPoint ? clearanceRunwayThreshold(clearance.taxiToRunway, runways) : null
-  const holdShortRunway = clearance?.holdingPoint
-    ? null
-    : clearanceRunway(clearance?.holdShortRunway, runways)
+  const { stand, threshold, holdShortRunway } = clearance
+    ? clearanceEnds(clearance, stands, runways)
+    : { stand: null, threshold: null, holdShortRunway: null }
   const cleared = clearance ? traceClearance(clearance, segments, stand, threshold, holdShortRunway) : null
   const request = clearance ? clearanceRequest(clearance, segments, stand, threshold, holdShortRunway) : null
   const pathfinder = request ? findTaxiPath(request) : null
-  const exact = request ? (traceTaxiRoute(request) ?? traceTaxiRouteFromFirstTaxiway(request)) : null
+  const exact = request ? traceTaxiRoute(request) : null
   if (!clearance || !cleared)
     return {
       cleared,
@@ -273,7 +265,7 @@ export function runTaxi(
       endToAircraftM: null
     }
 
-  let tracker = startTracker(cleared)
+  let tracker = startTracker(cleared, holdShortRunway)
   let drawn: TracedRoute = cleared
   const reroutes: Reroute[] = []
   let moving = 0

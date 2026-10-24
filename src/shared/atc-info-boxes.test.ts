@@ -118,6 +118,18 @@ describe('parseAtcTaxiFacts', () => {
     expect(parseAtcTaxiFacts([])).toMatchObject({ taxiVia: [] })
   })
 
+  it('reads a ramp as a gate: VHHH sends "Taxi to Ramp" / "Expect Ramp" with "Ramp W122" (flight 253)', () => {
+    expect(
+      parseAtcTaxiFacts([
+        { title: 'Taxi to Ramp', info: 'Ramp W122' },
+        { title: 'Taxi Via 1', info: 'C7' },
+        { title: 'Hold Short', info: '07C' }
+      ])
+    ).toMatchObject({ taxiToGate: 'W122', taxiVia: ['C7'], holdShort: '07C' })
+    expect(parseAtcTaxiFacts([{ title: 'Taxi to Gate', info: 'Ramp W122' }]).taxiToGate).toBe('W122')
+    expect(assignedGate(parseAtcTaxiFacts([{ title: 'Expect Ramp', info: 'Ramp W122' }]))).toBe('W122')
+  })
+
   it('returns null for a gate value it cannot read', () => {
     expect(parseAtcTaxiFacts([{ title: 'Taxi to Gate', info: 'Gate 102 or 103' }]).taxiToGate).toBeNull()
   })

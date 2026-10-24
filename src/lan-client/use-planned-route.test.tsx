@@ -97,9 +97,21 @@ describe('usePlannedWaypoints', () => {
       act(() => void vi.advanceTimersByTime(5000))
       act(() => t.pcSends(route(7, ['PC1'])))
       act(() => void vi.advanceTimersByTime(60_000))
-      expect(t.report).not.toHaveBeenCalled()
+      expect(t.report).not.toHaveBeenCalledWith('route-missing')
     } finally {
       vi.useRealTimers()
     }
+  })
+
+  it('tells the PC each route it takes, by revision, and none built for another flight', () => {
+    const t = fakeLink()
+    t.pcSends({ ...route(8, ['OTHER']), revision: 4 })
+    renderHook(() => usePlannedWaypoints(t.link, snapshot(7)))
+    expect(t.report).not.toHaveBeenCalledWith('route-applied', expect.anything())
+    act(() => t.pcSends({ ...route(7, ['PC1']), revision: 1 }))
+    expect(t.report).toHaveBeenCalledWith('route-applied', 'r1')
+    act(() => t.pcSends({ ...route(7, ['PC1', 'PC2']), revision: 2 }))
+    expect(t.report).toHaveBeenCalledWith('route-applied', 'r2')
+    expect(t.report.mock.calls.filter((c) => c[0] === 'route-applied')).toHaveLength(2)
   })
 })

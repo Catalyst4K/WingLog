@@ -11,6 +11,7 @@ import { deviceNameFrom } from './device-name'
 import { LanConnection } from './lan-connection'
 import { codeFromHash } from './pairing-link'
 import { installWindowShim } from './window-shim'
+import { RenderErrorContext } from '@/render-error'
 
 const TOKEN_KEY = 'winglog.lan.token'
 
@@ -49,6 +50,12 @@ const link = new LanConnection(
   deviceNameFrom(navigator.userAgent)
 )
 installWindowShim(link)
+// This page has no IPC to the log: a part of a page that failed to draw is told to the PC like any other script error.
+const reportRenderError = (name: string, error: unknown): void =>
+  link.report(
+    'script-error',
+    'Render error in ' + name + ': ' + (error instanceof Error ? error.message : String(error))
+  )
 link.start()
 // A scanned QR code carries the pairing code in the address: use it (once, and take it out of the address bar) when this device is not yet paired.
 const scannedCode = codeFromHash(location.hash)
@@ -65,6 +72,8 @@ window.addEventListener('pageshow', () => link.resume())
 
 createRoot(document.getElementById('root') as HTMLElement).render(
   <StrictMode>
-    <LanApp link={link} />
+    <RenderErrorContext.Provider value={reportRenderError}>
+      <LanApp link={link} />
+    </RenderErrorContext.Provider>
   </StrictMode>
 )

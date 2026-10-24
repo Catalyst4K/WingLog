@@ -5,7 +5,6 @@
  */
 import {
   FacilityDataType,
-  RawBuffer,
   type SimConnectConnection,
   type RecvException,
   type RecvFacilityData,
@@ -36,8 +35,11 @@ import {
   parseTaxiParking,
   standLabel,
   biasToLatLon,
+  TaxiPathType,
   type ParsedRunway,
-  type ParsedLeg
+  type ParsedLeg,
+  type ParsedTaxiParking,
+  type ParsedTaxiPath
 } from '../sim/facility-fields'
 import { createRunwayCollector } from '../sim/runway-collector'
 
@@ -396,83 +398,79 @@ export interface FetchedTaxiSegment {
   name: string | null
   startHoldShort: boolean
   endHoldShort: boolean
+  /** TAXI_PATH `TYPE` (`TaxiPathType`). */
+  pathType: number
+  widthM: number
+  weight: number
+  /** A runway path's runway; null on every other type. */
+  runwayNumber: number | null
+  runwayDesignator: number | null
+}
+
+/** One stand/gate, positioned — see facility-fields.ts's ParsedTaxiParking. */
+export interface FetchedStand {
+  /** As ATC says it: "N32", "79". */
+  name: string
+  nameCode: number
+  number: number
+  suffix: number
+  headingDeg: number
+  lat: number
+  lon: number
 }
 
 export interface FetchedTaxiNetwork {
   icao: string
   segments: FetchedTaxiSegment[]
+  stands: FetchedStand[]
 }
 
-/** A large airport's `TAXI_POINT` list alone can take minutes to stream (EGLL: 5,389 points,
- * ~170s, confirmed live winglog-backend's docs/navdata-notes.md) — this fetch
- *  needs a much longer timeout than `fetchAirportNavdata`'s 20s. 10 minutes covers the longest
- *  real session observed that night with headroom; a caller must treat this as a genuinely
- *  slow, explicit operation, never something fired silently in the background. */
-const TAXI_FETCH_TIMEOUT_MS = 600_000
+/** The whole network comes back in 0.1 to 1.4 s, VHHH's 6,005 paths in 0.7 s, as one request (docs/navdata-notes.md, 2026-10-21; the
+ *  minutes the 2026-09-27 entry saw were separate requests per child). */
+const TAXI_FETCH_TIMEOUT_MS = 30_000
 
-/** `TAXI_PATH.TYPE`'s numeric mapping is only partly confirmed (docs/navdata-notes.md,
- * `2` = Runway, confirmed; `1`/`4` are both plausible "Taxi"/"Path" drivable-
- *  network values, unconfirmed which is which) — both are fetched via separate filtered
- *  definitions and merged, rather than guessing one. */
-const TAXI_PATH_DEFINITIONS = [
-  { defId: NavdataDefId.TAXI_PATHS_TYPE_1, type: 1 },
-  { defId: NavdataDefId.TAXI_PATHS_TYPE_4, type: 4 }
-] as const
+/** The path types kept: the drivable network (type 1 at some sceneries, 4 at others) and the runways, for later rule work. Parking,
+ *  closed, vehicle and road paths are dropped (BeyondATC drives none of them). */
+const KEPT_PATH_TYPES = new Set<number>([TaxiPathType.TAXI, TaxiPathType.RUNWAY, TaxiPathType.PATH])
 
 /**
- * Registers the facility definition that asks the sim for an airport's taxi points, paths, parking
- * spots and names.
+ * Registers the one facility definition that asks the sim for an airport's whole taxi network: points, paths, names and stands.
  *
  * @param handle The SimConnect connection.
  */
-function buildTaxiDefinitions(handle: SimConnectConnection): void {
-  addAirportIcaoLatLonFields((name) => handle.addToFacilityDefinition(NavdataDefId.TAXI_POINTS, name))
-  handle.addToFacilityDefinition(NavdataDefId.TAXI_POINTS, 'N_TAXI_POINTS')
-  handle.addToFacilityDefinition(NavdataDefId.TAXI_POINTS, 'OPEN TAXI_POINT')
-  addTaxiPointFields((name) => handle.addToFacilityDefinition(NavdataDefId.TAXI_POINTS, name))
-  handle.addToFacilityDefinition(NavdataDefId.TAXI_POINTS, 'CLOSE TAXI_POINT')
-  handle.addToFacilityDefinition(NavdataDefId.TAXI_POINTS, 'CLOSE AIRPORT')
-
-  for (const { defId, type } of TAXI_PATH_DEFINITIONS) {
-    addAirportIcaoLatLonFields((name) => handle.addToFacilityDefinition(defId, name))
-    handle.addToFacilityDefinition(defId, 'N_TAXI_PATHS')
-    handle.addToFacilityDefinition(defId, 'OPEN TAXI_PATH')
-    addTaxiPathFields((name) => handle.addToFacilityDefinition(defId, name))
-    handle.addToFacilityDefinition(defId, 'CLOSE TAXI_PATH')
-    handle.addToFacilityDefinition(defId, 'CLOSE AIRPORT')
-    const filterValue = new RawBuffer(4)
-    filterValue.writeInt32(type)
-    handle.addFacilityDataDefinitionFilter(defId, 'AIRPORT:TAXI_PATH:TYPE', filterValue)
+function buildTaxiDefinition(handle: SimConnectConnection): void {
+  const add = (name: string): void => {
+    handle.addToFacilityDefinition(NavdataDefId.TAXI_NETWORK, name)
   }
-
-  addAirportIcaoLatLonFields((name) => handle.addToFacilityDefinition(NavdataDefId.TAXI_NAMES, name))
-  handle.addToFacilityDefinition(NavdataDefId.TAXI_NAMES, 'N_TAXI_NAMES')
-  handle.addToFacilityDefinition(NavdataDefId.TAXI_NAMES, 'OPEN TAXI_NAME')
-  addTaxiNameFields((name) => handle.addToFacilityDefinition(NavdataDefId.TAXI_NAMES, name))
-  handle.addToFacilityDefinition(NavdataDefId.TAXI_NAMES, 'CLOSE TAXI_NAME')
-  handle.addToFacilityDefinition(NavdataDefId.TAXI_NAMES, 'CLOSE AIRPORT')
+  addAirportIcaoLatLonFields(add)
+  add('OPEN TAXI_POINT')
+  addTaxiPointFields(add)
+  add('CLOSE TAXI_POINT')
+  add('OPEN TAXI_PATH')
+  addTaxiPathFields(add)
+  add('CLOSE TAXI_PATH')
+  add('OPEN TAXI_NAME')
+  addTaxiNameFields(add)
+  add('CLOSE TAXI_NAME')
+  add('OPEN TAXI_PARKING')
+  addTaxiParkingFields(add)
+  add('CLOSE TAXI_PARKING')
+  add('CLOSE AIRPORT')
 }
 
-/** Fetches an airport's full taxiway network (points, filtered paths, names) on an
- *  already-open connection — see `fetchAirportNavdata`'s own doc comment for why this never
- *  opens its own connection. Unlike that fetch, this one can genuinely take minutes for a
- *  large airport (see `TAXI_FETCH_TIMEOUT_MS`); callers must treat it as an explicit,
- *  user-triggered operation, never an automatic background refresh.
+/**
+ * Fetches an airport's whole taxi network, as the scenery installed now has it, in one request on an already-open connection (see
+ * `fetchAirportNavdata` for why it never opens its own).
  *
  * @param handle An open SimConnect connection the caller owns.
  * @param icao The airport.
- * @returns The taxi points, paths and names.
+ * @returns The taxi segments and the stands.
  * @throws When the sim reports an exception or the fetch times out.
  */
 export function fetchTaxiNetwork(handle: SimConnectConnection, icao: string): Promise<FetchedTaxiNetwork> {
-  buildTaxiDefinitions(handle)
+  buildTaxiDefinition(handle)
   return runFacilityFetch(handle, icao, {
-    defIds: [
-      NavdataDefId.TAXI_POINTS,
-      NavdataDefId.TAXI_PATHS_TYPE_1,
-      NavdataDefId.TAXI_PATHS_TYPE_4,
-      NavdataDefId.TAXI_NAMES
-    ],
+    defIds: [NavdataDefId.TAXI_NETWORK],
     timeoutMs: TAXI_FETCH_TIMEOUT_MS,
     what: 'taxi network',
     timeoutMessage: `Taxi network fetch for ${icao} timed out`,
@@ -487,15 +485,8 @@ interface RawTaxiPoint {
   biasZ: number
 }
 
-/** A taxi path as received: its two points' indices and its name's index. */
-interface RawTaxiPath {
-  start: number
-  end: number
-  nameIndex: number | null
-}
-
 /**
- * Collects an airport's taxi points, paths and names, keyed by the index SimConnect gives each.
+ * Collects an airport's taxi points, paths, names and stands, keyed by the index SimConnect gives each.
  *
  * @param icao The airport.
  * @returns The collector.
@@ -503,8 +494,9 @@ interface RawTaxiPath {
 function taxiNetworkCollector(icao: string): FacilityCollector<FetchedTaxiNetwork> {
   let reference: { lat: number; lon: number } | null = null
   const points = new Map<number, RawTaxiPoint>()
-  const paths: RawTaxiPath[] = []
+  const paths: ParsedTaxiPath[] = []
   const names = new Map<number, string>()
+  const parkings: ParsedTaxiParking[] = []
   return {
     onData: (recv) => {
       const d = recv.data
@@ -519,17 +511,24 @@ function taxiNetworkCollector(icao: string): FacilityCollector<FetchedTaxiNetwor
           break
         case FacilityDataType.TAXI_PATH: {
           const parsed = parseTaxiPath(d)
-          paths.push({ start: parsed.start, end: parsed.end, nameIndex: parsed.nameIndex })
+          if (KEPT_PATH_TYPES.has(parsed.type)) paths.push(parsed)
           break
         }
         case FacilityDataType.TAXI_NAME:
           names.set(recv.itemIndex, parseTaxiName(d).name)
           break
+        case FacilityDataType.TAXI_PARKING:
+          parkings.push(parseTaxiParking(d))
+          break
         default:
           break
       }
     },
-    result: () => ({ icao, segments: reference ? taxiSegments(reference, points, paths, names) : [] })
+    result: () => ({
+      icao,
+      segments: reference ? taxiSegments(reference, points, paths, names) : [],
+      stands: reference ? positionedStands(reference, parkings) : []
+    })
   }
 }
 
@@ -539,14 +538,14 @@ function taxiNetworkCollector(icao: string): FacilityCollector<FetchedTaxiNetwor
  *
  * @param reference The airport reference point the biases are measured from.
  * @param points The taxi points, by index.
- * @param paths The taxi paths.
+ * @param paths The taxi paths kept.
  * @param names The taxiway names, by index.
  * @returns The segments.
  */
 function taxiSegments(
   reference: { lat: number; lon: number },
   points: Map<number, RawTaxiPoint>,
-  paths: RawTaxiPath[],
+  paths: ParsedTaxiPath[],
   names: Map<number, string>
 ): FetchedTaxiSegment[] {
   const segments: FetchedTaxiSegment[] = []
@@ -563,82 +562,38 @@ function taxiSegments(
       endLon: end.longitude,
       name: path.nameIndex === null ? null : (names.get(path.nameIndex) ?? null),
       startHoldShort: startPoint.holdShort,
-      endHoldShort: endPoint.holdShort
+      endHoldShort: endPoint.holdShort,
+      pathType: path.type,
+      widthM: path.widthM,
+      weight: path.weight,
+      runwayNumber: path.runwayNumber,
+      runwayDesignator: path.runwayDesignator
     })
   }
   return segments
 }
 
-/** One stand/gate, positioned — see facility-fields.ts's ParsedTaxiParking. */
-export interface FetchedStand {
-  /** As ATC says it: "N32", "79". */
-  name: string
-  nameCode: number
-  number: number
-  suffix: number
-  headingDeg: number
-  lat: number
-  lon: number
-}
-
-/** Stands come back in seconds even at VHHH (359 of them, live) — unlike the
- *  taxi network, a fetch small enough to run on demand. */
-const STAND_FETCH_TIMEOUT_MS = 60_000
-
-/** Fetches an airport's stands/gates on an already-open connection. Its own definition, not
- *  part of fetchTaxiNetwork, so it never waits on (or invalidates) a minutes-long taxi fetch.
- *
- * @param handle An open SimConnect connection the caller owns.
- * @param icao The airport.
- * @returns The stands and gates.
- * @throws When the sim reports an exception or the fetch times out.
- */
-export function fetchStands(handle: SimConnectConnection, icao: string): Promise<FetchedStand[]> {
-  addAirportIcaoLatLonFields((name) => handle.addToFacilityDefinition(NavdataDefId.TAXI_PARKINGS, name))
-  handle.addToFacilityDefinition(NavdataDefId.TAXI_PARKINGS, 'N_TAXI_PARKINGS')
-  handle.addToFacilityDefinition(NavdataDefId.TAXI_PARKINGS, 'OPEN TAXI_PARKING')
-  addTaxiParkingFields((name) => handle.addToFacilityDefinition(NavdataDefId.TAXI_PARKINGS, name))
-  handle.addToFacilityDefinition(NavdataDefId.TAXI_PARKINGS, 'CLOSE TAXI_PARKING')
-  handle.addToFacilityDefinition(NavdataDefId.TAXI_PARKINGS, 'CLOSE AIRPORT')
-  return runFacilityFetch(handle, icao, {
-    defIds: [NavdataDefId.TAXI_PARKINGS],
-    timeoutMs: STAND_FETCH_TIMEOUT_MS,
-    what: 'stands',
-    timeoutMessage: `Stand fetch for ${icao} timed out`,
-    ...standsCollector()
-  })
-}
-
 /**
- * Collects stands, each positioned from the airport reference point and named the way ATC says
- * it. A stand that arrives before the reference point can't be positioned, so it's skipped.
+ * Positions each stand from the airport reference point and names it the way ATC says it.
  *
- * @returns The collector.
+ * @param reference The airport reference point the biases are measured from.
+ * @param parkings The stands as received.
+ * @returns The stands.
  */
-function standsCollector(): FacilityCollector<FetchedStand[]> {
-  let reference: { lat: number; lon: number } | null = null
-  const stands: FetchedStand[] = []
-  return {
-    onData: (recv) => {
-      if (recv.userRequestId !== NavdataDefId.TAXI_PARKINGS) return
-      if (recv.type === FacilityDataType.AIRPORT) {
-        const header = parseAirportHeaderWithLatLon(recv.data)
-        reference ??= { lat: header.latitude, lon: header.longitude }
-        return
-      }
-      if (recv.type !== FacilityDataType.TAXI_PARKING || !reference) return
-      const p = parseTaxiParking(recv.data)
-      const position = biasToLatLon(reference.lat, reference.lon, p.biasX, p.biasZ)
-      stands.push({
-        name: standLabel(p.nameCode, p.number),
-        nameCode: p.nameCode,
-        number: p.number,
-        suffix: p.suffix,
-        headingDeg: p.headingDeg,
-        lat: position.latitude,
-        lon: position.longitude
-      })
-    },
-    result: () => stands
-  }
+function positionedStands(
+  reference: { lat: number; lon: number },
+  parkings: ParsedTaxiParking[]
+): FetchedStand[] {
+  return parkings.map((p) => {
+    const position = biasToLatLon(reference.lat, reference.lon, p.biasX, p.biasZ)
+    return {
+      name: standLabel(p.nameCode, p.number),
+      nameCode: p.nameCode,
+      number: p.number,
+      suffix: p.suffix,
+      headingDeg: p.headingDeg,
+      lat: position.latitude,
+      lon: position.longitude
+    }
+  })
 }

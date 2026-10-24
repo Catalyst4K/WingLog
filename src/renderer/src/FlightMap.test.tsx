@@ -3,11 +3,12 @@ import { resetLazyValues } from '@shared/lazy'
 import { resetUiMemory } from './ui-memory'
 import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import type { FlightPhase, SimTelemetry, TrackPoint } from '@shared/ipc'
-import { EMPTY_BEYONDATC_STATE } from '@shared/beyondatc-state'
+import type { SimTelemetry, TrackPoint } from '@shared/ipc'
+import type { TaxiRoute } from '@shared/live'
 import type { Waypoint } from '@shared/route'
 import i18n from './i18n'
 import type { FlightMapProps } from './FlightMap'
+import { lineToDraw } from './use-taxi-route-highlight'
 
 /** The mocked maplibre-gl Map's real shape — deliberately not the real library's own `Map`
  *  type, which has none of the extra test surface (sources/layers/handlers,
@@ -1041,9 +1042,8 @@ describe('FlightMap', () => {
       const getTaxiNetwork = vi
         .fn()
         .mockImplementation((icao: string) => Promise.resolve(segmentsByIcao[icao] ?? []))
-      // use-taxi-route-highlight.ts subscribes once the chart is switched on — a no-op
-      // unsubscribe is enough for every test in this block that doesn't care about it
-      // (the "ATC-driven route highlight" block below overrides this to actually push).
+      // use-taxi-route-highlight.ts listens once the chart is switched on: the PC's route stays empty for every test in this block that
+      // does not care about it (the taxi route block below pushes one).
       const onBeyondAtcTranscript = vi.fn(() => () => {})
       ;(window as unknown as { winglog: unknown }).winglog = {
         navdataHasTaxiNetwork: hasTaxiNetwork,
@@ -1052,6 +1052,8 @@ describe('FlightMap', () => {
         beyondAtcGetTranscript: vi.fn().mockResolvedValue([]),
         navdataGetStands: vi.fn().mockResolvedValue([]),
         navdataListRunways: vi.fn().mockResolvedValue([]),
+        getTaxiRoute: vi.fn().mockResolvedValue(null),
+        onTaxiRoute: vi.fn(() => () => {}),
         onBeyondAtcState: vi.fn(() => () => {}),
         onBeyondAtcTranscript
       }
@@ -1144,6 +1146,8 @@ describe('FlightMap', () => {
         beyondAtcGetTranscript: vi.fn().mockResolvedValue([]),
         navdataGetStands: vi.fn().mockResolvedValue([]),
         navdataListRunways: vi.fn().mockResolvedValue([]),
+        getTaxiRoute: vi.fn().mockResolvedValue(null),
+        onTaxiRoute: vi.fn(() => () => {}),
         onBeyondAtcState: vi.fn(() => () => {}),
         onBeyondAtcTranscript: vi.fn(() => () => {})
       }
@@ -1194,6 +1198,8 @@ describe('FlightMap', () => {
         beyondAtcGetTranscript: vi.fn().mockResolvedValue([]),
         navdataGetStands: vi.fn().mockResolvedValue([]),
         navdataListRunways: vi.fn().mockResolvedValue([]),
+        getTaxiRoute: vi.fn().mockResolvedValue(null),
+        onTaxiRoute: vi.fn(() => () => {}),
         onBeyondAtcState: vi.fn(() => () => {}),
         onBeyondAtcTranscript: vi.fn(() => () => {})
       }
@@ -1208,685 +1214,165 @@ describe('FlightMap', () => {
     })
   })
 
-  describe('ATC-driven taxi route highlight (winglog-backend docs/plans/beyondatc-taxi-route-highlight.md)', () => {
-    const NAMED_SEGMENTS = [
-      { startLat: 51.338, startLon: 0.038, endLat: 51.324, endLon: 0.027, name: 'D' },
-      { startLat: 51.34, startLon: 0.04, endLat: 51.335, endLon: 0.036, name: 'B' },
-      { startLat: 51.336, startLon: 0.035, endLat: 51.33, endLon: 0.03, name: 'LINK' }
-    ]
+  describe('the taxi route the PC traces (winglog-backend docs/plans/taxi-and-second-screen-robustness.md, stage 3)', () => {
+    const ROUTE: TaxiRoute = {
+      flightId: 1,
+      icao: 'EGKB',
+      revision: 1,
+      kind: 'exact',
+      line: [
+        [0.03, 51.33],
+        [0.031, 51.331],
+        [0.032, 51.332]
+      ],
+      clearance: { taxiways: ['D', 'B'], holdingPoint: 'A1', stand: null, holdShortRunway: null }
+    }
 
-    type TranscriptEntry = { speaker: 'player' | 'atc' | 'traffic' | 'atcTraffic'; text: string; ts: number }
-
-    function withTranscriptListener(
-      segments: unknown[] = NAMED_SEGMENTS,
-      initialBoxes: { title: string; info: string }[] = [],
-      stands: unknown[] = []
-    ): {
-      push: (transcript: TranscriptEntry[]) => void
-      pushBoxes: (boxes: { title: string; info: string }[]) => void
+    /** The chart's own lookups, and the PC's taxi route: the line it already holds, and a way to push it another. */
+    function withTaxiRoute(held: TaxiRoute | null): {
+      push: (route: TaxiRoute | null) => void
+      get: ReturnType<typeof vi.fn>
+      subscribe: ReturnType<typeof vi.fn>
     } {
-      let listener: ((transcript: TranscriptEntry[]) => void) | undefined
-      let stateListener: ((state: { infoBoxes: { title: string; info: string }[] }) => void) | undefined
+      let listener: ((route: TaxiRoute | null) => void) | undefined
+      const get = vi.fn().mockResolvedValue(held)
+      const subscribe = vi.fn((l: (route: TaxiRoute | null) => void) => {
+        listener = l
+        return () => {}
+      })
       ;(window as unknown as { winglog: unknown }).winglog = {
         navdataHasTaxiNetwork: vi.fn().mockResolvedValue(true),
         navdataRefreshTaxiNetwork: vi.fn().mockResolvedValue(undefined),
-        navdataGetTaxiNetwork: vi.fn().mockResolvedValue(segments),
-        beyondAtcGetTranscript: vi.fn().mockResolvedValue([]),
-        beyondAtcGetState: vi
-          .fn()
-          .mockResolvedValue({ ...EMPTY_BEYONDATC_STATE, infoBoxes: initialBoxes, infoBoxesAt: 1 }),
-        navdataGetStands: vi.fn().mockResolvedValue(stands),
-        navdataListRunways: vi.fn().mockResolvedValue([]),
-        onBeyondAtcState: vi.fn((l: (state: { infoBoxes: { title: string; info: string }[] }) => void) => {
-          stateListener = l
-          return () => {}
-        }),
-        onBeyondAtcTranscript: vi.fn((l: (transcript: TranscriptEntry[]) => void) => {
-          listener = l
-          return () => {}
-        })
+        navdataGetTaxiNetwork: vi.fn().mockResolvedValue([]),
+        getTaxiRoute: get,
+        onTaxiRoute: subscribe
       }
-      return {
-        push: (transcript) => listener?.(transcript),
-        pushBoxes: (infoBoxes) => act(() => stateListener?.({ infoBoxes }))
-      }
+      return { push: (route) => act(() => listener?.(route)), get, subscribe }
     }
 
-    /** BeyondATC's InfoBoxes for a taxi clearance, in the real shape (VHHH). */
-    const taxiBoxes = (
-      via: string[],
-      end?: { title: string; info: string }
-    ): { title: string; info: string }[] => [
-      ...(end ? [end] : []),
-      ...via.map((info, i) => ({ title: `Taxi Via ${i + 1}`, info }))
-    ]
-
-    const HIGHLIGHT_LAYER_ID = 'taxi-chart-route-highlight'
     const toggleButton = (): HTMLElement => screen.getByRole('button', { name: /taxi chart/i })
+    const traceLine = (map: FakeMapInstance): unknown =>
+      (map.sources['taxi-route-trace']?.setData.mock.calls.at(-1)?.[0] as { geometry: unknown } | undefined)
+        ?.geometry
+    const visibility = (map: FakeMapInstance): unknown =>
+      map.setLayoutProperty.mock.calls.filter((c) => c[0] === 'taxi-route-trace-line').at(-1)?.[2]
 
-    it('highlights the real taxiway names from a live taxi clearance once the chart is on', async () => {
-      const { pushBoxes } = withTranscriptListener()
-      const user = userEvent.setup()
-      const { map } = await renderReady({ route: [], trackPoints: [], live: true, depIcao: 'EGKB' })
-      await user.click(toggleButton())
-      await waitFor(() => expect(map.sources['taxi-chart']?.setData).toHaveBeenCalled())
-
-      pushBoxes(taxiBoxes(['D', 'B', 'LINK'], { title: 'Hold Position', info: 'A1' }))
-
-      await waitFor(() =>
-        expect(map.setLayoutProperty).toHaveBeenCalledWith(HIGHLIGHT_LAYER_ID, 'visibility', 'visible')
-      )
-      expect(map.layers[HIGHLIGHT_LAYER_ID]?.filter).toEqual([
-        'all',
-        ['in', ['get', 'name'], ['literal', ['D', 'B', 'LINK']]],
-        ['==', ['get', 'icao'], 'EGKB']
-      ])
-    })
-
-    it("limits a clearance to its own airport — the departure's taxiway letters never light up at the arrival (real report, 2026-09-30)", async () => {
-      const { pushBoxes } = withTranscriptListener()
-      const user = userEvent.setup()
-      const { map } = await renderReady({
-        route: [],
-        trackPoints: [],
-        live: true,
-        depIcao: 'VHHH',
-        arrIcao: 'KPHX'
-      })
-      await user.click(toggleButton())
-      await waitFor(() => expect(map.sources['taxi-chart']?.setData).toHaveBeenCalled())
-
-      pushBoxes(taxiBoxes(['B8', 'B'], { title: 'Hold Position', info: 'B10' }))
-      await waitFor(() =>
-        expect(map.layers[HIGHLIGHT_LAYER_ID]?.filter).toEqual([
-          'all',
-          ['in', ['get', 'name'], ['literal', ['B8', 'B']]],
-          ['==', ['get', 'icao'], 'VHHH']
-        ])
-      )
-
-      pushBoxes(taxiBoxes(['B', 'C4'], { title: 'Taxi to Gate', info: 'Gate 12' }))
-      await waitFor(() =>
-        expect(map.layers[HIGHLIGHT_LAYER_ID]?.filter).toEqual([
-          'all',
-          ['in', ['get', 'name'], ['literal', ['B', 'C4']]],
-          ['==', ['get', 'icao'], 'KPHX']
-        ])
-      )
-    })
-
-    it('draws the traced route to the holding point instead of whole taxiways, when it can be traced', async () => {
-      // A small real-shaped network: stand -> D -> along B -> hold-short on A1. B carries on
-      // past the A1 turn, so a whole-name highlight would light up far more than the route.
-      const P = {
-        stand: [51.33, 0.03],
-        d: [51.331, 0.031],
-        b: [51.332, 0.032],
-        a1: [51.333, 0.033],
-        bFar: [51.34, 0.05],
-        hold: [51.3335, 0.0335]
-      } as const
-      const seg = (
-        a: readonly [number, number],
-        b: readonly [number, number],
-        name: string | null,
-        endHoldShort = false
-      ): unknown => ({
-        startLat: a[0],
-        startLon: a[1],
-        endLat: b[0],
-        endLon: b[1],
-        name,
-        startHoldShort: false,
-        endHoldShort
-      })
-      const { pushBoxes } = withTranscriptListener([
-        seg(P.stand, P.d, 'D'),
-        seg(P.d, P.b, 'D'),
-        seg(P.b, P.a1, 'B'),
-        seg(P.a1, P.bFar, 'B'),
-        seg(P.a1, P.hold, 'A1', true)
-      ])
-      const user = userEvent.setup()
+    async function chartOn(over: Partial<FlightMapProps> = {}): Promise<FakeMapInstance> {
       const { map } = await renderReady({
         route: [],
         trackPoints: [],
         live: true,
         depIcao: 'EGKB',
-        telemetry: { latitude: 51.33, longitude: 0.03 } as SimTelemetry
+        telemetry: { latitude: 51.33, longitude: 0.03 } as SimTelemetry,
+        ...over
       })
-      await user.click(toggleButton())
-      await waitFor(() => expect(map.sources['taxi-chart']?.setData).toHaveBeenCalled())
+      await userEvent.setup().click(toggleButton())
+      return map
+    }
 
-      pushBoxes(taxiBoxes(['D', 'B'], { title: 'Hold Position', info: 'A1' }))
+    it('draws the line the PC already holds as the chart goes on (a parked aircraft never pushes one)', async () => {
+      withTaxiRoute(ROUTE)
+      const map = await chartOn()
+      await waitFor(() => expect(visibility(map)).toBe('visible'))
+      expect(traceLine(map)).toEqual({ type: 'LineString', coordinates: ROUTE.line })
+    })
 
+    it('follows each new line the PC pushes as the aircraft taxis', async () => {
+      const { push } = withTaxiRoute(ROUTE)
+      const map = await chartOn()
+      await waitFor(() => expect(visibility(map)).toBe('visible'))
+      await push({ ...ROUTE, revision: 2, line: ROUTE.line.slice(1) })
       await waitFor(() =>
-        expect(map.setLayoutProperty).toHaveBeenCalledWith('taxi-route-trace-line', 'visibility', 'visible')
+        expect(traceLine(map)).toEqual({ type: 'LineString', coordinates: ROUTE.line.slice(1) })
       )
-      expect(map.sources['taxi-route-trace']?.setData).toHaveBeenLastCalledWith(
-        expect.objectContaining({
-          geometry: {
-            type: 'LineString',
-            coordinates: [
-              [0.03, 51.33],
-              [0.031, 51.331],
-              [0.032, 51.332],
-              [0.033, 51.333],
-              [0.0335, 51.3335]
-            ]
-          }
-        })
-      )
-      expect(map.setLayoutProperty).toHaveBeenLastCalledWith(HIGHLIGHT_LAYER_ID, 'visibility', 'none')
     })
 
-    describe('a traced route on the real network shape', () => {
-      const P = {
-        stand: [51.33, 0.03],
-        d: [51.331, 0.031],
-        b: [51.332, 0.032],
-        a1: [51.333, 0.033],
-        bFar: [51.34, 0.05],
-        hold: [51.3335, 0.0335]
-      } as const
-      const seg = (
-        a: readonly [number, number],
-        b: readonly [number, number],
-        name: string | null,
-        endHoldShort = false
-      ): unknown => ({
-        startLat: a[0],
-        startLon: a[1],
-        endLat: b[0],
-        endLon: b[1],
-        name,
-        startHoldShort: false,
-        endHoldShort
-      })
-      const NETWORK = [
-        seg(P.stand, P.d, 'D'),
-        seg(P.d, P.b, 'D'),
-        seg(P.b, P.a1, 'B'),
-        seg(P.a1, P.bFar, 'B'),
-        seg(P.a1, P.hold, 'A1', true)
-      ]
-      const CLEARANCE = taxiBoxes(['D', 'B'], { title: 'Hold Position', info: 'A1' })
-      const at = (lat: number, lon: number): SimTelemetry =>
-        ({ latitude: lat, longitude: lon }) as SimTelemetry
-      const lastLine = (map: FakeMapInstance): unknown =>
-        (
-          map.sources['taxi-route-trace']?.setData.mock.calls.at(-1)?.[0] as {
-            geometry: { coordinates: unknown }
-          }
-        ).geometry.coordinates
-
-      it('draws a stand clearance on to the stand itself once the stand is known (stand-positions.md)', async () => {
-        // Arriving at the hold end of A1 and cleared back to the stand via B, D.
-        const standPoint = { name: 'S1', number: 1, suffix: 0, headingDeg: 0, lat: 51.32995, lon: 0.02995 }
-        const { pushBoxes } = withTranscriptListener(NETWORK, [], [standPoint])
-        const user = userEvent.setup()
-        const { map, rerender } = await renderReady({
-          route: [],
-          trackPoints: [],
-          live: true,
-          arrIcao: 'EGKB',
-          telemetry: at(51.3335, 0.0335)
-        })
-        await user.click(toggleButton())
-        await waitFor(() => expect(map.sources['taxi-chart']?.setData).toHaveBeenCalled())
-        pushBoxes(taxiBoxes(['A1', 'B', 'D'], { title: 'Taxi to Gate', info: 'Gate S1' }))
-        await act(async () =>
-          rerender({
-            route: [],
-            trackPoints: [],
-            live: true,
-            arrIcao: 'EGKB',
-            telemetry: at(51.3335, 0.0335)
-          })
-        )
-
-        await waitFor(() => expect((lastLine(map) as [number, number][]).at(-1)).toEqual([0.02995, 51.32995]))
-      })
-
-      it('draws the first half of a split arrival clearance, "taxi via …, hold short of runway …" (VHHH, 2026-10-02)', async () => {
-        // Real bug: after landing, "taxi via C7, Y, F, hold short of runway 07C." drew nothing.
-        // Here: at the stand end, cleared via D, B, A1 to hold short; traced to A1's hold short,
-        // at the arrival airport.
-        // The route comes from the boxes; "hold short of runway" has no box, so from the speech.
-        const { push, pushBoxes } = withTranscriptListener(NETWORK, [])
-        const user = userEvent.setup()
-        const { map, rerender } = await renderReady({
-          route: [],
-          trackPoints: [],
-          live: true,
-          arrIcao: 'EGKB',
-          telemetry: at(51.33, 0.03)
-        })
-        await user.click(toggleButton())
-        await waitFor(() => expect(map.sources['taxi-chart']?.setData).toHaveBeenCalled())
-        pushBoxes(taxiBoxes(['D', 'B', 'A1']))
-        await act(async () =>
-          push([{ speaker: 'atc', text: 'Test 230, taxi via D, B, A1, hold short of runway 27R.', ts: 3000 }])
-        )
-        await act(async () =>
-          rerender({ route: [], trackPoints: [], live: true, arrIcao: 'EGKB', telemetry: at(51.33, 0.03) })
-        )
-
-        await waitFor(() =>
-          expect(map.setLayoutProperty).toHaveBeenCalledWith('taxi-route-trace-line', 'visibility', 'visible')
-        )
-        expect((lastLine(map) as [number, number][]).at(-1)).toEqual([0.0335, 51.3335])
-      })
-
-      it("draws a clearance given before Track was opened, without waiting for ATC's next line (YBBN, 2026-10-02)", async () => {
-        withTranscriptListener(NETWORK, CLEARANCE)
-        const user = userEvent.setup()
-        const { map } = await renderReady({
-          route: [],
-          trackPoints: [],
-          live: true,
-          depIcao: 'EGKB',
-          telemetry: at(51.33, 0.03)
-        })
-        await user.click(toggleButton())
-        await waitFor(() =>
-          expect(map.setLayoutProperty).toHaveBeenCalledWith('taxi-route-trace-line', 'visibility', 'visible')
-        )
-      })
-
-      it('traces a clearance read before the aircraft position was known, once it arrives (ZSPD, 2026-10-02)', async () => {
-        // Opening Track: the boxes come back before Track has the active flight, so the
-        // map has no position yet — then the position arrives.
-        withTranscriptListener(NETWORK, CLEARANCE)
-        const user = userEvent.setup()
-        const props = { route: [], trackPoints: [], live: true, depIcao: 'EGKB' }
-        const { map, rerender } = await renderReady({ ...props, telemetry: null })
-        await user.click(toggleButton())
-        await waitFor(() =>
-          expect(map.setLayoutProperty).toHaveBeenCalledWith(HIGHLIGHT_LAYER_ID, 'visibility', 'visible')
-        )
-        expect(map.setLayoutProperty).not.toHaveBeenCalledWith(
-          'taxi-route-trace-line',
-          'visibility',
-          'visible'
-        )
-
-        await act(async () => rerender({ ...props, telemetry: at(51.33, 0.03) }))
-        await waitFor(() =>
-          expect(map.setLayoutProperty).toHaveBeenCalledWith('taxi-route-trace-line', 'visibility', 'visible')
-        )
-        expect((lastLine(map) as [number, number][]).at(-1)).toEqual([0.0335, 51.3335])
-      })
-
-      it('starts the line at the aircraft and drops the part already taxied (2026-10-02)', async () => {
-        const { pushBoxes } = withTranscriptListener(NETWORK)
-        const user = userEvent.setup()
-        const props = { route: [], trackPoints: [], live: true, depIcao: 'EGKB' }
-        const { map, rerender } = await renderReady({ ...props, telemetry: at(51.33, 0.03) })
-        await user.click(toggleButton())
-        await waitFor(() => expect(map.sources['taxi-chart']?.setData).toHaveBeenCalled())
-        pushBoxes(CLEARANCE)
-        await waitFor(() =>
-          expect(map.setLayoutProperty).toHaveBeenCalledWith('taxi-route-trace-line', 'visibility', 'visible')
-        )
-
-        // Halfway along D, a little off the centreline.
-        await act(async () => rerender({ ...props, telemetry: at(51.33155, 0.03145) }))
-        const line = lastLine(map) as [number, number][]
-        expect(line[0]).toEqual([0.03145, 51.33155])
-        expect(line[1]![0]).toBeCloseTo(0.0315, 4)
-        expect(line.slice(2)).toEqual([
-          [0.032, 51.332],
-          [0.033, 51.333],
-          [0.0335, 51.3335]
-        ])
-      })
-
-      describe('re-routing when the aircraft leaves the line (taxi-reroute.md)', () => {
-        // A second way from the stand to A1: E runs east, then north to A1, ~150 m off D.
-        const E_CORNER = [51.33, 0.033] as const
-        const WITH_E = [...NETWORK, seg(P.stand, E_CORNER, 'E'), seg(E_CORNER, P.a1, 'E')]
-        const moving = (lat: number, lon: number, headingTrueDeg: number): SimTelemetry =>
-          ({ latitude: lat, longitude: lon, headingTrueDeg, groundSpeedMs: 5 }) as SimTelemetry
-
-        afterEach(() => {
-          vi.restoreAllMocks()
-        })
-
-        /** Cleared via D, B to A1 at the stand, then driven up E one sample a second. */
-        async function driveUpE(phase: FlightPhase): Promise<FakeMapInstance> {
-          let now = 1_000_000
-          vi.spyOn(Date, 'now').mockImplementation(() => now)
-          const { pushBoxes } = withTranscriptListener(WITH_E)
-          const user = userEvent.setup()
-          const props = { route: [], trackPoints: [], live: true, depIcao: 'EGKB', telemetryPhase: phase }
-          const { map, rerender } = await renderReady({ ...props, telemetry: moving(51.33, 0.03, 30) })
-          await user.click(toggleButton())
-          await waitFor(() => expect(map.sources['taxi-chart']?.setData).toHaveBeenCalled())
-          pushBoxes(CLEARANCE)
-          await waitFor(() =>
-            expect(map.setLayoutProperty).toHaveBeenCalledWith(
-              'taxi-route-trace-line',
-              'visibility',
-              'visible'
-            )
-          )
-
-          for (let k = 1; k <= 7; k++) {
-            now += 1000
-            await act(async () => rerender({ ...props, telemetry: moving(51.33 + 0.0001 * k, 0.033, 0) }))
-          }
-          return map
-        }
-
-        it('redraws the line from the aircraft, up E to rejoin at A1, to the same hold', async () => {
-          const map = await driveUpE('taxi')
-
-          // On up E to where it meets the cleared route at A1, then the cleared route to the
-          // hold: the shortest way there, not back to D.
-          expect(lastLine(map)).toEqual([
-            [0.033, 51.3307],
-            [0.033, 51.333],
-            [0.0335, 51.3335]
-          ])
-        })
-
-        it("doesn't re-route during pushback, when the aircraft moves tail first", async () => {
-          const map = await driveUpE('pushback')
-
-          const line = lastLine(map) as [number, number][]
-          expect(line).not.toContainEqual([E_CORNER[1], E_CORNER[0]])
-          expect(line.at(-1)).toEqual([0.0335, 51.3335])
-        })
-      })
+    it('draws a route for the arrival airport the map shows, too', async () => {
+      withTaxiRoute({ ...ROUTE, icao: 'VHHH' })
+      const map = await chartOn({ depIcao: 'EGKB', arrIcao: 'VHHH' })
+      await waitFor(() => expect(visibility(map)).toBe('visible'))
     })
 
-    it('does not subscribe to the boxes or transcript while the chart is off', async () => {
-      const { pushBoxes } = withTranscriptListener()
-      await renderReady({ route: [], trackPoints: [], live: true, depIcao: 'EGKB' })
-
-      // Nothing to assert on `pushBoxes` itself (no listener registered yet) — the real
-      // assertion is that mounting with the chart off never threw calling into BeyondATC,
-      // matching every other test in this file that never stubs it at all.
-      expect(() =>
-        pushBoxes(taxiBoxes(['D', 'B', 'LINK'], { title: 'Hold Position', info: 'A1' }))
-      ).not.toThrow()
+    it('never draws a route for an airport the map does not show (the departure line is not lit at the arrival)', async () => {
+      withTaxiRoute({ ...ROUTE, icao: 'EGLL' })
+      const map = await chartOn()
+      await waitFor(() => expect(map.sources['taxi-chart']?.setData).toHaveBeenCalled())
+      await new Promise((resolve) => setTimeout(resolve, 50))
+      expect(map.sources['taxi-route-trace']).toBeUndefined()
     })
 
-    it('ignores box sets with no taxi route', async () => {
-      const { pushBoxes } = withTranscriptListener()
-      const user = userEvent.setup()
+    it('draws nothing, and hides what was drawn, when the PC found no route', async () => {
+      const { push } = withTaxiRoute(ROUTE)
+      const map = await chartOn()
+      await waitFor(() => expect(visibility(map)).toBe('visible'))
+      await push({ ...ROUTE, revision: 2, kind: null, line: [] })
+      await waitFor(() => expect(visibility(map)).toBe('none'))
+    })
+
+    it('draws nothing, and hides what was drawn, when the PC has dropped the clearance', async () => {
+      const { push } = withTaxiRoute(ROUTE)
+      const map = await chartOn()
+      await waitFor(() => expect(visibility(map)).toBe('visible'))
+      await push(null)
+      await waitFor(() => expect(visibility(map)).toBe('none'))
+    })
+
+    it('draws nothing while the chart is off, and does not even listen: the line is pushed every second of a taxi', async () => {
+      const { get, subscribe } = withTaxiRoute(ROUTE)
       const { map } = await renderReady({ route: [], trackPoints: [], live: true, depIcao: 'EGKB' })
-      await user.click(toggleButton())
-      await waitFor(() => expect(map.sources['taxi-chart']?.setData).toHaveBeenCalled())
-      map.setLayoutProperty.mockClear()
-
-      pushBoxes([{ title: 'Ground Frequency', info: '121.7' }])
-
       await new Promise((resolve) => setTimeout(resolve, 50))
-      expect(map.setLayoutProperty).not.toHaveBeenCalledWith(HIGHLIGHT_LAYER_ID, 'visibility', 'visible')
+      expect(get).not.toHaveBeenCalled()
+      expect(subscribe).not.toHaveBeenCalled()
+      expect(map.sources['taxi-route-trace']).toBeUndefined()
     })
 
-    it("never draws a route from speech alone, ours or another aircraft's", async () => {
-      const { push } = withTranscriptListener()
-      const user = userEvent.setup()
-      const { map } = await renderReady({ route: [], trackPoints: [], live: true, depIcao: 'EGKB' })
-      await user.click(toggleButton())
-      await waitFor(() => expect(map.sources['taxi-chart']?.setData).toHaveBeenCalled())
-      map.setLayoutProperty.mockClear()
-
-      push([
-        { speaker: 'atc', text: 'Test 230, taxi to holding point A1, runway 27R, via D, B, LINK.', ts: 1000 },
-        {
-          speaker: 'atcTraffic',
-          text: 'Other 42, taxi to holding point A1, runway 27R, via D, B, LINK.',
-          ts: 2000
-        }
-      ])
-
-      await new Promise((resolve) => setTimeout(resolve, 50))
-      expect(map.setLayoutProperty).not.toHaveBeenCalledWith(HIGHLIGHT_LAYER_ID, 'visibility', 'visible')
+    it('hides the line when the chart is switched off again', async () => {
+      withTaxiRoute(ROUTE)
+      const map = await chartOn()
+      await waitFor(() => expect(visibility(map)).toBe('visible'))
+      await userEvent.setup().click(toggleButton())
+      await waitFor(() => expect(visibility(map)).toBe('none'))
     })
 
-    it("highlights a clearance through Heathrow's link taxiways (EGLL, flight 229, 2026-10-05)", async () => {
-      // "LINK 36" made the whole clearance unparseable: the chart showed, the route never did.
-      const { push, pushBoxes } = withTranscriptListener([
-        { startLat: 51.47, startLon: -0.45, endLat: 51.471, endLon: -0.451, name: 'E' },
-        { startLat: 51.471, startLon: -0.451, endLat: 51.472, endLon: -0.452, name: 'LINK 36' },
-        { startLat: 51.472, startLon: -0.452, endLat: 51.473, endLon: -0.453, name: 'F' }
-      ])
-      const user = userEvent.setup()
-      const { map } = await renderReady({
-        route: [],
-        trackPoints: [],
-        live: true,
-        depIcao: 'RKSI',
-        arrIcao: 'EGLL'
-      })
-      await user.click(toggleButton())
-      await waitFor(() => expect(map.sources['taxi-chart']?.setData).toHaveBeenCalled())
+    it('keeps what it has, and draws when a line comes, if the PC cannot answer yet', async () => {
+      const { push, get } = withTaxiRoute(null)
+      get.mockRejectedValue(new Error('not ready'))
+      const map = await chartOn()
+      await waitFor(() => expect(get).toHaveBeenCalled())
+      expect(map.sources['taxi-route-trace']).toBeUndefined()
+      await push(ROUTE)
+      await waitFor(() => expect(visibility(map)).toBe('visible'))
+    })
+  })
 
-      pushBoxes(taxiBoxes(['E', 'LINK 36', 'F', 'A', 'R']))
-      push([
-        {
-          speaker: 'atc',
-          text: 'Koreanair 443 Heavy, taxi via E, LINK 36, F, A, R, hold short of runway 27L.',
-          ts: 1000
-        }
-      ])
+  describe('lineToDraw', () => {
+    const route: TaxiRoute = {
+      flightId: 1,
+      icao: 'EGKB',
+      revision: 3,
+      kind: 'pathfinder',
+      line: [
+        [0, 51],
+        [0.001, 51.001]
+      ],
+      clearance: { taxiways: ['D'], holdingPoint: null, stand: 'N32', holdShortRunway: null }
+    }
 
-      await waitFor(() =>
-        expect(map.setLayoutProperty).toHaveBeenCalledWith(HIGHLIGHT_LAYER_ID, 'visibility', 'visible')
-      )
-      expect(map.layers[HIGHLIGHT_LAYER_ID]?.filter).toEqual([
-        'all',
-        ['in', ['get', 'name'], ['literal', ['E', 'LINK 36', 'F', 'A', 'R']]],
-        ['==', ['get', 'icao'], 'EGLL']
-      ])
+    it('gives the line for the departure or the arrival the map shows, from either way of making it', () => {
+      expect(lineToDraw(route, 'EGKB', null)).toEqual(route.line)
+      expect(lineToDraw(route, 'VHHH', 'EGKB')).toEqual(route.line)
+      expect(lineToDraw({ ...route, kind: 'exact' }, 'EGKB', undefined)).toEqual(route.line)
     })
 
-    describe("from BeyondATC's InfoBoxes (beyondatc-infoboxes-first.md)", () => {
-      const routeFilter = (map: FakeMapInstance): unknown => map.layers[HIGHLIGHT_LAYER_ID]?.filter
-
-      it('draws the route from the boxes alone, with nothing spoken', async () => {
-        const { pushBoxes } = withTranscriptListener()
-        const user = userEvent.setup()
-        const { map } = await renderReady({ route: [], trackPoints: [], live: true, depIcao: 'EGKB' })
-        await user.click(toggleButton())
-        await waitFor(() => expect(map.sources['taxi-chart']?.setData).toHaveBeenCalled())
-
-        pushBoxes([
-          { title: 'Taxi to Runway', info: '27R' },
-          ...taxiBoxes(['D', 'B', 'LINK'], { title: 'Hold Position', info: 'A1' })
-        ])
-
-        await waitFor(() =>
-          expect(map.setLayoutProperty).toHaveBeenCalledWith(HIGHLIGHT_LAYER_ID, 'visibility', 'visible')
-        )
-        expect(routeFilter(map)).toEqual([
-          'all',
-          ['in', ['get', 'name'], ['literal', ['D', 'B', 'LINK']]],
-          ['==', ['get', 'icao'], 'EGKB']
-        ])
-      })
-
-      it("treats a Taxi to Gate clearance as the arrival's, like a spoken stand", async () => {
-        const { pushBoxes } = withTranscriptListener()
-        const user = userEvent.setup()
-        const { map } = await renderReady({
-          route: [],
-          trackPoints: [],
-          live: true,
-          depIcao: 'EGKB',
-          arrIcao: 'EGLL'
-        })
-        await user.click(toggleButton())
-        await waitFor(() => expect(map.sources['taxi-chart']?.setData).toHaveBeenCalled())
-
-        pushBoxes(taxiBoxes(['B', 'D'], { title: 'Taxi to Gate', info: 'Gate 102' }))
-
-        await waitFor(() =>
-          expect(routeFilter(map)).toEqual([
-            'all',
-            ['in', ['get', 'name'], ['literal', ['B', 'D']]],
-            ['==', ['get', 'icao'], 'EGLL']
-          ])
-        )
-      })
-
-      it("doesn't take the same boxes again after the takeoff roll dropped the route", async () => {
-        const { pushBoxes } = withTranscriptListener()
-        const user = userEvent.setup()
-        const props: FlightMapProps = { route: [], trackPoints: [], live: true, depIcao: 'EGKB' }
-        const { map, rerender } = await renderReady({ ...props, telemetryPhase: 'taxi' })
-        await user.click(toggleButton())
-        await waitFor(() => expect(map.sources['taxi-chart']?.setData).toHaveBeenCalled())
-        const boxes = taxiBoxes(['D', 'B'], { title: 'Hold Position', info: 'A1' })
-        pushBoxes(boxes)
-        await waitFor(() =>
-          expect(map.setLayoutProperty).toHaveBeenCalledWith(HIGHLIGHT_LAYER_ID, 'visibility', 'visible')
-        )
-
-        // A fast taxi reads as the takeoff roll, then the phase drops back to taxi.
-        rerender({ ...props, telemetryPhase: 'takeoff' })
-        await waitFor(() =>
-          expect(map.setLayoutProperty).toHaveBeenCalledWith(HIGHLIGHT_LAYER_ID, 'visibility', 'none')
-        )
-        rerender({ ...props, telemetryPhase: 'taxi' })
-        map.setLayoutProperty.mockClear()
-        pushBoxes([...boxes])
-        await new Promise((resolve) => setTimeout(resolve, 50))
-
-        expect(map.setLayoutProperty).not.toHaveBeenCalledWith(HIGHLIGHT_LAYER_ID, 'visibility', 'visible')
-      })
+    it('gives nothing without a route, a line, or a line of at least two points', () => {
+      expect(lineToDraw(null, 'EGKB', null)).toBeNull()
+      expect(lineToDraw({ ...route, kind: null, line: [] }, 'EGKB', null)).toBeNull()
+      expect(lineToDraw({ ...route, line: [[0, 51]] }, 'EGKB', null)).toBeNull()
     })
 
-    it('hides the highlight layer when the chart is switched back off', async () => {
-      const { pushBoxes } = withTranscriptListener()
-      const user = userEvent.setup()
-      const { map } = await renderReady({ route: [], trackPoints: [], live: true, depIcao: 'EGKB' })
-      await user.click(toggleButton())
-      await waitFor(() => expect(map.sources['taxi-chart']?.setData).toHaveBeenCalled())
-      pushBoxes(taxiBoxes(['D', 'B', 'LINK'], { title: 'Hold Position', info: 'A1' }))
-      await waitFor(() =>
-        expect(map.setLayoutProperty).toHaveBeenCalledWith(HIGHLIGHT_LAYER_ID, 'visibility', 'visible')
-      )
-      map.setLayoutProperty.mockClear()
-
-      await user.click(toggleButton())
-
-      expect(map.setLayoutProperty).toHaveBeenCalledWith(HIGHLIGHT_LAYER_ID, 'visibility', 'none')
-    })
-
-    it('drops the departure route once the takeoff roll starts, instead of drawing it over the flown track (2026-10-05)', async () => {
-      const { pushBoxes } = withTranscriptListener()
-      const user = userEvent.setup()
-      const props: FlightMapProps = { route: [], trackPoints: [], live: true, depIcao: 'EGKB' }
-      const { map, rerender } = await renderReady({ ...props, telemetryPhase: 'taxi' })
-      await user.click(toggleButton())
-      await waitFor(() => expect(map.sources['taxi-chart']?.setData).toHaveBeenCalled())
-      pushBoxes(taxiBoxes(['D', 'B', 'LINK'], { title: 'Hold Position', info: 'A1' }))
-      await waitFor(() =>
-        expect(map.setLayoutProperty).toHaveBeenCalledWith(HIGHLIGHT_LAYER_ID, 'visibility', 'visible')
-      )
-      map.setLayoutProperty.mockClear()
-
-      rerender({ ...props, telemetryPhase: 'takeoff' })
-
-      await waitFor(() =>
-        expect(map.setLayoutProperty).toHaveBeenCalledWith(HIGHLIGHT_LAYER_ID, 'visibility', 'none')
-      )
-      expect(map.setLayoutProperty).not.toHaveBeenCalledWith(HIGHLIGHT_LAYER_ID, 'visibility', 'visible')
-    })
-
-    it("doesn't bring the departure route back after landing, but draws the arrival's own taxi clearance", async () => {
-      const { pushBoxes } = withTranscriptListener()
-      const user = userEvent.setup()
-      const props: FlightMapProps = {
-        route: [],
-        trackPoints: [],
-        live: true,
-        depIcao: 'EGKB',
-        arrIcao: 'EGLL'
-      }
-      const { map, rerender } = await renderReady({ ...props, telemetryPhase: 'taxi' })
-      await user.click(toggleButton())
-      await waitFor(() => expect(map.sources['taxi-chart']?.setData).toHaveBeenCalled())
-      pushBoxes(taxiBoxes(['D', 'B', 'LINK'], { title: 'Hold Position', info: 'A1' }))
-      await waitFor(() =>
-        expect(map.setLayoutProperty).toHaveBeenCalledWith(HIGHLIGHT_LAYER_ID, 'visibility', 'visible')
-      )
-      rerender({ ...props, telemetryPhase: 'cruise' })
-      map.setLayoutProperty.mockClear()
-
-      rerender({ ...props, telemetryPhase: 'landing' })
-      await new Promise((resolve) => setTimeout(resolve, 50))
-      expect(map.setLayoutProperty).not.toHaveBeenCalledWith(HIGHLIGHT_LAYER_ID, 'visibility', 'visible')
-
-      pushBoxes(taxiBoxes(['B', 'D'], { title: 'Taxi to Gate', info: 'Gate N32' }))
-      await waitFor(() =>
-        expect(map.setLayoutProperty).toHaveBeenCalledWith(HIGHLIGHT_LAYER_ID, 'visibility', 'visible')
-      )
-      expect(map.layers[HIGHLIGHT_LAYER_ID]?.filter).toEqual([
-        'all',
-        ['in', ['get', 'name'], ['literal', ['B', 'D']]],
-        ['==', ['get', 'icao'], 'EGLL']
-      ])
-    })
-
-    it('keeps a taxi clearance heard while the phase still reads airborne, and draws it once down', async () => {
-      const { pushBoxes } = withTranscriptListener()
-      const user = userEvent.setup()
-      const props: FlightMapProps = {
-        route: [],
-        trackPoints: [],
-        live: true,
-        depIcao: 'EGKB',
-        arrIcao: 'EGLL'
-      }
-      const { map, rerender } = await renderReady({ ...props, telemetryPhase: 'descent' })
-      await user.click(toggleButton())
-      await waitFor(() => expect(map.sources['taxi-chart']?.setData).toHaveBeenCalled())
-
-      pushBoxes(taxiBoxes(['B', 'D'], { title: 'Taxi to Gate', info: 'Gate N32' }))
-      await new Promise((resolve) => setTimeout(resolve, 50))
-      expect(map.setLayoutProperty).not.toHaveBeenCalledWith(HIGHLIGHT_LAYER_ID, 'visibility', 'visible')
-
-      rerender({ ...props, telemetryPhase: 'landing' })
-      await waitFor(() =>
-        expect(map.setLayoutProperty).toHaveBeenCalledWith(HIGHLIGHT_LAYER_ID, 'visibility', 'visible')
-      )
-    })
-
-    it('drops the departure route when Track was left at the holding point and reopened in cruise', async () => {
-      const { pushBoxes } = withTranscriptListener()
-      const user = userEvent.setup()
-      const props: FlightMapProps = {
-        route: [],
-        trackPoints: [],
-        live: true,
-        depIcao: 'EGKB',
-        arrIcao: 'EGLL'
-      }
-      const first = await renderReady({ ...props, telemetryPhase: 'taxi' })
-      await user.click(toggleButton())
-      await waitFor(() => expect(first.map.sources['taxi-chart']?.setData).toHaveBeenCalled())
-      pushBoxes(taxiBoxes(['D', 'B', 'LINK'], { title: 'Hold Position', info: 'A1' }))
-      await waitFor(() =>
-        expect(first.map.setLayoutProperty).toHaveBeenCalledWith(HIGHLIGHT_LAYER_ID, 'visibility', 'visible')
-      )
-      cleanup()
-
-      // Same module instance (no resetModules), so the remembered clearance carries over.
-      const { FlightMap, instances } = first
-      render(<FlightMap {...props} telemetryPhase="cruise" />)
-      await waitFor(() => expect(instances.length).toBe(2))
-      const map = instances[1]
-      await act(async () => {
-        map.fireStyleLoad()
-      })
-      await new Promise((resolve) => setTimeout(resolve, 50))
-      expect(map.setLayoutProperty).not.toHaveBeenCalledWith(HIGHLIGHT_LAYER_ID, 'visibility', 'visible')
+    it('gives nothing for an airport the map does not show, or when it shows none', () => {
+      expect(lineToDraw(route, 'VHHH', 'EGLL')).toBeNull()
+      expect(lineToDraw(route, null, undefined)).toBeNull()
     })
   })
 

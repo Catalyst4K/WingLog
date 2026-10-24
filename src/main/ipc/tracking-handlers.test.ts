@@ -39,7 +39,6 @@ function fakeTracking(): Record<string, ReturnType<typeof vi.fn>> {
     getActive: vi.fn(() => undefined),
     setDestination: vi.fn(),
     setDeparture: vi.fn(),
-    setProcedureSelection: vi.fn(),
     resume: vi.fn()
   }
 }
@@ -59,6 +58,7 @@ describe('tracking and flight IPC handlers', () => {
   const autoStartDetector = { arm: vi.fn(), disarm: vi.fn() }
   const releaseReplay = vi.fn()
   const sync = vi.fn()
+  const flightsChanged = vi.fn()
   const telemetry = { latitude: 51.47, longitude: -0.45 } as SimTelemetry
 
   /** Registers both areas against the current database, as at startup. */
@@ -80,7 +80,8 @@ describe('tracking and flight IPC handlers', () => {
       autoStartDetector,
       getLastTelemetry: () => telemetry,
       releaseReplay,
-      scheduleBackgroundSync: sync
+      scheduleBackgroundSync: sync,
+      onFlightsChanged: flightsChanged
     }
   })
 
@@ -131,15 +132,13 @@ describe('tracking and flight IPC handlers', () => {
     expect(prefill).toMatchObject({ suggestedDepIcao: 'EGLL', rememberedAircraftId: null })
   })
 
-  it('passes stop, finish, the active flight and the procedures to the controller', () => {
+  it('passes stop, finish and the active flight to the controller', () => {
     const invoke = register()
     invoke(IpcChannels.trackingStop)
     invoke(IpcChannels.trackingFinish)
     expect(invoke(IpcChannels.trackingGetActive)).toBeNull()
-    invoke(IpcChannels.trackingSetProcedureSelection, { sid: 'OCEAN2A' })
     expect(tracking.stop).toHaveBeenCalled()
     expect(tracking.finish).toHaveBeenCalled()
-    expect(tracking.setProcedureSelection).toHaveBeenCalledWith({ sid: 'OCEAN2A' })
   })
 
   it('takes a departure or destination ICAO, or null, and rejects anything else', () => {
@@ -216,6 +215,28 @@ describe('tracking and flight IPC handlers', () => {
     expect(tracking.stop).toHaveBeenCalledTimes(1)
     expect(getInProgressFlight(db)).toBeUndefined()
     expect(sync).toHaveBeenCalledTimes(3)
+  })
+
+  it('says the flight shown may have changed when one is planned, cancelled or deleted, once the new flight exists', () => {
+    const invoke = register()
+    const aircraft = createAircraft(db, { registration: 'B-HSL', icaoType: 'A320' })
+    // The new flight must be there by the time the listener looks for the flight shown.
+    let shownWhenAsked: number | undefined
+    flightsChanged.mockImplementation(() => (shownWhenAsked = getInProgressFlight(db)?.id))
+    const created = invoke(IpcChannels.flightCreate, {
+      aircraftId: aircraft.id,
+      depIcao: 'VHHH',
+      arrIcao: 'ZJSY'
+    }) as Flight
+    expect(flightsChanged).toHaveBeenCalledTimes(1)
+    expect(shownWhenAsked).toBe(created.id)
+
+    invoke(IpcChannels.flightCancel, created.id)
+    expect(flightsChanged).toHaveBeenCalledTimes(2)
+    expect(shownWhenAsked).toBeUndefined()
+
+    invoke(IpcChannels.flightDelete, created.id)
+    expect(flightsChanged).toHaveBeenCalledTimes(3)
   })
 
   it('reports and applies the aircraft location revert when its latest flight is deleted', () => {

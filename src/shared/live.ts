@@ -35,6 +35,30 @@ export interface PlannedRoute {
 }
 
 /**
+ * The taxi line of ATC's latest clearance, traced on the PC and drawn as it is by every screen (winglog-backend's
+ * docs/plans/taxi-and-second-screen-robustness.md, stage 3): the screens no longer trace it themselves.
+ */
+export interface TaxiRoute {
+  /** The flight shown when the clearance was taken, or null when none was. */
+  flightId: number | null
+  /** The airport the clearance is for ('' when it could not be told). A screen draws the line only for an airport it shows. */
+  icao: string
+  /** Goes up by one each time the line or the clearance changes. */
+  revision: number
+  /** How the line was made, or null when none could be found: nothing is drawn. */
+  kind: 'exact' | 'pathfinder' | null
+  /** From the aircraft to the end, [lon, lat]; empty when `kind` is null. It shortens as the aircraft taxis. */
+  line: [number, number][]
+  /** The clearance it is for. */
+  clearance: {
+    taxiways: string[]
+    holdingPoint: string | null
+    stand: string | null
+    holdShortRunway: string | null
+  }
+}
+
+/**
  * Every live stream the app pushes while flying, keyed by its IPC channel name
  * (winglog-backend's docs/plans/live-data-seam.md, part A). One map so the main
  * process's LiveHub, the renderer, and later a LAN client (v1.5) and a sim-PC host (v2.x)
@@ -50,6 +74,8 @@ export interface LiveTopics {
   procedureSelection: ProcedureSelection | null
   /** The planned route with that choice spliced in, from the PC, for the screens that don't build it themselves. */
   plannedRoute: PlannedRoute | null
+  /** The taxi line of the latest clearance, traced on the PC; null with no clearance, or once the flight has left the ground. */
+  taxiRoute: TaxiRoute | null
   /** The disk's free space and whether saving is failing, for the low-disk warning on every screen. */
   storageStatus: StorageStatus
   gsxRemoteStatus: GsxRemoteConnectionStatus

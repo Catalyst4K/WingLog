@@ -22,6 +22,7 @@ import {
   setLanSettings
 } from '../db/settings-repo'
 import type { LiveHub } from '../live/LiveHub'
+import type { ProcedureSelectionStore } from '../procedures/ProcedureSelectionStore'
 import type { TrackingController } from '../tracking/TrackingController'
 import { listAirfields } from '../airports/airfields'
 import type { SimFacilitiesProvider } from '../navdata/sim-facilities-provider'
@@ -40,18 +41,15 @@ import { staticFilesFrom } from './static-files'
 export interface CreateLanDeps {
   db: WingLogDb
   liveHub: Pick<LiveHub, 'subscribe' | 'snapshot' | 'publish'>
-  trackingController: Pick<
-    TrackingController,
-    'getActive' | 'getProcedureSelection' | 'setProcedureSelection' | 'on'
-  >
+  trackingController: Pick<TrackingController, 'getActive' | 'on'>
+  /** The procedure choice for the flight shown: the one every screen follows. */
+  selection: Pick<ProcedureSelectionStore, 'current' | 'set' | 'on'>
   /** The cached taxi charts, stands and procedures a device's map and Procedures dialog show. */
   navdata: Pick<
     SimFacilitiesProvider,
     | 'hasTaxiNetwork'
-    | 'refreshTaxiNetwork'
     | 'getTaxiNetwork'
     | 'getStands'
-    | 'refreshAirport'
     | 'listRunways'
     | 'listSids'
     | 'listStars'
@@ -131,10 +129,12 @@ export function lanQueries(
       return local.metars(codes)
     },
     'taxi.has': (icao) => navdata.hasTaxiNetwork(icaoArg(icao)),
-    'taxi.refresh': (icao) => navdata.refreshTaxiNetwork(icaoArg(icao)),
+    // The PC fetches the shown flight's navdata itself (FlightNavdataFetcher); a device never makes it open a sim connection. The
+    // lookups stay, answering at once, for pages that still ask.
+    'taxi.refresh': (icao) => void icaoArg(icao),
     'taxi.get': (icao) => navdata.getTaxiNetwork(icaoArg(icao)),
     stands: (icao) => navdata.getStands(icaoArg(icao)),
-    'navdata.refreshAirport': (icao) => navdata.refreshAirport(icaoArg(icao)),
+    'navdata.refreshAirport': (icao) => void icaoArg(icao),
     'navdata.listRunways': (icao) => navdata.listRunways(icaoArg(icao)),
     'navdata.listSids': (icao, runway) => navdata.listSids(icaoArg(icao), nameArg(runway)),
     'navdata.listStars': (icao, runway) => navdata.listStars(icaoArg(icao), nameArg(runway)),
@@ -159,6 +159,7 @@ export function createLan({
   db,
   liveHub,
   trackingController,
+  selection,
   navdata,
   addOnCommands,
   userAgent,
@@ -173,9 +174,10 @@ export function createLan({
     hub: liveHub,
     navdata,
     activeFlightId: () => trackingController.getActive()?.flightId,
-    chosenSelection: () => trackingController.getProcedureSelection()
+    chosenSelection: () => selection.current()
   })
-  for (const event of ['selectionChanged', 'started', 'stopped', 'completed'] as const)
+  selection.on('changed', () => route.refresh())
+  for (const event of ['started', 'stopped', 'completed'] as const)
     trackingController.on(event, () => route.refresh())
   navdata.onAirportRefreshed(() => route.refresh())
   route.refresh()
@@ -186,9 +188,9 @@ export function createLan({
     commands: {
       ...addOnCommands,
       ...trackCommands({
-        setProcedureSelection: (selection) => {
+        setProcedureSelection: (chosen) => {
           const before = route.publishedCount
-          trackingController.setProcedureSelection(selection)
+          selection.set(chosen, 'phone')
           // A choice the PC already had changes nothing and so builds no new route: answer it with the current one, which is how the
           // device learns it was heard.
           if (route.publishedCount === before) route.resend()
@@ -218,12 +220,7 @@ export function createLan({
     }),
     flightKey: () => lanFlightKey(db, trackingController.getActive()?.flightId),
     onFlightChanged: () => route.refresh(),
-    flight: () =>
-      lanFlightSnapshot(
-        db,
-        trackingController.getActive()?.flightId,
-        trackingController.getProcedureSelection()
-      ),
+    flight: () => lanFlightSnapshot(db, trackingController.getActive()?.flightId, selection.current()),
     staticFile: (path) => (files ??= staticFilesFrom(pageFolder))(path),
     now: () => Date.now()
   })

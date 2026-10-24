@@ -1,5 +1,5 @@
-import { createServer } from 'node:net'
-import { expect, test, type ElectronApplication, type Page } from '@playwright/test'
+import { expect, test } from '@playwright/test'
+import { freePort, openPhone } from './lan-device'
 import { launchApp } from './launch-app'
 
 /**
@@ -7,35 +7,6 @@ import { launchApp } from './launch-app'
  * comes back by itself when the PC serves again, a device the pilot revokes is sent back to the pairing screen, and a device that
  * was never paired is asked for a code. A hidden window of the app's Chromium stands in for the phone, over loopback.
  */
-
-function freePort(): Promise<number> {
-  return new Promise((resolve, reject) => {
-    const server = createServer()
-    server.once('error', reject)
-    server.listen(0, '127.0.0.1', () => {
-      const { port } = server.address() as { port: number }
-      server.close(() => resolve(port))
-    })
-  })
-}
-
-/**
- * Opens the page in a hidden window.
- *
- * @param app The app.
- * @param url The address, with a pairing code in it when the device should pair itself.
- * @returns The page.
- */
-async function openPhone(app: ElectronApplication, url: string): Promise<Page> {
-  const known = app.windows().length
-  await app.evaluate(async ({ BrowserWindow }, address) => {
-    const window = new BrowserWindow({ show: false, width: 390, height: 780, useContentSize: true })
-    await window.loadURL(address)
-  }, url)
-  await expect.poll(() => app.windows().length).toBeGreaterThan(known)
-  const origin = new URL(url).origin
-  return app.windows().find((w) => w.url().startsWith(origin))!
-}
 
 test.describe('Second screen: the phone page through changes on the PC', () => {
   test('says it cannot reach the PC when the second screen is switched off, and reconnects by itself when it is back on', async () => {

@@ -55,10 +55,17 @@ it. Nothing recorded before it closed is lost.
   off. It connects again by itself when WingLog is back.
 - A scanned QR code that does nothing has run out. Press **Pair a device** for a new one.
 
-## The taxi chart takes a long time
+## The taxi chart is empty
 
-The first time you open the taxi chart at an airport, WingLog reads the airport's taxiways from the
-sim, which can take a few minutes at a large airport. After that it's saved and opens straight away.
+WingLog reads the taxiways of your flight's airports (departure, arrival and alternate) from the sim as soon as the sim is running
+with a flight planned or being flown. It takes a second or two, and is done again for each flight, so the chart matches the scenery
+you have installed. If the chart is empty, check that the sim is running and WingLog shows it as connected; the taxiways appear a
+moment later.
+
+## Part of a page says "Something went wrong showing this"
+
+That part of the page couldn't be drawn. The rest of WingLog, and the flight being tracked, carry on as normal. Press **Reload** to
+try again, or move to another page and back. If it keeps happening, report it (see below).
 
 ## The low disk space warning
 

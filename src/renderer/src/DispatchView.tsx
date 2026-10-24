@@ -12,6 +12,7 @@ import { MetarPanel } from './MetarPanel'
 import { ProcedureSelector } from './ProcedureSelector'
 import { flightLabel } from './flight-label'
 import { useLiveWaypoints } from './procedure-selection'
+import { useDefaultApproach } from './use-default-approach'
 import { OfpCard, PlanFlightCard } from './dispatch/DispatchCards'
 import { flightFromOfp, planRequest, useDispatchLists, usePlanForm } from './dispatch/use-dispatch-state'
 
@@ -59,6 +60,15 @@ export function DispatchView(props: {
   // The live route with the current selection spliced in — single source of truth this and
   // Track's map both render from (docs/plans/navdata-without-navigraph.md, Phase 5).
   const liveWaypoints = useLiveWaypoints(ofp, props.selection)
+  // Only for a plan not yet saved as a flight: once it is, the main process suggests the approach for it.
+  useDefaultApproach(
+    ofp,
+    props.selection,
+    props.onSelectionChange,
+    liveWaypoints,
+    false,
+    ofp != null && ofp.ofpId !== props.dispatchedOfpId
+  )
   // Called after useLiveWaypoints, so the tab's loads start in the same order as before.
   const { aircraft, setAircraft, lastParked, fleetStats, pastFlights, generationAvailable } =
     useDispatchLists()
@@ -264,7 +274,6 @@ export function DispatchView(props: {
                   airports={ofp}
                   selection={props.selection}
                   onSelectionChange={props.onSelectionChange}
-                  liveWaypoints={liveWaypoints}
                 />
               </CardContent>
             </Card>

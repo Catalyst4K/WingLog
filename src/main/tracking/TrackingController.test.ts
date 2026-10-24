@@ -1167,127 +1167,6 @@ describe('TrackingController', () => {
     })
   })
 
-  // Phase 5 (docs/plans/navdata-without-navigraph.md) — the renderer pushes live selection
-  // updates that neither completion trigger below (finish() or shutdown detection) can ask
-  // for directly, since neither round-trips through the renderer.
-  describe('procedure selection persistence', () => {
-    const selection = {
-      departureRunway: '27R',
-      sidIdent: 'BPK7F',
-      sidTransition: 'CLEEE',
-      starIdent: 'SIER7B',
-      starTransition: null,
-      approachIdent: 'ILS 07C',
-      approachTransition: 'LIMES',
-      arrivalIcao: 'EGKK'
-    }
-
-    it('remembers the last-pushed selection and gives it back', () => {
-      const controller = new TrackingController(dbFlightStore(db), sim)
-      expect(controller.getProcedureSelection()).toBeUndefined()
-      controller.setProcedureSelection(selection)
-      expect(controller.getProcedureSelection()).toEqual(selection)
-    })
-
-    it('announces a change of selection, once, and nothing for the same selection pushed again', () => {
-      const controller = new TrackingController(dbFlightStore(db), sim)
-      const heard: unknown[] = []
-      controller.on('selectionChanged', (next) => heard.push(next))
-      controller.setProcedureSelection(selection)
-      controller.setProcedureSelection({ ...selection })
-      controller.setProcedureSelection({ ...selection, approachIdent: 'ILS 07L' })
-      expect(heard).toEqual([selection, { ...selection, approachIdent: 'ILS 07L' }])
-    })
-
-    it('writes the last-pushed selection into the flight row on finish()', () => {
-      sim.setLastTelemetry(telemetry({}))
-      const controller = new TrackingController(dbFlightStore(db), sim)
-      controller.start(flightId)
-      controller.setProcedureSelection(selection)
-      controller.finish()
-
-      const finished = getFlight(db, flightId)
-      expect(finished?.selectedDepartureRunway).toBe('27R')
-      expect(finished?.selectedSidIdent).toBe('BPK7F')
-      expect(finished?.selectedSidTransition).toBe('CLEEE')
-      expect(finished?.selectedStarIdent).toBe('SIER7B')
-      expect(finished?.selectedStarTransition).toBeNull()
-      expect(finished?.selectedArrivalIcao).toBe('EGKK')
-      expect(finished?.selectedApproachIdent).toBe('ILS 07C')
-      expect(finished?.selectedApproachTransition).toBe('LIMES')
-    })
-
-    it('writes the last-pushed selection at shutdown-detected completion too', () => {
-      sim.setLastTelemetry(telemetry({}))
-      const controller = new TrackingController(dbFlightStore(db), sim)
-      controller.start(flightId)
-      controller.setProcedureSelection(selection)
-
-      sim.emit('telemetry', telemetry({ engineCombustion1: true }))
-      sim.emit('telemetry', telemetry({ engineCombustion1: true, groundSpeedMs: 5 }))
-      sim.emit('telemetry', telemetry({ engineCombustion1: true, groundSpeedMs: 40 }))
-      sim.emit(
-        'telemetry',
-        telemetry({ engineCombustion1: true, onGround: false, groundSpeedMs: 90, verticalSpeedMs: 12 })
-      )
-      for (let i = 0; i < 32; i++) {
-        sim.emit(
-          'telemetry',
-          telemetry({ engineCombustion1: true, onGround: false, groundSpeedMs: 230, verticalSpeedMs: 0.1 })
-        )
-      }
-      for (let i = 0; i < 32; i++) {
-        sim.emit(
-          'telemetry',
-          telemetry({ engineCombustion1: true, onGround: false, groundSpeedMs: 200, verticalSpeedMs: -3 })
-        )
-      }
-      sim.emit(
-        'telemetry',
-        telemetry({ engineCombustion1: true, onGround: true, groundSpeedMs: 65, verticalSpeedMs: -1.5 })
-      )
-      sim.emit('telemetry', telemetry({ engineCombustion1: true, onGround: true, groundSpeedMs: 10 }))
-      sim.emit(
-        'telemetry',
-        telemetry({ engineCombustion1: false, onGround: true, groundSpeedMs: 0, parkingBrakeOn: true })
-      )
-
-      expect(getFlight(db, flightId)?.selectedApproachIdent).toBe('ILS 07C')
-    })
-
-    it('leaves whatever createFlight already wrote alone when nothing was ever pushed', () => {
-      const aircraftId = createAircraft(db, { registration: 'G-EFGH', icaoType: 'A320' }).id
-      const plannedFlightId = createFlight(db, {
-        aircraftId,
-        depIcao: 'EGLL',
-        arrIcao: 'VHHH',
-        selectedSidIdent: 'PLANNED_SID'
-      }).id
-      sim.setLastTelemetry(telemetry({}))
-      const controller = new TrackingController(dbFlightStore(db), sim)
-      controller.start(plannedFlightId)
-      controller.finish()
-
-      expect(getFlight(db, plannedFlightId)?.selectedSidIdent).toBe('PLANNED_SID')
-    })
-
-    it('never leaks a selection pushed for one flight onto the next one tracked', () => {
-      const aircraftId = createAircraft(db, { registration: 'G-EFGH', icaoType: 'A320' }).id
-      const secondFlightId = createFlight(db, { aircraftId, depIcao: 'EGLL', arrIcao: 'VHHH' }).id
-
-      sim.setLastTelemetry(telemetry({}))
-      const controller = new TrackingController(dbFlightStore(db), sim)
-      controller.start(flightId)
-      controller.setProcedureSelection(selection)
-      controller.stop()
-
-      controller.start(secondFlightId)
-      controller.finish()
-
-      expect(getFlight(db, secondFlightId)?.selectedApproachIdent).toBeNull()
-    })
-  })
-
   // winglog-backend's docs/plans/multiple-landings.md — touchdown detection moved off
   // the phase machine's descent -> landing edge (which has real holes for circuit flying)
   // onto the raw telemetry.onGround transition directly.
@@ -1419,6 +1298,26 @@ describe('TrackingController', () => {
       )
 
       expect(listLandingsByFlight(db, flightId)).toHaveLength(1)
+    })
+
+    it('does not count the sim loading the aircraft in at the gate as a landing', () => {
+      // Flight 253 at ZJSY, from its capture: parked, the sim reported off the ground for 16 s while loading, then again for
+      // a second when the aircraft was set back down; speed zero throughout. Both were logged as landings.
+      sim.setLastTelemetry(telemetry({}))
+      const controller = new TrackingController(dbFlightStore(db), sim)
+      controller.start(flightId)
+
+      const parked = { groundSpeedMs: 0, indicatedAirspeedMs: 0, verticalSpeedMs: 0, altitudeAglM: 3.18 }
+      sim.emit('telemetry', telemetry({ ...parked, onGround: true }))
+      for (let i = 0; i < 16; i++) sim.emit('telemetry', telemetry({ ...parked, onGround: false, gForce: 0 }))
+      sim.emit('telemetry', telemetry({ ...parked, onGround: true }))
+      for (let i = 0; i < 4; i++) {
+        sim.emit('telemetry', telemetry({ ...parked, onGround: false, groundSpeedMs: 0.004, gForce: 0.53 }))
+      }
+      sim.emit('telemetry', telemetry({ ...parked, onGround: true, altitudeAglM: 2.78 }))
+
+      expect(listLandingsByFlight(db, flightId)).toHaveLength(0)
+      expect(getFlight(db, flightId)?.actualOnUtc).toBeFalsy()
     })
 
     it("resolves each landing's own icao from touchdown position, not assumed to be the flight's filed arrival", () => {

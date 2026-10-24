@@ -58,6 +58,9 @@ Switch on the **taxi chart** on the Track map. When ATC gives you a taxi clearan
 route on the chart: from your aircraft, along the taxiways in the order cleared, to the holding point
 (or to your gate after landing). The line shortens behind you as you taxi.
 
+WingLog on the PC works the route out once, so the PC and a paired phone always show the same line. It's ready as soon as you
+switch the chart on, even if the chart was off (or the phone locked) when the clearance came.
+
 - **If you leave the route.** Taxi off the line, or the wrong way along it, and after a few seconds
   WingLog redraws it from where you are: the shortest way to the same holding point or gate, joining
   ATC's route wherever that's quickest. It never sends you back behind you unless you're at a dead

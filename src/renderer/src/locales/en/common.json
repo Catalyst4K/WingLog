@@ -943,6 +943,10 @@
       "body": "Everything here can be changed in Settings. To see this setup again, go to Settings → About → Run setup again."
     }
   },
+  "errorBoundary": {
+    "message": "Something went wrong showing this. The rest of WingLog is still working.",
+    "reload": "Reload"
+  },
   "lanPage": {
     "connecting": "Connecting to WingLog…",
     "pairTitle": "Pair with WingLog",
@@ -952,6 +956,7 @@
     "wrongCode": "That code didn't work. Check the PC is showing a code, then try again.",
     "offline": "Can't reach the PC. Trying again…",
     "noFlight": "No flight is being tracked on the PC yet.",
+    "simGone": "The sim isn't connected to WingLog on the PC.",
     "noPlan": "No flight plan on the PC yet. Plan a flight in Dispatch on the PC."
   },
   "lan": {

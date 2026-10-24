@@ -44,6 +44,7 @@ import {
   type WeightUnit,
   type WindSpeedUnit
 } from '@shared/ipc'
+import type { PlannedRoute, TaxiRoute } from '@shared/live'
 
 const api: WingLogApi = {
   aircraftList: () => ipcRenderer.invoke(IpcChannels.aircraftList),
@@ -141,6 +142,18 @@ const api: WingLogApi = {
     ipcRenderer.on(IpcChannels.procedureSelection, handler)
     return () => ipcRenderer.removeListener(IpcChannels.procedureSelection, handler)
   },
+  getTaxiRoute: () => ipcRenderer.invoke(IpcChannels.taxiRouteGet),
+  onTaxiRoute: (listener: (route: TaxiRoute | null) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, route: TaxiRoute | null): void => listener(route)
+    ipcRenderer.on(IpcChannels.taxiRoute, handler)
+    return () => ipcRenderer.removeListener(IpcChannels.taxiRoute, handler)
+  },
+  getPlannedRoute: () => ipcRenderer.invoke(IpcChannels.plannedRouteGet),
+  onPlannedRoute: (listener: (route: PlannedRoute | null) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, route: PlannedRoute | null): void => listener(route)
+    ipcRenderer.on(IpcChannels.plannedRoute, handler)
+    return () => ipcRenderer.removeListener(IpcChannels.plannedRoute, handler)
+  },
   logbookListCompletedFlights: () => ipcRenderer.invoke(IpcChannels.logbookListCompletedFlights),
   logbookGetFlight: (id: number) => ipcRenderer.invoke(IpcChannels.logbookGetFlight, id),
   logbookGetStats: () => ipcRenderer.invoke(IpcChannels.logbookGetStats),
@@ -221,6 +234,7 @@ const api: WingLogApi = {
   fleetListLastParked: () => ipcRenderer.invoke(IpcChannels.fleetListLastParked),
   trackingSetProcedureSelection: (selection: ProcedureSelection) =>
     ipcRenderer.invoke(IpcChannels.trackingSetProcedureSelection, selection),
+  trackingGetProcedureSelection: () => ipcRenderer.invoke(IpcChannels.trackingGetProcedureSelection),
   trackingSetDestination: (icao: string | null) =>
     ipcRenderer.invoke(IpcChannels.trackingSetDestination, icao),
   trackingSetDeparture: (icao: string | null) => ipcRenderer.invoke(IpcChannels.trackingSetDeparture, icao),

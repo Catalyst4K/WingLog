@@ -30,6 +30,9 @@ export default defineConfig({
     __WINGLOG_DEV_BUILD__: JSON.stringify(false)
   },
   test: {
+    // Under coverage the suite is slow enough that tests which take a few seconds idle can pass 5 s when another heavy file shares the machine
+    // (the taxi suite, scripts/sim/taxi-suite.test.ts): a timeout there says nothing about the code.
+    testTimeout: 15_000,
     projects: [
       {
         extends: true,
@@ -66,6 +69,8 @@ export default defineConfig({
         'src/main/updates/updater-engine.ts',
         // The real Tray and Menu; the logic around them is TrayController.ts.
         'src/main/window/electron-tray.ts',
+        // Names the trace worker's built file for new Worker(); the worker's logic is trace-worker.ts and worker-trace-runner.ts.
+        'src/main/taxi/create-trace-worker.ts',
         'src/preload/index.ts',
         'src/renderer/src/main.tsx',
         'src/lan-client/main.tsx',

@@ -93,6 +93,56 @@ export function networkLines(frame: Frame, segments: NavdataTaxiSegment[]): stri
     .join('')
 }
 
+/**
+ * Each named taxiway's name, once per connected piece of it with an end inside the frame, at the middle of that piece's longest
+ * segment: for reading a route off the map.
+ */
+export function networkLabels(
+  frame: Frame,
+  segments: NavdataTaxiSegment[],
+  fontSize = 11,
+  everySegment = false
+): string {
+  const { west, east, south, north } = frame.bounds
+  const inside = (lat: number, lon: number): boolean =>
+    lon >= west && lon <= east && lat >= south && lat <= north
+  const key = (lat: number, lon: number): string => `${lat.toFixed(7)},${lon.toFixed(7)}`
+  const shown = segments.filter(
+    (s) => s.name !== null && (inside(s.startLat, s.startLon) || inside(s.endLat, s.endLon))
+  )
+  // Union-find over shared endpoints, per name.
+  const parent = shown.map((_, i) => i)
+  const find = (i: number): number => {
+    while (parent[i] !== i) i = parent[i] = parent[parent[i]]
+    return i
+  }
+  const byEnd = new Map<string, number>()
+  shown.forEach((s, i) => {
+    if (everySegment) return
+    for (const end of [key(s.startLat, s.startLon), key(s.endLat, s.endLon)]) {
+      const k = `${s.name}|${end}`
+      const other = byEnd.get(k)
+      if (other === undefined) byEnd.set(k, i)
+      else parent[find(i)] = find(other)
+    }
+  })
+  const longest = new Map<number, { i: number; px: number }>()
+  shown.forEach((s, i) => {
+    const px = Math.hypot(frame.x(s.endLon) - frame.x(s.startLon), frame.y(s.endLat) - frame.y(s.startLat))
+    const root = find(i)
+    const best = longest.get(root)
+    if (!best || px > best.px) longest.set(root, { i, px })
+  })
+  return [...longest.values()]
+    .map(({ i }) => {
+      const s = shown[i]
+      const x = (frame.x(s.startLon) + frame.x(s.endLon)) / 2
+      const y = (frame.y(s.startLat) + frame.y(s.endLat)) / 2
+      return `<text x="${n(x)}" y="${n(y)}" fill="var(--fg)" fill-opacity="0.75" font-size="${fontSize}" text-anchor="middle" dominant-baseline="middle" paint-order="stroke" stroke="var(--map)" stroke-width="3">${escapeHtml(s.name ?? '')}</text>`
+    })
+    .join('')
+}
+
 /** A line through points. `attrs` are extra SVG attributes (stroke, width, dashes). */
 export function polyline(frame: Frame, points: LonLat[], attrs: string): string {
   if (points.length === 0) return ''

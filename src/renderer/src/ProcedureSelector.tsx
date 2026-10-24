@@ -1,24 +1,17 @@
 /** The SID, STAR and approach dropdowns, from the sim's navdata. */
 
 import { winglogApi } from './data/winglog-api'
-import { useEffect, useId, useRef, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { NavdataProcedureOption, NavdataRunwayOption, ProcedureSelection } from '@shared/ipc'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import {
-  approachConnectingToStar,
-  approachRunway,
-  parseRouteProcedures,
-  pickDefaultApproachIdentifier,
-  VECTORS_TRANSITION,
-  type Waypoint
-} from '@shared/route'
+import { approachRunway, VECTORS_TRANSITION } from '@shared/route'
 import { arrivalAirport, type ProcedureAirports } from '@shared/procedure-selection'
 import { displayIcao } from './display-icao'
-import { uiMemory } from './ui-memory'
 import { runAsync } from './report-error'
+import { transitionsFor } from '@shared/approach-suggestion'
 
 /** One procedure dropdown, backed by real navdata (docs/plans/navdata-without-navigraph.md
  *  Phase 3/5) — `options` is whatever's currently cached for this ICAO/kind. No "SimBrief
@@ -115,24 +108,15 @@ function ProcedureSelect(props: {
   )
 }
 
-function transitionsFor(options: NavdataProcedureOption[], identifier: string | null): string[] {
-  return [
-    ...new Set(
-      options
-        .filter((o) => o.identifier === identifier)
-        .map((o) => o.transition)
-        .filter((t): t is string => t !== null)
-    )
-  ]
-}
-
 /**
  * The seven live procedure dropdowns — departure runway, SID (+transition), STAR
  * (+transition), approach (+transition) — shared between Dispatch and Track so both read
  * and write the exact same lifted selection (App.tsx) and never disagree about what's
  * currently chosen (docs/plans/navdata-without-navigraph.md, Phase 5). No save step: every
  * change here is immediately reflected wherever `selection` is used to build the live route
- * (useLiveWaypoints) — that's the caller's job, this component only edits the selection.
+ * (useLiveWaypoints) — that's the caller's job, this component only edits the selection. The
+ * approach WingLog suggests is the caller's too (useDefaultApproach), so it's chosen whether or
+ * not this is on screen.
  *
  * @param props The flight's airports, the selection and its change handler.
  * @returns The element.
@@ -141,22 +125,15 @@ export function ProcedureSelector(props: {
   airports: ProcedureAirports
   selection: ProcedureSelection
   onSelectionChange: (next: ProcedureSelection) => void
-  /** The currently-assembled route — used only to find the current STAR's last waypoint,
-   *  for the approach-transition auto-connect below. */
-  liveWaypoints: Waypoint[]
   /** A phone-sized layout: Departure and Arrival as two tabs, each picker the device's own. */
   compact?: boolean
 }): React.JSX.Element {
   const { t } = useTranslation()
-  const { airports, selection, onSelectionChange, liveWaypoints, compact = false } = props
+  const { airports, selection, onSelectionChange, compact = false } = props
   const [depRunways, setDepRunways] = useState<NavdataRunwayOption[]>([])
   const [sidOptions, setSidOptions] = useState<NavdataProcedureOption[]>([])
   const [starOptions, setStarOptions] = useState<NavdataProcedureOption[]>([])
   const [approachOptions, setApproachOptions] = useState<NavdataProcedureOption[]>([])
-  // Which airport `approachOptions` were fetched for — switching to the alternate leaves the
-  // destination's list in place until the new fetch lands, and the auto-default below must
-  // not pick from that stale list.
-  const [approachOptionsFor, setApproachOptionsFor] = useState('')
   const arrIcao = arrivalAirport(airports, selection)
   const altnIcao =
     airports.altnIcao && airports.altnIcao !== airports.arrIcao && airports.altnIcao !== 'ZZZZ'
@@ -219,86 +196,9 @@ export function ProcedureSelector(props: {
   useEffect(() => {
     winglogApi()
       .navdataListApproaches(arrIcao, null)
-      .then((options) => {
-        setApproachOptions(options)
-        setApproachOptionsFor(arrIcao)
-      })
-      .catch(() => {
-        setApproachOptions([])
-        setApproachOptionsFor(arrIcao)
-      })
+      .then(setApproachOptions)
+      .catch(() => setApproachOptions([]))
   }, [arrIcao, refreshedAt])
-
-  // Auto-default the approach once real options exist and nothing's been chosen yet — see
-  // pickDefaultApproachIdentifier's own doc comment for why this is a starting point, not a
-  // guess to get right.
-  const approachKey = `${airports.depIcao}>${arrIcao}|${airports.ofpJson?.slice(0, 300) ?? ''}`
-  // The approach WingLog itself suggested, so a later look at the STAR may swap it; one the pilot chose is never touched.
-  const suggestedApproach = useRef<string | null>(null)
-  useEffect(() => {
-    if (
-      selection.approachIdent ||
-      approachOptions.length === 0 ||
-      approachOptionsFor !== arrIcao ||
-      uiMemory().approachCleared.has(approachKey)
-    )
-      return
-    // The OFP's planned runway is the filed destination's — not applicable to the alternate.
-    const plannedRunway =
-      arrIcao === airports.arrIcao ? parseRouteProcedures(airports.ofpJson).arrivalRunway : null
-    const candidates = plannedRunway
-      ? approachOptions.filter((o) => approachRunway(o.identifier) === plannedRunway)
-      : approachOptions
-    // Prefer an approach the STAR leads into (ZJSY: UPRS2C ends at SY498, ILS Z 08's entry).
-    const starLastIdent = [...liveWaypoints].reverse().find((w) => w.segment === 'star')?.ident ?? null
-    const pick = pickDefaultApproachIdentifier(candidates, starLastIdent)
-    if (pick) {
-      suggestedApproach.current = pick
-      set({ approachIdent: pick })
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- set is new every render; arrIcao and approachKey cover the airports
-  }, [
-    approachOptions,
-    approachOptionsFor,
-    arrIcao,
-    selection.approachIdent,
-    airports.ofpJson,
-    approachKey,
-    liveWaypoints
-  ])
-
-  // The default above is picked as soon as the approach list is in, which can be before the route's STAR waypoints are: then it
-  // couldn't prefer the approach the STAR leads into. Once the STAR's last fix is known, check the suggestion connects to it the
-  // way a BeyondATC clearance's approach is checked (same function), and swap it when it doesn't. Only for an approach WingLog
-  // suggested, never one the pilot picked.
-  useEffect(() => {
-    if (!selection.approachIdent || suggestedApproach.current !== selection.approachIdent) return
-    const starLastIdent = [...liveWaypoints].reverse().find((w) => w.segment === 'star')?.ident ?? null
-    if (!starLastIdent) return
-    const swap = approachConnectingToStar(
-      approachOptions,
-      selection,
-      approachRunway(selection.approachIdent),
-      starLastIdent
-    )
-    if (!swap) return
-    suggestedApproach.current = swap.approachIdent
-    set(swap)
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- set is new every render
-  }, [selection.approachIdent, selection.approachTransition, approachOptions, liveWaypoints])
-
-  // Auto-connect the approach's own entry transition to wherever the current STAR actually
-  // ends, when one matches — confirmed live that a real APPROACH_TRANSITION's name is the
-  // literal fix a STAR hands off at (docs/navdata-notes.md). Only fills an empty field,
-  // never overwrites a deliberate choice.
-  useEffect(() => {
-    if (!selection.approachIdent || selection.approachTransition) return
-    const starLastIdent = [...liveWaypoints].reverse().find((w) => w.segment === 'star')?.ident
-    if (!starLastIdent) return
-    const transitions = transitionsFor(approachOptions, selection.approachIdent)
-    if (transitions.includes(starLastIdent)) set({ approachTransition: starLastIdent })
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- set is new every render
-  }, [selection.approachIdent, selection.approachTransition, approachOptions, liveWaypoints])
 
   const arrivalAirportId = useId()
   const depRunwayIdents = depRunways.map((r) => r.ident)
@@ -404,11 +304,7 @@ export function ProcedureSelector(props: {
         label={t('procedureSelector.approach')}
         value={selection.approachIdent}
         options={approachIdentifiers}
-        onChange={(v) => {
-          if (v === null) uiMemory().approachCleared.add(approachKey)
-          else uiMemory().approachCleared.delete(approachKey)
-          set({ approachIdent: v, approachTransition: null })
-        }}
+        onChange={(v) => set({ approachIdent: v, approachTransition: null })}
         disabled={approachIdentifiers.length === 0}
       />
       <ProcedureSelect

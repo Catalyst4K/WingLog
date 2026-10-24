@@ -38,7 +38,7 @@ import {
 } from './db/settings-repo'
 import { dbFlightStore } from './db/flight-store'
 import { SimConnectService } from './sim/SimConnectService'
-import { ReplaySimConnectService, type ReplayMode } from './sim/ReplaySimConnectService'
+import { ReplaySimConnectService, parseReplayGap, type ReplayMode } from './sim/ReplaySimConnectService'
 import { replayCapture, type ReplayedCapture } from './sim/replay-capture'
 import { registerFleetHandlers } from './ipc/fleet-handlers'
 import { registerLogbookHandlers } from './ipc/logbook-handlers'
@@ -52,7 +52,6 @@ import { registerGsxHandlers } from './ipc/gsx-handlers'
 import { registerGsxRemoteHandlers } from './ipc/gsx-remote-handlers'
 import { registerBeyondAtcHandlers } from './ipc/beyondatc-handlers'
 import { registerLanHandlers } from './ipc/lan-handlers'
-import type { LiveTopic } from '@shared/live'
 import { createLan } from './lan/create-lan'
 import { registerDiagnosticsHandlers, registerSimHandlers } from './ipc/sim-handlers'
 import { createBackgroundSync, registerSyncHandlers, startPeriodicSync } from './ipc/sync-handlers'
@@ -62,6 +61,9 @@ import { canInstallInApp, UpdateInstaller } from './updates/update-install'
 import { createUpdaterEngine } from './updates/updater-engine'
 import { LiveHub } from './live/LiveHub'
 import { SimFacilitiesProvider } from './navdata/sim-facilities-provider'
+import { seedE2eTaxiNetwork } from './e2e-taxi-network'
+import { startFlightServices } from './flight-services'
+import { createTraceWorkerRunner } from './taxi/create-trace-worker'
 import { SimAirfieldResolver } from './airports/sim-airfield'
 import { TrackingController } from './tracking/TrackingController'
 import { AutoStartDetector } from './tracking/AutoStartDetector'
@@ -114,6 +116,7 @@ function openDatabase(userDataPath: string): {
   // isn't reliable once the app is launched from a shortcut rather than a terminal.
   migrateDb(dbPath, join(app.getAppPath(), 'drizzle'))
   const handle = createDb(dbPath)
+  seedE2eTaxiNetwork(handle.db, app.isPackaged)
   return { db: handle.db, sqlite: handle.sqlite, dbPath, backedUp }
 }
 
@@ -140,7 +143,8 @@ function connectSim(): { sim: SimConnectService | ReplaySimConnectService; repla
         speedMultiplier: process.env.WINGLOG_E2E_REPLAY_SPEED
           ? Number(process.env.WINGLOG_E2E_REPLAY_SPEED)
           : undefined,
-        holdUntilReleased: process.env.WINGLOG_E2E_REPLAY_HOLD === '1'
+        holdUntilReleased: process.env.WINGLOG_E2E_REPLAY_HOLD === '1',
+        gap: parseReplayGap(process.env.WINGLOG_E2E_REPLAY_GAP_S)
       })
     : undefined
   return {
@@ -186,7 +190,6 @@ function wireTracking(
 ): AutoStartDetector {
   trackingController.on('point', (point) => liveHub.publish('trackingPoint', point))
   trackingController.on('pointsUpdated', (points) => liveHub.publish('trackingPointsUpdated', points))
-  trackingController.on('selectionChanged', (selection) => liveHub.publish('procedureSelection', selection))
   // Push-on-mutation's real-time case: a flight reaching 'completed' (auto shutdown
   // detection or a manual finish()) is the highest-value moment to sync promptly, whether
   // or not the user touches any other IPC channel afterward.
@@ -268,7 +271,7 @@ function startUpdates(db: WingLogDb, window: BrowserWindow, isFlightActive: () =
 function startSecondScreen(
   deps: Pick<
     Parameters<typeof createLan>[0],
-    'db' | 'liveHub' | 'trackingController' | 'navdata' | 'addOnCommands'
+    'db' | 'liveHub' | 'trackingController' | 'selection' | 'navdata' | 'addOnCommands'
   >
 ): void {
   const lan = createLan({
@@ -281,6 +284,34 @@ function startSecondScreen(
   registerLanHandlers(ipcMain, { lan })
   runLogged('second screen at launch', lan.init())
   app.on('before-quit', () => runLogged('second screen stop', lan.stop()))
+}
+
+/**
+ * Records where each flight finished (stand-positions.md), after it completes, best effort.
+ *
+ * @param db The database.
+ * @param sim The sim connection, for where the aircraft is.
+ * @param trackingController Tracking, which says when a flight completes.
+ * @param navdataProvider The stands of the airport.
+ */
+function recordParkedStandOnCompletion(
+  db: WingLogDb,
+  sim: SimConnectService | ReplaySimConnectService,
+  trackingController: TrackingController,
+  navdataProvider: SimFacilitiesProvider
+): void {
+  trackingController.on('completed', (flightId: number) => {
+    const telemetry = sim.getLastTelemetry()
+    void recordParkedStand(
+      {
+        getArrivalIcao: (id) => getFlight(db, id)?.arrIcao ?? null,
+        getStands: (icao) => navdataProvider.getStands(icao),
+        setParkedStand: (id, icao, stand) => setParkedStand(db, id, icao, stand)
+      },
+      flightId,
+      telemetry ? { lat: telemetry.latitude, lon: telemetry.longitude } : null
+    ).catch((err: unknown) => logger.warn('parked stand not recorded:', err))
+  })
 }
 
 /** Opens the database and the window, starts the services, and registers every IPC area. */
@@ -304,9 +335,7 @@ function startApp(): void {
   // is its first subscriber (winglog-backend's docs/plans/live-data-seam.md, part A).
   const liveHub = new LiveHub()
   liveHub.subscribe((topic, payload) => {
-    // The planned route is for the second screens; the window builds its own.
-    if (topic !== 'plannedRoute' && !window.isDestroyed())
-      window.webContents.send(IpcChannels[topic as Exclude<LiveTopic, 'plannedRoute'>], payload)
+    if (!window.isDestroyed()) window.webContents.send(IpcChannels[topic], payload)
   })
 
   // Cloud sync (winglog-backend/docs/plans/cloud-sync.md) — off by default, and the only
@@ -342,6 +371,19 @@ function startApp(): void {
   registerDiagnosticsHandlers(ipcMain, { diag, flightCapture })
   const autoStartDetector = wireTracking(db, sim, trackingController, liveHub, scheduleBackgroundSync)
 
+  // Navdata: its own short-lived SimConnect connection per refresh, separate from the live one (docs/navdata-notes.md). The services that
+  // follow the flight shown (its navdata, taxi line and procedure choice) run here, whichever screen is open.
+  const navdataProvider = new SimFacilitiesProvider(db)
+  const flightServices = startFlightServices(ipcMain, {
+    db,
+    sim,
+    liveHub,
+    trackingController,
+    navdata: navdataProvider,
+    traceWorker: createTraceWorkerRunner()
+  })
+  app.on('before-quit', flightServices.stop)
+
   const trackingDeps = {
     db,
     trackingController,
@@ -351,7 +393,8 @@ function startApp(): void {
     releaseReplay: () => {
       if (sim instanceof ReplaySimConnectService) sim.release()
     },
-    scheduleBackgroundSync
+    scheduleBackgroundSync,
+    onFlightsChanged: flightServices.onFlightsChanged
   }
   registerTrackingHandlers(ipcMain, trackingDeps)
   registerFlightHandlers(ipcMain, trackingDeps)
@@ -367,9 +410,6 @@ function startApp(): void {
   })
   app.on('before-quit', () => gsxRemote.stop())
 
-  // Navdata: its own short-lived SimConnect connection per refresh, deliberately separate
-  // from the live tracking connection (docs/navdata-notes.md's isolation finding).
-  const navdataProvider = new SimFacilitiesProvider(db)
   const beyondAtc = registerBeyondAtcHandlers(ipcMain, {
     db,
     liveHub,
@@ -386,6 +426,7 @@ function startApp(): void {
     db,
     liveHub,
     trackingController,
+    selection: flightServices.selection,
     navdata: navdataProvider,
     addOnCommands: { ...beyondAtc.commands, ...gsxRemote.commands }
   })
@@ -401,19 +442,7 @@ function startApp(): void {
   registerAppHandlers(ipcMain, { updateService })
 
   registerNavdataHandlers(ipcMain, { navdataProvider })
-  // Where each flight finished (stand-positions.md) — after completion, best effort.
-  trackingController.on('completed', (flightId: number) => {
-    const telemetry = sim.getLastTelemetry()
-    void recordParkedStand(
-      {
-        getArrivalIcao: (id) => getFlight(db, id)?.arrIcao ?? null,
-        getStands: (icao) => navdataProvider.getStands(icao),
-        setParkedStand: (id, icao, stand) => setParkedStand(db, id, icao, stand)
-      },
-      flightId,
-      telemetry ? { lat: telemetry.latitude, lon: telemetry.longitude } : null
-    ).catch((err: unknown) => logger.warn('parked stand not recorded:', err))
-  })
+  recordParkedStandOnCompletion(db, sim, trackingController, navdataProvider)
 
   // CI packaging check (see .github/workflows/package.yml): proves the built
   // binary launches, migrates the DB and renders a first frame, then exits

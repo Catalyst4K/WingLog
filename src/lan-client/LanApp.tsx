@@ -10,10 +10,12 @@ import { useImportantGsxMenu } from '@/app/use-prompts'
 import { StorageBanner } from '@/StorageBanner'
 import type { LanConnection } from './lan-connection'
 import { lanLiveClient } from './lan-live-client'
+import { useReportScriptErrors } from './use-reports'
 import { NavBar, type PageId } from './NavBar'
 import { InfoPage } from './InfoPages'
 import { TrackPage } from './TrackPage'
 import { useLinkState } from './use-link'
+import { ErrorBoundary } from '@/ErrorBoundary'
 import { usePages } from './use-pages'
 import { usePcAppearance } from './use-pc-appearance'
 import { usePcSettings } from './use-pc-settings'
@@ -26,6 +28,7 @@ export function LanApp({ link }: { link: LanConnection }): React.JSX.Element {
   const state = useLinkState(link)
   // Everything below reads the PC's live topics through the link, the same hooks the desktop window runs through Electron's preload.
   const client = useMemo(() => lanLiveClient(link), [link])
+  useReportScriptErrors(link)
   if (state === 'needs-pairing' || state === 'wrong-code') {
     return <PairingScreen wrong={state === 'wrong-code'} onPair={(code) => link.pair(code)} />
   }
@@ -123,11 +126,15 @@ function Shell({ link, offline }: { link: LanConnection; offline: boolean }): Re
       <StorageBanner />
       <main className="min-h-0 flex-1">
         <div className={shown === 'track' ? 'h-full' : 'hidden'}>
-          <TrackPage link={link} mapLanguage={settings.mapLanguage} />
+          <ErrorBoundary name="track">
+            <TrackPage link={link} mapLanguage={settings.mapLanguage} />
+          </ErrorBoundary>
         </div>
         {shown !== 'track' && (
           <div className="h-full overflow-y-auto">
-            <InfoPage page={shown} link={link} settings={settings} />
+            <ErrorBoundary name={shown} resetKey={shown}>
+              <InfoPage page={shown} link={link} settings={settings} />
+            </ErrorBoundary>
           </div>
         )}
       </main>

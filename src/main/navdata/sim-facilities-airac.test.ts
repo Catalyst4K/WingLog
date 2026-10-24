@@ -11,8 +11,7 @@ import { SimFacilitiesProvider, type OpenSimConnect } from './sim-facilities-pro
 
 vi.mock('./sim-facilities-fetch', () => ({
   fetchAirportNavdata: vi.fn(),
-  fetchTaxiNetwork: vi.fn(),
-  fetchStands: vi.fn()
+  fetchTaxiNetwork: vi.fn()
 }))
 vi.mock('../logging/logger', () => ({ logger: { info: vi.fn(), warn: vi.fn() } }))
 
@@ -35,6 +34,7 @@ const AIRPORT = (icao: string): FetchedAirportNavdata => ({
   arrivals: [],
   approaches: []
 })
+const STAND = { name: 'N32', nameCode: 25, number: 32, suffix: 0, headingDeg: 161, lat: 22.31, lon: 113.92 }
 const TAXI = (icao: string): FetchedTaxiNetwork => ({
   icao,
   segments: [
@@ -45,11 +45,16 @@ const TAXI = (icao: string): FetchedTaxiNetwork => ({
       endLon: 0.02,
       name: 'A',
       startHoldShort: false,
-      endHoldShort: false
+      endHoldShort: false,
+      pathType: 1,
+      widthM: 23,
+      weight: 0,
+      runwayNumber: null,
+      runwayDesignator: null
     }
-  ]
+  ],
+  stands: [STAND]
 })
-const STAND = { name: 'N32', nameCode: 25, number: 32, suffix: 0, headingDeg: 161, lat: 22.31, lon: 113.92 }
 
 // AIRAC cycles of 2026: ... 1 Oct, 29 Oct. A cache fetched on 20 Sep belongs to the cycle that began on 3 Sep.
 const SEPTEMBER = new Date('2026-09-20T10:00:00Z')
@@ -65,7 +70,6 @@ describe('navdata follows the AIRAC cycle', () => {
   let provider: SimFacilitiesProvider
   let fetchAirport: ReturnType<typeof vi.fn>
   let fetchTaxi: ReturnType<typeof vi.fn>
-  let fetchStands: ReturnType<typeof vi.fn>
 
   /** Waits for the provider's background refresh, which no caller awaits. */
   const settle = (): Promise<void> => vi.waitFor(() => expect(inFlight()).toBe(0))
@@ -92,7 +96,6 @@ describe('navdata follows the AIRAC cycle', () => {
       .mocked(fetches.fetchTaxiNetwork)
       .mockReset()
       .mockImplementation(async (_h, icao) => TAXI(icao))
-    fetchStands = vi.mocked(fetches.fetchStands).mockReset().mockResolvedValue([STAND])
     provider = new SimFacilitiesProvider(db, open as unknown as OpenSimConnect, () => clock)
   })
 
@@ -100,10 +103,8 @@ describe('navdata follows the AIRAC cycle', () => {
   async function cacheEverythingThen(to: Date): Promise<void> {
     await provider.refreshAirport('EGLL')
     await provider.refreshTaxiNetwork('EGLL')
-    await provider.getStands('EGLL')
     fetchAirport.mockClear()
     fetchTaxi.mockClear()
-    fetchStands.mockClear()
     open.mockClear()
     clock = to
   }
@@ -121,9 +122,10 @@ describe('navdata follows the AIRAC cycle', () => {
   it('serves the cache at once when a new cycle has begun, and refreshes every stale part in the background', async () => {
     await cacheEverythingThen(EARLY_OCTOBER)
     expect(provider.listRunways('EGLL')).toHaveLength(2)
-    await vi.waitFor(() => expect(fetchStands).toHaveBeenCalledTimes(1))
+    await vi.waitFor(() => expect(fetchTaxi).toHaveBeenCalledTimes(1))
     await settle()
     expect(fetchAirport).toHaveBeenCalledTimes(1)
+    // One request brings the taxi network and the stands.
     expect(fetchTaxi).toHaveBeenCalledTimes(1)
     expect(navdataFetchTimes(db, 'EGLL')).toEqual({
       airport: EARLY_OCTOBER.toISOString(),
@@ -137,7 +139,7 @@ describe('navdata follows the AIRAC cycle', () => {
     provider.listRunways('EGLL')
     provider.getTaxiNetwork('EGLL')
     provider.listSids('EGLL')
-    await vi.waitFor(() => expect(fetchStands).toHaveBeenCalledTimes(1))
+    await vi.waitFor(() => expect(fetchTaxi).toHaveBeenCalledTimes(1))
     await settle()
     clock = LATE_OCTOBER
     provider.listRunways('EGLL')
@@ -147,13 +149,13 @@ describe('navdata follows the AIRAC cycle', () => {
     await settle()
     expect(fetchAirport).toHaveBeenCalledTimes(1)
     expect(fetchTaxi).toHaveBeenCalledTimes(1)
-    expect(open).toHaveBeenCalledTimes(3)
+    expect(open).toHaveBeenCalledTimes(2)
   })
 
   it('refreshes again when the next cycle begins', async () => {
     await cacheEverythingThen(EARLY_OCTOBER)
     provider.listRunways('EGLL')
-    await vi.waitFor(() => expect(fetchStands).toHaveBeenCalledTimes(1))
+    await vi.waitFor(() => expect(fetchTaxi).toHaveBeenCalledTimes(1))
     await settle()
     clock = NEXT_CYCLE
     provider.listRunways('EGLL')
@@ -180,7 +182,6 @@ describe('navdata follows the AIRAC cycle', () => {
     await vi.waitFor(() => expect(fetchAirport).toHaveBeenCalledTimes(1))
     await settle()
     expect(fetchTaxi).not.toHaveBeenCalled()
-    expect(fetchStands).not.toHaveBeenCalled()
     expect(fetchAirport).toHaveBeenCalledWith(expect.anything(), 'EGLL')
     expect(fetchAirport).not.toHaveBeenCalledWith(expect.anything(), 'EGKB')
   })
@@ -204,12 +205,12 @@ describe('navdata follows the AIRAC cycle', () => {
     await vi.waitFor(() => expect(navdataFetchTimes(db, 'EGLL').stands).not.toBe(SEPTEMBER.toISOString()))
   })
 
-  it('answers stands from the cache and refreshes them when stale, without a second fetch for an empty airport', async () => {
+  it('answers stands from the cache and refreshes them, with the taxi network, when stale', async () => {
     await provider.getStands('EGLL')
-    fetchStands.mockClear()
+    fetchTaxi.mockClear()
     clock = EARLY_OCTOBER
     expect(await provider.getStands('EGLL')).toHaveLength(1)
-    await vi.waitFor(() => expect(fetchStands).toHaveBeenCalledTimes(1))
+    await vi.waitFor(() => expect(fetchTaxi).toHaveBeenCalledTimes(1))
   })
 
   describe('runways cached before the sim displaced thresholds were read', () => {

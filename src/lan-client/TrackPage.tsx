@@ -14,7 +14,6 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { FlightMap } from '@/FlightMap'
 import { realIcao } from '@/display-icao'
-import type { Waypoint } from '@shared/route'
 import {
   computeTrackTimes,
   formatDuration,
@@ -31,6 +30,7 @@ import type { LanConnection } from './lan-connection'
 import { useTopic } from './use-link'
 import { usePlannedWaypoints } from './use-planned-route'
 import { useProcedureChoice } from './use-procedure-choice'
+import { useReportTaxiRoute } from './use-reports'
 
 /**
  * Starts the map's attribution as just its (i) button. MapLibre opens it across the bottom edge on a wide enough screen, which on a phone
@@ -159,14 +159,13 @@ export function TrackPage({
 /**
  * The Procedures button and what is chosen, as on the Track screen: the SID, STAR and approach, which the PC saves with the flight.
  *
- * @param props The flight's airports, the choice, what to do when it changes, and the route it builds.
+ * @param props The flight's airports, the choice, and what to do when it changes.
  * @returns The element.
  */
 function ProceduresBar(props: {
   airports: ProcedureAirports
   selection: ProcedureSelection
   onSelectionChange: (next: ProcedureSelection) => void
-  liveWaypoints: Waypoint[]
   /** The last choice made here could not be confirmed by the PC. */
   unconfirmed: boolean
 }): React.JSX.Element {
@@ -206,6 +205,20 @@ function ProceduresBar(props: {
 }
 
 /**
+ * The sim's readings, and whether the sim is gone. The PC keeps the last reading of a sim that has gone, and sends it to a phone that
+ * connects later: while the sim is not connected there are no readings to show.
+ *
+ * @param link The link to the PC.
+ * @returns The readings (undefined while there are none to show), and whether the sim is not connected.
+ */
+function useLiveTelemetry(link: LanConnection): { telemetry: SimTelemetry | undefined; simGone: boolean } {
+  const status = useTopic(link, 'simConnectionStatus')
+  const latest = useTopic(link, 'simTelemetry') as SimTelemetry | undefined
+  const simGone = status !== undefined && status.state !== 'connected'
+  return { telemetry: simGone ? undefined : latest, simGone }
+}
+
+/**
  * @param props The link, and the flight being tracked (null when none).
  * @returns The element.
  */
@@ -215,13 +228,14 @@ function FlightView(props: {
   mapLanguage: MapLanguage
 }): React.JSX.Element {
   const { link, snapshot, mapLanguage } = props
+  const { t } = useTranslation()
   // What the PC has chosen, kept in step with it: a choice made here is confirmed by the route it sends back, and sent again if not.
   const { selection, choose, unconfirmed } = useProcedureChoice(link, snapshot)
   const trackPoints = useSyncExternalStore(
     (notify) => link.onTrack(notify),
     () => link.track
   )
-  const telemetry = useTopic(link, 'simTelemetry') as SimTelemetry | undefined
+  const { telemetry, simGone } = useLiveTelemetry(link)
   const ofpJson = snapshot?.flight.ofpJson ?? null
   const depIcao = snapshot?.flight.depIcao
   const arrIcao = snapshot?.flight.arrIcao
@@ -230,6 +244,7 @@ function FlightView(props: {
     [depIcao, arrIcao, ofpJson]
   )
   const waypoints = usePlannedWaypoints(link, snapshot)
+  useReportTaxiRoute(link)
   const route = useMemo<[number, number][]>(() => waypoints.map((w) => [w.lon, w.lat]), [waypoints])
   const transition = useMemo(() => parseTransitionAltitudes(ofpJson), [ofpJson])
   const phase = trackPoints.at(-1)?.phase
@@ -249,6 +264,11 @@ function FlightView(props: {
 
   return (
     <div className="flex h-full flex-col">
+      {simGone && (
+        <p role="status" className="bg-muted px-4 py-2 text-center text-sm text-muted-foreground">
+          {t('lanPage.simGone')}
+        </p>
+      )}
       <AtcClearanceDialog
         clearance={atcClearance.pending}
         selection={selection}
@@ -258,11 +278,7 @@ function FlightView(props: {
       <FlightHeader
         snapshot={snapshot}
         times={times}
-        procedures={
-          airports
-            ? { airports, selection, onSelectionChange: choose, liveWaypoints: waypoints, unconfirmed }
-            : null
-        }
+        procedures={airports ? { airports, selection, onSelectionChange: choose, unconfirmed } : null}
       />
       <div className="min-h-0 flex-1">
         <FlightMap
