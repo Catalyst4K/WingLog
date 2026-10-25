@@ -201,7 +201,9 @@
       "cid": "CID",
       "cidHint": "Your VATSIM member number (optional). It is used to leave your own aircraft out of the traffic.",
       "vid": "VID",
-      "vidHint": "Your IVAO member number. IVAO shows other pilots only to its members, so traffic stays off until it is entered."
+      "vidHint": "Your IVAO member number. IVAO shows other pilots only to its members, so traffic stays off until it is entered.",
+      "keepBeyondAtc": "Keep BeyondATC while online",
+      "keepBeyondAtcHint": "While you are online, BeyondATC's prompts, taxi line, frequencies and step climbs are hidden or silent, since the network's controllers are the only voice. Turn this on to keep them."
     }
   },
   "app": {
@@ -692,7 +694,8 @@
       "blockTime": "Block time",
       "airTime": "Air time",
       "fuelBurn": "Fuel burn",
-      "fuelPlanned": "Fuel planned"
+      "fuelPlanned": "Fuel planned",
+      "online": "Online"
     },
     "altitude": "Altitude",
     "trueAltitude": "True altitude",
@@ -730,7 +733,12 @@
       "landings": "Landings"
     },
     "noCompletedFlights": "No completed flights yet — track one, or import a CSV logbook from Settings → Data.",
-    "flightNotFound": "Flight not found."
+    "flightNotFound": "Flight not found.",
+    "onlineFilter": {
+      "label": "Show",
+      "all": "All",
+      "online": "Online"
+    }
   },
   "gsxRemoteView": {
     "title": "Ground services"
@@ -1007,6 +1015,12 @@
   },
   "online": {
     "fileOn": "File on {{network}}",
-    "noPrefileLink": "This plan has no {{network}} filing link."
+    "noPrefileLink": "This plan has no {{network}} filing link.",
+    "beyondAtcHidden": "BeyondATC is hidden while you are online on {{network}}. The network's controllers are the only voice.",
+    "atc": {
+      "title": "Online ATC at your airports ({{network}})",
+      "nobody": "No controllers online",
+      "enrouteNote": "Enroute controllers are not listed."
+    }
   }
 }

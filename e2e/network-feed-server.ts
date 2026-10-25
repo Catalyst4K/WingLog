@@ -17,6 +17,10 @@ export interface FeedRequest {
 /** Where the invented aircraft are put: the near ones around this point, the far one on the other side of the world. */
 export interface FeedScene {
   centre: { lat: number; lon: number }
+  /** An invented pilot with this member number and callsign, at the centre: the test pilot's own aircraft. */
+  self?: { cid: number; callsign: string }
+  /** An airport that has an invented tower and ATIS online. */
+  station?: string
 }
 
 /**
@@ -42,10 +46,39 @@ export function vatsimBody(scene: FeedScene): string {
     pilots: [
       pilot(1000001, 'NEAR1', scene.centre.lat + 0.3, scene.centre.lon + 0.3, 250),
       pilot(1000002, 'NEAR2', scene.centre.lat - 0.2, scene.centre.lon + 0.1, 0),
-      pilot(1000003, 'FAR1', -33.9, 151.2, 450)
+      pilot(1000003, 'FAR1', -33.9, 151.2, 450),
+      ...(scene.self
+        ? [pilot(scene.self.cid, scene.self.callsign, scene.centre.lat, scene.centre.lon, 0)]
+        : [])
     ],
-    controllers: [],
-    atis: []
+    controllers: scene.station
+      ? [
+          {
+            cid: 1000010,
+            name: 'Test Controller',
+            callsign: `${scene.station}_TWR`,
+            frequency: '118.700',
+            facility: 4,
+            rating: 4,
+            server: 'TEST',
+            visual_range: 50,
+            text_atis: null
+          }
+        ]
+      : [],
+    atis: scene.station
+      ? [
+          {
+            cid: 1000011,
+            name: 'Test ATIS',
+            callsign: `${scene.station}_ATIS`,
+            frequency: '127.000',
+            facility: 4,
+            atis_code: 'C',
+            text_atis: ['INVENTED ATIS INFORMATION C', 'RUNWAY 07R IN USE']
+          }
+        ]
+      : []
   })
 }
 

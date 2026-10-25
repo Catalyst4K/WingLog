@@ -11,6 +11,11 @@ const VATSIM_CID_KEY = 'vatsimCid'
 const IVAO_VID_KEY = 'ivaoVid'
 const NETWORK_ON_KEY = 'trafficNetworkOn'
 const SIM_ON_KEY = 'trafficSimOn'
+const PRETEND_CALLSIGN_KEY = 'devPretendCallsign'
+const KEEP_BEYONDATC_KEY = 'onlineKeepBeyondAtc'
+
+/** A callsign: letters, digits, underscore and hyphen, at most 12. */
+const CALLSIGN = /^[A-Za-z0-9_-]{1,12}$/
 
 /** The member number: digits only, 1 to 10 of them. */
 const MEMBER_NUMBER = /^\d{1,10}$/
@@ -44,7 +49,8 @@ export function getOnlineNetworkSettings(db: WingLogDb): OnlineNetworkSettings {
   return {
     network: asNetwork(getSetting(db, NETWORK_KEY)),
     vatsimCid: cid && MEMBER_NUMBER.test(cid) ? cid : null,
-    ivaoVid: vid && MEMBER_NUMBER.test(vid) ? vid : null
+    ivaoVid: vid && MEMBER_NUMBER.test(vid) ? vid : null,
+    keepBeyondAtcOnline: getSetting(db, KEEP_BEYONDATC_KEY) === '1'
   }
 }
 
@@ -62,9 +68,36 @@ export function setOnlineNetworkSettings(db: WingLogDb, settings: unknown): void
   if (network !== null && network !== 'vatsim' && network !== 'ivao') throw new Error('Invalid network')
   const cid = memberNumberOrNull(record.vatsimCid)
   const vid = memberNumberOrNull(record.ivaoVid)
+  if (typeof record.keepBeyondAtcOnline !== 'boolean') throw new Error('Invalid setting')
+  setSetting(db, KEEP_BEYONDATC_KEY, record.keepBeyondAtcOnline ? '1' : '0')
   setSetting(db, NETWORK_KEY, network ?? '')
   setSetting(db, VATSIM_CID_KEY, cid ?? '')
   setSetting(db, IVAO_VID_KEY, vid ?? '')
+}
+
+/**
+ * @param db The database.
+ * @returns The callsign the dev build takes to be the pilot, or null.
+ */
+export function getPretendCallsign(db: WingLogDb): string | null {
+  const value = getSetting(db, PRETEND_CALLSIGN_KEY)
+  return value && CALLSIGN.test(value) ? value : null
+}
+
+/**
+ * Stores the dev build's "Pretend I am this pilot" callsign.
+ *
+ * @param db The database.
+ * @param callsign As the window sent it: unchecked. Empty or null clears it.
+ * @throws When it is not a callsign.
+ */
+export function setPretendCallsign(db: WingLogDb, callsign: unknown): void {
+  if (callsign === null || callsign === undefined || callsign === '') {
+    setSetting(db, PRETEND_CALLSIGN_KEY, '')
+    return
+  }
+  if (typeof callsign !== 'string' || !CALLSIGN.test(callsign)) throw new Error('Invalid callsign')
+  setSetting(db, PRETEND_CALLSIGN_KEY, callsign)
 }
 
 /**

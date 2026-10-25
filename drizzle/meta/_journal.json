@@ -267,6 +267,13 @@
       "when": 1792786709237,
       "tag": "0037_groovy_machine_man",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "6",
+      "when": 1792882339142,
+      "tag": "0038_magical_thor",
+      "breakpoints": true
     }
   ]
 }

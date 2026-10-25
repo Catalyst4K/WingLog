@@ -49,6 +49,8 @@ export interface StepClimbDeps {
   getSession: () => (AltitudeRequestSession & { getStatus(): BeyondAtcConnectionStatus }) | undefined
   getActive: () => ActiveTracking | undefined
   getOfpJson: (flightId: number) => string | null
+  /** True while the pilot is online and BeyondATC is to stay silent: no level is requested. */
+  isSuppressed?: () => boolean
   request?: typeof requestAltitude
   now?: () => number
   /** Decision trail for main.log (console is routed there), so an overnight flight can be
@@ -105,6 +107,8 @@ export class StepClimbController extends EventEmitter<{ status: [BeyondAtcStepCl
    */
   onTelemetry(t: SimTelemetry): void {
     if (!this.state.enabled) return
+    // Online, human controllers decide the levels: BeyondATC is not asked for any.
+    if (this.deps.isSuppressed?.()) return
     const active = this.deps.getActive()
     const session = this.deps.getSession()
     const result = tickStepClimb(this.state, {

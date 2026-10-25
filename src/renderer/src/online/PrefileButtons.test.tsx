@@ -14,7 +14,12 @@ function setup(settings: OnlineNetworkSettings) {
   } as unknown as typeof window.winglog
 }
 
-const NONE: OnlineNetworkSettings = { network: null, vatsimCid: null, ivaoVid: null }
+const NONE: OnlineNetworkSettings = {
+  network: null,
+  vatsimCid: null,
+  ivaoVid: null,
+  keepBeyondAtcOnline: false
+}
 
 describe('PrefileButtons', () => {
   beforeEach(() => toastError.mockClear())

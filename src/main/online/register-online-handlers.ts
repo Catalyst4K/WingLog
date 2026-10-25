@@ -9,6 +9,8 @@ import type { IpcMain } from 'electron'
 import { IpcChannels } from '@shared/ipc'
 import type { LatLon } from '@shared/geo'
 import { getAirportCoords } from '../airports/airport-search'
+import { getFlight } from '../db/flight-repo'
+import { setFlightOnline } from './flight-online'
 import type { WingLogDb } from '../db/client'
 import { dispatchCommand, trafficCommands, type CommandTable, type TrafficCommand } from '../live/commands'
 import type { LiveHub } from '../live/LiveHub'
@@ -20,7 +22,9 @@ import type { FeedUrls } from './feed-urls'
 import { NetworkFeedService } from './NetworkFeedService'
 import {
   getOnlineNetworkSettings,
+  getPretendCallsign,
   getTrafficSwitches,
+  setPretendCallsign,
   setOnlineNetworkSettings,
   setTrafficSwitches
 } from './online-settings'
@@ -33,6 +37,8 @@ export interface OnlineHandlerDeps {
   trackingController: Pick<TrackingController, 'on' | 'getActive'>
   /** The app's version, for the User-Agent. */
   appVersion: string
+  /** True in the dev build only: "Pretend I am this pilot" is honoured nowhere else. */
+  isDevBuild: boolean
   /** Where the feeds are (the real addresses, or the end-to-end test server's). */
   urls: FeedUrls
 }
@@ -49,6 +55,18 @@ function centreOf(deps: Pick<OnlineHandlerDeps, 'db' | 'sim' | 'trackingControll
     const flight = shownFlightOf(deps.db, deps.trackingController.getActive()?.flightId)
     return flight?.depIcao ? getAirportCoords(flight.depIcao) : null
   }
+}
+
+/**
+ * @param deps The database, tracking and the sim.
+ * @returns The flight being tracked, as its filed airports, or null when none is.
+ */
+function trackedFlightOf(
+  deps: Pick<OnlineHandlerDeps, 'db' | 'trackingController'>
+): { departure: string; arrival: string; alternate: string | null } | null {
+  const id = deps.trackingController.getActive()?.flightId
+  const flight = id === undefined ? undefined : getFlight(deps.db, id)
+  return flight ? { departure: flight.depIcao, arrival: flight.arrIcao, alternate: flight.altnIcao } : null
 }
 
 /**
@@ -77,14 +95,37 @@ export function registerOnlineHandlers(
     switches: () => getTrafficSwitches(db),
     saveSwitches: (switches) => setTrafficSwitches(db, switches),
     centre: centreOf(deps),
+    trackedFlight: () => trackedFlightOf(deps),
+    isAirborne: () => sim.getLastTelemetry()?.onGround === false,
+    pretendCallsign: () => (deps.isDevBuild ? getPretendCallsign(db) : null),
     log: logger
   })
   sim.on('telemetry', () => service.onPositionChanged())
-  for (const event of ['started', 'stopped', 'completed'] as const)
-    trackingController.on(event, () => service.onPositionChanged())
+  trackingController.on('started', () => {
+    service.resetOnlineSeen()
+    service.refresh()
+  })
+  trackingController.on('stopped', () => {
+    service.resetOnlineSeen()
+    service.refresh()
+  })
+  // A flight flown online keeps the network and callsign it was seen with while airborne.
+  trackingController.on('completed', (flightId: number) => {
+    const seen = service.takeOnlineSeen()
+    if (seen) setFlightOnline(db, flightId, seen.network, seen.callsign)
+    service.refresh()
+  })
 
   ipcMain.handle(IpcChannels.networkTrafficGet, () => liveHub.snapshot().networkTraffic)
   ipcMain.handle(IpcChannels.trafficLayersGet, () => liveHub.snapshot().trafficLayers)
+  ipcMain.handle(IpcChannels.onlineStatusGet, () => liveHub.snapshot().onlineStatus)
+  ipcMain.handle(IpcChannels.networkControllersGet, () => liveHub.snapshot().networkControllers)
+  ipcMain.handle(IpcChannels.onlineGetPretend, () => (deps.isDevBuild ? getPretendCallsign(db) : null))
+  ipcMain.handle(IpcChannels.onlineSetPretend, (_event, callsign: unknown) => {
+    if (!deps.isDevBuild) return
+    setPretendCallsign(db, callsign)
+    service.refresh()
+  })
   ipcMain.handle(IpcChannels.settingsGetOnlineNetwork, () => getOnlineNetworkSettings(db))
   ipcMain.handle(IpcChannels.settingsSetOnlineNetwork, (_event, settings: unknown) => {
     setOnlineNetworkSettings(db, settings)

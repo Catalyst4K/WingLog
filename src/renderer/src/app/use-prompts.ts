@@ -8,6 +8,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { BeyondAtcState, GsxRemoteMenuState, ProcedureSelection } from '@shared/ipc'
 import { gsxPromptState } from '../gsx-remote-importance'
 import { useLiveClient } from '../live/LiveClient'
+import { useBeyondAtcHidden } from '../live/use-online-status'
 import { runAsync } from '../report-error'
 import { applyClearance } from '@shared/procedure-selection'
 import {
@@ -39,9 +40,12 @@ export function useAtcClearancePrompt(
   // possibly dismissed).
   const lastAtcBoxesKey = useRef('')
   const client = useLiveClient()
+  // Online, the network's controllers are the only voice: no clearance is offered, and one already offered is withdrawn.
+  const hidden = useBeyondAtcHidden()
 
   useEffect(() => {
     return client.subscribe('beyondAtcState', (state: BeyondAtcState) => {
+      if (hidden) return
       const read = readNewInfoBoxes(lastAtcBoxesKey.current, state, Date.now())
       if (!read) return
       lastAtcBoxesKey.current = read.key
@@ -53,12 +57,13 @@ export function useAtcClearancePrompt(
         })
       )
     })
-  }, [client, selection])
+  }, [client, selection, hidden])
 
   // The other screen answered it (the phone pressed Update, or the desktop did): the selection already holds what this one would
   // apply, so there is nothing left to ask, and a stale Update here must not be pressable. Adjusted while rendering, React's
   // pattern for state that follows a prop.
   if (pending && !clearanceDiffers(pending, selection)) setPending(null)
+  if (pending && hidden) setPending(null)
 
   return {
     pending,

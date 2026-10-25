@@ -29,7 +29,7 @@ import type { TrackingController } from '../tracking/TrackingController'
 /** What BeyondATC needs. */
 export interface BeyondAtcHandlerDeps {
   db: WingLogDb
-  liveHub: Pick<LiveHub, 'publish'>
+  liveHub: Pick<LiveHub, 'publish' | 'snapshot'>
   /** The active flight (its arrival airport and OFP), and each point's phase. */
   trackingController: Pick<TrackingController, 'on' | 'getActive'>
   /** Telemetry, for step climb. */
@@ -129,13 +129,16 @@ function registerSessionHandlers(ipcMain: IpcMain, session: () => BeyondAtcServi
  */
 function registerStepClimb(
   ipcMain: IpcMain,
-  { db, liveHub, trackingController, sim }: BeyondAtcHandlerDeps,
+  deps: BeyondAtcHandlerDeps,
   session: () => BeyondAtcService | undefined
 ): CommandTable<AtcCommand> {
+  const { db, liveHub, trackingController, sim } = deps
   const stepClimb = new StepClimbController({
     getSession: session,
     getActive: () => trackingController.getActive(),
-    getOfpJson: (flightId) => getFlight(db, flightId)?.ofpJson ?? null
+    getOfpJson: (flightId) => getFlight(db, flightId)?.ofpJson ?? null,
+    // Online, the network's controllers decide the levels: no request is made while main says BeyondATC is to stay silent.
+    isSuppressed: () => liveHub.snapshot().onlineStatus?.hidesBeyondAtc === true
   })
   stepClimb.on('status', (status) => liveHub.publish('beyondAtcStepClimb', status))
   sim.on('telemetry', (telemetry) => stepClimb.onTelemetry(telemetry))

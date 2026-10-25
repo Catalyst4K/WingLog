@@ -86,6 +86,8 @@ function makeFlight(overrides: Partial<Flight> = {}): Flight {
     selectedApproachIdent: null,
     selectedApproachTransition: null,
     selectedArrivalIcao: null,
+    onlineNetwork: null,
+    onlineCallsign: null,
     ...overrides
   }
 }
@@ -133,7 +135,9 @@ function createWinglog(overrides: Record<string, unknown> = {}): typeof window.w
     aircraftUpdate: vi.fn().mockImplementation((a) => Promise.resolve(a)),
     trackingGetActive: vi.fn().mockResolvedValue(null),
     dispatchOpenOfpPdf: vi.fn().mockResolvedValue(true),
-    settingsGetOnlineNetwork: vi.fn().mockResolvedValue({ network: null, vatsimCid: null, ivaoVid: null }),
+    settingsGetOnlineNetwork: vi
+      .fn()
+      .mockResolvedValue({ network: null, vatsimCid: null, ivaoVid: null, keepBeyondAtcOnline: false }),
     onlinePrefileFromOfp: vi.fn().mockResolvedValue(true),
     flightCreate: vi.fn().mockResolvedValue(makeFlight()),
     weatherGetMetars: vi.fn().mockResolvedValue([]),
@@ -744,7 +748,7 @@ describe('DispatchView', () => {
         dispatchFetchOfp: vi.fn().mockResolvedValue(makeOfp()),
         settingsGetOnlineNetwork: vi
           .fn()
-          .mockResolvedValue({ network: null, vatsimCid: null, ivaoVid: null }),
+          .mockResolvedValue({ network: null, vatsimCid: null, ivaoVid: null, keepBeyondAtcOnline: false }),
         onlinePrefileFromOfp
       })
       const user = userEvent.setup()

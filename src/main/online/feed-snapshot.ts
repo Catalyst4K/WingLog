@@ -6,7 +6,7 @@
  * Plan: winglog-backend docs/plans/vatsim-build.md, "The internal form".
  */
 import { greatCircleM, type LatLon } from '@shared/geo'
-import type { OnlineNetwork, TrafficAircraft } from '@shared/ipc'
+import type { OnlineNetwork, OnlineStationPosition, TrafficAircraft } from '@shared/ipc'
 
 /** How far from the aircraft traffic is shown: at cruise the follow zoom spans about 200 nm, so this fills the screen with margin. */
 export const TRAFFIC_RADIUS_M = 250 * 1852
@@ -33,8 +33,8 @@ export interface FeedPilot {
   ageAtFeedS: number
 }
 
-/** The kind of station a controller runs (VATSIM's facility numbers and IVAO's positions, in one set). */
-export type ControllerPosition = 'fss' | 'del' | 'gnd' | 'twr' | 'app' | 'ctr'
+/** The kind of station a controller runs. */
+export type ControllerPosition = OnlineStationPosition
 
 /** An online controller. Observers are never one. */
 export interface FeedController {
@@ -42,6 +42,8 @@ export interface FeedController {
   /** MHz with three decimals, for example "131.900". */
   frequency: string
   position: ControllerPosition
+  /** The controller's name when the network publishes it (VATSIM), else null. */
+  name: string | null
 }
 
 /** An airport's ATIS, as text. */
@@ -70,6 +72,8 @@ export interface TrafficNearOptions {
   max: number
   /** The pilot's own member number: that aircraft is left out. */
   excludeMemberId?: string | null
+  /** The pilot's own callsign when found by plan rather than member number: that aircraft is left out too. */
+  excludeCallsign?: string | null
   nowMs: number
 }
 
@@ -89,6 +93,7 @@ export function trafficNear(
   const sinceReceivedS = Math.max(0, (options.nowMs - snapshot.receivedMs) / 1000)
   return snapshot.pilots
     .filter((pilot) => options.excludeMemberId == null || pilot.memberId !== options.excludeMemberId)
+    .filter((pilot) => options.excludeCallsign == null || pilot.callsign !== options.excludeCallsign)
     .map((pilot) => ({
       pilot,
       distanceM: greatCircleM(centre, { lat: pilot.latitude, lon: pilot.longitude })

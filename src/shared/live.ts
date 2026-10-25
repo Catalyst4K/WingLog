@@ -15,7 +15,9 @@ import type {
   GsxRemotePromptState,
   ProcedureSelection,
   GsxRemoteServiceStatus,
+  NetworkControllers,
   NetworkTraffic,
+  OnlineStatus,
   TrafficLayers,
   SimConnectionStatus,
   SimTelemetry,
@@ -78,6 +80,10 @@ export interface LiveTopics {
   plannedRoute: PlannedRoute | null
   /** The chosen network's traffic near the aircraft, parsed in main (online networks, vatsim-build.md Step 1). */
   networkTraffic: NetworkTraffic
+  /** The controllers and ATIS online at the flight's airports, from the chosen network's feed. */
+  networkControllers: NetworkControllers
+  /** Whether the pilot's own flight is on the chosen network, found in its feed (VATSIM or IVAO). */
+  onlineStatus: OnlineStatus
   /** The shared traffic switches and which layers draw, decided in main in one function. */
   trafficLayers: TrafficLayers
   /** The taxi line of the latest clearance, traced on the PC; null with no clearance, or once the flight has left the ground. */

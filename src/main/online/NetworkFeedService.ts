@@ -8,12 +8,21 @@
  * without a VID (Regulation D.2). Plan: winglog-backend docs/plans/vatsim-build.md, Step 1b.
  */
 import type { LatLon } from '@shared/geo'
-import type { NetworkTraffic, OnlineNetwork, OnlineNetworkSettings, TrafficLayers } from '@shared/ipc'
+import type {
+  NetworkTraffic,
+  OnlineNetwork,
+  OnlineNetworkSettings,
+  NetworkControllers,
+  OnlineStatus,
+  TrafficLayers
+} from '@shared/ipc'
 import type { LiveHub } from '../live/LiveHub'
 import { feedUserAgent, vatsimDataUrl, type FeedUrls } from './feed-urls'
 import { initialPollState, pollFinished, stepPoll, type PollState } from './feed-poll-step'
 import { TRAFFIC_MAX_AIRCRAFT, TRAFFIC_RADIUS_M, trafficNear, type FeedSnapshot } from './feed-snapshot'
 import { parseIvaoFeed } from './ivao-feed'
+import { stationsAt } from './airport-stations'
+import { selfStatus, unknownStatus } from './self-status'
 import { decideTrafficLayers } from './traffic-layers'
 import { parseVatsimFeed } from './vatsim-feed'
 
@@ -50,6 +59,12 @@ export interface NetworkFeedDeps {
   saveSwitches: (switches: { networkOn: boolean; simOn: boolean }) => void
   /** Where to look around: the aircraft, else the departure airport of the flight shown, else null. */
   centre: () => LatLon | null
+  /** The flight being tracked (its filed airports), or null when none is: the pilot's status is only looked up while one is. */
+  trackedFlight: () => { departure: string; arrival: string; alternate?: string | null } | null
+  /** Whether the aircraft is in the air, for recording that the flight was flown online. */
+  isAirborne: () => boolean
+  /** Dev build only: the callsign to take to be the pilot. */
+  pretendCallsign: () => string | null
   log: { warn: (message: string) => void }
 }
 
@@ -66,6 +81,13 @@ export class NetworkFeedService {
   private abort: AbortController | null = null
   private stopped = false
   private lastState: NetworkTraffic['state'] | null = null
+  private status: OnlineStatus = unknownStatus(null)
+  /** The last controllers payload published, as text, so only a change is published. */
+  private lastControllers = ''
+  /** The callsign found by plan rather than member number: left out of the traffic. */
+  private ownCallsign: string | null = null
+  /** The network and callsign the pilot was last seen online with while airborne, for the flight's record. */
+  private seen: { network: OnlineNetwork; callsign: string } | null = null
   /** Bumped when the network changes or the service stops, so a late answer from the old request is ignored. */
   private generation = 0
 
@@ -112,12 +134,29 @@ export class NetworkFeedService {
       this.wantedSinceMs = null
       this.clearStaleTimer()
     }
+    this.updateStatus()
     this.publishTraffic()
     this.tick()
   }
 
+  /**
+   * @returns The network and callsign the pilot was seen online with while airborne since the flight started, and forgets them.
+   */
+  takeOnlineSeen(): { network: OnlineNetwork; callsign: string } | null {
+    const seen = this.seen
+    this.seen = null
+    return seen
+  }
+
+  /** Forgets what was seen online: a new flight starts, or one is dropped. */
+  resetOnlineSeen(): void {
+    this.seen = null
+  }
+
   /** Call when the aircraft's position or the flight shown may have changed: a layer waiting for a centre gets one. */
   onPositionChanged(): void {
+    // Online at the last look, and now in the air: the flight was flown online, however soon the next look is.
+    this.noteSeen(this.status)
     if (this.lastState === 'noCentre') this.refresh()
   }
 
@@ -134,24 +173,30 @@ export class NetworkFeedService {
     })
   }
 
-  /** @returns The network whose feed should be read now, or null when nothing draws. */
-  private wantedNetwork(): OnlineNetwork | null {
-    const layers = this.layers()
-    return layers.drawNetwork && this.deps.centre() !== null ? this.deps.settings().network : null
+  /**
+   * @returns The network whose feed should be read now and why: its traffic is drawn, or only the pilot's own status is wanted (a flight
+   *   is tracked). Null when neither, and always for IVAO without a VID.
+   */
+  private wanted(): { network: OnlineNetwork; kind: 'traffic' | 'status' } | null {
+    const settings = this.deps.settings()
+    const network = settings.network
+    if (network === null || (network === 'ivao' && settings.ivaoVid === null)) return null
+    if (this.layers().drawNetwork && this.deps.centre() !== null) return { network, kind: 'traffic' }
+    return this.deps.trackedFlight() !== null ? { network, kind: 'status' } : null
   }
 
   /** Asks the pure step whether to fetch, and sets the timer for when to ask again. */
   private tick(): void {
     this.clearTimer()
     if (this.stopped) return
-    const network = this.wantedNetwork()
+    const wanted = this.wanted()
     const step = stepPoll(this.poll, {
       nowMs: this.deps.now(),
-      network: network ?? this.deps.settings().network,
-      wanted: network ? 'traffic' : 'none'
+      network: wanted?.network ?? this.deps.settings().network,
+      wanted: wanted?.kind ?? 'none'
     })
     this.poll = step.state
-    if (step.fetchNow && network) this.fetchFeed(network)
+    if (step.fetchNow && wanted) this.fetchFeed(wanted.network)
     else if (step.wakeAtMs !== null)
       this.timer = this.deps.timers.set(() => this.tick(), Math.max(0, step.wakeAtMs - this.deps.now()))
   }
@@ -246,7 +291,58 @@ export class NetworkFeedService {
     this.lastOkMs = this.deps.now()
     this.poll = pollFinished(this.poll, true, this.deps.now())
     this.clearStaleTimer()
+    this.updateStatus()
     this.publishTraffic()
+  }
+
+  /**
+   * Remembers the network and callsign when the pilot is online and the aircraft is in the air.
+   *
+   * @param status The pilot's latest status.
+   */
+  private noteSeen(status: OnlineStatus): void {
+    const { state, callsign, network } = status
+    if ((state === 'online' || state === 'probably') && callsign && network && this.deps.isAirborne()) {
+      this.seen = { network, callsign }
+    }
+  }
+
+  /**
+   * Works out the pilot's own status from the latest feed and publishes it when it changes. While the pilot is online and airborne it
+   * also remembers the network and callsign, which are written on the flight when it completes.
+   */
+  private updateStatus(): void {
+    const settings = this.deps.settings()
+    const result = selfStatus(this.snapshot, {
+      network: settings.network,
+      memberId: settings.network === 'ivao' ? settings.ivaoVid : settings.vatsimCid,
+      flight: this.deps.trackedFlight(),
+      position: this.deps.centre(),
+      pretendCallsign: this.deps.pretendCallsign(),
+      keepBeyondAtc: settings.keepBeyondAtcOnline
+    })
+    this.ownCallsign = result.status.state === 'probably' ? result.status.callsign : null
+    this.noteSeen(result.status)
+    this.updateControllers()
+    if (JSON.stringify(result.status) === JSON.stringify(this.status)) return
+    this.status = result.status
+    this.deps.hub.publish('onlineStatus', result.status)
+  }
+
+  /** Publishes who is online at the flight's departure, arrival and alternate airports when that changes. */
+  private updateControllers(): void {
+    const network = this.deps.settings().network
+    const flight = this.deps.trackedFlight()
+    const snapshot = this.snapshot
+    const airports =
+      network && flight && snapshot && snapshot.network === network
+        ? stationsAt(snapshot, [flight.departure, flight.arrival, flight.alternate ?? ''])
+        : []
+    const payload: NetworkControllers = { network, airports }
+    const text = JSON.stringify(payload)
+    if (text === this.lastControllers) return
+    this.lastControllers = text
+    this.deps.hub.publish('networkControllers', payload)
   }
 
   /**
@@ -326,6 +422,7 @@ export class NetworkFeedService {
       radiusM: TRAFFIC_RADIUS_M,
       max: TRAFFIC_MAX_AIRCRAFT,
       excludeMemberId: snapshot.network === 'vatsim' ? settings.vatsimCid : settings.ivaoVid,
+      excludeCallsign: this.ownCallsign,
       nowMs: this.deps.now()
     })
   }

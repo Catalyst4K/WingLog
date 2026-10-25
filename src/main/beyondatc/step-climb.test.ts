@@ -95,6 +95,8 @@ function setup(
     ofp?: string
     /** BeyondATC's InfoBoxes, read on every tick. */
     boxes?: () => BeyondAtcInfoBox[]
+    /** True while the pilot is online and BeyondATC is to stay silent. */
+    suppressed?: () => boolean
   } = {}
 ) {
   let now = 1_000_000
@@ -115,6 +117,7 @@ function setup(
     getSession: () => session,
     getActive: () => ({ flightId: 7, phase: opts.phase ?? 'cruise' }),
     getOfpJson: () => opts.ofp ?? ofpJson(),
+    isSuppressed: opts.suppressed,
     request,
     now: () => now,
     log: (m) => logs.push(m)
@@ -195,6 +198,20 @@ describe('StepClimbController', () => {
     expect(request.mock.calls[0]![1]).toBe(35000)
     await flush()
     expect(statuses.at(-1)?.last).toMatchObject({ altitudeFt: 35000, outcome: 'granted', reason: 'simbrief' })
+  })
+
+  it('asks for nothing while the pilot is online, and carries on when they are not', async () => {
+    let online = true
+    const { controller, request } = setup({ suppressed: () => online })
+    controller.setEnabled(true)
+
+    controller.onTelemetry(telemetry({ longitude: 29.9 })) // ~4 nm out, where it would ask
+    expect(request).not.toHaveBeenCalled()
+
+    online = false
+    controller.onTelemetry(telemetry({ longitude: 29.9 }))
+    expect(request).toHaveBeenCalledTimes(1)
+    await flush()
   })
 
   it('brings the next planned step forward when the FCU is set to it, without waiting for a climb', () => {

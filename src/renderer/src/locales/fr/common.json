@@ -203,7 +203,9 @@
       "cid": "CID",
       "cidHint": "Votre numéro de membre VATSIM (facultatif). Il sert à exclure votre propre avion du trafic.",
       "vid": "VID",
-      "vidHint": "Votre numéro de membre IVAO. IVAO ne montre les autres pilotes qu'à ses membres : le trafic reste désactivé tant qu'il n'est pas saisi."
+      "vidHint": "Votre numéro de membre IVAO. IVAO ne montre les autres pilotes qu'à ses membres : le trafic reste désactivé tant qu'il n'est pas saisi.",
+      "keepBeyondAtc": "Garder BeyondATC en ligne",
+      "keepBeyondAtcHint": "Pendant que vous êtes en ligne, les invites, la ligne de roulage, les fréquences et les montées par paliers de BeyondATC sont masquées ou muettes, car les contrôleurs du réseau sont la seule voix. Activez pour les garder."
     }
   },
   "app": {
@@ -694,7 +696,8 @@
       "blockTime": "Temps bloc",
       "airTime": "Temps de vol",
       "fuelBurn": "Carburant consommé",
-      "fuelPlanned": "Carburant prévu"
+      "fuelPlanned": "Carburant prévu",
+      "online": "En ligne"
     },
     "altitude": "Altitude",
     "trueAltitude": "Altitude vraie",
@@ -732,7 +735,12 @@
       "landings": "Atterrissages"
     },
     "noCompletedFlights": "Aucun vol terminé pour l'instant — suivez-en un, ou importez un CSV de carnet depuis Paramètres → Données.",
-    "flightNotFound": "Vol introuvable."
+    "flightNotFound": "Vol introuvable.",
+    "onlineFilter": {
+      "label": "Afficher",
+      "all": "Tous",
+      "online": "En ligne"
+    }
   },
   "gsxRemoteView": {
     "title": "Services au sol"
@@ -1009,6 +1017,12 @@
   },
   "online": {
     "fileOn": "Déposer sur {{network}}",
-    "noPrefileLink": "Ce plan n'a pas de lien de dépôt {{network}}."
+    "noPrefileLink": "Ce plan n'a pas de lien de dépôt {{network}}.",
+    "beyondAtcHidden": "BeyondATC est masqué pendant que vous êtes en ligne sur {{network}}. Les contrôleurs du réseau sont la seule voix.",
+    "atc": {
+      "title": "ATC en ligne à vos aéroports ({{network}})",
+      "nobody": "Aucun contrôleur en ligne",
+      "enrouteNote": "Les contrôleurs en route ne sont pas listés."
+    }
   }
 }

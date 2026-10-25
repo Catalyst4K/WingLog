@@ -876,7 +876,9 @@ describe('LanServer', () => {
         'plannedRoute',
         'taxiRoute',
         'networkTraffic',
-        'trafficLayers'
+        'trafficLayers',
+        'onlineStatus',
+        'networkControllers'
       ].sort()
     )
   })

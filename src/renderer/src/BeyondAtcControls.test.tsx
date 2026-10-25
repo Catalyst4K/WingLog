@@ -49,6 +49,37 @@ describe('BeyondAtcActions', () => {
   })
 })
 
+describe('BeyondAtcRadios while the pilot is online', () => {
+  function withStatus(hidesBeyondAtc: boolean): void {
+    window.winglog = {
+      getOnlineStatus: vi.fn().mockResolvedValue({
+        network: 'ivao',
+        state: hidesBeyondAtc ? 'online' : 'offline',
+        callsign: null,
+        filedPlan: null,
+        hidesBeyondAtc
+      }),
+      onOnlineStatus: vi.fn(() => () => {})
+    } as unknown as typeof window.winglog
+  }
+
+  it('replaces the frequency picker with the note, and keeps the toggles', async () => {
+    withStatus(true)
+    render(<BeyondAtcRadios {...makeRadiosProps({ autoTune: true, autoRespond: false })} />)
+    expect(await screen.findByText(/BeyondATC is hidden while you are online on IVAO/)).toBeInTheDocument()
+    expect(screen.queryByText('COM1')).not.toBeInTheDocument()
+    expect(screen.queryByText('COM2')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Auto-tune/ })).toBeInTheDocument()
+  })
+
+  it('shows COM1 and COM2 as usual when the pilot is offline', async () => {
+    withStatus(false)
+    render(<BeyondAtcRadios {...makeRadiosProps()} />)
+    expect(await screen.findByText('COM1')).toBeInTheDocument()
+    expect(screen.queryByText(/BeyondATC is hidden/)).not.toBeInTheDocument()
+  })
+})
+
 describe('BeyondAtcRadios', () => {
   it('shows "—" for COM1/COM2 while nothing is tuned', () => {
     render(<BeyondAtcRadios {...makeRadiosProps()} />)

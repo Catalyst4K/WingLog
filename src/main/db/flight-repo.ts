@@ -72,7 +72,9 @@ function toFlight(row: typeof flight.$inferSelect): Flight {
     selectedStarTransition: row.selectedStarTransition,
     selectedApproachIdent: row.selectedApproachIdent,
     selectedApproachTransition: row.selectedApproachTransition,
-    selectedArrivalIcao: row.selectedArrivalIcao
+    selectedArrivalIcao: row.selectedArrivalIcao,
+    onlineNetwork: row.onlineNetwork,
+    onlineCallsign: row.onlineCallsign
   }
 }
 

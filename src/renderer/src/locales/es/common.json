@@ -203,7 +203,9 @@
       "cid": "CID",
       "cidHint": "Tu número de miembro de VATSIM (opcional). Sirve para dejar tu propio avión fuera del tráfico.",
       "vid": "VID",
-      "vidHint": "Tu número de miembro de IVAO. IVAO solo muestra otros pilotos a sus miembros, así que el tráfico permanece apagado hasta que lo introduzcas."
+      "vidHint": "Tu número de miembro de IVAO. IVAO solo muestra otros pilotos a sus miembros, así que el tráfico permanece apagado hasta que lo introduzcas.",
+      "keepBeyondAtc": "Mantener BeyondATC en línea",
+      "keepBeyondAtcHint": "Mientras estás en línea, los avisos, la línea de rodaje, las frecuencias y los ascensos escalonados de BeyondATC se ocultan o se silencian, ya que los controladores de la red son la única voz. Actívalo para mantenerlos."
     }
   },
   "app": {
@@ -694,7 +696,8 @@
       "blockTime": "Tiempo de bloque",
       "airTime": "Tiempo de vuelo",
       "fuelBurn": "Combustible consumido",
-      "fuelPlanned": "Combustible planificado"
+      "fuelPlanned": "Combustible planificado",
+      "online": "En línea"
     },
     "altitude": "Altitud",
     "trueAltitude": "Altitud verdadera",
@@ -732,7 +735,12 @@
       "landings": "Aterrizajes"
     },
     "noCompletedFlights": "Aún no hay vuelos completados — registra uno, o importa un CSV de bitácora desde Ajustes → Datos.",
-    "flightNotFound": "Vuelo no encontrado."
+    "flightNotFound": "Vuelo no encontrado.",
+    "onlineFilter": {
+      "label": "Mostrar",
+      "all": "Todos",
+      "online": "En línea"
+    }
   },
   "gsxRemoteView": {
     "title": "Servicios de tierra"
@@ -1009,6 +1017,12 @@
   },
   "online": {
     "fileOn": "Presentar en {{network}}",
-    "noPrefileLink": "Este plan no tiene enlace de presentación de {{network}}."
+    "noPrefileLink": "Este plan no tiene enlace de presentación de {{network}}.",
+    "beyondAtcHidden": "BeyondATC está oculto mientras estás en línea en {{network}}. Los controladores de la red son la única voz.",
+    "atc": {
+      "title": "ATC en línea en tus aeropuertos ({{network}})",
+      "nobody": "Ningún controlador en línea",
+      "enrouteNote": "No se listan los controladores de ruta."
+    }
   }
 }

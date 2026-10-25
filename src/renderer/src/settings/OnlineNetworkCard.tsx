@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input'
 import { winglogApi } from '../data/winglog-api'
 import { asyncHandler, runAsync } from '../report-error'
 import { SegmentedRow } from '../SettingsFields'
-import { SettingRow, SettingsCard } from './ui/SettingsCard'
+import { OnOffControl, SettingRow, SettingsCard } from './ui/SettingsCard'
 
 type NetworkChoice = OnlineNetwork | 'none'
 
@@ -22,17 +22,27 @@ function digitsOnly(text: string): string {
   return text.replace(/\D/g, '').slice(0, MAX_MEMBER_DIGITS)
 }
 
+/** What the card takes. */
+export interface OnlineNetworkCardProps {
+  /** Defaults to the build flag; a prop so both builds can be tested. */
+  isDevBuild?: boolean
+}
+
 /**
  * The Online network card. The member number is saved when the field loses focus or Enter is pressed, so a half-typed IVAO number
  * does not start reading the feed.
  *
+ * @param props Whether this is the dev build, which also offers "Pretend I am this pilot".
  * @returns The element, or nothing until the settings are read.
  */
-export function OnlineNetworkCard(): React.JSX.Element | null {
+export function OnlineNetworkCard(props: OnlineNetworkCardProps): React.JSX.Element | null {
+  const isDevBuild = props.isDevBuild ?? __WINGLOG_DEV_BUILD__
   const { t } = useTranslation()
   const [settings, setSettings] = useState<OnlineNetworkSettings | null>(null)
   const [memberNumber, setMemberNumber] = useState('')
   const inputId = useId()
+  const pretendId = useId()
+  const [pretend, setPretend] = useState('')
 
   useEffect(() => {
     runAsync(
@@ -45,6 +55,16 @@ export function OnlineNetworkCard(): React.JSX.Element | null {
         })
     )
   }, [])
+
+  useEffect(() => {
+    if (!isDevBuild) return
+    runAsync(
+      'OnlineNetworkCard onlineGetPretend',
+      winglogApi()
+        .onlineGetPretend()
+        .then((callsign) => setPretend(callsign ?? ''))
+    )
+  }, [isDevBuild])
 
   if (!settings) return null
   const network = settings.network
@@ -106,6 +126,40 @@ export function OnlineNetworkCard(): React.JSX.Element | null {
             onKeyDown={(e) => {
               if (e.key === 'Enter') e.currentTarget.blur()
             }}
+          />
+        </SettingRow>
+      )}
+      {network && (
+        <SettingRow
+          label={t('settingsView.onlineNetwork.keepBeyondAtc')}
+          note={t('settingsView.onlineNetwork.keepBeyondAtcHint')}
+        >
+          <OnOffControl
+            label={t('settingsView.onlineNetwork.keepBeyondAtc')}
+            enabled={settings.keepBeyondAtcOnline}
+            onText={t('settingsView.beyondAtc.on')}
+            offText={t('settingsView.beyondAtc.off')}
+            onChange={asyncHandler('OnlineNetworkCard keepBeyondAtc', (keep: boolean) =>
+              save({ ...settings, keepBeyondAtcOnline: keep })
+            )}
+          />
+        </SettingRow>
+      )}
+      {isDevBuild && (
+        <SettingRow
+          label="Pretend I am this pilot (dev build)"
+          note="A callsign in the live feed to take as you."
+          controlId={pretendId}
+        >
+          <Input
+            id={pretendId}
+            type="text"
+            className="w-40"
+            value={pretend}
+            onChange={(e) => setPretend(e.target.value.replace(/[^A-Za-z0-9_-]/g, '').slice(0, 12))}
+            onBlur={asyncHandler('OnlineNetworkCard onlineSetPretend', () =>
+              winglogApi().onlineSetPretend(pretend === '' ? null : pretend)
+            )}
           />
         </SettingRow>
       )}

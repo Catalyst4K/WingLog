@@ -6,6 +6,7 @@ import { IpcChannels } from '@shared/ipc'
 import { createDb, type WingLogDb } from '../db/client'
 import { setBeyondAtcSettings } from '../db/settings-repo'
 import { FakeServiceSocket } from '../net/fake-service-socket'
+import type { LiveHub } from '../live/LiveHub'
 import type { TrackingController } from '../tracking/TrackingController'
 import { registerBeyondAtcHandlers, type BeyondAtcHandlerDeps } from './beyondatc-handlers'
 import { fakeIpc } from './fake-ipc'
@@ -18,6 +19,7 @@ describe('BeyondATC IPC handlers', () => {
   let tracking: EventEmitter & { getActive: () => undefined }
   let sim: EventEmitter
   const publish = vi.fn()
+  const hubSnapshot: ReturnType<LiveHub['snapshot']> = {}
 
   beforeEach(() => {
     db = createDb(':memory:').db
@@ -28,7 +30,7 @@ describe('BeyondATC IPC handlers', () => {
     sim = new EventEmitter()
     deps = {
       db,
-      liveHub: { publish },
+      liveHub: { publish, snapshot: () => hubSnapshot },
       trackingController: tracking as unknown as TrackingController,
       sim: sim as unknown as BeyondAtcHandlerDeps['sim'],
       listApproaches: () => [],

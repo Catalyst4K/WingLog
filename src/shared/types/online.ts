@@ -13,6 +13,8 @@ export interface OnlineNetworkSettings {
   vatsimCid: string | null
   /** IVAO VID: digits only. Required before any IVAO traffic or controller is shown (Regulation D.2). */
   ivaoVid: string | null
+  /** Keep BeyondATC's prompts, taxi line, frequencies and auto step climb while online (default off: human ATC is the only voice). */
+  keepBeyondAtcOnline: boolean
 }
 
 /** One aircraft as a screen draws it: the network's, or the sim's. */
@@ -42,6 +44,56 @@ export interface NetworkTraffic {
    */
   state: 'shown' | 'off' | 'noNetwork' | 'needsVid' | 'unavailable' | 'noCentre'
   aircraft: TrafficAircraft[]
+}
+
+/** The onlineStatus live topic: whether the pilot's own flight is on the chosen network. */
+export interface OnlineStatus {
+  network: OnlineNetwork | null
+  /**
+   * 'unknown': not looked (no flight tracked, no network, or no answer from the feed yet). 'offline': the feed was read and the pilot is not
+   * in it. 'online': found by member number. 'probably': found by a filed plan matching the flight, near the aircraft, with no member number.
+   */
+  state: 'unknown' | 'offline' | 'online' | 'probably'
+  /** The callsign used on the network, when online or probably. */
+  callsign: string | null
+  /** The plan filed on the network, when online or probably and one is filed. */
+  filedPlan: { departure: string | null; arrival: string | null; aircraftIcao: string | null } | null
+  /** True when BeyondATC should be hidden and silent: online (or probably) and not asked to keep it. Decided in main, once. */
+  hidesBeyondAtc: boolean
+}
+
+/** The kinds of station WingLog lists (VATSIM's facility numbers and IVAO's positions, in one set). */
+export type OnlineStationPosition = 'fss' | 'del' | 'gnd' | 'twr' | 'app' | 'ctr'
+
+/** One controller online at an airport. */
+export interface OnlineStation {
+  callsign: string
+  /** MHz with three decimals, for example "118.700". Only ever shown, never tuned. */
+  frequency: string
+  position: OnlineStationPosition
+  /** The controller's name when the network publishes it (VATSIM does, IVAO does not), else null. */
+  name: string | null
+}
+
+/** An airport's ATIS, as text: never parsed into anything here, never HTML. */
+export interface OnlineAtis {
+  callsign: string
+  /** The information letter, or null when none is given. */
+  code: string | null
+  lines: string[]
+}
+
+/** Who is online at one airport. */
+export interface OnlineAirportStations {
+  icao: string
+  stations: OnlineStation[]
+  atis: OnlineAtis[]
+}
+
+/** The networkControllers live topic: the controllers and ATIS at the flight's departure, arrival and alternate airports. */
+export interface NetworkControllers {
+  network: OnlineNetwork | null
+  airports: OnlineAirportStations[]
 }
 
 /** The `trafficLayers` live topic: the shared switches and what actually draws. Decided in main, in one function. */
