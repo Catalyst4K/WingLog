@@ -1024,7 +1024,9 @@
     "atc": {
       "title": "Online ATC at your airports ({{network}})",
       "nobody": "No controllers online",
-      "enrouteNote": "Enroute controllers are not listed."
+      "enrouteNote": "Enroute controllers are not listed.",
+      "runway": "Runway in use (from the ATIS): {{runway}}",
+      "runwayHint": "Read from the ATIS text as a suggestion. Check it against the text."
     }
   }
 }

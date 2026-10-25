@@ -77,6 +77,8 @@ Human controllers are the only voice when you are online, so WingLog hides Beyon
 
 While a flight is tracked, Track (and the phone’s Track page, as a folded section) lists the controllers online at the flight’s departure, arrival and alternate airports: their position (DEL, GND, TWR, APP), callsign and frequency, and each airport’s ATIS with its letter and text. The frequencies are only shown: WingLog never tunes your radios. Some US stations use the three-letter airport code (JFK_TWR for KJFK), which WingLog matches too. Enroute controllers are not listed, because neither network says where they are. On IVAO this needs your VID, like the traffic.
 
+When an ATIS names exactly one runway, WingLog shows **Runway in use (from the ATIS)** above its text. It is a suggestion only: nothing is changed or tuned from it. It stays blank whenever the ATIS names several runways, splits arrivals from departures, mentions a closed runway or names none, because a wrong runway is worse than none. In a read of VATSIM's ATIS texts it found one for about half of them.
+
 ## How much data it uses
 
 WingLog refreshes **every 15 seconds** while the traffic is shown, which is the networks' own

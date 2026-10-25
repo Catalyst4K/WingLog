@@ -1024,7 +1024,9 @@
     "atc": {
       "title": "ATC online an deinen Flughäfen ({{network}})",
       "nobody": "Keine Lotsen online",
-      "enrouteNote": "Streckenlotsen werden nicht aufgeführt."
+      "enrouteNote": "Streckenlotsen werden nicht aufgeführt.",
+      "runway": "Aktive Bahn (laut ATIS): {{runway}}",
+      "runwayHint": "Aus dem ATIS-Text gelesen, nur ein Vorschlag. Mit dem Text abgleichen."
     }
   }
 }

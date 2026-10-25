@@ -1026,7 +1026,9 @@
     "atc": {
       "title": "ATC en línea en tus aeropuertos ({{network}})",
       "nobody": "Ningún controlador en línea",
-      "enrouteNote": "No se listan los controladores de ruta."
+      "enrouteNote": "No se listan los controladores de ruta.",
+      "runway": "Pista en uso (según el ATIS): {{runway}}",
+      "runwayHint": "Leída del texto del ATIS como sugerencia. Compruébala con el texto."
     }
   }
 }

@@ -13,7 +13,15 @@ const HEATHROW: NetworkControllers = {
         { callsign: 'EGLL_GND', frequency: '121.700', position: 'gnd', name: 'Test Controller' },
         { callsign: 'EGLL_TWR', frequency: '118.700', position: 'twr', name: null }
       ],
-      atis: [{ callsign: 'EGLL_ATIS', code: 'C', lines: ['WIND CALM', '<img src=x onerror=alert(1)>'] }]
+      atis: [
+        {
+          callsign: 'EGLL_ATIS',
+          code: 'C',
+          lines: ['WIND CALM', '<img src=x onerror=alert(1)>'],
+          runway: '27L'
+        },
+        { callsign: 'EGLL_ATIS2', code: null, lines: ['RWY 09 AND 27'], runway: null }
+      ]
     },
     { icao: 'LFPG', stations: [], atis: [] }
   ]
@@ -59,6 +67,14 @@ describe('OnlineAtcCard', () => {
     expect(within(heathrow).getByText('WIND CALM')).toBeInTheDocument()
     expect(within(heathrow).getByText('<img src=x onerror=alert(1)>')).toBeInTheDocument()
     expect(heathrow.querySelector('img')).toBeNull()
+  })
+
+  it('suggests the runway beside the ATIS that names exactly one, and not beside one that names several', async () => {
+    renderCard(HEATHROW)
+    const heathrow = await screen.findByRole('region', { name: 'EGLL' })
+    const suggestions = within(heathrow).getAllByText(/Runway in use \(from the ATIS\)/)
+    expect(suggestions).toHaveLength(1)
+    expect(suggestions[0]).toHaveTextContent('Runway in use (from the ATIS): 27L')
   })
 
   it('says when nobody is online at an airport, and that enroute controllers are not listed', async () => {
