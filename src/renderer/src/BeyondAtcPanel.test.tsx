@@ -499,15 +499,18 @@ describe('BeyondAtcPanel', () => {
     const ACTIONS = ['Request Taxi', 'Radio Check']
 
     function withStateListener(): { push: (state: BeyondAtcState) => void } {
-      let listener: (state: BeyondAtcState) => void = () => {}
+      // Every subscriber hears each state, as with the real preload: the panel, and the auto-tune warning in its radios card.
+      const listeners = new Set<(state: BeyondAtcState) => void>()
       withWinglog({
         beyondAtcGetState: vi.fn().mockResolvedValue(makeState({ actions: ACTIONS })),
         onBeyondAtcState: vi.fn((l: (state: BeyondAtcState) => void) => {
-          listener = l
-          return () => {}
+          listeners.add(l)
+          return () => {
+            listeners.delete(l)
+          }
         }) as unknown as WingLogApi['onBeyondAtcState']
       })
-      return { push: (state) => act(() => listener(state)) }
+      return { push: (state) => act(() => listeners.forEach((l) => l(state))) }
     }
 
     it('marks the pressed button busy straight away and says it is queued while traffic talks', async () => {

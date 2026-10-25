@@ -91,6 +91,8 @@ describe('BeyondATC IPC handlers', () => {
     invoke(IpcChannels.settingsSetBeyondAtc, { enabled: false, host: '192.168.1.20' })
     expect(sockets[0].closed).toBe(true)
     expect(invoke(IpcChannels.beyondAtcGetStatus)).toEqual({ state: 'disconnected', lastError: null })
+    // Switched off, the screens are told too, not left showing it connected.
+    expect(publish).toHaveBeenLastCalledWith('beyondAtcStatus', { state: 'disconnected', lastError: null })
 
     invoke(IpcChannels.settingsSetBeyondAtc, { enabled: true, host: 'localhost' })
     beyondAtc.stop()

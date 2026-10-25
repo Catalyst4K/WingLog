@@ -22,6 +22,7 @@ import { useDefaultApproach } from './use-default-approach'
 import { parseTransitionAltitudes } from '@shared/route'
 import { StartFreeFlightDialog } from './StartFreeFlightDialog'
 import { runAsync } from './report-error'
+import { AutoTuneOnlineWarning } from './online/AutoTuneOnlineWarning'
 import { BeyondAtcHiddenNote } from './online/BeyondAtcHiddenNote'
 import { OnlineAtcCard } from './online/OnlineAtcCard'
 import { ActiveFlightCard, FlightEndedDialog, FlightToolbar, NotTrackingCards } from './track/TrackCards'
@@ -224,9 +225,11 @@ export function TrackView(props: {
   const telemetryTransition = useMemo(() => parseTransitionAltitudes(airportsOfpJson), [airportsOfpJson])
 
   return (
-    <div className="flex h-full flex-col gap-4">
+    // Nothing shrinks: when the cards and the map don't fit, the page scrolls rather than clipping a card or squeezing the map.
+    <div className="flex h-full flex-col gap-4 [&>*]:shrink-0">
       <h1 className="font-heading text-2xl font-semibold text-foreground">{t('trackView.title')}</h1>
       <BeyondAtcHiddenNote />
+      <AutoTuneOnlineWarning />
       <OnlineAtcCard />
 
       {active ? (
@@ -262,7 +265,10 @@ export function TrackView(props: {
         />
       )}
 
-      <div className="min-h-0 flex-1">
+      {/* Fills the space left, and never gets shorter than 288 px. A box shorter than the map (whose own minimum is 256 px), once the
+       * cards above took the space at a small window, left the map spilling out of it and its overlays floating mid-map; and below
+       * 288 px the map's seven buttons reach the attribution in the bottom corner, which then covers Zoom out. */}
+      <div className="min-h-72 flex-1">
         <FlightMap
           live
           route={route}

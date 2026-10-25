@@ -310,6 +310,9 @@ export class BeyondAtcService extends EventEmitter<BeyondAtcServiceEvents> {
     if (this.reconnectTimer) clearTimeout(this.reconnectTimer)
     this.ws?.close()
     this.ws = undefined
+    // The socket's own close is ignored once stopped, so the screens are told here that the link is gone (switching BeyondATC off in
+    // Settings otherwise left them showing it connected).
+    this.setStatus({ state: 'disconnected', lastError: null })
   }
 
   /** Restarts against a possibly-changed host — settings changed while connected. Port

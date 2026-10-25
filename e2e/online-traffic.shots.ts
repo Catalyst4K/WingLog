@@ -1,15 +1,17 @@
 /**
  * The online networks as Callum would see them (winglog-backend docs/plans/vatsim-build.md, Steps 1 to 5 and 4b): the built app replays a
  * flight, a fake VATSIM feed puts invented aircraft and an invented tower and ATIS nearby, and pictures are taken of the Track page with each
- * traffic button in each state, IVAO without a VID, and a tracked flight flown "online" (the BeyondATC note, the controllers card and the
- * runway suggestion). Writes release/sim/online-traffic/ (gitignored) with an index.html to look through.
+ * traffic button in each state, IVAO without a VID, and a tracked flight flown "online" (the BeyondATC note, the controllers card, the
+ * runway suggestion, and the warning while BeyondATC's auto-tune is on). Writes release/sim/online-traffic/ (gitignored) with an index.html
+ * to look through.
  * Run with `npm run sim:online-traffic` (builds first); needs BeyondATC and WingLog closed. No real network is read: the feed is a local
- * server of invented aircraft, and the sim is never reachable (so the teal layer shows its "unavailable" pill, not aircraft: that part is
- * checked by eye in a real flight with BeyondATC running).
+ * server of invented aircraft, BeyondATC is a local stand-in, and the sim is never reachable (so the teal layer shows its "unavailable" pill,
+ * not aircraft: that part is checked by eye in a real flight with BeyondATC running).
  */
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { expect, test, type Locator, type Page } from '@playwright/test'
+import { FakeBeyondAtcServer } from './beyondatc-server'
 import { launchApp } from './launch-app'
 import { startNetworkFeedServer } from './network-feed-server'
 
@@ -50,8 +52,8 @@ figure{margin:0 0 28px}img{max-width:100%;border:1px solid #ccc;border-radius:8p
 <h1>Online networks: what to look at</h1>
 <p>Amber aircraft are the network's (invented, from a local feed). The sim's own aircraft are teal; they need a real flight with BeyondATC running.
 Look for: the two traffic buttons at the top right and their states, the pills at the top left never covering each other, the ground aircraft smaller
-and dimmer, and on the tracked flight the BeyondATC note, the controllers card (it scrolls rather than pushing the map off the page) and the runway
-suggestion above the ATIS text.</p>
+and dimmer, and on the tracked flight the BeyondATC note, the controllers card (it scrolls rather than pushing the map off the page), the runway
+suggestion above the ATIS text, and the amber auto-tune warning on Track and above the BeyondATC page's toggles.</p>
 ${figures}</body></html>`
 }
 
@@ -109,7 +111,7 @@ test('the traffic layers, their buttons and what they say', async () => {
     await snap(page, {
       file: '3-network.png',
       title: 'VATSIM traffic on',
-      note: 'The two invented aircraft in amber, pointing their heading; the one on the ground is smaller and dimmer. The sim button is greyed out: "Off while VATSIM traffic is shown".'
+      note: 'With no flight tracked the map stays zoomed out, so the two invented aircraft near London show as one amber mark (picture 6 has them up close). The sim button is greyed out: "Off while VATSIM traffic is shown".'
     })
 
     await page.evaluate(async () => {
@@ -129,12 +131,13 @@ test('the traffic layers, their buttons and what they say', async () => {
   }
 })
 
-test('a tracked flight flown online: the BeyondATC note, the controllers card and the runway suggestion', async () => {
+test('a tracked flight flown online: the BeyondATC note, the controllers card, the runway suggestion and the auto-tune warning', async () => {
   const feed = await startNetworkFeedServer({
     centre: VHHH,
     self: { cid: 1234567, callsign: 'TSTPIL1' },
     station: 'VHHH'
   })
+  const beyondAtc = await FakeBeyondAtcServer.start()
   const { window: page, cleanup } = await launchApp({
     env: {
       WINGLOG_E2E_FIXTURE: VHHH_HOP,
@@ -142,11 +145,22 @@ test('a tracked flight flown online: the BeyondATC note, the controllers card an
       WINGLOG_E2E_REPLAY_SPEED: '1',
       WINGLOG_E2E_REPLAY_HOLD: '1',
       WINGLOG_E2E_VATSIM_URL: feed.vatsimUrl,
-      WINGLOG_E2E_IVAO_URL: feed.ivaoUrl
+      WINGLOG_E2E_IVAO_URL: feed.ivaoUrl,
+      ...beyondAtc.env
     }
   })
   try {
     await page.setViewportSize({ width: 1200, height: 800 }).catch(() => undefined)
+    // BeyondATC switched on in Settings, so its tab appears. The online network card mentions BeyondATC too, but has no host.
+    await page.getByRole('tab', { name: 'Settings' }).click()
+    await page.getByRole('tab', { name: '3rd party' }).click()
+    const beyondAtcCard = page
+      .locator('[data-slot="card"]')
+      .filter({ hasText: 'BeyondATC' })
+      .filter({ has: page.getByLabel('Host') })
+    await beyondAtcCard.getByLabel('Host').fill('127.0.0.1')
+    await beyondAtcCard.getByRole('button', { name: 'On', exact: true }).click()
+    await beyondAtc.waitForConnection()
     await page.evaluate(() =>
       (globalThis as unknown as { winglog: Winglog }).winglog.settingsSetOnlineNetwork({
         network: 'vatsim',
@@ -171,14 +185,41 @@ test('a tracked flight flown online: the BeyondATC note, the controllers card an
     await page.evaluate(() =>
       (globalThis as unknown as { winglog: Winglog }).winglog.trafficSetNetworkOn(true)
     )
+    // Out from the taxi view (zoom 15) to 8, where the invented aircraft 25 to 45 km away are in the picture.
+    const zoomOut = page.getByRole('button', { name: 'Zoom out' })
+    for (let step = 0; step < 7; step++) {
+      await zoomOut.click()
+      await page.waitForTimeout(400)
+    }
     await page.waitForTimeout(6000)
-    await snap(page, {
+    await snap(page.locator('[data-framed]'), {
       file: '6-online-track-traffic.png',
-      title: 'The same, with VATSIM traffic on',
-      note: 'The two invented aircraft near VHHH in amber; your own aircraft (the invented TSTPIL1 at your position) is left out.'
+      title: 'The same, with VATSIM traffic on (the map, zoomed out)',
+      note: 'The two invented aircraft near VHHH in amber, pointing their heading; the one on the ground is smaller and dimmer. Your own aircraft (the invented TSTPIL1 in the feed, at your position) is not drawn again as traffic.'
     })
+
+    beyondAtc.sendLines('AutoTune: true')
+    const warning = page.getByRole('alert').filter({ hasText: "BeyondATC's auto-tune is on" })
+    await expect(warning).toBeVisible()
+    await snap(page, {
+      file: '7-online-autotune-warning.png',
+      title: "BeyondATC connected with auto-tune on, while you're online",
+      note: 'The amber warning under the BeyondATC note: auto-tune can retune your radios away from the network’s controllers. WingLog never switches it off itself.'
+    })
+
+    await page.getByRole('tab', { name: 'BeyondATC' }).click()
+    await expect(warning).toBeVisible()
+    await snap(
+      page.locator('[data-slot="card"]').filter({ has: page.getByRole('button', { name: /^Auto-tune/ }) }),
+      {
+        file: '8-beyondatc-radios-online.png',
+        title: "The BeyondATC page's Radios card, online",
+        note: 'The note in place of the frequency picker, then the same warning directly above the Auto-tune button that turns it off.'
+      }
+    )
   } finally {
     await cleanup()
+    await beyondAtc.stop()
     await feed.close()
   }
 })

@@ -1023,6 +1023,7 @@
     "fileOn": "Presentar en {{network}}",
     "noPrefileLink": "Este plan no tiene enlace de presentación de {{network}}.",
     "beyondAtcHidden": "BeyondATC está oculto mientras estás en línea en {{network}}. Los controladores de la red son la única voz.",
+    "autoTuneWarning": "La sintonía automática de BeyondATC está activada y puede cambiar tus radios fuera de las frecuencias de los controladores de {{network}}. Desactiva Sintonía automática en la página de BeyondATC mientras estés en línea.",
     "atc": {
       "title": "ATC en línea en tus aeropuertos ({{network}})",
       "nobody": "Ningún controlador en línea",

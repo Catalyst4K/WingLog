@@ -172,6 +172,34 @@ describe('the pages bar', () => {
   })
 })
 
+describe('the Track page while the pilot is online', () => {
+  it("says why BeyondATC is hidden, and warns while BeyondATC's auto-tune is on", async () => {
+    stubWinglog()
+    const { socket } = open()
+    act(() => {
+      socket.say({
+        t: 'topic',
+        name: 'onlineStatus',
+        payload: {
+          network: 'vatsim',
+          state: 'online',
+          callsign: 'TSTPIL1',
+          filedPlan: null,
+          hidesBeyondAtc: true
+        }
+      })
+      socket.say({ t: 'topic', name: 'beyondAtcStatus', payload: { state: 'connected', lastError: null } })
+      socket.say({
+        t: 'topic',
+        name: 'beyondAtcState',
+        payload: { ...EMPTY_BEYONDATC_STATE, autoTune: true }
+      })
+    })
+    expect(await screen.findByText(/BeyondATC is hidden while you are online on VATSIM/)).toBeInTheDocument()
+    expect(screen.getByRole('alert')).toHaveTextContent("BeyondATC's auto-tune is on")
+  })
+})
+
 describe('the Dispatch page', () => {
   it("shows the flight plan's figures as the Dispatch screen does, in the PC's units", async () => {
     stubWinglog()

@@ -1021,6 +1021,7 @@
     "fileOn": "Bei {{network}} aufgeben",
     "noPrefileLink": "Dieser Plan hat keinen {{network}}-Aufgabelink.",
     "beyondAtcHidden": "BeyondATC ist ausgeblendet, solange du online bei {{network}} bist. Nur die Lotsen des Netzwerks sprechen.",
+    "autoTuneWarning": "Die Auto-Einstellung von BeyondATC ist an und kann deine Funkgeräte umstellen, weg von den Lotsen bei {{network}}. Schalte die Auto-Einstellung auf der BeyondATC-Seite aus, solange du online bist.",
     "atc": {
       "title": "ATC online an deinen Flughäfen ({{network}})",
       "nobody": "Keine Lotsen online",

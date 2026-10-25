@@ -12,6 +12,7 @@ import type {
   WingLogApi
 } from '@shared/ipc'
 import i18n from './i18n'
+import { EMPTY_BEYONDATC_STATE } from '@shared/beyondatc-state'
 import { emptyProcedureSelection } from '@shared/procedure-selection'
 import { TrackView } from './TrackView'
 
@@ -421,6 +422,27 @@ describe('TrackView', () => {
       expect(
         await screen.findByText(/BeyondATC is hidden while you are online on VATSIM/)
       ).toBeInTheDocument()
+    })
+
+    it('warns while the pilot is online and a connected BeyondATC has auto-tune on', async () => {
+      setWinglog({
+        getOnlineStatus: vi.fn().mockResolvedValue({
+          network: 'ivao',
+          state: 'online',
+          callsign: 'TSTPIL1',
+          filedPlan: null,
+          hidesBeyondAtc: true
+        }),
+        onOnlineStatus: vi.fn(() => () => {}),
+        beyondAtcGetStatus: vi.fn().mockResolvedValue({ state: 'connected', lastError: null }),
+        onBeyondAtcStatus: vi.fn(() => () => {}),
+        beyondAtcGetState: vi.fn().mockResolvedValue({ ...EMPTY_BEYONDATC_STATE, autoTune: true }),
+        onBeyondAtcState: vi.fn(() => () => {})
+      })
+      renderTrack()
+      expect(await screen.findByRole('alert')).toHaveTextContent(
+        "BeyondATC's auto-tune is on and can retune your radios away from IVAO's controllers."
+      )
     })
 
     it('has no filing button for a free flight, which has no OFP', async () => {

@@ -1023,6 +1023,7 @@
     "fileOn": "Déposer sur {{network}}",
     "noPrefileLink": "Ce plan n'a pas de lien de dépôt {{network}}.",
     "beyondAtcHidden": "BeyondATC est masqué pendant que vous êtes en ligne sur {{network}}. Les contrôleurs du réseau sont la seule voix.",
+    "autoTuneWarning": "Le réglage auto de BeyondATC est activé et peut changer la fréquence de vos radios, loin des contrôleurs de {{network}}. Désactivez Réglage auto sur la page BeyondATC pendant que vous êtes en ligne.",
     "atc": {
       "title": "ATC en ligne à vos aéroports ({{network}})",
       "nobody": "Aucun contrôleur en ligne",

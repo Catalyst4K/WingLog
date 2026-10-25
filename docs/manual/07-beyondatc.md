@@ -32,8 +32,9 @@ BeyondATC can be started before or after WingLog.
   reply**.
 - **Radios**: set COM1 and COM2 by typing a frequency or choosing from **Frequencies** (departure
   and arrival airports, with runway-specific approach frequencies). **Auto-tune** and
-  **Auto-respond** are BeyondATC's own settings, switched from here. **Auto step climb** is
-  WingLog's (see below).
+  **Auto-respond** are BeyondATC's own settings, switched from here. While you are online on
+  VATSIM or IVAO, a warning above them says when Auto-tune is on (see
+  [Online networks](10-online-networks.md)). **Auto step climb** is WingLog's (see below).
 - **Transcript**: every radio call, yours, ATC's and other traffic's.
 
 ![The BeyondATC page with a departure clearance](images/beyondatc.png)
