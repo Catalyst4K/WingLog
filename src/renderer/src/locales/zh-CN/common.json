@@ -1015,7 +1015,9 @@
     "atc": {
       "title": "你的机场在线管制 ({{network}})",
       "nobody": "没有在线管制员",
-      "enrouteNote": "不列出航路管制员。"
+      "enrouteNote": "不列出航路管制员。",
+      "runway": "使用跑道（来自 ATIS）：{{runway}}",
+      "runwayHint": "从 ATIS 文本读取，仅供参考。请对照文本核实。"
     }
   }
 }

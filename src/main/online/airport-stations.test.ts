@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { airportPrefixes, stationsAt } from './airport-stations'
+import { atisRunway } from './atis-runway'
 import type { FeedController, FeedSnapshot } from './feed-snapshot'
 import { parseIvaoFeed } from './ivao-feed'
 import { parseVatsimFeed } from './vatsim-feed'
@@ -101,7 +102,9 @@ describe('stationsAt', () => {
       ['EGLL']
     )
     expect(result[0]?.stations[0]?.name).toBe('Test Controller')
-    expect(result[0]?.atis).toEqual([{ callsign: 'EGLL_ATIS', code: 'C', lines: ['<b>WIND CALM</b>'] }])
+    expect(result[0]?.atis).toEqual([
+      { callsign: 'EGLL_ATIS', code: 'C', lines: ['<b>WIND CALM</b>'], runway: null }
+    ])
   })
 
   it('gives an airport with nobody online as an empty entry', () => {
@@ -122,6 +125,7 @@ describe('stationsAt', () => {
       expect(newark?.stations.map((s) => s.callsign)).toEqual(['EWR_GND'])
       expect(newark?.atis.map((a) => [a.callsign, a.code])).toEqual([['KEWR_ATIS', 'C']])
       expect(newark?.atis[0]?.lines.join(' ')).toContain('ILS RWY 22L')
+      expect(newark?.atis[0]?.runway).toBe(atisRunway(newark?.atis[0]?.lines ?? []))
       const all = stationsAt(feed, ['KEWR', 'KLGA', 'KJFK'])
       expect(all.flatMap((a) => a.stations).some((s) => s.callsign.startsWith('TESTOBS'))).toBe(false)
     })

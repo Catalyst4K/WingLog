@@ -7,6 +7,7 @@
  * letter. Observers are never in the snapshot's controllers. Enroute controllers have no position in either feed and are not listed.
  */
 import type { OnlineAirportStations, OnlineStationPosition } from '@shared/ipc'
+import { atisRunway } from './atis-runway'
 import type { FeedSnapshot } from './feed-snapshot'
 
 /** The order stations are listed in, from the gate outwards. */
@@ -48,7 +49,7 @@ export function stationsAt(snapshot: FeedSnapshot, icaos: string[]): OnlineAirpo
         .map((c) => ({ callsign: c.callsign, frequency: c.frequency, position: c.position, name: c.name })),
       atis: snapshot.atis
         .filter((a) => here(a.callsign))
-        .map((a) => ({ callsign: a.callsign, code: a.code, lines: a.lines }))
+        .map((a) => ({ callsign: a.callsign, code: a.code, lines: a.lines, runway: atisRunway(a.lines) }))
     }
   })
 }

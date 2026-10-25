@@ -48,6 +48,11 @@ function Airport({ airport }: { airport: OnlineAirportStations }): React.JSX.Ele
           <div className="font-mono font-medium">
             ATIS {atis.code ?? ''} · {atis.callsign}
           </div>
+          {atis.runway && (
+            <div className="font-medium text-foreground" title={t('online.atc.runwayHint')}>
+              {t('online.atc.runway', { runway: atis.runway })}
+            </div>
+          )}
           {atis.lines.map((line, index) => (
             <div key={index} className="break-words text-muted-foreground">
               {line}

@@ -88,6 +88,8 @@ export interface OnlineAtis {
   /** The information letter, or null when none is given. */
   code: string | null
   lines: string[]
+  /** The one runway the text names, when it names exactly one: a suggestion to show beside the text, never applied. */
+  runway: string | null
 }
 
 /** Who is online at one airport. */

@@ -1026,7 +1026,9 @@
     "atc": {
       "title": "ATC online ai tuoi aeroporti ({{network}})",
       "nobody": "Nessun controllore online",
-      "enrouteNote": "I controllori in rotta non sono elencati."
+      "enrouteNote": "I controllori in rotta non sono elencati.",
+      "runway": "Pista in uso (dall’ATIS): {{runway}}",
+      "runwayHint": "Letta dal testo dell’ATIS come suggerimento. Controllala sul testo."
     }
   }
 }
