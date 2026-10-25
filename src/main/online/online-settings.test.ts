@@ -25,7 +25,8 @@ describe('online network settings', () => {
       network: null,
       vatsimCid: null,
       ivaoVid: null,
-      keepBeyondAtcOnline: false
+      keepBeyondAtcOnline: false,
+      simTrafficButton: true
     })
   })
 
@@ -35,7 +36,8 @@ describe('online network settings', () => {
       network: 'vatsim',
       vatsimCid: null,
       ivaoVid: null,
-      keepBeyondAtcOnline: true
+      keepBeyondAtcOnline: true,
+      simTrafficButton: true
     })
     expect(getOnlineNetworkSettings(db).keepBeyondAtcOnline).toBe(true)
     for (const bad of ['true', 1, null, undefined]) {
@@ -44,11 +46,38 @@ describe('online network settings', () => {
           network: 'vatsim',
           vatsimCid: null,
           ivaoVid: null,
-          keepBeyondAtcOnline: bad
+          keepBeyondAtcOnline: bad,
+          simTrafficButton: true
         })
       ).toThrow('Invalid setting')
     }
     expect(getOnlineNetworkSettings(db).keepBeyondAtcOnline).toBe(true)
+  })
+
+  it('offers the sim traffic button until it is switched off, refusing anything but a boolean and saving nothing then', () => {
+    const settings = {
+      network: null,
+      vatsimCid: null,
+      ivaoVid: null,
+      keepBeyondAtcOnline: false,
+      simTrafficButton: false
+    }
+    setOnlineNetworkSettings(db, settings)
+    expect(getOnlineNetworkSettings(db).simTrafficButton).toBe(false)
+    for (const bad of ['false', 0, null, undefined]) {
+      expect(() =>
+        setOnlineNetworkSettings(db, { ...settings, network: 'vatsim', simTrafficButton: bad })
+      ).toThrow('Invalid setting')
+    }
+    expect(getOnlineNetworkSettings(db)).toMatchObject({ network: null, simTrafficButton: false })
+    setOnlineNetworkSettings(db, { ...settings, simTrafficButton: true })
+    expect(getOnlineNetworkSettings(db).simTrafficButton).toBe(true)
+  })
+
+  it('keeps offering the sim traffic button on an install from before the setting existed', () => {
+    // Nothing stored under the key: the button stays, as it was before the switch was added.
+    setSetting(db, 'onlineNetwork', 'vatsim')
+    expect(getOnlineNetworkSettings(db).simTrafficButton).toBe(true)
   })
 
   it('stores and reads a network and its member numbers', () => {
@@ -56,13 +85,15 @@ describe('online network settings', () => {
       network: 'ivao',
       vatsimCid: '1234567',
       ivaoVid: '654321',
-      keepBeyondAtcOnline: false
+      keepBeyondAtcOnline: false,
+      simTrafficButton: true
     })
     expect(getOnlineNetworkSettings(db)).toEqual({
       network: 'ivao',
       vatsimCid: '1234567',
       ivaoVid: '654321',
-      keepBeyondAtcOnline: false
+      keepBeyondAtcOnline: false,
+      simTrafficButton: true
     })
   })
 
@@ -71,14 +102,22 @@ describe('online network settings', () => {
       network: 'vatsim',
       vatsimCid: '1',
       ivaoVid: '2',
-      keepBeyondAtcOnline: false
+      keepBeyondAtcOnline: false,
+      simTrafficButton: true
     })
-    setOnlineNetworkSettings(db, { network: null, vatsimCid: '', ivaoVid: null, keepBeyondAtcOnline: false })
+    setOnlineNetworkSettings(db, {
+      network: null,
+      vatsimCid: '',
+      ivaoVid: null,
+      keepBeyondAtcOnline: false,
+      simTrafficButton: true
+    })
     expect(getOnlineNetworkSettings(db)).toEqual({
       network: null,
       vatsimCid: null,
       ivaoVid: null,
-      keepBeyondAtcOnline: false
+      keepBeyondAtcOnline: false,
+      simTrafficButton: true
     })
   })
 
@@ -90,7 +129,8 @@ describe('online network settings', () => {
           network: 'vatsim',
           vatsimCid: bad,
           ivaoVid: null,
-          keepBeyondAtcOnline: false
+          keepBeyondAtcOnline: false,
+          simTrafficButton: true
         })
       ).toThrow('Invalid member number')
       expect(() =>
@@ -98,7 +138,8 @@ describe('online network settings', () => {
           network: 'ivao',
           vatsimCid: null,
           ivaoVid: bad,
-          keepBeyondAtcOnline: false
+          keepBeyondAtcOnline: false,
+          simTrafficButton: true
         })
       ).toThrow('Invalid member number')
     }
@@ -110,7 +151,8 @@ describe('online network settings', () => {
         network: bad,
         vatsimCid: null,
         ivaoVid: null,
-        keepBeyondAtcOnline: false
+        keepBeyondAtcOnline: false,
+        simTrafficButton: true
       })
     ).toThrow('Invalid network')
   })
@@ -124,21 +166,24 @@ describe('online network settings', () => {
       network: 'vatsim',
       vatsimCid: '111',
       ivaoVid: null,
-      keepBeyondAtcOnline: false
+      keepBeyondAtcOnline: false,
+      simTrafficButton: true
     })
     expect(() =>
       setOnlineNetworkSettings(db, {
         network: 'ivao',
         vatsimCid: '222',
         ivaoVid: 'x',
-        keepBeyondAtcOnline: false
+        keepBeyondAtcOnline: false,
+        simTrafficButton: true
       })
     ).toThrow()
     expect(getOnlineNetworkSettings(db)).toEqual({
       network: 'vatsim',
       vatsimCid: '111',
       ivaoVid: null,
-      keepBeyondAtcOnline: false
+      keepBeyondAtcOnline: false,
+      simTrafficButton: true
     })
   })
 
@@ -149,7 +194,8 @@ describe('online network settings', () => {
       network: null,
       vatsimCid: null,
       ivaoVid: null,
-      keepBeyondAtcOnline: false
+      keepBeyondAtcOnline: false,
+      simTrafficButton: true
     })
   })
 })

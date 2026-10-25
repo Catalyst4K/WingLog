@@ -13,6 +13,7 @@ const NETWORK_ON_KEY = 'trafficNetworkOn'
 const SIM_ON_KEY = 'trafficSimOn'
 const PRETEND_CALLSIGN_KEY = 'devPretendCallsign'
 const KEEP_BEYONDATC_KEY = 'onlineKeepBeyondAtc'
+const SIM_BUTTON_KEY = 'trafficSimButton'
 
 /** A callsign: letters, digits, underscore and hyphen, at most 12. */
 const CALLSIGN = /^[A-Za-z0-9_-]{1,12}$/
@@ -41,7 +42,8 @@ function memberNumberOrNull(value: unknown): string | null {
 
 /**
  * @param db The database.
- * @returns The chosen network and the member numbers (none chosen by default).
+ * @returns The chosen network and the member numbers (none chosen by default), and whether the sim traffic button is offered (yes until
+ *   it is switched off, so an install from before the setting keeps the button).
  */
 export function getOnlineNetworkSettings(db: WingLogDb): OnlineNetworkSettings {
   const cid = getSetting(db, VATSIM_CID_KEY)
@@ -50,7 +52,8 @@ export function getOnlineNetworkSettings(db: WingLogDb): OnlineNetworkSettings {
     network: asNetwork(getSetting(db, NETWORK_KEY)),
     vatsimCid: cid && MEMBER_NUMBER.test(cid) ? cid : null,
     ivaoVid: vid && MEMBER_NUMBER.test(vid) ? vid : null,
-    keepBeyondAtcOnline: getSetting(db, KEEP_BEYONDATC_KEY) === '1'
+    keepBeyondAtcOnline: getSetting(db, KEEP_BEYONDATC_KEY) === '1',
+    simTrafficButton: getSetting(db, SIM_BUTTON_KEY) !== '0'
   }
 }
 
@@ -68,8 +71,11 @@ export function setOnlineNetworkSettings(db: WingLogDb, settings: unknown): void
   if (network !== null && network !== 'vatsim' && network !== 'ivao') throw new Error('Invalid network')
   const cid = memberNumberOrNull(record.vatsimCid)
   const vid = memberNumberOrNull(record.ivaoVid)
-  if (typeof record.keepBeyondAtcOnline !== 'boolean') throw new Error('Invalid setting')
+  if (typeof record.keepBeyondAtcOnline !== 'boolean' || typeof record.simTrafficButton !== 'boolean') {
+    throw new Error('Invalid setting')
+  }
   setSetting(db, KEEP_BEYONDATC_KEY, record.keepBeyondAtcOnline ? '1' : '0')
+  setSetting(db, SIM_BUTTON_KEY, record.simTrafficButton ? '1' : '0')
   setSetting(db, NETWORK_KEY, network ?? '')
   setSetting(db, VATSIM_CID_KEY, cid ?? '')
   setSetting(db, IVAO_VID_KEY, vid ?? '')

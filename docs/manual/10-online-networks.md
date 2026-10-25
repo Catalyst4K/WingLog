@@ -3,8 +3,8 @@
 WingLog can show the traffic of **VATSIM** or **IVAO** on the Track map, so you can see who else is
 flying around you. It only **reads** the network's public data feed, the same one the networks'
 own map websites use. Nothing is sent, and you don't log in to anything through WingLog. VATSIM's
-traffic needs no account; IVAO's needs your member number (below). It's **off** until you choose a
-network.
+traffic needs no account; IVAO's needs your member number (below). It's all **off** until you choose a
+network: with **None** chosen, nothing of VATSIM or IVAO appears anywhere in WingLog.
 
 ## Choosing a network
 
@@ -57,10 +57,12 @@ PC and the phone, and it is remembered.
   (jetway helpers and the like).
 - If the sim isn't running yet, the map says "Sim traffic unavailable" and tries again every 15
   seconds.
+- Don't want the button at all? Turn off **Sim traffic button** in Settings → 3rd party → Online
+  network, and it leaves the map on the PC and the phone.
 
 ## Filing your flight plan
 
-On **Dispatch** (beside the OFP’s PDF button) and on **Track** (on the flight card), **File on VATSIM** and **File on IVAO** open the network’s own filing page with your plan already filled in, from the link SimBrief put in the OFP. You log in there and press File: WingLog files nothing itself and never sees your login. With a network chosen in Settings only its button shows; with none chosen both do. If an older plan has no link, WingLog says so.
+On **Dispatch** (beside the OFP’s PDF button) and on **Track** (on the flight card), **File on VATSIM** and **File on IVAO** open the network’s own filing page with your plan already filled in, from the link SimBrief put in the OFP. You log in there and press File: WingLog files nothing itself and never sees your login. Only the network chosen in Settings has a button, and with none chosen there is none. If an older plan has no link, WingLog says so.
 
 ## Knowing you are online
 
@@ -79,7 +81,7 @@ BeyondATC’s **Auto-tune** is BeyondATC’s own setting, and WingLog never chan
 
 ## Who is online at your airports
 
-While a flight is tracked, Track (and the phone’s Track page, as a folded section) lists the controllers online at the flight’s departure, arrival and alternate airports: their position (DEL, GND, TWR, APP), callsign and frequency, and each airport’s ATIS with its letter and text. The frequencies are only shown: WingLog never tunes your radios. Some US stations use the three-letter airport code (JFK_TWR for KJFK), which WingLog matches too. Enroute controllers are not listed, because neither network says where they are. On IVAO this needs your VID, like the traffic.
+While a flight is tracked, a button beside **Weather…** and **Procedures…** on Track names the network and how many controllers are online at the flight’s departure, arrival and alternate airports, for example **VATSIM ATC (2)…**. Press it to see them: their position (DEL, GND, TWR, APP), callsign and frequency, and each airport’s ATIS with its letter and text. The phone’s Track page has the same list as a folded section. The frequencies are only shown: WingLog never tunes your radios. Some US stations use the three-letter airport code (JFK_TWR for KJFK), which WingLog matches too. Enroute controllers are not listed, because neither network says where they are. On IVAO this needs your VID, like the traffic.
 
 When an ATIS names exactly one runway, WingLog shows **Runway in use (from the ATIS)** above its text. It is a suggestion only: nothing is changed or tuned from it. It stays blank whenever the ATIS names several runways, splits arrivals from departures, mentions a closed runway or names none, because a wrong runway is worse than none. In a read of VATSIM's ATIS texts it found one for a little over half of them.
 

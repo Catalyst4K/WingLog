@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { OnlineNetworkSettings } from '@shared/ipc'
 import { PrefileButtons } from './PrefileButtons'
@@ -18,17 +18,19 @@ const NONE: OnlineNetworkSettings = {
   network: null,
   vatsimCid: null,
   ivaoVid: null,
-  keepBeyondAtcOnline: false
+  keepBeyondAtcOnline: false,
+  simTrafficButton: true
 }
 
 describe('PrefileButtons', () => {
   beforeEach(() => toastError.mockClear())
 
-  it('shows both buttons while no network is chosen', async () => {
+  it('shows no button while no network is chosen, once the setting is read', async () => {
     setup(NONE)
-    render(<PrefileButtons file={() => Promise.resolve(true)} />)
-    expect(await screen.findByRole('button', { name: 'File on VATSIM' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'File on IVAO' })).toBeInTheDocument()
+    const { container } = render(<PrefileButtons file={() => Promise.resolve(true)} />)
+    await act(() => Promise.resolve())
+    expect(window.winglog.settingsGetOnlineNetwork).toHaveBeenCalled()
+    expect(container).toBeEmptyDOMElement()
   })
 
   it.each([
@@ -48,7 +50,7 @@ describe('PrefileButtons', () => {
   })
 
   it('asks for the network clicked, and says nothing more when it opened', async () => {
-    setup(NONE)
+    setup({ ...NONE, network: 'ivao' })
     const file = vi.fn(() => Promise.resolve(true))
     render(<PrefileButtons file={file} />)
     await userEvent.click(await screen.findByRole('button', { name: 'File on IVAO' }))

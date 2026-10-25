@@ -10,22 +10,24 @@ export interface TrafficLayerInput {
   simOn: boolean
   network: OnlineNetwork | null
   ivaoVidSet: boolean
-  /** False until the sim's own traffic can be read. */
-  simAvailable: boolean
+  /** The "Sim traffic button" setting: off, the button is not offered and the sim's layer never draws, whatever its switch says. */
+  simOffered: boolean
 }
 
 /**
- * @param input The switches, the chosen network and what is available.
+ * @param input The switches, the chosen network and whether the sim traffic button is offered.
  * @returns Which layers draw, and whether the sim's was held back by the network's.
  */
 export function decideTrafficLayers(input: TrafficLayerInput): TrafficLayers {
   const networkChosen = input.network !== null && (input.network !== 'ivao' || input.ivaoVidSet)
   const drawNetwork = input.networkOn && networkChosen
+  const simWanted = input.simOffered && input.simOn
   return {
     networkOn: input.networkOn,
     simOn: input.simOn,
+    simOffered: input.simOffered,
     drawNetwork,
-    drawSim: input.simOn && input.simAvailable && !drawNetwork,
-    simBlockedByNetwork: input.simOn && drawNetwork
+    drawSim: simWanted && !drawNetwork,
+    simBlockedByNetwork: simWanted && drawNetwork
   }
 }

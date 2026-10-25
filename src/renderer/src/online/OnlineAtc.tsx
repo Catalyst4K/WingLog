@@ -2,10 +2,13 @@
  * Who is online at the flight's airports (winglog-backend docs/plans/vatsim-build.md, Step 4): each controller's position, callsign and
  * frequency, and each ATIS with its letter and text. Frequencies are only shown, never tuned. Every string here came from a network feed,
  * so it is rendered as text only. Enroute controllers are not listed: neither network gives them a position.
+ * On the PC a button beside Weather and Procedures opens it in a pop-up (Callum, 2026-10-25: as a card above the map it took too much
+ * room); on the phone it is a folded section.
  */
 import { useTranslation } from 'react-i18next'
 import type { NetworkControllers, OnlineAirportStations, OnlineStationPosition } from '@shared/ipc'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { useSafeLiveTopic } from '../live/use-safe-live-topic'
 
 const NOBODY: NetworkControllers = { network: null, airports: [] }
@@ -65,41 +68,75 @@ function Airport({ airport }: { airport: OnlineAirportStations }): React.JSX.Ele
 }
 
 /**
- * @param props `compact` draws it as a collapsed section for the phone, instead of a card.
- * @returns The controllers online at the flight's airports, or nothing while no flight is tracked on a chosen network.
+ * @returns The network's name and the flight's airports, or null while there is nothing to show (no network chosen, or no flight tracked).
  */
-export function OnlineAtcCard(props: { compact?: boolean }): React.JSX.Element | null {
-  const { t } = useTranslation()
+function useOnlineAtc(): { network: string; airports: OnlineAirportStations[] } | null {
   const { network, airports } = useSafeLiveTopic('networkControllers', NOBODY)
   if (!network || airports.length === 0) return null
-  const name = network === 'ivao' ? 'IVAO' : 'VATSIM'
-  const title = t('online.atc.title', { network: name })
-  const body = (
+  return { network: network === 'ivao' ? 'IVAO' : 'VATSIM', airports }
+}
+
+/**
+ * @param props The flight's airports.
+ * @returns Each airport's controllers and ATIS, and the note that enroute controllers are not listed.
+ */
+function AtcList(props: { airports: OnlineAirportStations[] }): React.JSX.Element {
+  const { t } = useTranslation()
+  return (
     <div className="flex flex-col gap-3">
-      {airports.map((airport) => (
+      {props.airports.map((airport) => (
         <Airport key={airport.icao} airport={airport} />
       ))}
       <p className="text-xs text-muted-foreground">{t('online.atc.enrouteNote')}</p>
     </div>
   )
-  if (props.compact) {
-    return (
-      <details className="border-b border-border bg-card px-3 py-1.5 text-xs">
-        <summary className="cursor-pointer font-medium">{title}</summary>
-        <div className="pt-2">{body}</div>
-      </details>
-    )
-  }
-  // On the PC the card sits above the map in a column that gives the map whatever is left: at a busy event three airports' stations
-  // and ATIS would take it all, so the card scrolls inside a bounded height instead.
+}
+
+/**
+ * The PC's "VATSIM ATC (2)…" button, the count being the controllers online at the flight's airports, and the list in a pop-up.
+ *
+ * @returns The button, or nothing while there is nothing to show.
+ */
+export function OnlineAtcButton(): React.JSX.Element | null {
+  const { t } = useTranslation()
+  const atc = useOnlineAtc()
+  if (!atc) return null
+  const online = atc.airports.reduce((sum, airport) => sum + airport.stations.length, 0)
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{title}</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="max-h-64 overflow-y-auto pr-1">{body}</div>
-      </CardContent>
-    </Card>
+    <Dialog>
+      <DialogTrigger asChild>
+        <Button type="button" variant="outline" size="sm">
+          {t('online.atc.button', { network: atc.network, online })}
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-xl">
+        <DialogHeader>
+          <DialogTitle>{t('online.atc.title', { network: atc.network })}</DialogTitle>
+        </DialogHeader>
+        {/* A busy event's three airports can be long: the list scrolls inside the pop-up. */}
+        <div className="max-h-[70vh] overflow-y-auto pr-1">
+          <AtcList airports={atc.airports} />
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+/**
+ * @returns The phone's folded section of the same list, or nothing while there is nothing to show.
+ */
+export function OnlineAtcSection(): React.JSX.Element | null {
+  const { t } = useTranslation()
+  const atc = useOnlineAtc()
+  if (!atc) return null
+  return (
+    <details className="border-b border-border bg-card px-3 py-1.5 text-xs">
+      <summary className="cursor-pointer font-medium">
+        {t('online.atc.title', { network: atc.network })}
+      </summary>
+      <div className="pt-2">
+        <AtcList airports={atc.airports} />
+      </div>
+    </details>
   )
 }

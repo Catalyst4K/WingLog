@@ -76,13 +76,15 @@ describe('online network handlers', () => {
       network: null,
       vatsimCid: null,
       ivaoVid: null,
-      keepBeyondAtcOnline: false
+      keepBeyondAtcOnline: false,
+      simTrafficButton: true
     })
     invoke(IpcChannels.settingsSetOnlineNetwork, {
       network: 'ivao',
       vatsimCid: null,
       ivaoVid: null,
-      keepBeyondAtcOnline: false
+      keepBeyondAtcOnline: false,
+      simTrafficButton: true
     })
     expect(invoke(IpcChannels.settingsGetOnlineNetwork)).toMatchObject({ network: 'ivao' })
     expect(invoke(IpcChannels.networkTrafficGet)).toEqual({
@@ -98,14 +100,16 @@ describe('online network handlers', () => {
       network: 'vatsim',
       vatsimCid: '123',
       ivaoVid: null,
-      keepBeyondAtcOnline: false
+      keepBeyondAtcOnline: false,
+      simTrafficButton: true
     })
     expect(() =>
       invoke(IpcChannels.settingsSetOnlineNetwork, {
         network: 'vatsim',
         vatsimCid: '12;DROP',
         ivaoVid: null,
-        keepBeyondAtcOnline: false
+        keepBeyondAtcOnline: false,
+        simTrafficButton: true
       })
     ).toThrow('Invalid member number')
     expect(invoke(IpcChannels.settingsGetOnlineNetwork)).toMatchObject({ vatsimCid: '123' })
@@ -117,7 +121,8 @@ describe('online network handlers', () => {
       network: 'vatsim',
       vatsimCid: null,
       ivaoVid: null,
-      keepBeyondAtcOnline: false
+      keepBeyondAtcOnline: false,
+      simTrafficButton: true
     })
     invoke(IpcChannels.trafficSetNetworkOn, true)
     expect(getTrafficSwitches(db).networkOn).toBe(true)
@@ -172,7 +177,8 @@ describe('online network handlers', () => {
       network: 'vatsim',
       vatsimCid: null,
       ivaoVid: null,
-      keepBeyondAtcOnline: false
+      keepBeyondAtcOnline: false,
+      simTrafficButton: true
     })
     invoke(IpcChannels.trafficSetNetworkOn, true)
     invoke(IpcChannels.trafficSetSimOn, true)
@@ -187,7 +193,8 @@ describe('online network handlers', () => {
       network: 'vatsim',
       vatsimCid: null,
       ivaoVid: null,
-      keepBeyondAtcOnline: false
+      keepBeyondAtcOnline: false,
+      simTrafficButton: true
     })
     invoke(IpcChannels.trafficSetNetworkOn, true)
     expect(invoke(IpcChannels.networkTrafficGet)).toEqual({
@@ -221,7 +228,8 @@ describe('online network handlers', () => {
         network: 'vatsim',
         vatsimCid: String(own.cid),
         ivaoVid: null,
-        keepBeyondAtcOnline: false
+        keepBeyondAtcOnline: false,
+        simTrafficButton: true
       })
       tracking.getActive = () => ({ flightId: flight.id })
       return { flightId: flight.id, callsign: own.callsign }
@@ -292,7 +300,8 @@ describe('online network handlers', () => {
       network: 'vatsim',
       vatsimCid: null,
       ivaoVid: null,
-      keepBeyondAtcOnline: false
+      keepBeyondAtcOnline: false,
+      simTrafficButton: true
     })
     invoke(IpcChannels.trafficSetNetworkOn, true)
     for (const event of ['started', 'stopped', 'completed']) tracking.emit(event)

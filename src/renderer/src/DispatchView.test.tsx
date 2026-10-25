@@ -135,9 +135,13 @@ function createWinglog(overrides: Record<string, unknown> = {}): typeof window.w
     aircraftUpdate: vi.fn().mockImplementation((a) => Promise.resolve(a)),
     trackingGetActive: vi.fn().mockResolvedValue(null),
     dispatchOpenOfpPdf: vi.fn().mockResolvedValue(true),
-    settingsGetOnlineNetwork: vi
-      .fn()
-      .mockResolvedValue({ network: null, vatsimCid: null, ivaoVid: null, keepBeyondAtcOnline: false }),
+    settingsGetOnlineNetwork: vi.fn().mockResolvedValue({
+      network: null,
+      vatsimCid: null,
+      ivaoVid: null,
+      keepBeyondAtcOnline: false,
+      simTrafficButton: true
+    }),
     onlinePrefileFromOfp: vi.fn().mockResolvedValue(true),
     flightCreate: vi.fn().mockResolvedValue(makeFlight()),
     weatherGetMetars: vi.fn().mockResolvedValue([]),
@@ -746,9 +750,13 @@ describe('DispatchView', () => {
       const onlinePrefileFromOfp = vi.fn().mockResolvedValue(true)
       window.winglog = createWinglog({
         dispatchFetchOfp: vi.fn().mockResolvedValue(makeOfp()),
-        settingsGetOnlineNetwork: vi
-          .fn()
-          .mockResolvedValue({ network: null, vatsimCid: null, ivaoVid: null, keepBeyondAtcOnline: false }),
+        settingsGetOnlineNetwork: vi.fn().mockResolvedValue({
+          network: 'ivao',
+          vatsimCid: null,
+          ivaoVid: '654321',
+          keepBeyondAtcOnline: false,
+          simTrafficButton: true
+        }),
         onlinePrefileFromOfp
       })
       const user = userEvent.setup()
@@ -759,6 +767,26 @@ describe('DispatchView', () => {
       await user.click(await screen.findByRole('button', { name: 'File on IVAO' }))
 
       await waitFor(() => expect(onlinePrefileFromOfp).toHaveBeenCalledWith('{}', 'ivao'))
+    })
+
+    it('has no File button while no network is chosen', async () => {
+      const settingsGetOnlineNetwork = vi.fn().mockResolvedValue({
+        network: null,
+        vatsimCid: null,
+        ivaoVid: null,
+        keepBeyondAtcOnline: false,
+        simTrafficButton: true
+      })
+      window.winglog = createWinglog({
+        dispatchFetchOfp: vi.fn().mockResolvedValue(makeOfp()),
+        settingsGetOnlineNetwork
+      })
+      const user = userEvent.setup()
+      render(<Harness />)
+      await user.click(screen.getByRole('button', { name: 'Fetch latest OFP' }))
+      await screen.findByText('TA100: EGLL → EDDF (altn EDDL)')
+      await waitFor(() => expect(settingsGetOnlineNetwork).toHaveBeenCalled())
+      expect(screen.queryByRole('button', { name: /File on/ })).not.toBeInTheDocument()
     })
 
     it('shows an error toast when no OFP PDF is available', async () => {

@@ -68,6 +68,7 @@ function fakeMap() {
 const LAYERS_OFF: TrafficLayers = {
   networkOn: false,
   simOn: false,
+  simOffered: true,
   drawNetwork: false,
   drawSim: false,
   simBlockedByNetwork: false

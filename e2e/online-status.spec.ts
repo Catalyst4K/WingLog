@@ -50,7 +50,8 @@ async function startOnlineFlight(window: Page): Promise<void> {
         network: 'vatsim',
         vatsimCid: String(cid),
         ivaoVid: null,
-        keepBeyondAtcOnline: false
+        keepBeyondAtcOnline: false,
+        simTrafficButton: true
       }),
     CID
   )
@@ -74,12 +75,16 @@ test('a flight flown while online is recorded with its network and callsign, and
     await expect(window.getByText(/BeyondATC is hidden while you are online on VATSIM/)).toBeVisible()
     expect(feed.requests.length).toBeGreaterThan(0)
 
-    // The controllers and ATIS at the flight's airport are listed on Track.
-    const atc = window.getByRole('region', { name: 'VHHH' })
+    // The controllers and ATIS at the flight's airport: a button beside Weather says how many are online and opens them in a pop-up.
+    await window.getByRole('button', { name: 'VATSIM ATC (1)…' }).click()
+    const popup = window.getByRole('dialog')
+    const atc = popup.getByRole('region', { name: 'VHHH' })
     await expect(atc.getByText('VHHH_TWR')).toBeVisible()
     await expect(atc.getByText('118.700')).toBeVisible()
     await expect(atc.getByText('RUNWAY 07R IN USE')).toBeVisible()
     await expect(atc.getByText('Runway in use (from the ATIS): 07R')).toBeVisible()
+    await window.keyboard.press('Escape')
+    await expect(popup).toBeHidden()
 
     // Fly it, finish it, and find it in the Logbook with its network and callsign.
     await window.evaluate(
@@ -139,8 +144,8 @@ test("warns while BeyondATC's auto-tune is on and the pilot is online, and leave
     beyondAtc.sendLines('AutoTune: true')
     await expect(warning).toBeVisible()
 
-    // Track at its fullest (the note, the warning, the controllers card), in the window size WingLog first opens at: nothing is
-    // squeezed, the page scrolls instead. The flight card shows its airport row in full, the map's Zoom out can be pressed, and the
+    // Track at its fullest (the BeyondATC note and the warning above the flight card), in the window size WingLog first opens at:
+    // nothing is squeezed, the page scrolls instead. The flight card shows its airport row in full, the map's Zoom out can be pressed, and the
     // map's speed line sits at its bottom edge. Once, the map's box shrank under the map: its overlays floated mid-map and the
     // attribution covered Zoom out; and a card squeezed instead cut off the airports.
     const clearDeparture = window.getByRole('button', { name: 'Clear departure' })

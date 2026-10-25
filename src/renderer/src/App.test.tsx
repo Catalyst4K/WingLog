@@ -412,7 +412,8 @@ function createWinglog(overrides: Partial<WingLogApi> = {}): WingLogApi {
       network: null,
       vatsimCid: null,
       ivaoVid: null,
-      keepBeyondAtcOnline: false
+      keepBeyondAtcOnline: false,
+      simTrafficButton: true
     }),
     settingsSetBeyondAtc: vi.fn().mockResolvedValue(undefined),
     beyondAtcGetStatus: vi.fn().mockResolvedValue({ state: 'disconnected', lastError: null }),

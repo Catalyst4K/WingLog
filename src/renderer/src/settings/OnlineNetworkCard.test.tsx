@@ -20,12 +20,19 @@ const NONE: OnlineNetworkSettings = {
   network: null,
   vatsimCid: null,
   ivaoVid: null,
-  keepBeyondAtcOnline: false
+  keepBeyondAtcOnline: false,
+  simTrafficButton: true
 }
 
 describe('OnlineNetworkCard: BeyondATC while online', () => {
   it('offers to keep BeyondATC once a network is chosen, off by default, and saves the choice', async () => {
-    const api = setup({ network: 'vatsim', vatsimCid: null, ivaoVid: null, keepBeyondAtcOnline: false })
+    const api = setup({
+      network: 'vatsim',
+      vatsimCid: null,
+      ivaoVid: null,
+      keepBeyondAtcOnline: false,
+      simTrafficButton: true
+    })
     render(<OnlineNetworkCard />)
     const group = await screen.findByRole('group', { name: 'Keep BeyondATC while online' })
     expect(within(group).getByRole('button', { name: 'Off' })).toHaveAttribute('aria-pressed', 'true')
@@ -34,7 +41,8 @@ describe('OnlineNetworkCard: BeyondATC while online', () => {
       network: 'vatsim',
       vatsimCid: null,
       ivaoVid: null,
-      keepBeyondAtcOnline: true
+      keepBeyondAtcOnline: true,
+      simTrafficButton: true
     })
     expect(within(group).getByRole('button', { name: 'On' })).toHaveAttribute('aria-pressed', 'true')
   })
@@ -44,6 +52,25 @@ describe('OnlineNetworkCard: BeyondATC while online', () => {
     render(<OnlineNetworkCard />)
     await screen.findByRole('button', { name: 'None' })
     expect(screen.queryByRole('group', { name: 'Keep BeyondATC while online' })).not.toBeInTheDocument()
+  })
+})
+
+describe('OnlineNetworkCard: the sim traffic button', () => {
+  it('is offered with no network chosen, on as stored, and saved when switched off', async () => {
+    const api = setup(NONE)
+    render(<OnlineNetworkCard />)
+    const group = await screen.findByRole('group', { name: 'Sim traffic button' })
+    expect(within(group).getByRole('button', { name: 'On' })).toHaveAttribute('aria-pressed', 'true')
+    await userEvent.click(within(group).getByRole('button', { name: 'Off' }))
+    expect(api.settingsSetOnlineNetwork).toHaveBeenCalledWith({ ...NONE, simTrafficButton: false })
+    expect(within(group).getByRole('button', { name: 'Off' })).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('shows it off when it was switched off, with a VATSIM choice as well', async () => {
+    setup({ ...NONE, network: 'vatsim', simTrafficButton: false })
+    render(<OnlineNetworkCard />)
+    const group = await screen.findByRole('group', { name: 'Sim traffic button' })
+    expect(within(group).getByRole('button', { name: 'Off' })).toHaveAttribute('aria-pressed', 'true')
   })
 })
 
@@ -100,7 +127,8 @@ describe('OnlineNetworkCard', () => {
       network: 'vatsim',
       vatsimCid: null,
       ivaoVid: null,
-      keepBeyondAtcOnline: false
+      keepBeyondAtcOnline: false,
+      simTrafficButton: true
     })
     expect(screen.getByText('CID')).toBeInTheDocument()
     expect(screen.queryByText(/IVAO shows other pilots/)).not.toBeInTheDocument()
@@ -115,7 +143,13 @@ describe('OnlineNetworkCard', () => {
   })
 
   it('keeps only digits, at most ten, and saves the number when the field loses focus', async () => {
-    const api = setup({ network: 'ivao', vatsimCid: null, ivaoVid: null, keepBeyondAtcOnline: false })
+    const api = setup({
+      network: 'ivao',
+      vatsimCid: null,
+      ivaoVid: null,
+      keepBeyondAtcOnline: false,
+      simTrafficButton: true
+    })
     render(<OnlineNetworkCard />)
     const field = await screen.findByRole('textbox')
     await userEvent.type(field, '90a0-0 1234567890')
@@ -126,12 +160,19 @@ describe('OnlineNetworkCard', () => {
       network: 'ivao',
       vatsimCid: null,
       ivaoVid: '9000123456',
-      keepBeyondAtcOnline: false
+      keepBeyondAtcOnline: false,
+      simTrafficButton: true
     })
   })
 
   it('saves on Enter, and not again when nothing changed', async () => {
-    const api = setup({ network: 'vatsim', vatsimCid: '1234567', ivaoVid: null, keepBeyondAtcOnline: false })
+    const api = setup({
+      network: 'vatsim',
+      vatsimCid: '1234567',
+      ivaoVid: null,
+      keepBeyondAtcOnline: false,
+      simTrafficButton: true
+    })
     render(<OnlineNetworkCard />)
     const field = await screen.findByRole('textbox')
     expect(field).toHaveValue('1234567')
@@ -141,7 +182,8 @@ describe('OnlineNetworkCard', () => {
       network: 'vatsim',
       vatsimCid: '12345678',
       ivaoVid: null,
-      keepBeyondAtcOnline: false
+      keepBeyondAtcOnline: false,
+      simTrafficButton: true
     })
     await userEvent.click(field)
     await userEvent.tab()
@@ -149,7 +191,13 @@ describe('OnlineNetworkCard', () => {
   })
 
   it('clears a number that is emptied, saving null', async () => {
-    const api = setup({ network: 'vatsim', vatsimCid: '42', ivaoVid: null, keepBeyondAtcOnline: false })
+    const api = setup({
+      network: 'vatsim',
+      vatsimCid: '42',
+      ivaoVid: null,
+      keepBeyondAtcOnline: false,
+      simTrafficButton: true
+    })
     render(<OnlineNetworkCard />)
     await userEvent.clear(await screen.findByRole('textbox'))
     await userEvent.tab()
@@ -157,12 +205,19 @@ describe('OnlineNetworkCard', () => {
       network: 'vatsim',
       vatsimCid: null,
       ivaoVid: null,
-      keepBeyondAtcOnline: false
+      keepBeyondAtcOnline: false,
+      simTrafficButton: true
     })
   })
 
   it('shows each network its own number, and keeps the other', async () => {
-    setup({ network: 'vatsim', vatsimCid: '111', ivaoVid: '222', keepBeyondAtcOnline: false })
+    setup({
+      network: 'vatsim',
+      vatsimCid: '111',
+      ivaoVid: '222',
+      keepBeyondAtcOnline: false,
+      simTrafficButton: true
+    })
     render(<OnlineNetworkCard />)
     expect(await screen.findByRole('textbox')).toHaveValue('111')
     await userEvent.click(screen.getByRole('button', { name: 'IVAO' }))
@@ -170,14 +225,21 @@ describe('OnlineNetworkCard', () => {
   })
 
   it('goes back to None and hides the field', async () => {
-    const api = setup({ network: 'vatsim', vatsimCid: '111', ivaoVid: null, keepBeyondAtcOnline: false })
+    const api = setup({
+      network: 'vatsim',
+      vatsimCid: '111',
+      ivaoVid: null,
+      keepBeyondAtcOnline: false,
+      simTrafficButton: true
+    })
     render(<OnlineNetworkCard />)
     await userEvent.click(await screen.findByRole('button', { name: 'None' }))
     expect(api.settingsSetOnlineNetwork).toHaveBeenCalledWith({
       network: null,
       vatsimCid: '111',
       ivaoVid: null,
-      keepBeyondAtcOnline: false
+      keepBeyondAtcOnline: false,
+      simTrafficButton: true
     })
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
   })

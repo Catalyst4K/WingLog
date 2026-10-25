@@ -6,8 +6,9 @@
 
 export type OnlineNetwork = 'vatsim' | 'ivao'
 
-/** Settings → Add-ons → Online network. Stored in app_setting. */
+/** Settings → 3rd party → Online network. Stored in app_setting. */
 export interface OnlineNetworkSettings {
+  /** The one switch for every VATSIM and IVAO feature: null (None) shows none of them anywhere (Callum, 2026-10-25). */
   network: OnlineNetwork | null
   /** VATSIM CID: digits only, optional (recognising the pilot without it comes later). */
   vatsimCid: string | null
@@ -15,6 +16,8 @@ export interface OnlineNetworkSettings {
   ivaoVid: string | null
   /** Keep BeyondATC's prompts, taxi line, frequencies and auto step climb while online (default off: human ATC is the only voice). */
   keepBeyondAtcOnline: boolean
+  /** Offer the sim traffic button on the map, whatever the network (default on). Off removes it from every screen. */
+  simTrafficButton: boolean
 }
 
 /** One aircraft as a screen draws it: the network's, or the sim's. */
@@ -109,6 +112,8 @@ export interface NetworkControllers {
 export interface TrafficLayers {
   networkOn: boolean
   simOn: boolean
+  /** Whether the screens offer the sim traffic button at all: the "Sim traffic button" setting. */
+  simOffered: boolean
   /** What each screen draws now. */
   drawNetwork: boolean
   drawSim: boolean

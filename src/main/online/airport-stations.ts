@@ -33,11 +33,16 @@ function prefixOf(callsign: string): string {
 
 /**
  * @param snapshot The parsed feed.
- * @param icaos The airports to look at (duplicates and blanks are ignored).
+ * @param icaos The airports to look at. Duplicates and blanks are ignored, and so is ZZZZ: a free flight's airport that is not set, which
+ *   no station can be at.
  * @returns For each airport, its controllers (del, gnd, twr, app, ctr, fss) and its ATIS.
  */
 export function stationsAt(snapshot: FeedSnapshot, icaos: string[]): OnlineAirportStations[] {
-  const unique = [...new Set(icaos.map((icao) => icao.trim().toUpperCase()).filter((icao) => icao !== ''))]
+  const unique = [
+    ...new Set(
+      icaos.map((icao) => icao.trim().toUpperCase()).filter((icao) => icao !== '' && icao !== 'ZZZZ')
+    )
+  ]
   return unique.map((icao) => {
     const prefixes = airportPrefixes(icao)
     const here = (callsign: string): boolean => prefixes.includes(prefixOf(callsign))

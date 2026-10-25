@@ -26,8 +26,12 @@ test.describe('BeyondATC integration', () => {
 
       // Scoped to this card specifically — the GSX Remote Control card above it has its own,
       // identically-labelled "Off"/"On" toggle (same collision settings.spec.ts already
-      // works around for the file-based GSX card).
-      const beyondAtcCard = page.locator('[data-slot="card"]').filter({ hasText: 'BeyondATC' })
+      // works around for the file-based GSX card). The Online network card mentions BeyondATC
+      // too and has On/Off rows of its own, but no host.
+      const beyondAtcCard = page
+        .locator('[data-slot="card"]')
+        .filter({ hasText: 'BeyondATC' })
+        .filter({ has: page.getByLabel('Host') })
       await beyondAtcCard.getByLabel('Host').fill('127.0.0.1')
       await beyondAtcCard.getByRole('button', { name: 'On', exact: true }).click()
 
@@ -100,7 +104,10 @@ test.describe('BeyondATC integration', () => {
     try {
       await page.getByRole('tab', { name: 'Settings' }).click()
       await page.getByRole('tab', { name: '3rd party' }).click()
-      const beyondAtcCard = page.locator('[data-slot="card"]').filter({ hasText: 'BeyondATC' })
+      const beyondAtcCard = page
+        .locator('[data-slot="card"]')
+        .filter({ hasText: 'BeyondATC' })
+        .filter({ has: page.getByLabel('Host') })
       await beyondAtcCard.getByLabel('Host').fill('127.0.0.1')
       await beyondAtcCard.getByRole('button', { name: 'On', exact: true }).click()
       await server.waitForConnection()

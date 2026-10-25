@@ -39,7 +39,8 @@ behind you.
 - **Online traffic** (aeroplane button, only once you have chosen VATSIM or IVAO in Settings): other
   pilots on the network around you (see [Online networks](10-online-networks.md)).
 - **Sim traffic** (the aeroplane-taking-off button under it): the sim's own aircraft, such as
-  BeyondATC's traffic, with or without a network chosen. It is off while the online traffic is shown.
+  BeyondATC's traffic, with or without a network chosen. It is off while the online traffic is shown,
+  and you can remove the button in Settings → 3rd party → Online network (**Sim traffic button**).
 - **Taxi chart** (taxiway button): the full taxiway network at your departure or arrival airport,
   from the sim's own airport data. The first load at a large airport can take a few minutes. With
   BeyondATC on, your cleared taxi route is drawn on it (see [BeyondATC](07-beyondatc.md)).
@@ -61,7 +62,9 @@ For a free flight these use a great-circle line to the destination.
 **Procedures…** changes your SID, STAR, approach and transitions in flight (pick *None* to remove
 one). For a flight with an alternate, switch **Arrival airport** to the alternate to see its STARs
 and approaches, which is handy for a diversion. **Weather…** shows the METARs for your departure,
-destination and alternate, and for any airport you look up.
+destination and alternate, and for any airport you look up. With VATSIM or IVAO chosen, a button
+between them such as **VATSIM ATC (2)…** shows who is online at your airports (see
+[Online networks](10-online-networks.md)).
 
 ## Finishing a flight
 

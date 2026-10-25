@@ -197,7 +197,7 @@
     },
     "onlineNetwork": {
       "cardTitle": "Red en línea",
-      "description": "Muestra el tráfico de VATSIM o IVAO en el mapa de Track. WingLog solo lee el feed de datos público de la red; no se envía nada.",
+      "description": "Elige VATSIM o IVAO para ver su tráfico en el mapa de Track, un botón para presentar tu plan de SimBrief, los controladores de tus aeropuertos y BeyondATC oculto mientras estás en línea. Con «Ninguna», no se muestra nada de esto. WingLog solo lee el feed de datos público de la red; no se envía nada.",
       "network": "Red",
       "none": "Ninguna",
       "cid": "CID",
@@ -205,7 +205,9 @@
       "vid": "VID",
       "vidHint": "Tu número de miembro de IVAO. IVAO solo muestra otros pilotos a sus miembros, así que el tráfico permanece apagado hasta que lo introduzcas.",
       "keepBeyondAtc": "Mantener BeyondATC en línea",
-      "keepBeyondAtcHint": "Mientras estás en línea, los avisos, la línea de rodaje, las frecuencias y los ascensos escalonados de BeyondATC se ocultan o se silencian, ya que los controladores de la red son la única voz. Actívalo para mantenerlos."
+      "keepBeyondAtcHint": "Mientras estás en línea, los avisos, la línea de rodaje, las frecuencias y los ascensos escalonados de BeyondATC se ocultan o se silencian, ya que los controladores de la red son la única voz. Actívalo para mantenerlos.",
+      "simTrafficButton": "Botón de tráfico del sim",
+      "simTrafficButtonHint": "Los aviones turquesa del mapa de Track: el tráfico propio del sim (el de BeyondATC y otra IA). Desactivado, el botón desaparece del mapa, en el PC y en el teléfono."
     }
   },
   "app": {
@@ -1026,6 +1028,7 @@
     "autoTuneWarning": "La sintonía automática de BeyondATC está activada y puede cambiar tus radios fuera de las frecuencias de los controladores de {{network}}. Desactiva Sintonía automática en la página de BeyondATC mientras estés en línea.",
     "atc": {
       "title": "ATC en línea en tus aeropuertos ({{network}})",
+      "button": "ATC de {{network}} ({{online}})…",
       "nobody": "Ningún controlador en línea",
       "enrouteNote": "No se listan los controladores de ruta.",
       "runway": "Pista en uso (según el ATIS): {{runway}}",

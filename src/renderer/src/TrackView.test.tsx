@@ -1,5 +1,5 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type {
   Aircraft,
@@ -249,9 +249,13 @@ function buildWinglog(overrides: Partial<WingLogApi> = {}): WingLogApi {
     aircraftList: vi.fn().mockResolvedValue([]),
     flightList: vi.fn().mockResolvedValue([]),
     logbookGetFlight: vi.fn().mockResolvedValue(null),
-    settingsGetOnlineNetwork: vi
-      .fn()
-      .mockResolvedValue({ network: null, vatsimCid: null, ivaoVid: null, keepBeyondAtcOnline: false }),
+    settingsGetOnlineNetwork: vi.fn().mockResolvedValue({
+      network: null,
+      vatsimCid: null,
+      ivaoVid: null,
+      keepBeyondAtcOnline: false,
+      simTrafficButton: true
+    }),
     onlinePrefileForFlight: vi.fn().mockResolvedValue(true),
     trackingGetActive: vi.fn().mockResolvedValue(null),
     trackPointList: vi.fn().mockResolvedValue([]),
@@ -393,7 +397,8 @@ describe('TrackView', () => {
           network: 'vatsim',
           vatsimCid: null,
           ivaoVid: null,
-          keepBeyondAtcOnline: false
+          keepBeyondAtcOnline: false,
+          simTrafficButton: true
         }),
         onlinePrefileForFlight
       })
@@ -455,6 +460,33 @@ describe('TrackView', () => {
 
       await screen.findByText('Destination')
       expect(screen.queryByRole('button', { name: /File on/ })).not.toBeInTheDocument()
+    })
+
+    it('offers who is online at the flight’s airports as a button beside Weather, opening them in a pop-up', async () => {
+      setWinglog({
+        aircraftList: vi.fn().mockResolvedValue([]),
+        flightList: vi.fn().mockResolvedValue([makeFlight({ id: 5, status: 'active', ofpJson: null })]),
+        trackingGetActive: vi.fn().mockResolvedValue({ flightId: 5, phase: 'taxi' }),
+        getNetworkControllers: vi.fn().mockResolvedValue({
+          network: 'vatsim',
+          airports: [
+            {
+              icao: 'EGLL',
+              stations: [{ callsign: 'EGLL_TWR', frequency: '118.700', position: 'twr', name: null }],
+              atis: []
+            }
+          ]
+        }),
+        onNetworkControllers: vi.fn(() => () => {})
+      })
+      renderTrack({ telemetry: makeTelemetry({ onGround: true, groundSpeedMs: 8 }) })
+
+      const button = await screen.findByRole('button', { name: 'VATSIM ATC (1)…' })
+      // In the toolbar beside Weather, not a card of its own above the map.
+      expect(button.parentElement).toBe(screen.getByRole('button', { name: 'Weather…' }).parentElement)
+      expect(screen.queryByText('Online ATC at your airports (VATSIM)')).not.toBeInTheDocument()
+      await userEvent.click(button)
+      expect(within(screen.getByRole('dialog')).getByText('EGLL_TWR')).toBeInTheDocument()
     })
 
     it('in flight on a free flight: ET since takeoff, and an estimate along the great-circle route', async () => {
