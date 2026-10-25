@@ -104,6 +104,72 @@ test.describe('Online network traffic', () => {
     }
   })
 
+  test("the sim's own traffic has its own switch, says when the sim cannot be read, and gives way to the network's", async () => {
+    const feed = await startNetworkFeedServer({ centre: EGLL })
+    const port = await freePort()
+    const { window: page, cleanup } = await launchApp({
+      env: {
+        WINGLOG_E2E_FIXTURE: FIXTURE,
+        WINGLOG_E2E_REPLAY_MODE: 'paced',
+        WINGLOG_E2E_REPLAY_SPEED: '1',
+        WINGLOG_E2E_LAN_ADDRESS: '127.0.0.1',
+        WINGLOG_E2E_VATSIM_URL: feed.vatsimUrl,
+        WINGLOG_E2E_IVAO_URL: feed.ivaoUrl
+      }
+    })
+    try {
+      const code = await page.evaluate(async (p) => {
+        const w = (globalThis as unknown as { winglog: Winglog }).winglog
+        await w.lanSetSettings({ enabled: true, port: p })
+        return (await w.lanStartPairing()).pairing?.code ?? ''
+      }, port)
+      const phone = new Device(port)
+      await phone.opened()
+      phone.send({ t: 'pair', code, name: 'Test phone' })
+      await phone.message('paired')
+      await phone.message('snapshot')
+      await expect.poll(() => latestTopic(phone, 'simTraffic')?.state).toBe('off')
+
+      // With no network chosen the sim's button is still there. The test sim is never reachable, so the layer says so.
+      await page.getByRole('tab', { name: 'Track' }).click()
+      await page.getByRole('button', { name: 'Show sim traffic' }).click()
+      await expect(page.getByRole('button', { name: 'Hide sim traffic' })).toBeVisible()
+      await expect.poll(() => latestTopic(phone, 'simTraffic')?.state).toBe('unavailable')
+      await expect(page.getByText('Sim traffic unavailable')).toBeVisible()
+
+      // The phone turns it off with a command, and the PC follows.
+      phone.send({ t: 'cmd', name: 'traffic.setSimOn', args: [false] })
+      await expect(page.getByRole('button', { name: 'Show sim traffic' })).toBeVisible()
+      await expect(page.getByText('Sim traffic unavailable')).toBeHidden()
+      expect(feed.requests).toHaveLength(0)
+
+      // Turn it on, then the network layer: the sim's button gives way and says why, and the switch is not lost.
+      await page.evaluate(async () => {
+        const w = (globalThis as unknown as { winglog: Winglog }).winglog
+        await w.settingsSetOnlineNetwork({
+          network: 'vatsim',
+          vatsimCid: null,
+          ivaoVid: null,
+          keepBeyondAtcOnline: false
+        })
+        await w.trafficSetSimOn(true)
+        await w.trafficSetNetworkOn(true)
+      })
+      const blocked = page.getByRole('button', { name: 'Show sim traffic' })
+      await expect(blocked).toBeDisabled()
+      await expect(blocked).toHaveAttribute('title', 'Off while VATSIM traffic is shown')
+      await expect.poll(() => latestTopic(phone, 'simTraffic')?.state).toBe('off')
+
+      // The network layer off again: the sim's comes back as it was.
+      await page.evaluate(() => (globalThis as unknown as Window).winglog.trafficSetNetworkOn(false))
+      await expect(page.getByRole('button', { name: 'Hide sim traffic' })).toBeEnabled()
+      phone.close()
+    } finally {
+      await cleanup()
+      await feed.close()
+    }
+  })
+
   test('makes no request at all for IVAO without a VID, and reads IVAO once the VID is entered', async () => {
     const feed = await startNetworkFeedServer({ centre: EGLL })
     const { window: page, cleanup } = await launchApp({

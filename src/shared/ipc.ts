@@ -63,6 +63,7 @@ import type { PlannedRoute, TaxiRoute } from './live'
 import type {
   NetworkControllers,
   NetworkTraffic,
+  SimTraffic,
   OnlineNetwork,
   OnlineNetworkSettings,
   OnlineStatus,
@@ -284,6 +285,10 @@ export interface WingLogApi {
   getNetworkTraffic: () => Promise<NetworkTraffic>
   /** Pushed each time main has a new set of aircraft (or a new state). */
   onNetworkTraffic: (listener: (traffic: NetworkTraffic) => void) => () => void
+  /** The aircraft the sim lists around the pilot, for a window that opens mid-flight. */
+  getSimTraffic: () => Promise<SimTraffic>
+  /** Pushed each time main has a new set of them. */
+  onSimTraffic: (listener: (traffic: SimTraffic) => void) => () => void
   /** Dev build only: the callsign taken to be the pilot (null elsewhere). */
   onlineGetPretend: () => Promise<string | null>
   /** Dev build only: sets it; empty clears. Ignored in a release build. */
@@ -306,6 +311,8 @@ export interface WingLogApi {
   onlinePrefileForFlight: (flightId: number, network: OnlineNetwork) => Promise<boolean>
   /** Turns the network traffic layer on or off, for every screen (the switch is kept in main and remembered). */
   trafficSetNetworkOn: (on: boolean) => Promise<void>
+  /** Turns the sim's own traffic layer on or off, for every screen. */
+  trafficSetSimOn: (on: boolean) => Promise<void>
   /** Manually re-runs the resume-cleanup pass for one already-completed flight — the
    *  Logbook detail page's "Clean up track" button, alongside the automatic live/
    *  completion-time pass TrackingController already runs on its own. Useful for a flight

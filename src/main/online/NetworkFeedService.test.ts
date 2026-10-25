@@ -87,6 +87,7 @@ describe('NetworkFeedService', () => {
   let warn: Mock<(message: string) => void>
   let urls: FeedUrls
   let service: NetworkFeedService
+  let told: TrafficLayers[]
 
   function build(): void {
     service = new NetworkFeedService({
@@ -112,6 +113,7 @@ describe('NetworkFeedService', () => {
       trackedFlight: () => tracked,
       isAirborne: () => airborne,
       pretendCallsign: () => pretend,
+      onLayers: (layers) => told.push(layers),
       log: { warn }
     })
   }
@@ -129,6 +131,7 @@ describe('NetworkFeedService', () => {
     pretend = null
     fetchMock = vi.fn(() => Promise.resolve(okResponse(fixtureText('vatsim-busy.json'))))
     warn = vi.fn()
+    told = []
     urls = { vatsimStatus: null, vatsimData: 'http://feed.test/vatsim', ivao: 'http://feed.test/ivao' }
     build()
   })
@@ -240,6 +243,29 @@ describe('NetworkFeedService', () => {
         drawSim: false,
         simBlockedByNetwork: true
       })
+    })
+  })
+
+  describe('the sim layer', () => {
+    it('draws when its switch is on and the network layer is not, and tells the sim reader', () => {
+      switches = { networkOn: false, simOn: false }
+      service.start()
+      service.setSimOn(true)
+      expect(switches).toEqual({ networkOn: false, simOn: true })
+      expect(published.layers.at(-1)).toMatchObject({ drawSim: true, drawNetwork: false, simOn: true })
+      expect(told.at(-1)?.drawSim).toBe(true)
+      service.setSimOn(false)
+      expect(told.at(-1)?.drawSim).toBe(false)
+    })
+
+    it('is told it must stop when the network layer takes over, and starts again when that ends', () => {
+      switches = { networkOn: false, simOn: true }
+      service.start()
+      expect(told.at(-1)?.drawSim).toBe(true)
+      service.setNetworkOn(true)
+      expect(told.at(-1)).toMatchObject({ drawSim: false, simBlockedByNetwork: true })
+      service.setNetworkOn(false)
+      expect(told.at(-1)?.drawSim).toBe(true)
     })
   })
 

@@ -650,7 +650,11 @@
     "networkTrafficNeedsVid": "Introduce tu VID de IVAO en Ajustes para ver el tráfico de IVAO",
     "networkTrafficUnavailable": "Tráfico de {{network}} no disponible",
     "networkTrafficNoCentre": "Tráfico de {{network}}: esperando una posición",
-    "trafficOnGround": "En tierra"
+    "trafficOnGround": "En tierra",
+    "showSimTraffic": "Mostrar tráfico del sim",
+    "hideSimTraffic": "Ocultar tráfico del sim",
+    "simTrafficBlocked": "Desactivado mientras se muestra el tráfico de {{network}}",
+    "simTrafficUnavailable": "Tráfico del sim no disponible"
   },
   "logbookView": {
     "estimatedTrack": "La línea discontinua son unas {{nm}} nm estimadas a partir del plan de vuelo. No se grabaron.",

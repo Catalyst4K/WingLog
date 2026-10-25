@@ -17,6 +17,7 @@ import type {
   GsxRemoteServiceStatus,
   NetworkControllers,
   NetworkTraffic,
+  SimTraffic,
   OnlineStatus,
   TrafficLayers,
   SimConnectionStatus,
@@ -80,6 +81,8 @@ export interface LiveTopics {
   plannedRoute: PlannedRoute | null
   /** The chosen network's traffic near the aircraft, parsed in main (online networks, vatsim-build.md Step 1). */
   networkTraffic: NetworkTraffic
+  /** The aircraft the sim lists around the pilot, read over a connection of its own while the layer draws. */
+  simTraffic: SimTraffic
   /** The controllers and ATIS online at the flight's airports, from the chosen network's feed. */
   networkControllers: NetworkControllers
   /** Whether the pilot's own flight is on the chosen network, found in its feed (VATSIM or IVAO). */
@@ -129,6 +132,7 @@ export interface LiveCommands {
   'gsx.runCommand': [id: GsxRemoteCommandId]
   'track.setProcedureSelection': [selection: ProcedureSelection]
   'traffic.setNetworkOn': [on: boolean]
+  'traffic.setSimOn': [on: boolean]
 }
 
 export type LiveCommand = keyof LiveCommands

@@ -189,22 +189,27 @@ describe('dispatchCommand', () => {
 
 describe('trafficCommands', () => {
   it('passes a boolean to the feed service', () => {
-    const feed = { setNetworkOn: vi.fn() }
+    const feed = { setNetworkOn: vi.fn(), setSimOn: vi.fn() }
     const table = trafficCommands(feed)
     dispatchCommand(table, 'traffic.setNetworkOn', [true])
     dispatchCommand(table, 'traffic.setNetworkOn', [false])
+    dispatchCommand(table, 'traffic.setSimOn', [true])
     expect(feed.setNetworkOn.mock.calls).toEqual([[true], [false]])
+    expect(feed.setSimOn.mock.calls).toEqual([[true]])
   })
 
   it.each([['true'], [1], [null], [undefined], [{}]])('refuses %j, and does not reach the feed', (value) => {
-    const feed = { setNetworkOn: vi.fn() }
-    expect(() => dispatchCommand(trafficCommands(feed), 'traffic.setNetworkOn', [value])).toThrow(
-      'Invalid traffic switch'
-    )
+    const feed = { setNetworkOn: vi.fn(), setSimOn: vi.fn() }
+    for (const name of ['traffic.setNetworkOn', 'traffic.setSimOn'] as const)
+      expect(() => dispatchCommand(trafficCommands(feed), name, [value])).toThrow('Invalid traffic switch')
     expect(feed.setNetworkOn).not.toHaveBeenCalled()
+    expect(feed.setSimOn).not.toHaveBeenCalled()
   })
 
-  it('has only the traffic switch', () => {
-    expect(Object.keys(trafficCommands({ setNetworkOn: vi.fn() }))).toEqual(['traffic.setNetworkOn'])
+  it('has only the two traffic switches', () => {
+    expect(Object.keys(trafficCommands({ setNetworkOn: vi.fn(), setSimOn: vi.fn() }))).toEqual([
+      'traffic.setNetworkOn',
+      'traffic.setSimOn'
+    ])
   })
 })

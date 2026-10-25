@@ -27,6 +27,7 @@ export const LAN_TOPICS: readonly LiveTopic[] = [
   'plannedRoute',
   'taxiRoute',
   'networkTraffic',
+  'simTraffic',
   'trafficLayers',
   'onlineStatus',
   'networkControllers',

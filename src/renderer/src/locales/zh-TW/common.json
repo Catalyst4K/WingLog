@@ -642,7 +642,11 @@
     "networkTrafficNeedsVid": "請在設定中輸入你的 IVAO VID 以查看 IVAO 交通",
     "networkTrafficUnavailable": "{{network}} 交通無法使用",
     "networkTrafficNoCentre": "{{network}} 交通：正在等待位置",
-    "trafficOnGround": "在地面"
+    "trafficOnGround": "在地面",
+    "showSimTraffic": "顯示模擬器交通",
+    "hideSimTraffic": "隱藏模擬器交通",
+    "simTrafficBlocked": "顯示 {{network}} 交通時已關閉",
+    "simTrafficUnavailable": "模擬器交通無法使用"
   },
   "logbookView": {
     "estimatedTrack": "虛線約 {{nm}} nm，是根據飛行計畫估算的，並非實際記錄。",

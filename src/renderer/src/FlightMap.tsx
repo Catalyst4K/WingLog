@@ -170,6 +170,11 @@ function FlightMapView({
             runAsync(
               'FlightMap traffic.setNetworkOn',
               liveClient.command('traffic.setNetworkOn', !networkTraffic.layers?.networkOn)
+            ),
+          onToggleSim: () =>
+            runAsync(
+              'FlightMap traffic.setSimOn',
+              liveClient.command('traffic.setSimOn', !networkTraffic.layers?.simOn)
             )
         }}
         taxiChartEnabled={taxiChart.enabled}
@@ -186,6 +191,7 @@ function FlightMapView({
         taxiChart={taxiChart}
         routeIsApproximate={routeIsApproximate}
         traffic={networkTraffic.traffic}
+        simTraffic={{ layers: networkTraffic.layers, traffic: networkTraffic.simTraffic }}
       />
     </div>
   )

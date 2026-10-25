@@ -648,7 +648,11 @@
     "networkTrafficNeedsVid": "Trage in den Einstellungen deine IVAO-VID ein, um IVAO-Verkehr zu sehen",
     "networkTrafficUnavailable": "{{network}}-Verkehr nicht verfügbar",
     "networkTrafficNoCentre": "{{network}}-Verkehr: warte auf eine Position",
-    "trafficOnGround": "Am Boden"
+    "trafficOnGround": "Am Boden",
+    "showSimTraffic": "Sim-Verkehr anzeigen",
+    "hideSimTraffic": "Sim-Verkehr ausblenden",
+    "simTrafficBlocked": "Aus, solange {{network}}-Verkehr angezeigt wird",
+    "simTrafficUnavailable": "Sim-Verkehr nicht verfügbar"
   },
   "logbookView": {
     "estimatedTrack": "Die gestrichelte Linie sind etwa {{nm}} nm, aus dem Flugplan geschätzt. Sie wurden nicht aufgezeichnet.",

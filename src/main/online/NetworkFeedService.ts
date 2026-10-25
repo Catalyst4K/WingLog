@@ -65,6 +65,8 @@ export interface NetworkFeedDeps {
   isAirborne: () => boolean
   /** Dev build only: the callsign to take to be the pilot. */
   pretendCallsign: () => string | null
+  /** Told which layers draw each time that is decided: the sim layer's reader starts and stops from it. */
+  onLayers?: (layers: TrafficLayers) => void
   log: { warn: (message: string) => void }
 }
 
@@ -117,11 +119,22 @@ export class NetworkFeedService {
     this.refresh()
   }
 
+  /**
+   * Turns the sim's own traffic layer on or off for every screen, and remembers it.
+   *
+   * @param on The new state of the switch.
+   */
+  setSimOn(on: boolean): void {
+    this.deps.saveSwitches({ ...this.deps.switches(), simOn: on })
+    this.refresh()
+  }
+
   /** Re-reads the settings and switches and acts on them: call after either changes. */
   refresh(): void {
     if (this.stopped) return
     const layers = this.layers()
     this.deps.hub.publish('trafficLayers', layers)
+    this.deps.onLayers?.(layers)
     const settings = this.deps.settings()
     if (this.snapshot && this.snapshot.network !== settings.network) {
       this.snapshot = null
@@ -169,7 +182,7 @@ export class NetworkFeedService {
       simOn: switches.simOn,
       network: settings.network,
       ivaoVidSet: settings.ivaoVid !== null,
-      simAvailable: false
+      simAvailable: true
     })
   }
 

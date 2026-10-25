@@ -46,6 +46,13 @@ export interface NetworkTraffic {
   aircraft: TrafficAircraft[]
 }
 
+/** The `simTraffic` live topic: the aircraft the sim itself lists around the pilot (BeyondATC's traffic, AI traffic), for the teal layer. */
+export interface SimTraffic {
+  /** 'off': the layer is not drawing. 'shown': aircraft below. 'unavailable': the sim could not be read (not running yet). */
+  state: 'off' | 'shown' | 'unavailable'
+  aircraft: TrafficAircraft[]
+}
+
 /** The onlineStatus live topic: whether the pilot's own flight is on the chosen network. */
 export interface OnlineStatus {
   network: OnlineNetwork | null
