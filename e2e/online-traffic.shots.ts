@@ -98,6 +98,7 @@ test('the traffic layers, their buttons and what they say', async () => {
       note: 'The IVAO button is greyed out (its tooltip says to enter the VID in Settings), and IVAO is never contacted.'
     })
 
+    // The sim switch goes on too: it is greyed out only while it is on and the network's traffic is drawn ("never both").
     await page.evaluate(async () => {
       const w = (globalThis as unknown as { winglog: Winglog }).winglog
       await w.settingsSetOnlineNetwork({
@@ -106,19 +107,19 @@ test('the traffic layers, their buttons and what they say', async () => {
         ivaoVid: null,
         keepBeyondAtcOnline: false
       })
-    })
-    await page.waitForTimeout(6000)
-    await snap(page, {
-      file: '3-network.png',
-      title: 'VATSIM traffic on',
-      note: 'With no flight tracked the map stays zoomed out, so the two invented aircraft near London show as one amber mark (picture 6 has them up close). The sim button is greyed out: "Off while VATSIM traffic is shown".'
-    })
-
-    await page.evaluate(async () => {
-      const w = (globalThis as unknown as { winglog: Winglog }).winglog
-      await w.trafficSetNetworkOn(false)
       await w.trafficSetSimOn(true)
     })
+    await page.waitForTimeout(6000)
+    await expect(page.getByRole('button', { name: 'Show sim traffic' })).toBeDisabled()
+    await snap(page, {
+      file: '3-network.png',
+      title: 'VATSIM traffic on, with the sim switch on as well',
+      note: 'With no flight tracked the map stays zoomed out, so the two invented aircraft near London show as one amber mark (picture 6 has them up close). The sim button is greyed out, its tooltip "Off while VATSIM traffic is shown": the two are never drawn together.'
+    })
+
+    await page.evaluate(() =>
+      (globalThis as unknown as { winglog: Winglog }).winglog.trafficSetNetworkOn(false)
+    )
     await page.waitForTimeout(3000)
     await snap(page, {
       file: '4-sim-unavailable.png',
