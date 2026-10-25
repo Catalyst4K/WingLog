@@ -269,3 +269,48 @@ export function readTelemetry(data: RawBuffer): SimTelemetry {
   for (const spec of SIM_VARS) readInto(telemetry, spec, data)
   return telemetry as SimTelemetry
 }
+
+/** One aircraft the sim lists around the user (Step 4b of winglog-backend docs/plans/vatsim-build.md), in SI units. */
+export interface SimTrafficRecord {
+  objectId: number
+  latitude: number
+  longitude: number
+  altitudeM: number
+  /** True heading, degrees. */
+  headingDeg: number
+  groundSpeedMs: number
+  onGround: boolean
+  atcId: string
+  title: string
+}
+
+/** What is asked of every aircraft in the sim, in the order SimConnect packs it (sim-confirmed, docs/simconnect-notes.md 2026-10-24). */
+export const TRAFFIC_VARS = [
+  { name: 'PLANE LATITUDE', unit: 'degrees', dataType: SimConnectDataType.FLOAT64 },
+  { name: 'PLANE LONGITUDE', unit: 'degrees', dataType: SimConnectDataType.FLOAT64 },
+  { name: 'PLANE ALTITUDE', unit: 'meters', dataType: SimConnectDataType.FLOAT64 },
+  { name: 'PLANE HEADING DEGREES TRUE', unit: 'degrees', dataType: SimConnectDataType.FLOAT64 },
+  { name: 'GROUND VELOCITY', unit: 'meters per second', dataType: SimConnectDataType.FLOAT64 },
+  { name: 'SIM ON GROUND', unit: 'bool', dataType: SimConnectDataType.INT32 },
+  { name: 'ATC ID', unit: '', dataType: SimConnectDataType.STRING32 },
+  { name: 'TITLE', unit: '', dataType: SimConnectDataType.STRING256 }
+] as const
+
+/**
+ * @param data The SimConnect response, in TRAFFIC_VARS' order.
+ * @param objectId The sim's id for the aircraft.
+ * @returns The aircraft's record.
+ */
+export function readTrafficRecord(data: RawBuffer, objectId: number): SimTrafficRecord {
+  return {
+    objectId,
+    latitude: data.readFloat64(),
+    longitude: data.readFloat64(),
+    altitudeM: data.readFloat64(),
+    headingDeg: data.readFloat64(),
+    groundSpeedMs: data.readFloat64(),
+    onGround: asBool(data),
+    atcId: data.readString32(),
+    title: data.readString256()
+  }
+}

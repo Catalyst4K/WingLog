@@ -648,7 +648,11 @@
     "networkTrafficNeedsVid": "Enter your IVAO VID in Settings to see IVAO traffic",
     "networkTrafficUnavailable": "{{network}} traffic unavailable",
     "networkTrafficNoCentre": "{{network}} traffic: waiting for a position",
-    "trafficOnGround": "On the ground"
+    "trafficOnGround": "On the ground",
+    "showSimTraffic": "Show sim traffic",
+    "hideSimTraffic": "Hide sim traffic",
+    "simTrafficBlocked": "Off while {{network}} traffic is shown",
+    "simTrafficUnavailable": "Sim traffic unavailable"
   },
   "logbookView": {
     "estimatedTrack": "The dashed line is about {{nm}} nm estimated from the flight plan. It was not recorded.",

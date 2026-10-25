@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 import { act, renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { LiveTopic, LiveTopics } from '@shared/live'
-import type { NetworkTraffic, TrafficAircraft, TrafficLayers } from '@shared/ipc'
+import type { NetworkTraffic, SimTraffic, TrafficAircraft, TrafficLayers } from '@shared/ipc'
 import { LiveClientContext, type LiveClient } from './live/LiveClient'
 
 const popups: { lngLat: unknown; content: HTMLElement | null }[] = []
@@ -97,12 +97,18 @@ function shown(...list: TrafficAircraft[]): NetworkTraffic {
 }
 
 /** A live client the test pushes topics through. */
-function fakeClient(initial: { traffic?: NetworkTraffic; layers?: TrafficLayers }) {
+function fakeClient(initial: { traffic?: NetworkTraffic; layers?: TrafficLayers; sim?: SimTraffic }) {
   const listeners = new Map<LiveTopic, (payload: never) => void>()
   const client: LiveClient = {
     get: vi.fn((topic: LiveTopic) =>
       Promise.resolve(
-        topic === 'networkTraffic' ? initial.traffic : topic === 'trafficLayers' ? initial.layers : undefined
+        topic === 'networkTraffic'
+          ? initial.traffic
+          : topic === 'trafficLayers'
+            ? initial.layers
+            : topic === 'simTraffic'
+              ? initial.sim
+              : undefined
       )
     ) as LiveClient['get'],
     subscribe: vi.fn((topic: LiveTopic, listener: (payload: never) => void) => {
@@ -136,9 +142,10 @@ async function mount(
 
 /** The features last written to the traffic source. */
 function lastFeatures(
-  fake: ReturnType<typeof fakeMap>
+  fake: ReturnType<typeof fakeMap>,
+  sourceId = 'network-traffic'
 ): { properties: Record<string, unknown>; geometry: { coordinates: number[] } }[] {
-  const calls = fake.sources.get('network-traffic')?.setData.mock.calls ?? []
+  const calls = fake.sources.get(sourceId)?.setData.mock.calls ?? []
   return (calls.at(-1)?.[0] as { features: never[] } | undefined)?.features ?? []
 }
 
@@ -346,7 +353,7 @@ describe('useNetworkTrafficOverlay', () => {
     const fake = fakeMap()
     const { client, listeners } = fakeClient({ traffic: shown(aircraft('A')), layers: LAYERS_ON })
     const view = await mount(client, fake)
-    expect(listeners.size).toBe(2)
+    expect(listeners.size).toBe(3)
     view.unmount()
     expect(listeners.size).toBe(0)
   })
@@ -361,8 +368,64 @@ describe('useNetworkTrafficOverlay', () => {
       command: vi.fn()
     }
     const view = await mount(client, fake)
-    expect(view.result.current).toEqual({ layers: null, traffic: null })
+    expect(view.result.current).toEqual({ layers: null, traffic: null, simTraffic: null })
     expect(fake.map.addSource).not.toHaveBeenCalled()
+  })
+
+  describe('the sim layer', () => {
+    const SIM_LAYERS: TrafficLayers = { ...LAYERS_OFF, simOn: true, drawSim: true }
+    const simShown = (...list: TrafficAircraft[]): SimTraffic => ({ state: 'shown', aircraft: list })
+
+    it('draws the sim aircraft on its own teal source, with the same kind of symbols', async () => {
+      const fake = fakeMap()
+      const { client } = fakeClient({
+        layers: SIM_LAYERS,
+        sim: simShown(aircraft('UAL1', { key: '7' }), aircraft('DAL2', { key: '8', onGround: true }))
+      })
+      await mount(client, fake)
+      expect(fake.sources.has('sim-traffic')).toBe(true)
+      expect(fake.sources.has('network-traffic')).toBe(false)
+      expect(lastFeatures(fake, 'sim-traffic').map((f) => f.properties.callsign)).toEqual(['UAL1', 'DAL2'])
+      expect(fake.layers.get('sim-traffic-air')?.paint['icon-color']).toBe('#12b886')
+      expect(fake.layers.get('sim-traffic-ground')?.filter).toEqual(['get', 'onGround'])
+      expect(fake.visibility.get('sim-traffic-air')).toBe('visible')
+    })
+
+    it('shows nothing of the sim while the layers say the network draws', async () => {
+      const fake = fakeMap()
+      const { client } = fakeClient({
+        layers: { ...LAYERS_ON, simOn: true, simBlockedByNetwork: true },
+        traffic: shown(aircraft('NET1')),
+        sim: simShown(aircraft('UAL1'))
+      })
+      await mount(client, fake)
+      expect(fake.sources.has('sim-traffic')).toBe(false)
+      expect(lastFeatures(fake).map((f) => f.properties.callsign)).toEqual(['NET1'])
+    })
+
+    it('hides the sim layers when the layer stops drawing, and draws again when it returns', async () => {
+      const fake = fakeMap()
+      const { client, push } = fakeClient({ layers: SIM_LAYERS, sim: simShown(aircraft('UAL1')) })
+      await mount(client, fake)
+      await act(async () => push('trafficLayers', LAYERS_OFF))
+      expect(fake.visibility.get('sim-traffic-air')).toBe('none')
+      expect(fake.visibility.get('sim-traffic-ground')).toBe('none')
+      await act(async () => push('trafficLayers', SIM_LAYERS))
+      expect(fake.visibility.get('sim-traffic-air')).toBe('visible')
+    })
+
+    it('draws nothing while the sim cannot be read, and picks up pushed aircraft', async () => {
+      const fake = fakeMap()
+      const { client, push } = fakeClient({
+        layers: SIM_LAYERS,
+        sim: { state: 'unavailable', aircraft: [] }
+      })
+      const view = await mount(client, fake)
+      expect(fake.sources.has('sim-traffic')).toBe(false)
+      expect(view.result.current.simTraffic?.state).toBe('unavailable')
+      await act(async () => push('simTraffic', simShown(aircraft('UAL9'))))
+      expect(lastFeatures(fake, 'sim-traffic').map((f) => f.properties.callsign)).toEqual(['UAL9'])
+    })
   })
 
   it('carries on when a first read is rejected', async () => {
@@ -370,6 +433,6 @@ describe('useNetworkTrafficOverlay', () => {
     const { client } = fakeClient({})
     ;(client.get as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('gone'))
     const view = await mount(client, fake)
-    expect(view.result.current).toEqual({ layers: null, traffic: null })
+    expect(view.result.current).toEqual({ layers: null, traffic: null, simTraffic: null })
   })
 })

@@ -1,8 +1,8 @@
 /** What FlightMap draws over the map: its control buttons and its readout pills. */
 
-import { Locate, LocateFixed, Plane, Radar, Waypoints, ZoomIn, ZoomOut } from 'lucide-react'
+import { Locate, LocateFixed, Plane, PlaneTakeoff, Radar, Waypoints, ZoomIn, ZoomOut } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import type { FlightPhase, NetworkTraffic, SimTelemetry, TrafficLayers } from '@shared/ipc'
+import type { FlightPhase, NetworkTraffic, SimTelemetry, SimTraffic, TrafficLayers } from '@shared/ipc'
 import { Button } from '@/components/ui/button'
 import { displayAltitude } from '../display-altitude'
 import type { TransitionAltitudes } from '@shared/route'
@@ -117,6 +117,38 @@ function NetworkTrafficButton(props: {
 }
 
 /**
+ * The shared switch for the sim's own traffic (BeyondATC's aircraft and any other AI traffic). While the network's traffic is drawn it is
+ * disabled and says why, and it comes back as it was when the network layer goes off (the switch itself is not touched).
+ *
+ * @param props The layers (the switch's state and whether the network holds it back), the traffic (which network), and the toggle.
+ * @returns The element.
+ */
+function SimTrafficButton(props: {
+  layers: TrafficLayers | null
+  traffic: NetworkTraffic | null
+  onToggle: () => void
+}): React.JSX.Element {
+  const { t } = useTranslation()
+  const blocked = props.layers?.simBlockedByNetwork === true
+  const on = props.layers?.simOn === true && !blocked
+  const label = on ? t('flightMap.hideSimTraffic') : t('flightMap.showSimTraffic')
+  const network = props.traffic?.network
+  return (
+    <ToggleControl
+      on={on}
+      label={label}
+      title={
+        blocked && network ? t('flightMap.simTrafficBlocked', { network: NETWORK_NAMES[network] }) : label
+      }
+      onClick={props.onToggle}
+      disabled={blocked}
+    >
+      <PlaneTakeoff />
+    </ToggleControl>
+  )
+}
+
+/**
  * The column of buttons at the map's top right: follow and VFR (live only), taxi chart, and zoom.
  *
  * @param props Whether live; each toggle's state and handler; and the zoom handlers.
@@ -129,7 +161,12 @@ export function MapControls(props: {
   vfrEnabled: boolean
   onToggleVfr: () => void
   /** The shared network-traffic switch's state; omitted (no button) on a map that is not live. */
-  networkTraffic?: { layers: TrafficLayers | null; traffic: NetworkTraffic | null; onToggle: () => void }
+  networkTraffic?: {
+    layers: TrafficLayers | null
+    traffic: NetworkTraffic | null
+    onToggle: () => void
+    onToggleSim: () => void
+  }
   taxiChartEnabled: boolean
   onToggleTaxiChart: () => void
   onZoomIn: () => void
@@ -159,7 +196,16 @@ export function MapControls(props: {
           <Radar />
         </ToggleControl>
       )}
-      {props.live && props.networkTraffic && <NetworkTrafficButton {...props.networkTraffic} />}
+      {props.live && props.networkTraffic && (
+        <>
+          <NetworkTrafficButton {...props.networkTraffic} />
+          <SimTrafficButton
+            layers={props.networkTraffic.layers}
+            traffic={props.networkTraffic.traffic}
+            onToggle={props.networkTraffic.onToggleSim}
+          />
+        </>
+      )}
       <ToggleControl
         on={props.taxiChartEnabled}
         label={props.taxiChartEnabled ? t('flightMap.hideTaxiChart') : t('flightMap.showTaxiChart')}
@@ -261,6 +307,23 @@ function trafficProblemKey(traffic: NetworkTraffic | null | undefined): string |
 }
 
 /**
+ * Says the sim's own traffic cannot be read, while the layer is meant to draw.
+ *
+ * @param props The layers and the sim traffic topic.
+ * @returns The pill, or nothing.
+ */
+function SimTrafficPill(props: {
+  layers?: TrafficLayers | null
+  traffic?: SimTraffic | null
+}): React.JSX.Element | null {
+  const { t } = useTranslation()
+  if (props.layers?.drawSim !== true || props.traffic?.state !== 'unavailable') return null
+  return (
+    <div className={`absolute top-3 left-3 ${PILL_CLASS_NAME}`}>{t('flightMap.simTrafficUnavailable')}</div>
+  )
+}
+
+/**
  * The pills over the map: live telemetry, the nearest airfield (VFR overlay on), the taxi
  * chart's loading state, and the approximate-route caption.
  *
@@ -278,6 +341,8 @@ export function MapPills(props: {
   routeIsApproximate: boolean
   /** The network traffic's state, for the pill that says it cannot be shown. */
   traffic?: NetworkTraffic | null
+  /** The sim traffic's state and the layers, for the pill that says the sim cannot be read. */
+  simTraffic?: { layers: TrafficLayers | null; traffic: SimTraffic | null }
 }): React.JSX.Element {
   const { t } = useTranslation()
   const { live, vfr, taxiChart } = props
@@ -293,6 +358,7 @@ export function MapPills(props: {
           {t(trafficProblem, { network: NETWORK_NAMES[props.traffic.network] })}
         </div>
       )}
+      {live && <SimTrafficPill {...props.simTraffic} />}
       {taxiChart.enabled && taxiChart.loadingIcao && <TaxiChartLoadingPill icao={taxiChart.loadingIcao} />}
       {props.routeIsApproximate && (
         <div className="absolute bottom-3 left-3 rounded-full border border-border bg-popover/85 px-3 py-1 text-xs text-muted-foreground backdrop-blur-sm">

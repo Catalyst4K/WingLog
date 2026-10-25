@@ -143,11 +143,18 @@ export function trackCommands(selection: {
  * @param feed Where a switch is sent.
  * @returns The table. A value that is not a boolean is refused.
  */
-export function trafficCommands(feed: { setNetworkOn(on: boolean): void }): CommandTable<TrafficCommand> {
+export function trafficCommands(feed: {
+  setNetworkOn(on: boolean): void
+  setSimOn(on: boolean): void
+}): CommandTable<TrafficCommand> {
   return {
     'traffic.setNetworkOn': (on) => {
       if (typeof on !== 'boolean') throw new Error('Invalid traffic switch')
       feed.setNetworkOn(on)
+    },
+    'traffic.setSimOn': (on) => {
+      if (typeof on !== 'boolean') throw new Error('Invalid traffic switch')
+      feed.setSimOn(on)
     }
   }
 }

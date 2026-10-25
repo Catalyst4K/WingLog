@@ -38,6 +38,24 @@ changes it on the PC, and it is remembered next time you start WingLog.
 If the network can't be reached, the map keeps the last aircraft for 45 seconds, then says
 "traffic unavailable" and tries again, waiting a little longer each time.
 
+## The sim's own traffic
+
+Under the network button on the Track map is a second button, **Show sim traffic**. It draws the
+aircraft the simulator itself has around you, in **teal** (the network's are amber): the real-world
+traffic BeyondATC adds, and any other AI traffic. Like the network button it is one switch for the
+PC and the phone, and it is remembered.
+
+- It works whether or not you have chosen a network, and it reads the sim directly. Nothing is
+  sent anywhere.
+- **It is off while the network's traffic is shown.** The networks' pilots are also placed in the
+  sim as AI aircraft, so showing both would draw each one twice. The button greys out with
+  "Off while VATSIM traffic is shown" (or IVAO), and comes back, still on, when you hide the
+  network's traffic.
+- Your own aircraft is left out, and so are the scenery objects some add-ons list as aircraft
+  (jetway helpers and the like).
+- If the sim isn't running yet, the map says "Sim traffic unavailable" and tries again every few
+  seconds.
+
 ## Filing your flight plan
 
 On **Dispatch** (beside the OFP’s PDF button) and on **Track** (on the flight card), **File on VATSIM** and **File on IVAO** open the network’s own filing page with your plan already filled in, from the link SimBrief put in the OFP. You log in there and press File: WingLog files nothing itself and never sees your login. With a network chosen in Settings only its button shows; with none chosen both do. If an older plan has no link, WingLog says so.

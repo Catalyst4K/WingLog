@@ -20,6 +20,8 @@ import type { SimConnectSource } from '../sim/SimConnectSource'
 import type { TrackingController } from '../tracking/TrackingController'
 import type { FeedUrls } from './feed-urls'
 import { NetworkFeedService } from './NetworkFeedService'
+import { SimTrafficService } from './SimTrafficService'
+import { openSimTrafficLink } from './sim-traffic-link'
 import {
   getOnlineNetworkSettings,
   getPretendCallsign,
@@ -81,14 +83,21 @@ export function registerOnlineHandlers(
   deps: OnlineHandlerDeps
 ): { stop: () => void; commands: CommandTable<TrafficCommand> } {
   const { db, liveHub, sim, trackingController } = deps
+  const timers = {
+    set: (callback: () => void, ms: number): unknown => setTimeout(callback, ms),
+    clear: (handle: unknown): void => clearTimeout(handle as NodeJS.Timeout)
+  }
+  const simTraffic = new SimTrafficService({
+    hub: liveHub,
+    open: (handlers) => openSimTrafficLink(handlers),
+    timers,
+    log: logger
+  })
   const service = new NetworkFeedService({
     hub: liveHub,
     fetch: (url, init) => fetch(url, init),
     now: () => Date.now(),
-    timers: {
-      set: (callback, ms) => setTimeout(callback, ms),
-      clear: (handle) => clearTimeout(handle as NodeJS.Timeout)
-    },
+    timers,
     urls: deps.urls,
     appVersion: deps.appVersion,
     settings: () => getOnlineNetworkSettings(db),
@@ -98,6 +107,7 @@ export function registerOnlineHandlers(
     trackedFlight: () => trackedFlightOf(deps),
     isAirborne: () => sim.getLastTelemetry()?.onGround === false,
     pretendCallsign: () => (deps.isDevBuild ? getPretendCallsign(db) : null),
+    onLayers: (layers) => simTraffic.setWanted(layers.drawSim),
     log: logger
   })
   sim.on('telemetry', () => service.onPositionChanged())
@@ -117,6 +127,7 @@ export function registerOnlineHandlers(
   })
 
   ipcMain.handle(IpcChannels.networkTrafficGet, () => liveHub.snapshot().networkTraffic)
+  ipcMain.handle(IpcChannels.simTrafficGet, () => liveHub.snapshot().simTraffic)
   ipcMain.handle(IpcChannels.trafficLayersGet, () => liveHub.snapshot().trafficLayers)
   ipcMain.handle(IpcChannels.onlineStatusGet, () => liveHub.snapshot().onlineStatus)
   ipcMain.handle(IpcChannels.networkControllersGet, () => liveHub.snapshot().networkControllers)
@@ -135,6 +146,16 @@ export function registerOnlineHandlers(
   ipcMain.handle(IpcChannels.trafficSetNetworkOn, (_event, ...args: unknown[]) =>
     dispatchCommand(commands, 'traffic.setNetworkOn', args)
   )
+  ipcMain.handle(IpcChannels.trafficSetSimOn, (_event, ...args: unknown[]) =>
+    dispatchCommand(commands, 'traffic.setSimOn', args)
+  )
+  simTraffic.start()
   service.start()
-  return { stop: () => service.stop(), commands }
+  return {
+    stop: () => {
+      service.stop()
+      simTraffic.stop()
+    },
+    commands
+  }
 }

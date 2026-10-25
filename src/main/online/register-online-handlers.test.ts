@@ -14,6 +14,12 @@ import { LiveHub } from '../live/LiveHub'
 import { REAL_FEED_URLS } from './feed-urls'
 import { getTrafficSwitches, setOnlineNetworkSettings, setPretendCallsign } from './online-settings'
 import { registerOnlineHandlers } from './register-online-handlers'
+import { openSimTrafficLink } from './sim-traffic-link'
+
+// No test reaches a real sim: opening the traffic connection fails as it does with MSFS closed.
+vi.mock('./sim-traffic-link', () => ({
+  openSimTrafficLink: vi.fn(() => Promise.reject(new Error('no sim')))
+}))
 
 const busy = readFileSync(join(__dirname, '__fixtures__', 'vatsim-busy.json'), 'utf8')
 
@@ -135,7 +141,43 @@ describe('online network handlers', () => {
     dispatchCommand(commands, 'traffic.setNetworkOn', [true])
     expect(getTrafficSwitches(db).networkOn).toBe(true)
     expect(invoke(IpcChannels.trafficLayersGet)).toMatchObject({ networkOn: true })
-    expect(Object.keys(commands)).toEqual(['traffic.setNetworkOn'])
+    expect(Object.keys(commands)).toEqual(['traffic.setNetworkOn', 'traffic.setSimOn'])
+  })
+
+  it("turns the sim's own layer on from the window, remembers it, and opens the sim connection", async () => {
+    const { invoke } = register()
+    invoke(IpcChannels.trafficSetSimOn, true)
+    expect(getTrafficSwitches(db).simOn).toBe(true)
+    expect(invoke(IpcChannels.trafficLayersGet)).toMatchObject({ simOn: true, drawSim: true })
+    await vi.waitFor(() => expect(openSimTrafficLink).toHaveBeenCalled())
+    // The sim could not be reached (mocked), and the topic says so.
+    await vi.waitFor(() =>
+      expect(invoke(IpcChannels.simTrafficGet)).toEqual({ state: 'unavailable', aircraft: [] })
+    )
+    invoke(IpcChannels.trafficSetSimOn, false)
+    expect(invoke(IpcChannels.simTrafficGet)).toEqual({ state: 'off', aircraft: [] })
+  })
+
+  it('refuses a sim switch that is not a boolean, and a second screen reaches the same switch', () => {
+    const { commands, invoke } = register()
+    expect(() => invoke(IpcChannels.trafficSetSimOn, 1)).toThrow('Invalid traffic switch')
+    dispatchCommand(commands, 'traffic.setSimOn', [true])
+    expect(getTrafficSwitches(db).simOn).toBe(true)
+  })
+
+  it('does not read the sim while the network layer draws', () => {
+    vi.mocked(openSimTrafficLink).mockClear()
+    const { invoke } = register()
+    setOnlineNetworkSettings(db, {
+      network: 'vatsim',
+      vatsimCid: null,
+      ivaoVid: null,
+      keepBeyondAtcOnline: false
+    })
+    invoke(IpcChannels.trafficSetNetworkOn, true)
+    invoke(IpcChannels.trafficSetSimOn, true)
+    expect(invoke(IpcChannels.trafficLayersGet)).toMatchObject({ drawSim: false, simBlockedByNetwork: true })
+    expect(openSimTrafficLink).not.toHaveBeenCalled()
   })
 
   it('has no centre without a position, and finds one when the sim reports it', async () => {
