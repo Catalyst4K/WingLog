@@ -1,7 +1,7 @@
 /**
- * Reads the chosen network's public feed while anything needs it, and publishes from each download: the aircraft near the pilot
- * (`networkTraffic`), which traffic layers draw (`trafficLayers`), the pilot's own online status (`onlineStatus`), and who is online at
- * the flight's airports (`networkControllers`).
+ * Reads the chosen network's public feed while anything needs it, and publishes from each download: the aircraft near the pilot, or the
+ * whole network while there is no position (`networkTraffic`), which traffic layers draw (`trafficLayers`), the pilot's own online status
+ * (`onlineStatus`), and who is online at the flight's airports (`networkControllers`).
  *
  * A thin wrapper: when to fetch is `feed-poll-step.ts`'s pure step, what a feed means is the two parsers, what draws is
  * `traffic-layers.ts`, and who the pilot is is `self-status.ts`. This class injects the fetch, clock and timers, owns the timer, and keeps
@@ -21,7 +21,13 @@ import type {
 import type { LiveHub } from '../live/LiveHub'
 import { feedUserAgent, vatsimDataUrl, type FeedUrls } from './feed-urls'
 import { initialPollState, pollFinished, stepPoll, type PollState } from './feed-poll-step'
-import { TRAFFIC_MAX_AIRCRAFT, TRAFFIC_RADIUS_M, trafficNear, type FeedSnapshot } from './feed-snapshot'
+import {
+  TRAFFIC_MAX_AIRCRAFT,
+  TRAFFIC_MAX_WORLD,
+  TRAFFIC_RADIUS_M,
+  trafficToShow,
+  type FeedSnapshot
+} from './feed-snapshot'
 import { parseIvaoFeed } from './ivao-feed'
 import { stationsAt } from './airport-stations'
 import { selfStatus, unknownStatus } from './self-status'
@@ -85,6 +91,8 @@ export class NetworkFeedService {
   private abort: AbortController | null = null
   private stopped = false
   private lastState: NetworkTraffic['state'] | null = null
+  /** Whether the last traffic shown was around a position (else the whole network, or none yet). */
+  private lastCentred = false
   private status: OnlineStatus = unknownStatus(null)
   /** The last controllers payload published, as text, so only a change is published. */
   private lastControllers = ''
@@ -173,11 +181,13 @@ export class NetworkFeedService {
     this.seen = null
   }
 
-  /** Call when the aircraft's position or the flight shown may have changed: a layer waiting for a centre gets one. */
+  /** Call when the aircraft's position may have changed: traffic shown for the whole network narrows to it at once. */
   onPositionChanged(): void {
     // Online at the last look, and now in the air: the flight was flown online, however soon the next look is.
     this.noteSeen(this.status)
-    if (this.lastState === 'noCentre') this.refresh()
+    if (this.lastState === 'shown' && !this.lastCentred && this.snapshot && this.deps.centre() !== null) {
+      this.publishTraffic()
+    }
   }
 
   /** @returns Which layers draw now. */
@@ -201,7 +211,8 @@ export class NetworkFeedService {
     const settings = this.deps.settings()
     const network = settings.network
     if (network === null || (network === 'ivao' && settings.ivaoVid === null)) return null
-    if (this.layers().drawNetwork && this.deps.centre() !== null) return { network, kind: 'traffic' }
+    // The traffic is read whenever its layer draws, with or without a position (the whole network without one).
+    if (this.layers().drawNetwork) return { network, kind: 'traffic' }
     return this.deps.trackedFlight() !== null ? { network, kind: 'status' } : null
   }
 
@@ -402,22 +413,23 @@ export class NetworkFeedService {
     const layers = this.layers()
     const network = settings.network
     let traffic: NetworkTraffic
+    let centred = false
     if (network === null) traffic = { network, state: 'noNetwork', aircraft: [] }
     else if (network === 'ivao' && settings.ivaoVid === null)
       traffic = { network, state: 'needsVid', aircraft: [] }
     else if (!layers.networkOn) traffic = { network, state: 'off', aircraft: [] }
-    else {
+    else if (unavailable) traffic = { network, state: 'unavailable', aircraft: [] }
+    else if (this.snapshot) {
+      // Around the aircraft (or the flight's departure) when known, otherwise the whole network: the button always shows traffic.
       const centre = this.deps.centre()
-      if (centre === null) traffic = { network, state: 'noCentre', aircraft: [] }
-      else if (unavailable) traffic = { network, state: 'unavailable', aircraft: [] }
-      else if (this.snapshot)
-        traffic = { network, state: 'shown', aircraft: this.near(this.snapshot, centre, settings) }
-      else {
-        this.publishWaiting(network)
-        return
-      }
+      centred = centre !== null
+      traffic = { network, state: 'shown', aircraft: this.toShow(this.snapshot, centre, settings) }
+    } else {
+      this.publishWaiting(network)
+      return
     }
     this.lastState = traffic.state
+    this.lastCentred = centred
     this.deps.hub.publish('networkTraffic', traffic)
   }
 
@@ -428,19 +440,21 @@ export class NetworkFeedService {
    */
   private publishWaiting(network: OnlineNetwork): void {
     this.lastState = 'shown'
+    this.lastCentred = false
     this.deps.hub.publish('networkTraffic', { network, state: 'shown', aircraft: [] })
   }
 
   /**
    * @param snapshot The parsed feed.
-   * @param centre Where to look around.
+   * @param centre Where to look around, or null for the whole network.
    * @param settings The member numbers: the pilot's own aircraft is left out.
-   * @returns The aircraft near the centre.
+   * @returns The aircraft to draw.
    */
-  private near(snapshot: FeedSnapshot, centre: LatLon, settings: OnlineNetworkSettings) {
-    return trafficNear(snapshot, centre, {
+  private toShow(snapshot: FeedSnapshot, centre: LatLon | null, settings: OnlineNetworkSettings) {
+    return trafficToShow(snapshot, centre, {
       radiusM: TRAFFIC_RADIUS_M,
       max: TRAFFIC_MAX_AIRCRAFT,
+      maxWithoutCentre: TRAFFIC_MAX_WORLD,
       excludeMemberId: snapshot.network === 'vatsim' ? settings.vatsimCid : settings.ivaoVid,
       excludeCallsign: this.ownCallsign,
       nowMs: this.deps.now()

@@ -33,9 +33,12 @@ changes it on the PC, and it is remembered next time you start WingLog.
   parked or taxiing.
 - Between refreshes, aircraft **glide** along their heading at their speed, so the map moves
   smoothly. They jump to the real position at each refresh.
-- Only the nearest aircraft within 250 nm of you are shown, which is a little more than the map
-  holds at cruise. With no sim connected, WingLog looks around the departure airport of the
-  flight shown.
+- Once WingLog knows where you are, only the nearest aircraft within 250 nm are shown, which is a
+  little more than the map holds at cruise. With no sim connected, it looks around the departure
+  airport of the flight shown.
+- **With neither** (no sim running and no flight planned or tracked), pressing the button shows the
+  whole network, so you can browse it on the map. It narrows to the aircraft around you as soon as
+  the sim reports your position. On IVAO this still needs your VID.
 
 If the network can't be reached, the map keeps the last aircraft for 45 seconds, then says
 "traffic unavailable" and tries again, waiting a little longer each time.
@@ -89,7 +92,8 @@ When an ATIS names exactly one runway, WingLog shows **Runway in use (from the A
 
 WingLog refreshes **every 15 seconds** while the traffic is shown, which is the networks' own
 refresh rate: asking faster would only get the same file, and IVAO blocks clients that do. That's
-about **140 MB an hour on VATSIM and 44 MB an hour on IVAO** while the traffic is switched on.
+about **140 MB an hour on VATSIM and 44 MB an hour on IVAO** while the traffic is switched on, with or
+without a flight: the switch is remembered, so switch it off when you don't want the data used.
 
 While a flight is tracked with a network chosen, WingLog also looks for you in the feed once a minute,
 even with the traffic off: about **35 MB an hour on VATSIM and 11 MB on IVAO**. While the traffic is

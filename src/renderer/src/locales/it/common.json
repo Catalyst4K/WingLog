@@ -651,7 +651,6 @@
     "hideNetworkTraffic": "Nascondi il traffico {{network}}",
     "networkTrafficNeedsVid": "Inserisci il tuo VID IVAO nelle impostazioni per vedere il traffico IVAO",
     "networkTrafficUnavailable": "Traffico {{network}} non disponibile",
-    "networkTrafficNoCentre": "Traffico {{network}}: in attesa di una posizione",
     "trafficOnGround": "A terra",
     "showSimTraffic": "Mostra il traffico del sim",
     "hideSimTraffic": "Nascondi il traffico del sim",

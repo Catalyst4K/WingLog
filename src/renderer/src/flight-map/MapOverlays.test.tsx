@@ -218,11 +218,6 @@ describe('the network traffic pills', () => {
     expect(nearest.parentElement?.firstElementChild).toBe(nearest)
   })
 
-  it('says when it is waiting for a position', () => {
-    pills(traffic('ivao', 'noCentre'))
-    expect(screen.getByText('IVAO traffic: waiting for a position')).toBeInTheDocument()
-  })
-
   it('says nothing while traffic is shown, off, or needs a VID', () => {
     for (const state of ['shown', 'off', 'needsVid', 'noNetwork'] as const) {
       const { unmount } = render(

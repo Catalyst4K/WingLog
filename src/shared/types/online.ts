@@ -42,10 +42,11 @@ export interface TrafficAircraft {
 export interface NetworkTraffic {
   network: OnlineNetwork | null
   /**
-   * 'shown': aircraft below. 'off': the switch is off. 'noNetwork': none chosen. 'needsVid': IVAO with no VID.
-   * 'unavailable': the feed has failed for 45 s, and the last aircraft are dropped. 'noCentre': no position to centre on.
+   * 'shown': aircraft below, around the aircraft or the flight's departure, or the whole network while neither is known. 'off': the
+   * switch is off. 'noNetwork': none chosen. 'needsVid': IVAO with no VID. 'unavailable': the feed has failed for 45 s, and the last
+   * aircraft are dropped.
    */
-  state: 'shown' | 'off' | 'noNetwork' | 'needsVid' | 'unavailable' | 'noCentre'
+  state: 'shown' | 'off' | 'noNetwork' | 'needsVid' | 'unavailable'
   aircraft: TrafficAircraft[]
 }
 

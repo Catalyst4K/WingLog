@@ -670,7 +670,6 @@
     "hideNetworkTraffic": "Скрыть трафик {{network}}",
     "networkTrafficNeedsVid": "Введите свой IVAO VID в настройках, чтобы видеть трафик IVAO",
     "networkTrafficUnavailable": "Трафик {{network}} недоступен",
-    "networkTrafficNoCentre": "Трафик {{network}}: ожидание позиции",
     "trafficOnGround": "На земле",
     "showSimTraffic": "Показать трафик симулятора",
     "hideSimTraffic": "Скрыть трафик симулятора",

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { destinationPoint } from '@shared/geo'
-import { trafficNear, type FeedPilot, type FeedSnapshot } from './feed-snapshot'
+import { trafficToShow, type FeedPilot, type FeedSnapshot } from './feed-snapshot'
 
 const CENTRE = { lat: 51.47, lon: -0.46 }
 const RECEIVED_MS = 1_000_000
@@ -35,16 +35,16 @@ function snapshot(pilots: FeedPilot[]): FeedSnapshot {
   }
 }
 
-describe('trafficNear', () => {
-  const options = { radiusM: 100_000, max: 10, nowMs: RECEIVED_MS }
+describe('trafficToShow', () => {
+  const options = { radiusM: 100_000, max: 10, maxWithoutCentre: 50, nowMs: RECEIVED_MS }
 
   it('keeps the aircraft inside the radius and drops the rest', () => {
-    const result = trafficNear(snapshot([pilot('NEAR', 50_000), pilot('FAR', 150_000)]), CENTRE, options)
+    const result = trafficToShow(snapshot([pilot('NEAR', 50_000), pilot('FAR', 150_000)]), CENTRE, options)
     expect(result.map((a) => a.callsign)).toEqual(['NEAR'])
   })
 
   it('lists the nearest first', () => {
-    const result = trafficNear(
+    const result = trafficToShow(
       snapshot([pilot('C', 90_000), pilot('A', 10_000), pilot('B', 40_000)]),
       CENTRE,
       options
@@ -54,13 +54,13 @@ describe('trafficNear', () => {
 
   it('cuts the list to the nearest max', () => {
     const many = Array.from({ length: 6 }, (_, i) => pilot(`P${i}`, (i + 1) * 10_000))
-    const result = trafficNear(snapshot(many), CENTRE, { ...options, max: 3 })
+    const result = trafficToShow(snapshot(many), CENTRE, { ...options, max: 3 })
     expect(result.map((a) => a.callsign)).toEqual(['P0', 'P1', 'P2'])
   })
 
   it('leaves out the pilot with the given member number', () => {
     const own = pilot('OWN', 5_000, { memberId: '1234567' })
-    const result = trafficNear(snapshot([own, pilot('OTHER', 8_000)]), CENTRE, {
+    const result = trafficToShow(snapshot([own, pilot('OTHER', 8_000)]), CENTRE, {
       ...options,
       excludeMemberId: '1234567'
     })
@@ -69,12 +69,12 @@ describe('trafficNear', () => {
 
   it('leaves nobody out with no member number, and does not confuse a pilot with no number with it', () => {
     const noId = pilot('NOID', 5_000, { memberId: null })
-    expect(trafficNear(snapshot([noId]), CENTRE, options)).toHaveLength(1)
-    expect(trafficNear(snapshot([noId]), CENTRE, { ...options, excludeMemberId: null })).toHaveLength(1)
+    expect(trafficToShow(snapshot([noId]), CENTRE, options)).toHaveLength(1)
+    expect(trafficToShow(snapshot([noId]), CENTRE, { ...options, excludeMemberId: null })).toHaveLength(1)
   })
 
   it('carries no member number or other field the screens do not draw', () => {
-    const [aircraft] = trafficNear(snapshot([pilot('ONE', 1000)]), CENTRE, options)
+    const [aircraft] = trafficToShow(snapshot([pilot('ONE', 1000)]), CENTRE, options)
     expect(Object.keys(aircraft ?? {}).sort()).toEqual(
       [
         'ageS',
@@ -94,7 +94,7 @@ describe('trafficNear', () => {
   })
 
   it('adds the time since the snapshot was received to the age at the feed', () => {
-    const [aircraft] = trafficNear(snapshot([pilot('ONE', 1000, { ageAtFeedS: 3 })]), CENTRE, {
+    const [aircraft] = trafficToShow(snapshot([pilot('ONE', 1000, { ageAtFeedS: 3 })]), CENTRE, {
       ...options,
       nowMs: RECEIVED_MS + 2500
     })
@@ -102,7 +102,7 @@ describe('trafficNear', () => {
   })
 
   it('never gives a negative extra age if the clock stepped back', () => {
-    const [aircraft] = trafficNear(snapshot([pilot('ONE', 1000, { ageAtFeedS: 3 })]), CENTRE, {
+    const [aircraft] = trafficToShow(snapshot([pilot('ONE', 1000, { ageAtFeedS: 3 })]), CENTRE, {
       ...options,
       nowMs: RECEIVED_MS - 5000
     })
@@ -110,6 +110,33 @@ describe('trafficNear', () => {
   })
 
   it('is empty for a snapshot with no pilots', () => {
-    expect(trafficNear(snapshot([]), CENTRE, options)).toEqual([])
+    expect(trafficToShow(snapshot([]), CENTRE, options)).toEqual([])
+  })
+
+  describe('with no position to centre on', () => {
+    it('shows the whole network, however far away, in the feed’s order', () => {
+      const result = trafficToShow(
+        snapshot([pilot('FAR', 9_000_000), pilot('NEAR', 1_000), pilot('MID', 400_000)]),
+        null,
+        options
+      )
+      expect(result.map((a) => a.callsign)).toEqual(['FAR', 'NEAR', 'MID'])
+    })
+
+    it('stops at the most for the whole network, not the most around a point', () => {
+      const many = Array.from({ length: 60 }, (_, i) => pilot(`P${i}`, (i + 1) * 500_000))
+      expect(trafficToShow(snapshot(many), null, options)).toHaveLength(50)
+    })
+
+    it('still leaves out the pilot’s own aircraft, by member number or callsign', () => {
+      const own = pilot('OWN', 5_000, { memberId: '1234567' })
+      const byPlan = pilot('PLAN1', 6_000)
+      const result = trafficToShow(snapshot([own, byPlan, pilot('OTHER', 8_000)]), null, {
+        ...options,
+        excludeMemberId: '1234567',
+        excludeCallsign: 'PLAN1'
+      })
+      expect(result.map((a) => a.callsign)).toEqual(['OTHER'])
+    })
   })
 })

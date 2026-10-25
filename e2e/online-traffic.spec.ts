@@ -247,6 +247,74 @@ test.describe('Online network traffic', () => {
     }
   })
 
+  test('with no sim and no flight, the button still shows VATSIM traffic: the whole network', async () => {
+    const feed = await startNetworkFeedServer({ centre: EGLL })
+    // No replay: WingLog has no aircraft position and no flight to centre on.
+    const { window: page, cleanup } = await launchApp({
+      env: { WINGLOG_E2E_VATSIM_URL: feed.vatsimUrl, WINGLOG_E2E_IVAO_URL: feed.ivaoUrl }
+    })
+    try {
+      await page.evaluate(() =>
+        (globalThis as unknown as { winglog: Winglog }).winglog.settingsSetOnlineNetwork({
+          network: 'vatsim',
+          vatsimCid: null,
+          ivaoVid: null,
+          keepBeyondAtcOnline: false,
+          simTrafficButton: true
+        })
+      )
+      await page.getByRole('tab', { name: 'Track' }).click()
+      await page.getByRole('button', { name: 'Show VATSIM traffic' }).click()
+      // Every pilot in the feed, Sydney's included, which the 250 nm around a position would leave out; and no waiting.
+      await expect
+        .poll(async () => (await traffic(page)).aircraft.map((a) => a.callsign).sort())
+        .toEqual(['FAR1', 'NEAR1', 'NEAR2'])
+      expect((await traffic(page)).state).toBe('shown')
+      expect(feed.requests.every((r) => r.path.startsWith('/vatsim'))).toBe(true)
+      await expect(page.getByText(/traffic unavailable/)).toBeHidden()
+    } finally {
+      await cleanup()
+      await feed.close()
+    }
+  })
+
+  test('with no sim and no flight, IVAO shows the whole network too, but only once its VID is entered', async () => {
+    const feed = await startNetworkFeedServer({ centre: EGLL })
+    const { window: page, cleanup } = await launchApp({
+      env: { WINGLOG_E2E_VATSIM_URL: feed.vatsimUrl, WINGLOG_E2E_IVAO_URL: feed.ivaoUrl }
+    })
+    const chooseIvao = (vid: string | null): Promise<void> =>
+      page.evaluate(
+        (ivaoVid) =>
+          (globalThis as unknown as { winglog: Winglog }).winglog.settingsSetOnlineNetwork({
+            network: 'ivao',
+            vatsimCid: null,
+            ivaoVid,
+            keepBeyondAtcOnline: false,
+            simTrafficButton: true
+          }),
+        vid
+      )
+    try {
+      await chooseIvao(null)
+      await page.evaluate(() =>
+        (globalThis as unknown as { winglog: Winglog }).winglog.trafficSetNetworkOn(true)
+      )
+      await expect.poll(async () => (await traffic(page)).state).toBe('needsVid')
+      await page.waitForTimeout(1500)
+      expect(feed.requests).toHaveLength(0)
+
+      await chooseIvao('900099')
+      await expect
+        .poll(async () => (await traffic(page)).aircraft.map((a) => a.callsign).sort(), { timeout: 20_000 })
+        .toEqual(['FAR1', 'NEAR1'])
+      expect(feed.requests.every((r) => r.path === '/ivao')).toBe(true)
+    } finally {
+      await cleanup()
+      await feed.close()
+    }
+  })
+
   test('the Online network card chooses a network and keeps it across a restart', async () => {
     const { window: page, cleanup } = await launchApp()
     try {
