@@ -25,6 +25,7 @@ Settings has four sections down the left.
 - **GSX ground services**: on/off, receipts folder, display currency (see [GSX](08-gsx.md)).
 - **GSX Remote Control**: on/off, host and port.
 - **BeyondATC**: on/off and host (see [BeyondATC](07-beyondatc.md)).
+- **Online network**: VATSIM or IVAO and your member number (see [Online networks](10-online-networks.md)).
 
 ## Data
 

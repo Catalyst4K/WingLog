@@ -194,6 +194,16 @@
       "statusConnected": "Conectado",
       "statusConnecting": "Conectando…",
       "statusDisconnected": "Desconectado"
+    },
+    "onlineNetwork": {
+      "cardTitle": "Red en línea",
+      "description": "Muestra el tráfico de VATSIM o IVAO en el mapa de Track. WingLog solo lee el feed de datos público de la red; no se envía nada.",
+      "network": "Red",
+      "none": "Ninguna",
+      "cid": "CID",
+      "cidHint": "Tu número de miembro de VATSIM (opcional). Sirve para dejar tu propio avión fuera del tráfico.",
+      "vid": "VID",
+      "vidHint": "Tu número de miembro de IVAO. IVAO solo muestra otros pilotos a sus miembros, así que el tráfico permanece apagado hasta que lo introduzcas."
     }
   },
   "app": {
@@ -632,7 +642,13 @@
     "showTaxiChart": "Mostrar carta de rodaje",
     "showTaxiChartTitle": "Mostrar carta de rodaje — red completa de calles de rodaje del aeropuerto de salida/llegada",
     "loadingTaxiChart": "Cargando la carta de rodaje de {{icao}}… puede tardar varios minutos en aeropuertos grandes",
-    "approximateRoute": "Ruta aproximada — no hay plan de vuelo registrado para este vuelo"
+    "approximateRoute": "Ruta aproximada — no hay plan de vuelo registrado para este vuelo",
+    "showNetworkTraffic": "Mostrar tráfico de {{network}}",
+    "hideNetworkTraffic": "Ocultar tráfico de {{network}}",
+    "networkTrafficNeedsVid": "Introduce tu VID de IVAO en Ajustes para ver el tráfico de IVAO",
+    "networkTrafficUnavailable": "Tráfico de {{network}} no disponible",
+    "networkTrafficNoCentre": "Tráfico de {{network}}: esperando una posición",
+    "trafficOnGround": "En tierra"
   },
   "logbookView": {
     "estimatedTrack": "La línea discontinua son unas {{nm}} nm estimadas a partir del plan de vuelo. No se grabaron.",

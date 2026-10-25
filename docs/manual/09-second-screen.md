@@ -36,8 +36,8 @@ A revoked device is sent back to the pairing screen straight away.
 A bar along the bottom switches between four pages:
 
 - **Track**: the live map, following your aircraft. A banner shows the flight number, times, the
-  time flown, the time remaining and your estimated arrival. Buttons switch the VFR overlay and the
-  taxi chart on and off, and **Procedures** lets you choose departure and arrival procedures in two
+  time flown, the time remaining and your estimated arrival. Buttons switch the VFR overlay, the online
+  traffic (see [Online networks](10-online-networks.md)) and the taxi chart on and off, and **Procedures** lets you choose departure and arrival procedures in two
   tabs. Your choice is saved on the PC, just as if you'd made it there. If the sim isn't connected to
   WingLog on the PC, the page says so and shows no speed or altitude until it is.
 - **Dispatch**: the weather for your airports above your flight plan's figures (weights, fuel,
@@ -83,4 +83,4 @@ If you change Wi-Fi or your router gives the PC a different address, the saved p
 - The phone loads map tiles from OpenFreeMap, so it needs an internet connection for the map.
 - The page doesn't carry your data: it's sent only to a paired device, when it connects.
 
-If the phone can't reach WingLog, see [Troubleshooting](12-troubleshooting.md).
+If the phone can't reach WingLog, see [Troubleshooting](13-troubleshooting.md).

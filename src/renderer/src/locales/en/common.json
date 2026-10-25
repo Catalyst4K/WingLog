@@ -192,6 +192,16 @@
       "statusConnected": "Connected",
       "statusConnecting": "Connecting…",
       "statusDisconnected": "Disconnected"
+    },
+    "onlineNetwork": {
+      "cardTitle": "Online network",
+      "description": "Show the traffic of VATSIM or IVAO on the Track map. WingLog only reads the network's public data feed; nothing is sent.",
+      "network": "Network",
+      "none": "None",
+      "cid": "CID",
+      "cidHint": "Your VATSIM member number (optional). It is used to leave your own aircraft out of the traffic.",
+      "vid": "VID",
+      "vidHint": "Your IVAO member number. IVAO shows other pilots only to its members, so traffic stays off until it is entered."
     }
   },
   "app": {
@@ -630,7 +640,13 @@
     "showTaxiChart": "Show taxi chart",
     "showTaxiChartTitle": "Show taxi chart — full taxiway network at the departure/arrival airport",
     "loadingTaxiChart": "Loading taxi chart for {{icao}}… this can take a few minutes at large airports",
-    "approximateRoute": "Approximate route — no flight plan on file for this flight"
+    "approximateRoute": "Approximate route — no flight plan on file for this flight",
+    "showNetworkTraffic": "Show {{network}} traffic",
+    "hideNetworkTraffic": "Hide {{network}} traffic",
+    "networkTrafficNeedsVid": "Enter your IVAO VID in Settings to see IVAO traffic",
+    "networkTrafficUnavailable": "{{network}} traffic unavailable",
+    "networkTrafficNoCentre": "{{network}} traffic: waiting for a position",
+    "trafficOnGround": "On the ground"
   },
   "logbookView": {
     "estimatedTrack": "The dashed line is about {{nm}} nm estimated from the flight plan. It was not recorded.",

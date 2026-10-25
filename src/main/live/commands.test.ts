@@ -1,5 +1,12 @@
 import { describe, expect, it, vi } from 'vitest'
-import { atcCommands, dispatchCommand, gsxCommands, parseProcedureSelection, trackCommands } from './commands'
+import {
+  atcCommands,
+  dispatchCommand,
+  gsxCommands,
+  parseProcedureSelection,
+  trackCommands,
+  trafficCommands
+} from './commands'
 
 function fakeSession() {
   return {
@@ -177,5 +184,27 @@ describe('dispatchCommand', () => {
     for (const args of ['x', null, undefined, { 0: 1 }, [1, 2, 3]]) {
       expect(() => dispatchCommand(table, 'gsx.search', args)).toThrow('Invalid command arguments')
     }
+  })
+})
+
+describe('trafficCommands', () => {
+  it('passes a boolean to the feed service', () => {
+    const feed = { setNetworkOn: vi.fn() }
+    const table = trafficCommands(feed)
+    dispatchCommand(table, 'traffic.setNetworkOn', [true])
+    dispatchCommand(table, 'traffic.setNetworkOn', [false])
+    expect(feed.setNetworkOn.mock.calls).toEqual([[true], [false]])
+  })
+
+  it.each([['true'], [1], [null], [undefined], [{}]])('refuses %j, and does not reach the feed', (value) => {
+    const feed = { setNetworkOn: vi.fn() }
+    expect(() => dispatchCommand(trafficCommands(feed), 'traffic.setNetworkOn', [value])).toThrow(
+      'Invalid traffic switch'
+    )
+    expect(feed.setNetworkOn).not.toHaveBeenCalled()
+  })
+
+  it('has only the traffic switch', () => {
+    expect(Object.keys(trafficCommands({ setNetworkOn: vi.fn() }))).toEqual(['traffic.setNetworkOn'])
   })
 })

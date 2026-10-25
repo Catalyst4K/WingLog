@@ -1,8 +1,8 @@
 /** What FlightMap draws over the map: its control buttons and its readout pills. */
 
-import { Locate, LocateFixed, Radar, Waypoints, ZoomIn, ZoomOut } from 'lucide-react'
+import { Locate, LocateFixed, Plane, Radar, Waypoints, ZoomIn, ZoomOut } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import type { FlightPhase, SimTelemetry } from '@shared/ipc'
+import type { FlightPhase, NetworkTraffic, SimTelemetry, TrafficLayers } from '@shared/ipc'
 import { Button } from '@/components/ui/button'
 import { displayAltitude } from '../display-altitude'
 import type { TransitionAltitudes } from '@shared/route'
@@ -24,11 +24,13 @@ function ToggleControl(props: {
   label: string
   title: string
   onClick: () => void
+  disabled?: boolean
   children: React.ReactNode
 }): React.JSX.Element {
   return (
     <Button
       type="button"
+      disabled={props.disabled}
       variant={props.on ? 'default' : 'outline'}
       size="icon-sm"
       // "On" reads as a filled, cyan/sky-blue button rather than an icon tint —
@@ -76,6 +78,44 @@ function ZoomControl(props: {
   )
 }
 
+/** The names shown for each network. */
+const NETWORK_NAMES = { vatsim: 'VATSIM', ivao: 'IVAO' } as const
+
+/**
+ * The shared switch for the chosen network's traffic. Hidden while no network is chosen; disabled for IVAO until a VID is entered
+ * (IVAO shows other pilots only to members).
+ *
+ * @param props The layers (the switch's state), the traffic (which network and whether it needs a VID), and the toggle.
+ * @returns The element, or nothing.
+ */
+function NetworkTrafficButton(props: {
+  layers: TrafficLayers | null
+  traffic: NetworkTraffic | null
+  onToggle: () => void
+}): React.JSX.Element | null {
+  const { t } = useTranslation()
+  const network = props.traffic?.network
+  if (!network) return null
+  const name = NETWORK_NAMES[network]
+  const needsVid = props.traffic?.state === 'needsVid'
+  // IVAO without a VID shows nothing whatever the switch says, so the button reads as off and offers to show.
+  const on = props.layers?.networkOn === true && !needsVid
+  const label = on
+    ? t('flightMap.hideNetworkTraffic', { network: name })
+    : t('flightMap.showNetworkTraffic', { network: name })
+  return (
+    <ToggleControl
+      on={on}
+      label={label}
+      title={needsVid ? t('flightMap.networkTrafficNeedsVid') : label}
+      onClick={props.onToggle}
+      disabled={needsVid}
+    >
+      <Plane />
+    </ToggleControl>
+  )
+}
+
 /**
  * The column of buttons at the map's top right: follow and VFR (live only), taxi chart, and zoom.
  *
@@ -88,6 +128,8 @@ export function MapControls(props: {
   onToggleFollow: () => void
   vfrEnabled: boolean
   onToggleVfr: () => void
+  /** The shared network-traffic switch's state; omitted (no button) on a map that is not live. */
+  networkTraffic?: { layers: TrafficLayers | null; traffic: NetworkTraffic | null; onToggle: () => void }
   taxiChartEnabled: boolean
   onToggleTaxiChart: () => void
   onZoomIn: () => void
@@ -117,6 +159,7 @@ export function MapControls(props: {
           <Radar />
         </ToggleControl>
       )}
+      {props.live && props.networkTraffic && <NetworkTrafficButton {...props.networkTraffic} />}
       <ToggleControl
         on={props.taxiChartEnabled}
         label={props.taxiChartEnabled ? t('flightMap.hideTaxiChart') : t('flightMap.showTaxiChart')}
@@ -208,6 +251,16 @@ function TaxiChartLoadingPill(props: { icao: string }): React.JSX.Element {
 }
 
 /**
+ * @param traffic The network traffic topic.
+ * @returns The translation key of the pill to show, or null when there is nothing to say.
+ */
+function trafficProblemKey(traffic: NetworkTraffic | null | undefined): string | null {
+  if (traffic?.state === 'unavailable') return 'flightMap.networkTrafficUnavailable'
+  if (traffic?.state === 'noCentre') return 'flightMap.networkTrafficNoCentre'
+  return null
+}
+
+/**
  * The pills over the map: live telemetry, the nearest airfield (VFR overlay on), the taxi
  * chart's loading state, and the approximate-route caption.
  *
@@ -223,15 +276,23 @@ export function MapPills(props: {
   vfr: { enabled: boolean; nearestText: string | null }
   taxiChart: { enabled: boolean; loadingIcao: string | null }
   routeIsApproximate: boolean
+  /** The network traffic's state, for the pill that says it cannot be shown. */
+  traffic?: NetworkTraffic | null
 }): React.JSX.Element {
   const { t } = useTranslation()
   const { live, vfr, taxiChart } = props
+  const trafficProblem = live ? trafficProblemKey(props.traffic) : null
   return (
     <>
       {live && (
         <TelemetryReadout telemetry={props.telemetry} phase={props.phase} transition={props.transition} />
       )}
       {live && vfr.enabled && vfr.nearestText && <NearestAirfieldPill text={vfr.nearestText} />}
+      {trafficProblem && props.traffic?.network && (
+        <div className={`absolute top-3 left-3 ${PILL_CLASS_NAME}`}>
+          {t(trafficProblem, { network: NETWORK_NAMES[props.traffic.network] })}
+        </div>
+      )}
       {taxiChart.enabled && taxiChart.loadingIcao && <TaxiChartLoadingPill icao={taxiChart.loadingIcao} />}
       {props.routeIsApproximate && (
         <div className="absolute bottom-3 left-3 rounded-full border border-border bg-popover/85 px-3 py-1 text-xs text-muted-foreground backdrop-blur-sm">

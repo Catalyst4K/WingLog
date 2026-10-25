@@ -60,6 +60,7 @@ import type {
   GsxSettings
 } from './types/gsx'
 import type { PlannedRoute, TaxiRoute } from './live'
+import type { NetworkTraffic, OnlineNetworkSettings, TrafficLayers } from './types/online'
 import type {
   AircraftLanding,
   LandingListRow,
@@ -102,6 +103,7 @@ export type * from './types/flight'
 export type * from './types/landing'
 export type * from './types/gsx'
 export type * from './types/beyondatc'
+export type * from './types/online'
 export type * from './types/lan'
 export type * from './types/settings'
 export type * from './types/storage'
@@ -271,6 +273,16 @@ export interface WingLogApi {
   getPlannedRoute: () => Promise<PlannedRoute | null>
   /** Pushed each time that route changes. */
   onPlannedRoute: (listener: (route: PlannedRoute | null) => void) => () => void
+  /** The chosen network's traffic near the aircraft, for a window that opens mid-flight. */
+  getNetworkTraffic: () => Promise<NetworkTraffic>
+  /** Pushed each time main has a new set of aircraft (or a new state). */
+  onNetworkTraffic: (listener: (traffic: NetworkTraffic) => void) => () => void
+  /** The shared traffic switches and which layers draw. */
+  getTrafficLayers: () => Promise<TrafficLayers>
+  /** Pushed when a switch or a setting changes which layers draw. */
+  onTrafficLayers: (listener: (layers: TrafficLayers) => void) => () => void
+  /** Turns the network traffic layer on or off, for every screen (the switch is kept in main and remembered). */
+  trafficSetNetworkOn: (on: boolean) => Promise<void>
   /** Manually re-runs the resume-cleanup pass for one already-completed flight — the
    *  Logbook detail page's "Clean up track" button, alongside the automatic live/
    *  completion-time pass TrackingController already runs on its own. Useful for a flight
@@ -527,6 +539,9 @@ export interface WingLogApi {
   /** Runs one of the three command-bar commands (`command.run`) — GSX's own client requires
    *  a second confirming call for RESTART_COUATL (the UI enforces this, not this method). */
   gsxRemoteRunCommand: (id: GsxRemoteCommandId) => Promise<void>
+  settingsGetOnlineNetwork: () => Promise<OnlineNetworkSettings>
+  /** Saving restarts the feed service. Refuses a member number that is not 1 to 10 digits. */
+  settingsSetOnlineNetwork: (settings: OnlineNetworkSettings) => Promise<void>
   settingsGetBeyondAtc: () => Promise<BeyondAtcSettings>
   /** Changing host/enabled restarts the live connection (or stops it, if disabled). Port is
    *  fixed (BeyondAtcService's own BEYONDATC_PORT), never sent from here. */

@@ -8,6 +8,9 @@ import { filterVisibleTrackPoints } from './track-point-visibility'
 import { useTaxiChartOverlay } from './use-taxi-chart-overlay'
 import { useTaxiRouteHighlight } from './use-taxi-route-highlight'
 import { useVfrOverlay } from './use-vfr-overlay'
+import { useNetworkTrafficOverlay } from './use-network-traffic-overlay'
+import { useLiveClient } from './live/LiveClient'
+import { runAsync } from './report-error'
 import { ROUTE_SOURCE_ID } from './flight-map/map-layers'
 import { isMapVisible } from './flight-map/map-state'
 import { ErrorBoundary } from './ErrorBoundary'
@@ -138,6 +141,8 @@ function FlightMapView({
     markerRef: instance.markerRef
   })
 
+  const liveClient = useLiveClient()
+  const networkTraffic = useNetworkTrafficOverlay({ mapRef, mapReady, live })
   const taxiChart = useTaxiChartOverlay({ mapRef, mapReady, depIcao, arrIcao })
   useTaxiRouteHighlight({ mapRef, mapReady, enabled: taxiChart.enabled, depIcao, arrIcao })
 
@@ -159,6 +164,14 @@ function FlightMapView({
         onToggleFollow={() => setFollowEnabled((v) => !v)}
         vfrEnabled={vfr.enabled}
         onToggleVfr={vfr.toggle}
+        networkTraffic={{
+          ...networkTraffic,
+          onToggle: () =>
+            runAsync(
+              'FlightMap traffic.setNetworkOn',
+              liveClient.command('traffic.setNetworkOn', !networkTraffic.layers?.networkOn)
+            )
+        }}
         taxiChartEnabled={taxiChart.enabled}
         onToggleTaxiChart={taxiChart.toggle}
         onZoomIn={() => mapRef.current?.zoomIn()}
@@ -172,6 +185,7 @@ function FlightMapView({
         vfr={vfr}
         taxiChart={taxiChart}
         routeIsApproximate={routeIsApproximate}
+        traffic={networkTraffic.traffic}
       />
     </div>
   )

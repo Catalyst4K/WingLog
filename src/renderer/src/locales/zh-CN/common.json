@@ -187,6 +187,16 @@
       "statusConnected": "已连接",
       "statusConnecting": "正在连接…",
       "statusDisconnected": "未连接"
+    },
+    "onlineNetwork": {
+      "cardTitle": "在线网络",
+      "description": "在 Track 地图上显示 VATSIM 或 IVAO 的交通。WingLog 只读取该网络的公开数据源，不会发送任何内容。",
+      "network": "网络",
+      "none": "无",
+      "cid": "CID",
+      "cidHint": "你的 VATSIM 会员号（可选），用于在交通中排除你自己的飞机。",
+      "vid": "VID",
+      "vidHint": "你的 IVAO 会员号。IVAO 只向其会员显示其他飞行员，因此在输入之前交通保持关闭。"
     }
   },
   "app": {
@@ -624,7 +634,13 @@
     "showTaxiChart": "显示滑行图",
     "showTaxiChartTitle": "显示滑行图 — 出发/到达机场的完整滑行道网络",
     "loadingTaxiChart": "正在加载 {{icao}} 的滑行图……大型机场可能需要几分钟",
-    "approximateRoute": "近似航路 — 该航班没有存档的飞行计划"
+    "approximateRoute": "近似航路 — 该航班没有存档的飞行计划",
+    "showNetworkTraffic": "显示 {{network}} 交通",
+    "hideNetworkTraffic": "隐藏 {{network}} 交通",
+    "networkTrafficNeedsVid": "请在设置中输入你的 IVAO VID 以查看 IVAO 交通",
+    "networkTrafficUnavailable": "{{network}} 交通不可用",
+    "networkTrafficNoCentre": "{{network}} 交通：正在等待位置",
+    "trafficOnGround": "在地面"
   },
   "logbookView": {
     "estimatedTrack": "虚线约 {{nm}} nm，是根据飞行计划估算的，并非实际记录。",

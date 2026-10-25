@@ -29,6 +29,9 @@ export type GsxCommand = Extract<LiveCommand, `gsx.${string}`>
 /** The tracking commands a second screen may send. */
 export type TrackCommand = Extract<LiveCommand, `track.${string}`>
 
+/** The traffic-layer commands, from the window or a second screen. */
+export type TrafficCommand = Extract<LiveCommand, `traffic.${string}`>
+
 /**
  * The BeyondATC commands.
  *
@@ -131,6 +134,21 @@ export function trackCommands(selection: {
 }): CommandTable<TrackCommand> {
   return {
     'track.setProcedureSelection': (value) => selection.setProcedureSelection(parseProcedureSelection(value))
+  }
+}
+
+/**
+ * The traffic-layer commands: the one shared switch for the network's traffic on the map.
+ *
+ * @param feed Where a switch is sent.
+ * @returns The table. A value that is not a boolean is refused.
+ */
+export function trafficCommands(feed: { setNetworkOn(on: boolean): void }): CommandTable<TrafficCommand> {
+  return {
+    'traffic.setNetworkOn': (on) => {
+      if (typeof on !== 'boolean') throw new Error('Invalid traffic switch')
+      feed.setNetworkOn(on)
+    }
   }
 }
 

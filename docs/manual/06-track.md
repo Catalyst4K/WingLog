@@ -36,6 +36,8 @@ behind you.
 - **VFR overlay** (radar button): every airfield including small strips and heliports, 5/10/20 nm
   range rings, a nautical scale bar, your last ten minutes of track highlighted, and the nearest
   airfield.
+- **Online traffic** (aeroplane button, only once you have chosen VATSIM or IVAO in Settings): other
+  pilots on the network around you (see [Online networks](10-online-networks.md)).
 - **Taxi chart** (taxiway button): the full taxiway network at your departure or arrival airport,
   from the sim's own airport data. The first load at a large airport can take a few minutes. With
   BeyondATC on, your cleared taxi route is drawn on it (see [BeyondATC](07-beyondatc.md)).
