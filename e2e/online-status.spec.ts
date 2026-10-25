@@ -138,6 +138,25 @@ test("warns while BeyondATC's auto-tune is on and the pilot is online, and leave
     // Auto-tune on while online: the warning shows on Track, and above the toggle on the BeyondATC page.
     beyondAtc.sendLines('AutoTune: true')
     await expect(warning).toBeVisible()
+
+    // Track at its fullest (the note, the warning, the controllers card), in the window size WingLog first opens at: nothing is
+    // squeezed, the page scrolls instead. The flight card shows its airport row in full, the map's Zoom out can be pressed, and the
+    // map's speed line sits at its bottom edge. Once, the map's box shrank under the map: its overlays floated mid-map and the
+    // attribution covered Zoom out; and a card squeezed instead cut off the airports.
+    const clearDeparture = window.getByRole('button', { name: 'Clear departure' })
+    const flightCard = await window
+      .locator('[data-slot="card"]')
+      .filter({ has: clearDeparture })
+      .boundingBox()
+    const airportRow = await clearDeparture.boundingBox()
+    expect(
+      flightCard && airportRow && flightCard.y + flightCard.height - (airportRow.y + airportRow.height)
+    ).toBeGreaterThan(0)
+    await window.getByRole('button', { name: 'Zoom out' }).click({ trial: true, timeout: 5000 })
+    const map = await window.locator('[data-framed]').boundingBox()
+    const speed = await window.getByText(/^Speed:/).boundingBox()
+    expect(map && speed && map.y + map.height - (speed.y + speed.height)).toBeLessThan(20)
+
     await window.getByRole('tab', { name: 'BeyondATC' }).click()
     await expect(warning).toBeVisible()
     await expect(window.getByRole('button', { name: 'Auto-tune: On' })).toBeVisible()
