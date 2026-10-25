@@ -60,6 +60,7 @@ test('a flight flown while online is recorded with its network and callsign, and
     await expect(atc.getByText('VHHH_TWR')).toBeVisible()
     await expect(atc.getByText('118.700')).toBeVisible()
     await expect(atc.getByText('RUNWAY 07R IN USE')).toBeVisible()
+    await expect(atc.getByText('Runway in use (from the ATIS): 07R')).toBeVisible()
 
     // Fly it, finish it, and find it in the Logbook with its network and callsign.
     await window.evaluate(
