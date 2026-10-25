@@ -195,7 +195,7 @@
     },
     "onlineNetwork": {
       "cardTitle": "Online-Netzwerk",
-      "description": "Zeigt den Verkehr von VATSIM oder IVAO auf der Track-Karte. WingLog liest nur den öffentlichen Datenfeed des Netzwerks; es wird nichts gesendet.",
+      "description": "Wähle VATSIM oder IVAO für dessen Verkehr auf der Track-Karte, eine Schaltfläche zum Aufgeben deines SimBrief-Plans, die Lotsen an deinen Flughäfen und ein ausgeblendetes BeyondATC, solange du online bist. Mit „Keines“ wird nichts davon gezeigt. WingLog liest nur den öffentlichen Datenfeed des Netzwerks; es wird nichts gesendet.",
       "network": "Netzwerk",
       "none": "Keines",
       "cid": "CID",
@@ -203,7 +203,9 @@
       "vid": "VID",
       "vidHint": "Deine IVAO-Mitgliedsnummer. IVAO zeigt andere Piloten nur seinen Mitgliedern, daher bleibt der Verkehr aus, bis sie eingetragen ist.",
       "keepBeyondAtc": "BeyondATC online beibehalten",
-      "keepBeyondAtcHint": "Solange du online bist, sind die Hinweise, die Rollroute, die Frequenzen und die Steigflug-Anfragen von BeyondATC ausgeblendet oder stumm, da nur die Lotsen des Netzwerks sprechen. Schalte dies ein, um sie zu behalten."
+      "keepBeyondAtcHint": "Solange du online bist, sind die Hinweise, die Rollroute, die Frequenzen und die Steigflug-Anfragen von BeyondATC ausgeblendet oder stumm, da nur die Lotsen des Netzwerks sprechen. Schalte dies ein, um sie zu behalten.",
+      "simTrafficButton": "Sim-Verkehr-Schaltfläche",
+      "simTrafficButtonHint": "Die türkisen Flugzeuge auf der Track-Karte: der eigene Verkehr des Sims (der von BeyondATC und andere KI). Aus entfernt die Schaltfläche von der Karte, am PC und auf dem Handy."
     }
   },
   "app": {
@@ -1024,6 +1026,7 @@
     "autoTuneWarning": "Die Auto-Einstellung von BeyondATC ist an und kann deine Funkgeräte umstellen, weg von den Lotsen bei {{network}}. Schalte die Auto-Einstellung auf der BeyondATC-Seite aus, solange du online bist.",
     "atc": {
       "title": "ATC online an deinen Flughäfen ({{network}})",
+      "button": "{{network}}-ATC ({{online}})…",
       "nobody": "Keine Lotsen online",
       "enrouteNote": "Streckenlotsen werden nicht aufgeführt.",
       "runway": "Aktive Bahn (laut ATIS): {{runway}}",

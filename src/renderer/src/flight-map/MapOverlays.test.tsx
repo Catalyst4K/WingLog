@@ -7,6 +7,7 @@ import { MapControls, MapPills } from './MapOverlays'
 const LAYERS_OFF: TrafficLayers = {
   networkOn: false,
   simOn: false,
+  simOffered: true,
   drawNetwork: false,
   drawSim: false,
   simBlockedByNetwork: false
@@ -131,6 +132,14 @@ describe('the sim traffic button', () => {
 
   it('is not shown on a finished flight', () => {
     controls({ layers: LAYERS_OFF, traffic: traffic('vatsim', 'off'), onToggle: () => {} }, false)
+    expect(screen.queryByRole('button', { name: /sim traffic/ })).not.toBeInTheDocument()
+  })
+
+  it.each([
+    ['when switched off in Settings', { ...LAYERS_OFF, simOffered: false }],
+    ['before the topics have arrived', null]
+  ])('is not offered %s', (_case, layers) => {
+    controls({ layers, traffic: traffic(null, 'noNetwork'), onToggle: () => {} })
     expect(screen.queryByRole('button', { name: /sim traffic/ })).not.toBeInTheDocument()
   })
 })

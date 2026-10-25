@@ -189,7 +189,7 @@ export class NetworkFeedService {
       simOn: switches.simOn,
       network: settings.network,
       ivaoVidSet: settings.ivaoVid !== null,
-      simAvailable: true
+      simOffered: settings.simTrafficButton
     })
   }
 

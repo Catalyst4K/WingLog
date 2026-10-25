@@ -190,7 +190,7 @@
     },
     "onlineNetwork": {
       "cardTitle": "在线网络",
-      "description": "在 Track 地图上显示 VATSIM 或 IVAO 的交通。WingLog 只读取该网络的公开数据源，不会发送任何内容。",
+      "description": "选择 VATSIM 或 IVAO，即可在 Track 地图上看到其交通、提交 SimBrief 计划的按钮、你机场的管制员，并在你在线时隐藏 BeyondATC。选择“无”则全部不显示。WingLog 只读取该网络的公开数据源，不会发送任何内容。",
       "network": "网络",
       "none": "无",
       "cid": "CID",
@@ -198,7 +198,9 @@
       "vid": "VID",
       "vidHint": "你的 IVAO 会员号。IVAO 只向其会员显示其他飞行员，因此在输入之前交通保持关闭。",
       "keepBeyondAtc": "在线时保留 BeyondATC",
-      "keepBeyondAtcHint": "在线时，BeyondATC 的提示、滑行线、频率和阶梯爬升会被隐藏或静音，因为网络的管制员是唯一的声音。打开此项可保留它们。"
+      "keepBeyondAtcHint": "在线时，BeyondATC 的提示、滑行线、频率和阶梯爬升会被隐藏或静音，因为网络的管制员是唯一的声音。打开此项可保留它们。",
+      "simTrafficButton": "模拟器交通按钮",
+      "simTrafficButtonHint": "Track 地图上的青色飞机：模拟器自己的交通（BeyondATC 的及其他 AI）。关闭后，PC 和手机的地图上都不再显示该按钮。"
     }
   },
   "app": {
@@ -1015,6 +1017,7 @@
     "autoTuneWarning": "BeyondATC 的自动调频已开启，可能会把你的无线电调离 {{network}} 管制员的频率。在线时请在 BeyondATC 页面关闭自动调频。",
     "atc": {
       "title": "你的机场在线管制 ({{network}})",
+      "button": "{{network}} 管制 ({{online}})…",
       "nobody": "没有在线管制员",
       "enrouteNote": "不列出航路管制员。",
       "runway": "使用跑道（来自 ATIS）：{{runway}}",

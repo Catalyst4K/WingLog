@@ -1,4 +1,8 @@
-/** Settings → 3rd party: the online network (none, VATSIM or IVAO) and the pilot's member number on it (winglog-backend's docs/plans/vatsim-build.md, Step 1a). */
+/**
+ * Settings → 3rd party: the online network (none, VATSIM or IVAO), the pilot's member number on it (winglog-backend's
+ * docs/plans/vatsim-build.md, Step 1a), and whether the map offers the sim traffic button. The network is the one switch for every VATSIM
+ * and IVAO feature: None shows none of them.
+ */
 
 import { useEffect, useId, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -145,6 +149,21 @@ export function OnlineNetworkCard(props: OnlineNetworkCardProps): React.JSX.Elem
           />
         </SettingRow>
       )}
+      {/* Not a network feature: the sim's own traffic is offered whatever the network, unless switched off here. */}
+      <SettingRow
+        label={t('settingsView.onlineNetwork.simTrafficButton')}
+        note={t('settingsView.onlineNetwork.simTrafficButtonHint')}
+      >
+        <OnOffControl
+          label={t('settingsView.onlineNetwork.simTrafficButton')}
+          enabled={settings.simTrafficButton}
+          onText={t('settingsView.beyondAtc.on')}
+          offText={t('settingsView.beyondAtc.off')}
+          onChange={asyncHandler('OnlineNetworkCard simTrafficButton', (offered: boolean) =>
+            save({ ...settings, simTrafficButton: offered })
+          )}
+        />
+      </SettingRow>
       {isDevBuild && (
         <SettingRow
           label="Pretend I am this pilot (dev build)"

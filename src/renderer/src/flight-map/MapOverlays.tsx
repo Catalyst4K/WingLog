@@ -199,11 +199,14 @@ export function MapControls(props: {
       {props.live && props.networkTraffic && (
         <>
           <NetworkTrafficButton {...props.networkTraffic} />
-          <SimTrafficButton
-            layers={props.networkTraffic.layers}
-            traffic={props.networkTraffic.traffic}
-            onToggle={props.networkTraffic.onToggleSim}
-          />
+          {/* Offered unless switched off in Settings; like the network's button, not before the topics arrive. */}
+          {props.networkTraffic.layers?.simOffered && (
+            <SimTrafficButton
+              layers={props.networkTraffic.layers}
+              traffic={props.networkTraffic.traffic}
+              onToggle={props.networkTraffic.onToggleSim}
+            />
+          )}
         </>
       )}
       <ToggleControl

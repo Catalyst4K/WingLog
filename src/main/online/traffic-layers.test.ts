@@ -6,7 +6,7 @@ const base: TrafficLayerInput = {
   simOn: false,
   network: null,
   ivaoVidSet: false,
-  simAvailable: true
+  simOffered: true
 }
 
 describe('decideTrafficLayers', () => {
@@ -14,6 +14,7 @@ describe('decideTrafficLayers', () => {
     expect(decideTrafficLayers({ ...base, network: 'vatsim' })).toEqual({
       networkOn: false,
       simOn: false,
+      simOffered: true,
       drawNetwork: false,
       drawSim: false,
       simBlockedByNetwork: false
@@ -40,14 +41,25 @@ describe('decideTrafficLayers', () => {
     ).toBe(true)
   })
 
-  it('draws the sim layer when it is on and available', () => {
+  it('draws the sim layer when its switch is on', () => {
     const layers = decideTrafficLayers({ ...base, simOn: true })
     expect(layers.drawSim).toBe(true)
     expect(layers.simBlockedByNetwork).toBe(false)
   })
 
-  it('never draws the sim layer while it cannot be read', () => {
-    expect(decideTrafficLayers({ ...base, simOn: true, simAvailable: false }).drawSim).toBe(false)
+  it('neither offers nor draws the sim layer when its button is switched off in Settings, whatever its switch says', () => {
+    const layers = decideTrafficLayers({ ...base, simOn: true, simOffered: false })
+    expect(layers).toMatchObject({
+      simOn: true,
+      simOffered: false,
+      drawSim: false,
+      simBlockedByNetwork: false
+    })
+    // Not "held back by the network" either: there is no button to grey out.
+    expect(
+      decideTrafficLayers({ ...base, networkOn: true, network: 'vatsim', simOn: true, simOffered: false })
+        .simBlockedByNetwork
+    ).toBe(false)
   })
 
   it('never draws both: the network layer holds the sim layer back, whatever its switch says', () => {

@@ -197,7 +197,7 @@
     },
     "onlineNetwork": {
       "cardTitle": "Réseau en ligne",
-      "description": "Affiche le trafic de VATSIM ou d'IVAO sur la carte de Track. WingLog lit seulement le flux de données public du réseau ; rien n'est envoyé.",
+      "description": "Choisissez VATSIM ou IVAO pour son trafic sur la carte de Track, un bouton pour déposer votre plan SimBrief, les contrôleurs de vos aéroports et BeyondATC masqué pendant que vous êtes en ligne. Avec « Aucun », rien de tout cela n'apparaît. WingLog lit seulement le flux de données public du réseau ; rien n'est envoyé.",
       "network": "Réseau",
       "none": "Aucun",
       "cid": "CID",
@@ -205,7 +205,9 @@
       "vid": "VID",
       "vidHint": "Votre numéro de membre IVAO. IVAO ne montre les autres pilotes qu'à ses membres : le trafic reste désactivé tant qu'il n'est pas saisi.",
       "keepBeyondAtc": "Garder BeyondATC en ligne",
-      "keepBeyondAtcHint": "Pendant que vous êtes en ligne, les invites, la ligne de roulage, les fréquences et les montées par paliers de BeyondATC sont masquées ou muettes, car les contrôleurs du réseau sont la seule voix. Activez pour les garder."
+      "keepBeyondAtcHint": "Pendant que vous êtes en ligne, les invites, la ligne de roulage, les fréquences et les montées par paliers de BeyondATC sont masquées ou muettes, car les contrôleurs du réseau sont la seule voix. Activez pour les garder.",
+      "simTrafficButton": "Bouton du trafic du sim",
+      "simTrafficButtonHint": "Les avions turquoise sur la carte de Track : le trafic propre du sim (celui de BeyondATC et d'autres IA). Désactivé, le bouton disparaît de la carte, sur le PC et sur le téléphone."
     }
   },
   "app": {
@@ -1026,6 +1028,7 @@
     "autoTuneWarning": "Le réglage auto de BeyondATC est activé et peut changer la fréquence de vos radios, loin des contrôleurs de {{network}}. Désactivez Réglage auto sur la page BeyondATC pendant que vous êtes en ligne.",
     "atc": {
       "title": "ATC en ligne à vos aéroports ({{network}})",
+      "button": "ATC {{network}} ({{online}})…",
       "nobody": "Aucun contrôleur en ligne",
       "enrouteNote": "Les contrôleurs en route ne sont pas listés.",
       "runway": "Piste en service (d’après l’ATIS) : {{runway}}",

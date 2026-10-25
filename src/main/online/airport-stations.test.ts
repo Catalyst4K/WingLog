@@ -111,6 +111,15 @@ describe('stationsAt', () => {
     expect(stationsAt(snapshot([]), ['EGLL'])).toEqual([{ icao: 'EGLL', stations: [], atis: [] }])
   })
 
+  it('leaves out ZZZZ, a free flight’s airport that is not set, rather than saying nobody is online there', () => {
+    const result = stationsAt(snapshot([controller('EGLL_TWR'), controller('ZZZZ_TWR')]), [
+      'EGLL',
+      'ZZZZ',
+      'zzzz'
+    ])
+    expect(result.map((airport) => airport.icao)).toEqual(['EGLL'])
+  })
+
   it('is empty for no airports', () => {
     expect(stationsAt(snapshot([controller('EGLL_TWR')]), [])).toEqual([])
   })

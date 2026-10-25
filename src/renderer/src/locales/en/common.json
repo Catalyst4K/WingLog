@@ -195,7 +195,7 @@
     },
     "onlineNetwork": {
       "cardTitle": "Online network",
-      "description": "Show the traffic of VATSIM or IVAO on the Track map. WingLog only reads the network's public data feed; nothing is sent.",
+      "description": "Choose VATSIM or IVAO for its traffic on the Track map, a File button for your SimBrief plan, the controllers at your airports, and BeyondATC hidden while you are online. With None, none of it shows. WingLog only reads the network's public data feed; nothing is sent.",
       "network": "Network",
       "none": "None",
       "cid": "CID",
@@ -203,7 +203,9 @@
       "vid": "VID",
       "vidHint": "Your IVAO member number. IVAO shows other pilots only to its members, so traffic stays off until it is entered.",
       "keepBeyondAtc": "Keep BeyondATC while online",
-      "keepBeyondAtcHint": "While you are online, BeyondATC's prompts, taxi line, frequencies and step climbs are hidden or silent, since the network's controllers are the only voice. Turn this on to keep them."
+      "keepBeyondAtcHint": "While you are online, BeyondATC's prompts, taxi line, frequencies and step climbs are hidden or silent, since the network's controllers are the only voice. Turn this on to keep them.",
+      "simTrafficButton": "Sim traffic button",
+      "simTrafficButtonHint": "The teal aircraft on Track's map: the sim's own traffic (BeyondATC's and other AI). Off removes the button from the map, on the PC and the phone."
     }
   },
   "app": {
@@ -1024,6 +1026,7 @@
     "autoTuneWarning": "BeyondATC's auto-tune is on and can retune your radios away from {{network}}'s controllers. Turn Auto-tune off on the BeyondATC page while you are online.",
     "atc": {
       "title": "Online ATC at your airports ({{network}})",
+      "button": "{{network}} ATC ({{online}})…",
       "nobody": "No controllers online",
       "enrouteNote": "Enroute controllers are not listed.",
       "runway": "Runway in use (from the ATIS): {{runway}}",

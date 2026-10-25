@@ -50,7 +50,8 @@ test.describe('Online network traffic', () => {
           network: 'vatsim',
           vatsimCid: null,
           ivaoVid: null,
-          keepBeyondAtcOnline: false
+          keepBeyondAtcOnline: false,
+          simTrafficButton: true
         })
         await w.lanSetSettings({ enabled: true, port: p })
         return (await w.lanStartPairing()).pairing?.code ?? ''
@@ -104,7 +105,7 @@ test.describe('Online network traffic', () => {
     }
   })
 
-  test("the sim's own traffic has its own switch, says when the sim cannot be read, and gives way to the network's", async () => {
+  test("the sim's own traffic has its own switch, says when the sim cannot be read, gives way to the network's, and goes when switched off in Settings", async () => {
     const feed = await startNetworkFeedServer({ centre: EGLL })
     const port = await freePort()
     const { window: page, cleanup } = await launchApp({
@@ -150,7 +151,8 @@ test.describe('Online network traffic', () => {
           network: 'vatsim',
           vatsimCid: null,
           ivaoVid: null,
-          keepBeyondAtcOnline: false
+          keepBeyondAtcOnline: false,
+          simTrafficButton: true
         })
         await w.trafficSetSimOn(true)
         await w.trafficSetNetworkOn(true)
@@ -162,6 +164,30 @@ test.describe('Online network traffic', () => {
 
       // The network layer off again: the sim's comes back as it was.
       await page.evaluate(() => (globalThis as unknown as Window).winglog.trafficSetNetworkOn(false))
+      await expect(page.getByRole('button', { name: 'Hide sim traffic' })).toBeEnabled()
+
+      // Its button switched off in Settings: gone from the PC's map, the phone told so, and the layer stops. On again, it is back as its
+      // switch was.
+      const offerSim = (offered: boolean): Promise<void> =>
+        page.evaluate(
+          (on) =>
+            (globalThis as unknown as { winglog: Winglog }).winglog.settingsSetOnlineNetwork({
+              network: 'vatsim',
+              vatsimCid: null,
+              ivaoVid: null,
+              keepBeyondAtcOnline: false,
+              simTrafficButton: on
+            }),
+          offered
+        )
+      await offerSim(false)
+      await expect(page.getByRole('button', { name: /sim traffic/ })).toHaveCount(0)
+      await expect
+        .poll(() => latestTopic(phone, 'trafficLayers'))
+        .toMatchObject({ simOn: true, simOffered: false, drawSim: false })
+      await expect.poll(() => latestTopic(phone, 'simTraffic')?.state).toBe('off')
+      await expect(page.getByText('Sim traffic unavailable')).toBeHidden()
+      await offerSim(true)
       await expect(page.getByRole('button', { name: 'Hide sim traffic' })).toBeEnabled()
       phone.close()
     } finally {
@@ -188,7 +214,8 @@ test.describe('Online network traffic', () => {
           network: 'ivao',
           vatsimCid: null,
           ivaoVid: null,
-          keepBeyondAtcOnline: false
+          keepBeyondAtcOnline: false,
+          simTrafficButton: true
         })
         await w.trafficSetNetworkOn(true)
       })
@@ -205,7 +232,8 @@ test.describe('Online network traffic', () => {
           network: 'ivao',
           vatsimCid: null,
           ivaoVid: '900099',
-          keepBeyondAtcOnline: false
+          keepBeyondAtcOnline: false,
+          simTrafficButton: true
         })
       )
       await expect.poll(() => feed.requests.length, { timeout: 20_000 }).toBeGreaterThan(0)
@@ -230,7 +258,13 @@ test.describe('Online network traffic', () => {
       await card.getByRole('textbox').blur()
       await expect
         .poll(() => page.evaluate(() => (globalThis as unknown as Window).winglog.settingsGetOnlineNetwork()))
-        .toEqual({ network: 'vatsim', vatsimCid: '1234567', ivaoVid: null, keepBeyondAtcOnline: false })
+        .toEqual({
+          network: 'vatsim',
+          vatsimCid: '1234567',
+          ivaoVid: null,
+          keepBeyondAtcOnline: false,
+          simTrafficButton: true
+        })
     } finally {
       await cleanup()
     }

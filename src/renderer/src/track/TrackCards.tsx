@@ -26,6 +26,7 @@ import { realIcao } from '../display-icao'
 import { flightLabel } from '../flight-label'
 import { FreeFlightAirport } from '../FreeFlightAirport'
 import { MetarPanel } from '../MetarPanel'
+import { OnlineAtcButton } from '../online/OnlineAtc'
 import { PrefileButtons } from '../online/PrefileButtons'
 import { winglogApi } from '../data/winglog-api'
 import type { ProcedureAirports } from '@shared/procedure-selection'
@@ -266,7 +267,7 @@ export function NotTrackingCards(props: {
 }
 
 /**
- * The Weather and Procedures dialogs, and the procedures chosen so far.
+ * The Weather, online ATC and Procedures dialogs, and the procedures chosen so far.
  *
  * @param props The flight's airports, the procedure selection and its change handler, and the wind unit.
  * @returns The element.
@@ -301,6 +302,8 @@ export function FlightToolbar(props: {
           />
         </DialogContent>
       </Dialog>
+      {/* Who is online at the flight's airports, while a network is chosen and a flight is tracked. */}
+      <OnlineAtcButton />
       {airports && !(airports.depIcao === 'ZZZZ' && airports.arrIcao === 'ZZZZ') && (
         <>
           <Dialog>
