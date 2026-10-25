@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { BeyondAtcFrequencyOption } from '@shared/ipc'
+import { EMPTY_BEYONDATC_STATE } from '@shared/beyondatc-state'
 import { BeyondAtcActions, BeyondAtcRadios, type BeyondAtcRadiosProps } from './BeyondAtcControls'
 
 function makeRadiosProps(overrides: Partial<BeyondAtcRadiosProps> = {}): BeyondAtcRadiosProps {
@@ -50,7 +51,8 @@ describe('BeyondAtcActions', () => {
 })
 
 describe('BeyondAtcRadios while the pilot is online', () => {
-  function withStatus(hidesBeyondAtc: boolean): void {
+  /** The online status, and a connected BeyondATC whose live state has `autoTune`. */
+  function withStatus(hidesBeyondAtc: boolean, autoTune: boolean | null = null): void {
     window.winglog = {
       getOnlineStatus: vi.fn().mockResolvedValue({
         network: 'ivao',
@@ -59,9 +61,22 @@ describe('BeyondAtcRadios while the pilot is online', () => {
         filedPlan: null,
         hidesBeyondAtc
       }),
-      onOnlineStatus: vi.fn(() => () => {})
+      onOnlineStatus: vi.fn(() => () => {}),
+      beyondAtcGetStatus: vi.fn().mockResolvedValue({ state: 'connected', lastError: null }),
+      onBeyondAtcStatus: vi.fn(() => () => {}),
+      beyondAtcGetState: vi.fn().mockResolvedValue({ ...EMPTY_BEYONDATC_STATE, autoTune }),
+      onBeyondAtcState: vi.fn(() => () => {})
     } as unknown as typeof window.winglog
   }
+
+  it("warns while BeyondATC's auto-tune is on, and leaves switching it off to the pilot", async () => {
+    withStatus(true, true)
+    const onSetAutoTune = vi.fn()
+    render(<BeyondAtcRadios {...makeRadiosProps({ autoTune: true, onSetAutoTune })} />)
+    expect(await screen.findByRole('alert')).toHaveTextContent("BeyondATC's auto-tune is on")
+    expect(screen.getByRole('button', { name: 'Auto-tune: On' })).toBeInTheDocument()
+    expect(onSetAutoTune).not.toHaveBeenCalled()
+  })
 
   it('replaces the frequency picker with the note, and keeps the toggles', async () => {
     withStatus(true)

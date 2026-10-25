@@ -75,6 +75,8 @@ A flight you were online for while in the air is saved with the network and your
 
 Human controllers are the only voice when you are online, so WingLog hides BeyondATC’s clearance prompt and its taxi line, hides its frequency suggestions, and stops the auto step climb asking for levels. A note on Track says why. BeyondATC itself keeps running, and everything comes back when you are offline again. To keep it all anyway, turn on **Keep BeyondATC while online** in Settings → 3rd party → Online network.
 
+BeyondATC’s **Auto-tune** is BeyondATC’s own setting, and WingLog never changes it for you. While it is on, BeyondATC can retune your radios to its own frequencies, away from the network’s controllers. So if BeyondATC is connected with Auto-tune on while you are online, WingLog shows a warning on Track (and the phone’s Track) and above the toggles in the **Radios** card on the BeyondATC page, even with **Keep BeyondATC while online** on. Turn **Auto-tune** off there or in BeyondATC and the warning goes.
+
 ## Who is online at your airports
 
 While a flight is tracked, Track (and the phone’s Track page, as a folded section) lists the controllers online at the flight’s departure, arrival and alternate airports: their position (DEL, GND, TWR, APP), callsign and frequency, and each airport’s ATIS with its letter and text. The frequencies are only shown: WingLog never tunes your radios. Some US stations use the three-letter airport code (JFK_TWR for KJFK), which WingLog matches too. Enroute controllers are not listed, because neither network says where they are. On IVAO this needs your VID, like the traffic.

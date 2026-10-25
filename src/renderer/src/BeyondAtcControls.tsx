@@ -14,6 +14,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { AutoTuneOnlineWarning } from './online/AutoTuneOnlineWarning'
 import { BeyondAtcHiddenNote } from './online/BeyondAtcHiddenNote'
 import { useBeyondAtcHidden } from './live/use-online-status'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -484,7 +485,8 @@ function FrequencyRowPair(props: BeyondAtcRadiosProps): React.JSX.Element {
 }
 
 /**
- * COM1 and COM2, the frequency picker, and the auto tune, respond and step climb toggles.
+ * COM1 and COM2, the frequency picker, and the auto tune, respond and step climb toggles, with a warning above them while auto tune is on
+ * and the pilot is online.
  *
  * @param props What is tuned, the frequencies on offer, the toggles and their handlers.
  * @returns The element.
@@ -495,6 +497,7 @@ export function BeyondAtcRadios(props: BeyondAtcRadiosProps): React.JSX.Element 
   return (
     <div className="flex flex-col gap-3">
       <FrequencyRows {...props} />
+      <AutoTuneOnlineWarning />
       <div className="flex flex-wrap gap-1.5">
         <AutoToggle
           label={t('beyondAtcPanel.settings.autoTune')}

@@ -635,6 +635,20 @@ describe('BeyondAtcService', () => {
     expect(instances).toHaveLength(1)
   })
 
+  it('tells listeners the link is gone when stopped, since the socket’s own close is ignored then', () => {
+    const { ctor, instances } = makeCtor()
+    const service = new BeyondAtcService('localhost', BEYONDATC_PORT, ctor)
+    const statuses: string[] = []
+    service.on('status', (status: { state: string }) => statuses.push(status.state))
+    service.start()
+    instances[0].simulateOpen()
+
+    service.stop()
+
+    expect(statuses).toEqual(['connecting', 'connected', 'disconnected'])
+    expect(service.getStatus()).toEqual({ state: 'disconnected', lastError: null })
+  })
+
   it('reconfigure() against a new host drops old state and reconnects, keeping the port fixed', () => {
     const { ctor, instances } = makeCtor()
     const service = new BeyondAtcService('localhost', BEYONDATC_PORT, ctor)
