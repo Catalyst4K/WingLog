@@ -649,7 +649,6 @@
     "hideNetworkTraffic": "Hide {{network}} traffic",
     "networkTrafficNeedsVid": "Enter your IVAO VID in Settings to see IVAO traffic",
     "networkTrafficUnavailable": "{{network}} traffic unavailable",
-    "networkTrafficNoCentre": "{{network}} traffic: waiting for a position",
     "trafficOnGround": "On the ground",
     "showSimTraffic": "Show sim traffic",
     "hideSimTraffic": "Hide sim traffic",

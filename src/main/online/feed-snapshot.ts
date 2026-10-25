@@ -1,7 +1,7 @@
 /**
- * The one internal form both networks' feeds are parsed into, and the function that picks the aircraft near a point.
+ * The one internal form both networks' feeds are parsed into, and the function that picks the aircraft a screen draws.
  *
- * Main keeps the whole snapshot; a screen only ever gets `trafficNear`'s trimmed copy, which carries no member numbers or names. A
+ * Main keeps the whole snapshot; a screen only ever gets `trafficToShow`'s trimmed copy, which carries no member numbers or names. A
  * `FeedSnapshot` is never published, exported or logged, so IVAO's confidentiality rule (Regulation D.2) holds by construction.
  * Plan: winglog-backend docs/plans/vatsim-build.md, "The internal form".
  */
@@ -11,8 +11,15 @@ import type { OnlineNetwork, OnlineStationPosition, TrafficAircraft } from '@sha
 /** How far from the aircraft traffic is shown: at cruise the follow zoom spans about 200 nm, so this fills the screen with margin. */
 export const TRAFFIC_RADIUS_M = 250 * 1852
 
-/** The most aircraft one payload carries: about 60 kB a refresh to the phone, and the nearest are the ones on screen. */
+/** The most aircraft one payload carries around a point: about 60 kB a refresh to the phone, and the nearest are the ones on screen. */
 export const TRAFFIC_MAX_AIRCRAFT = 400
+
+/**
+ * The most aircraft with no position to centre on, when the whole network is shown (Callum, 2026-10-25: the button shows traffic
+ * whatever else is known). Above VATSIM's busiest events, about 3,000 pilots, and about 600 kB a refresh: well inside the 1 MB a phone
+ * may have waiting before the second screen drops it (`MAX_BUFFERED_BYTES`).
+ */
+export const TRAFFIC_MAX_WORLD = 3000
 
 /** One pilot as the feeds report them, in SI units. */
 export interface FeedPilot {
@@ -66,10 +73,13 @@ export interface FeedSnapshot {
   atis: FeedAtis[]
 }
 
-/** What `trafficNear` is asked for. */
-export interface TrafficNearOptions {
+/** What `trafficToShow` is asked for. */
+export interface TrafficOptions {
+  /** With a centre: how far from it, and the most aircraft. */
   radiusM: number
   max: number
+  /** With no centre: the most aircraft of the whole network. */
+  maxWithoutCentre: number
   /** The pilot's own member number: that aircraft is left out. */
   excludeMemberId?: string | null
   /** The pilot's own callsign when found by plan rather than member number: that aircraft is left out too. */
@@ -78,41 +88,46 @@ export interface TrafficNearOptions {
 }
 
 /**
- * The aircraft within a radius of a point, nearest first.
- *
  * @param snapshot The parsed feed.
- * @param centre Where to look around.
- * @param options The radius (metres), the most aircraft, the member to leave out, and the time the payload is made at.
- * @returns At most `max` aircraft, as a screen draws them: no member numbers.
+ * @param centre Where to look around, or null when nothing is known to centre on.
+ * @param options The radius (metres) and the most aircraft, with and without a centre, the member to leave out, and the time the
+ *   payload is made at.
+ * @returns The aircraft a screen draws, without member numbers: those within the radius of the centre, nearest first; with no centre,
+ *   the whole network in the feed's order. Never more than the most for the case.
  */
-export function trafficNear(
+export function trafficToShow(
   snapshot: FeedSnapshot,
-  centre: LatLon,
-  options: TrafficNearOptions
+  centre: LatLon | null,
+  options: TrafficOptions
 ): TrafficAircraft[] {
   const sinceReceivedS = Math.max(0, (options.nowMs - snapshot.receivedMs) / 1000)
-  return snapshot.pilots
+  const others = snapshot.pilots
     .filter((pilot) => options.excludeMemberId == null || pilot.memberId !== options.excludeMemberId)
     .filter((pilot) => options.excludeCallsign == null || pilot.callsign !== options.excludeCallsign)
-    .map((pilot) => ({
-      pilot,
-      distanceM: greatCircleM(centre, { lat: pilot.latitude, lon: pilot.longitude })
-    }))
-    .filter(({ distanceM }) => distanceM <= options.radiusM)
-    .sort((a, b) => a.distanceM - b.distanceM)
-    .slice(0, options.max)
-    .map(({ pilot }) => ({
-      key: pilot.callsign,
-      callsign: pilot.callsign,
-      latitude: pilot.latitude,
-      longitude: pilot.longitude,
-      altitudeM: pilot.altitudeM,
-      groundSpeedMs: pilot.groundSpeedMs,
-      headingDeg: pilot.headingDeg,
-      onGround: pilot.onGround,
-      aircraftIcao: pilot.aircraftIcao,
-      departure: pilot.departure,
-      arrival: pilot.arrival,
-      ageS: pilot.ageAtFeedS + sinceReceivedS
-    }))
+  const chosen =
+    centre === null
+      ? others.slice(0, options.maxWithoutCentre)
+      : others
+          .map((pilot) => ({
+            pilot,
+            distanceM: greatCircleM(centre, { lat: pilot.latitude, lon: pilot.longitude })
+          }))
+          .filter(({ distanceM }) => distanceM <= options.radiusM)
+          .sort((a, b) => a.distanceM - b.distanceM)
+          .slice(0, options.max)
+          .map(({ pilot }) => pilot)
+  return chosen.map((pilot) => ({
+    key: pilot.callsign,
+    callsign: pilot.callsign,
+    latitude: pilot.latitude,
+    longitude: pilot.longitude,
+    altitudeM: pilot.altitudeM,
+    groundSpeedMs: pilot.groundSpeedMs,
+    headingDeg: pilot.headingDeg,
+    onGround: pilot.onGround,
+    aircraftIcao: pilot.aircraftIcao,
+    departure: pilot.departure,
+    arrival: pilot.arrival,
+    ageS: pilot.ageAtFeedS + sinceReceivedS
+  }))
 }

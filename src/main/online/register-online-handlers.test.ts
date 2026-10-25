@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import { IpcChannels } from '@shared/ipc'
-import type { SimTelemetry } from '@shared/ipc'
+import type { NetworkTraffic, SimTelemetry } from '@shared/ipc'
 import { createDb, type WingLogDb } from '../db/client'
 import { createAircraft } from '../db/aircraft-repo'
 import { createFlight, getFlight } from '../db/flight-repo'
@@ -186,7 +186,7 @@ describe('online network handlers', () => {
     expect(openSimTrafficLink).not.toHaveBeenCalled()
   })
 
-  it('has no centre without a position, and finds one when the sim reports it', async () => {
+  it('shows the whole network without a position, and narrows to the aircraft when the sim reports one', async () => {
     sim.getLastTelemetry = () => undefined
     const { invoke } = register()
     setOnlineNetworkSettings(db, {
@@ -197,14 +197,16 @@ describe('online network handlers', () => {
       simTrafficButton: true
     })
     invoke(IpcChannels.trafficSetNetworkOn, true)
-    expect(invoke(IpcChannels.networkTrafficGet)).toEqual({
-      network: 'vatsim',
-      state: 'noCentre',
-      aircraft: []
-    })
-    sim.getLastTelemetry = () => ({ latitude: 51.4706, longitude: -0.4619 }) as SimTelemetry
-    sim.emit('telemetry', {})
     await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+    await vi.waitFor(() =>
+      expect((invoke(IpcChannels.networkTrafficGet) as NetworkTraffic).aircraft.length).toBeGreaterThan(0)
+    )
+    expect(invoke(IpcChannels.networkTrafficGet)).toMatchObject({ network: 'vatsim', state: 'shown' })
+    // The busy capture's pilots are all around London: from Hong Kong, nobody is near, and nothing more is downloaded.
+    sim.getLastTelemetry = () => ({ latitude: 22.31, longitude: 113.92 }) as SimTelemetry
+    sim.emit('telemetry', {})
+    expect(invoke(IpcChannels.networkTrafficGet)).toEqual({ network: 'vatsim', state: 'shown', aircraft: [] })
+    expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 
   describe('a flight flown online', () => {
@@ -293,7 +295,7 @@ describe('online network handlers', () => {
     })
   })
 
-  it('looks again when tracking starts or stops, since the flight shown may change', () => {
+  it('looks again when tracking starts or stops, since the flight shown may change, and the traffic stays shown', () => {
     sim.getLastTelemetry = () => undefined
     const { invoke } = register()
     setOnlineNetworkSettings(db, {
@@ -305,6 +307,6 @@ describe('online network handlers', () => {
     })
     invoke(IpcChannels.trafficSetNetworkOn, true)
     for (const event of ['started', 'stopped', 'completed']) tracking.emit(event)
-    expect(invoke(IpcChannels.networkTrafficGet)).toMatchObject({ state: 'noCentre' })
+    expect(invoke(IpcChannels.networkTrafficGet)).toMatchObject({ state: 'shown' })
   })
 })

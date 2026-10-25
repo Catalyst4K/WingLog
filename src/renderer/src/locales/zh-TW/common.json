@@ -643,7 +643,6 @@
     "hideNetworkTraffic": "隱藏 {{network}} 交通",
     "networkTrafficNeedsVid": "請在設定中輸入你的 IVAO VID 以查看 IVAO 交通",
     "networkTrafficUnavailable": "{{network}} 交通無法使用",
-    "networkTrafficNoCentre": "{{network}} 交通：正在等待位置",
     "trafficOnGround": "在地面",
     "showSimTraffic": "顯示模擬器交通",
     "hideSimTraffic": "隱藏模擬器交通",

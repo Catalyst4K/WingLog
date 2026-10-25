@@ -302,7 +302,6 @@ function TaxiChartLoadingPill(props: { icao: string }): React.JSX.Element {
  */
 function trafficProblemKey(traffic: NetworkTraffic | null | undefined): string | null {
   if (traffic?.state === 'unavailable') return 'flightMap.networkTrafficUnavailable'
-  if (traffic?.state === 'noCentre') return 'flightMap.networkTrafficNoCentre'
   return null
 }
 

@@ -649,7 +649,6 @@
     "hideNetworkTraffic": "{{network}}-Verkehr ausblenden",
     "networkTrafficNeedsVid": "Trage in den Einstellungen deine IVAO-VID ein, um IVAO-Verkehr zu sehen",
     "networkTrafficUnavailable": "{{network}}-Verkehr nicht verfügbar",
-    "networkTrafficNoCentre": "{{network}}-Verkehr: warte auf eine Position",
     "trafficOnGround": "Am Boden",
     "showSimTraffic": "Sim-Verkehr anzeigen",
     "hideSimTraffic": "Sim-Verkehr ausblenden",

@@ -218,20 +218,31 @@ describe('NetworkFeedService', () => {
       expect(last()?.aircraft.some((a) => a.callsign === own?.callsign)).toBe(false)
     })
 
-    it('says there is no centre when there is no position, and starts once there is one', async () => {
+    it('shows the whole network while there is no position, and narrows to the aircraft at once when one arrives', async () => {
+      // Callum, 2026-10-25: the button shows traffic whatever else is known. The busy capture's 150 pilots are all around London.
       centre = null
       service.start()
       await settle()
-      expect(last()).toEqual({ network: 'vatsim', state: 'noCentre', aircraft: [] })
-      expect(fetchMock).not.toHaveBeenCalled()
-      centre = EGLL
-      service.onPositionChanged()
-      await settle()
+      expect(fetchMock).toHaveBeenCalledTimes(1)
       expect(last()?.state).toBe('shown')
+      expect(last()?.aircraft).toHaveLength(150)
+      centre = { lat: 22.31, lon: 113.92 }
+      service.onPositionChanged()
+      // From the snapshot it already has: nobody within 250 nm of Hong Kong, and no new request.
+      expect(last()).toEqual({ network: 'vatsim', state: 'shown', aircraft: [] })
       expect(fetchMock).toHaveBeenCalledTimes(1)
     })
 
-    it('ignores a position change when it is not waiting for one', async () => {
+    it('keeps reading the feed for the whole network while there is no position, every 15 s', async () => {
+      centre = null
+      service.start()
+      await settle()
+      await clock.advance(15_000)
+      await settle()
+      expect(fetchMock).toHaveBeenCalledTimes(2)
+    })
+
+    it('does not publish again on a position change once the traffic is around a position', async () => {
       service.start()
       await settle()
       const before = published.traffic.length
