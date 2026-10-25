@@ -1006,5 +1006,9 @@
       "qrLabel": "Código QR de la dirección de la segunda pantalla",
       "qrHintPairing": "Escanéalo con el teléfono para abrir la página y vincular. El código cambia cada 5 minutos."
     }
+  },
+  "online": {
+    "fileOn": "Presentar en {{network}}",
+    "noPrefileLink": "Este plan no tiene enlace de presentación de {{network}}."
   }
 }

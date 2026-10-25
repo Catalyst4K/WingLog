@@ -14,7 +14,7 @@ import { TrayController } from './window/TrayController'
 import { createElectronTray } from './window/electron-tray'
 import { trayIconPath } from './window/tray-icon-path'
 import { E2E_DISPLAY_ENV, E2E_WINDOW_ENV, chooseDisplay, windowShow } from './e2e-window'
-import { app, BrowserWindow, dialog, ipcMain, Menu, screen } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, Menu, screen, shell } from 'electron'
 import { IpcChannels } from '@shared/ipc'
 import { initLogger, logger } from './logging/logger'
 import { installProcessGuards } from './logging/process-guards'
@@ -55,6 +55,7 @@ import { registerLanHandlers } from './ipc/lan-handlers'
 import { createLan } from './lan/create-lan'
 import { resolveFeedUrls } from './online/feed-urls'
 import { registerOnlineHandlers } from './online/register-online-handlers'
+import { registerPrefileHandlers } from './online/register-prefile-handlers'
 import { registerDiagnosticsHandlers, registerSimHandlers } from './ipc/sim-handlers'
 import { createBackgroundSync, registerSyncHandlers, startPeriodicSync } from './ipc/sync-handlers'
 import { e2eBeyondAtcPort } from './beyondatc/BeyondAtcService'
@@ -280,6 +281,7 @@ function startOnlineNetwork(
     urls: resolveFeedUrls(app.isPackaged, process.env)
   })
   app.on('before-quit', () => online.stop())
+  registerPrefileHandlers(ipcMain, { db: deps.db, openExternal: (url) => shell.openExternal(url) })
   return online.commands
 }
 

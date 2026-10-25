@@ -995,5 +995,9 @@
       "qrLabel": "第二屏幕地址的二维码",
       "qrHintPairing": "用手机扫描即可打开页面并配对。代码每 5 分钟更换一次。"
     }
+  },
+  "online": {
+    "fileOn": "在 {{network}} 提交",
+    "noPrefileLink": "此计划没有 {{network}} 的提交链接。"
   }
 }

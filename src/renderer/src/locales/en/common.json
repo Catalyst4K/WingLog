@@ -1004,5 +1004,9 @@
       "qrLabel": "QR code for the second-screen address",
       "qrHintPairing": "Scan it with the phone to open the page and pair. The code changes every 5 minutes."
     }
+  },
+  "online": {
+    "fileOn": "File on {{network}}",
+    "noPrefileLink": "This plan has no {{network}} filing link."
   }
 }

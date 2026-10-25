@@ -64,6 +64,8 @@ export const IpcChannels = {
   trafficLayers: 'online:traffic-layers',
   trafficLayersGet: 'online:traffic-layers-get',
   trafficSetNetworkOn: 'online:traffic-set-network-on',
+  onlinePrefileFromOfp: 'online:prefile-from-ofp',
+  onlinePrefileForFlight: 'online:prefile-for-flight',
   settingsGetOnlineNetwork: 'settings:get-online-network',
   settingsSetOnlineNetwork: 'settings:set-online-network',
   storageStatus: 'storage:status',

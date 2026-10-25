@@ -26,6 +26,8 @@ import { realIcao } from '../display-icao'
 import { flightLabel } from '../flight-label'
 import { FreeFlightAirport } from '../FreeFlightAirport'
 import { MetarPanel } from '../MetarPanel'
+import { PrefileButtons } from '../online/PrefileButtons'
+import { winglogApi } from '../data/winglog-api'
 import type { ProcedureAirports } from '@shared/procedure-selection'
 import { ProcedureSelector } from '../ProcedureSelector'
 import { asyncHandler } from '../report-error'
@@ -135,6 +137,9 @@ export function ActiveFlightCard(props: {
           <TimeReadouts times={props.times} />
         </div>
         <div className="flex gap-2">
+          {flight?.hasOfp && (
+            <PrefileButtons file={(network) => winglogApi().onlinePrefileForFlight(flight.id, network)} />
+          )}
           <Button
             type="button"
             variant="destructive"

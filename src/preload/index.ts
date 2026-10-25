@@ -45,7 +45,12 @@ import {
   type WindSpeedUnit
 } from '@shared/ipc'
 import type { PlannedRoute, TaxiRoute } from '@shared/live'
-import type { NetworkTraffic, OnlineNetworkSettings, TrafficLayers } from '@shared/types/online'
+import type {
+  NetworkTraffic,
+  OnlineNetwork,
+  OnlineNetworkSettings,
+  TrafficLayers
+} from '@shared/types/online'
 
 const api: WingLogApi = {
   aircraftList: () => ipcRenderer.invoke(IpcChannels.aircraftList),
@@ -167,6 +172,10 @@ const api: WingLogApi = {
     ipcRenderer.on(IpcChannels.trafficLayers, handler)
     return () => ipcRenderer.removeListener(IpcChannels.trafficLayers, handler)
   },
+  onlinePrefileFromOfp: (ofpJson: string, network: OnlineNetwork) =>
+    ipcRenderer.invoke(IpcChannels.onlinePrefileFromOfp, ofpJson, network),
+  onlinePrefileForFlight: (flightId: number, network: OnlineNetwork) =>
+    ipcRenderer.invoke(IpcChannels.onlinePrefileForFlight, flightId, network),
   trafficSetNetworkOn: (on: boolean) => ipcRenderer.invoke(IpcChannels.trafficSetNetworkOn, on),
   logbookListCompletedFlights: () => ipcRenderer.invoke(IpcChannels.logbookListCompletedFlights),
   logbookGetFlight: (id: number) => ipcRenderer.invoke(IpcChannels.logbookGetFlight, id),

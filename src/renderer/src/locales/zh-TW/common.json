@@ -995,5 +995,9 @@
       "qrLabel": "第二螢幕位址的 QR 碼",
       "qrHintPairing": "用手機掃描即可開啟頁面並配對。代碼每 5 分鐘更換一次。"
     }
+  },
+  "online": {
+    "fileOn": "在 {{network}} 提交",
+    "noPrefileLink": "此計畫沒有 {{network}} 的提交連結。"
   }
 }
