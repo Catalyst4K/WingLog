@@ -188,6 +188,27 @@ describe('the network traffic pills', () => {
     expect(screen.getByText('VATSIM traffic unavailable')).toBeInTheDocument()
   })
 
+  it('stacks under the nearest-airfield pill rather than covering it', () => {
+    render(
+      <MapPills
+        live
+        telemetry={null}
+        phase={undefined}
+        transition={null}
+        vfr={{ enabled: true, nearestText: 'EGLL 2.1 nm' }}
+        taxiChart={{ enabled: false, loadingIcao: null }}
+        routeIsApproximate={false}
+        traffic={traffic('vatsim', 'unavailable')}
+      />
+    )
+    const nearest = screen.getByLabelText('Nearest airfield')
+    const problem = screen.getByText('VATSIM traffic unavailable')
+    // One column at the top left holds both, the nearest airfield first.
+    expect(problem.parentElement).toBe(nearest.parentElement)
+    expect(nearest.parentElement).toHaveClass('flex-col')
+    expect(nearest.parentElement?.firstElementChild).toBe(nearest)
+  })
+
   it('says when it is waiting for a position', () => {
     pills(traffic('ivao', 'noCentre'))
     expect(screen.getByText('IVAO traffic: waiting for a position')).toBeInTheDocument()

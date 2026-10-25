@@ -108,4 +108,27 @@ describe('BeyondATC IPC handlers', () => {
     expect(() => sim.emit('telemetry', { altitudeM: 10000 })).not.toThrow()
     expect(() => tracking.emit('point', { phase: 'landing' })).not.toThrow()
   })
+
+  it("keeps step climb silent while main's online status says BeyondATC is hidden, and wakes it when that ends", () => {
+    // While silent the step climb does not even look at the flight, so whether it asked for the flight shows whether it was silent.
+    const getActive = vi.fn(() => undefined)
+    tracking.getActive = getActive
+    const { ipcMain, invoke } = fakeIpc()
+    registerBeyondAtcHandlers(ipcMain, deps)
+    invoke(IpcChannels.beyondAtcSetStepClimb, true)
+    const online = {
+      network: 'vatsim' as const,
+      state: 'online' as const,
+      callsign: 'TSTPIL1',
+      filedPlan: null,
+      hidesBeyondAtc: true
+    }
+    hubSnapshot.onlineStatus = online
+    sim.emit('telemetry', { altitudeM: 10000 })
+    expect(getActive).not.toHaveBeenCalled()
+    hubSnapshot.onlineStatus = { ...online, hidesBeyondAtc: false }
+    sim.emit('telemetry', { altitudeM: 10000 })
+    expect(getActive).toHaveBeenCalled()
+    delete hubSnapshot.onlineStatus
+  })
 })

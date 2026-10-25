@@ -2,8 +2,9 @@
 
 WingLog can show the traffic of **VATSIM** or **IVAO** on the Track map, so you can see who else is
 flying around you. It only **reads** the network's public data feed, the same one the networks'
-own map websites use. Nothing is sent, no account is needed, and you don't log in to anything
-through WingLog. It's **off** until you choose a network.
+own map websites use. Nothing is sent, and you don't log in to anything through WingLog. VATSIM's
+traffic needs no account; IVAO's needs your member number (below). It's **off** until you choose a
+network.
 
 ## Choosing a network
 
@@ -20,7 +21,8 @@ are never saved, exported or written to a log.
 
 ## Showing the traffic
 
-On the Track map, press the **aeroplane button** to show or hide the traffic. The button is on the
+On the Track map, press **Show VATSIM traffic** (or IVAO), the aeroplane button at the top right, to
+show or hide the traffic. The button is on the
 PC and on the phone's Track page, and it is **one switch for both**: pressing it on the phone
 changes it on the PC, and it is remembered next time you start WingLog.
 
@@ -53,7 +55,7 @@ PC and the phone, and it is remembered.
   network's traffic.
 - Your own aircraft is left out, and so are the scenery objects some add-ons list as aircraft
   (jetway helpers and the like).
-- If the sim isn't running yet, the map says "Sim traffic unavailable" and tries again every few
+- If the sim isn't running yet, the map says "Sim traffic unavailable" and tries again every 15
   seconds.
 
 ## Filing your flight plan
@@ -77,12 +79,17 @@ Human controllers are the only voice when you are online, so WingLog hides Beyon
 
 While a flight is tracked, Track (and the phone’s Track page, as a folded section) lists the controllers online at the flight’s departure, arrival and alternate airports: their position (DEL, GND, TWR, APP), callsign and frequency, and each airport’s ATIS with its letter and text. The frequencies are only shown: WingLog never tunes your radios. Some US stations use the three-letter airport code (JFK_TWR for KJFK), which WingLog matches too. Enroute controllers are not listed, because neither network says where they are. On IVAO this needs your VID, like the traffic.
 
-When an ATIS names exactly one runway, WingLog shows **Runway in use (from the ATIS)** above its text. It is a suggestion only: nothing is changed or tuned from it. It stays blank whenever the ATIS names several runways, splits arrivals from departures, mentions a closed runway or names none, because a wrong runway is worse than none. In a read of VATSIM's ATIS texts it found one for about half of them.
+When an ATIS names exactly one runway, WingLog shows **Runway in use (from the ATIS)** above its text. It is a suggestion only: nothing is changed or tuned from it. It stays blank whenever the ATIS names several runways, splits arrivals from departures, mentions a closed runway or names none, because a wrong runway is worse than none. In a read of VATSIM's ATIS texts it found one for a little over half of them.
 
 ## How much data it uses
 
 WingLog refreshes **every 15 seconds** while the traffic is shown, which is the networks' own
 refresh rate: asking faster would only get the same file, and IVAO blocks clients that do. That's
-about **140 MB an hour on VATSIM and 44 MB an hour on IVAO**, only while the traffic is switched on.
+about **140 MB an hour on VATSIM and 44 MB an hour on IVAO** while the traffic is switched on.
+
+While a flight is tracked with a network chosen, WingLog also looks for you in the feed once a minute,
+even with the traffic off: about **35 MB an hour on VATSIM and 11 MB on IVAO**. While the traffic is
+shown, that check uses the same download. With no network chosen, nothing is downloaded at all.
+
 For scale, the sim's own scenery streaming is typically several GB an hour. One download serves the
 PC and every paired phone.

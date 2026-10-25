@@ -263,7 +263,7 @@ function TelemetryReadout(props: {
 }
 
 /**
- * The VFR overlay's nearest-airfield pill at the top left.
+ * The VFR overlay's nearest-airfield pill, the first of the top-left pills.
  *
  * @param props The nearest airfield's text.
  * @returns The element.
@@ -271,10 +271,7 @@ function TelemetryReadout(props: {
 function NearestAirfieldPill(props: { text: string }): React.JSX.Element {
   const { t } = useTranslation()
   return (
-    <div
-      className={`absolute top-3 left-3 max-w-[calc(100%-4.5rem)] truncate ${PILL_CLASS_NAME}`}
-      aria-label={t('flightMap.nearestAirfield')}
-    >
+    <div className={`max-w-full truncate ${PILL_CLASS_NAME}`} aria-label={t('flightMap.nearestAirfield')}>
       {t('flightMap.nearest')} {props.text}
     </div>
   )
@@ -318,8 +315,35 @@ function SimTrafficPill(props: {
 }): React.JSX.Element | null {
   const { t } = useTranslation()
   if (props.layers?.drawSim !== true || props.traffic?.state !== 'unavailable') return null
+  return <div className={PILL_CLASS_NAME}>{t('flightMap.simTrafficUnavailable')}</div>
+}
+
+/**
+ * The pills at the map's top left, one under another so they never cover each other: the nearest airfield (VFR overlay on), then why the
+ * network's or the sim's traffic can't be shown.
+ *
+ * @param props Whether live, the VFR overlay's state, and the two traffic topics.
+ * @returns The column, or nothing on a map that is not live.
+ */
+function TopLeftPills(props: {
+  live: boolean
+  vfr: { enabled: boolean; nearestText: string | null }
+  traffic?: NetworkTraffic | null
+  simTraffic?: { layers: TrafficLayers | null; traffic: SimTraffic | null }
+}): React.JSX.Element | null {
+  const { t } = useTranslation()
+  if (!props.live) return null
+  const trafficProblem = trafficProblemKey(props.traffic)
   return (
-    <div className={`absolute top-3 left-3 ${PILL_CLASS_NAME}`}>{t('flightMap.simTrafficUnavailable')}</div>
+    <div className="absolute top-3 left-3 flex max-w-[calc(100%-4.5rem)] flex-col items-start gap-1.5">
+      {props.vfr.enabled && props.vfr.nearestText && <NearestAirfieldPill text={props.vfr.nearestText} />}
+      {trafficProblem && props.traffic?.network && (
+        <div className={PILL_CLASS_NAME}>
+          {t(trafficProblem, { network: NETWORK_NAMES[props.traffic.network] })}
+        </div>
+      )}
+      <SimTrafficPill {...props.simTraffic} />
+    </div>
   )
 }
 
@@ -346,19 +370,12 @@ export function MapPills(props: {
 }): React.JSX.Element {
   const { t } = useTranslation()
   const { live, vfr, taxiChart } = props
-  const trafficProblem = live ? trafficProblemKey(props.traffic) : null
   return (
     <>
       {live && (
         <TelemetryReadout telemetry={props.telemetry} phase={props.phase} transition={props.transition} />
       )}
-      {live && vfr.enabled && vfr.nearestText && <NearestAirfieldPill text={vfr.nearestText} />}
-      {trafficProblem && props.traffic?.network && (
-        <div className={`absolute top-3 left-3 ${PILL_CLASS_NAME}`}>
-          {t(trafficProblem, { network: NETWORK_NAMES[props.traffic.network] })}
-        </div>
-      )}
-      {live && <SimTrafficPill {...props.simTraffic} />}
+      <TopLeftPills live={live} vfr={vfr} traffic={props.traffic} simTraffic={props.simTraffic} />
       {taxiChart.enabled && taxiChart.loadingIcao && <TaxiChartLoadingPill icao={taxiChart.loadingIcao} />}
       {props.routeIsApproximate && (
         <div className="absolute bottom-3 left-3 rounded-full border border-border bg-popover/85 px-3 py-1 text-xs text-muted-foreground backdrop-blur-sm">

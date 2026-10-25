@@ -1,11 +1,13 @@
 /**
- * Reads the chosen network's public feed while the map needs it and publishes the aircraft near the pilot as the `networkTraffic`
- * topic, plus which traffic layers draw as `trafficLayers`.
+ * Reads the chosen network's public feed while anything needs it, and publishes from each download: the aircraft near the pilot
+ * (`networkTraffic`), which traffic layers draw (`trafficLayers`), the pilot's own online status (`onlineStatus`), and who is online at
+ * the flight's airports (`networkControllers`).
  *
- * A thin wrapper: when to fetch is `feed-poll-step.ts`'s pure step, what a feed means is the two parsers, and what draws is
- * `traffic-layers.ts`. This class injects the fetch, clock and timers, owns the timer, and keeps the last good snapshot. One fetch
- * serves every screen (the PC window and the phone both read the topic). Nothing is fetched while nothing draws the layer, or for IVAO
- * without a VID (Regulation D.2). Plan: winglog-backend docs/plans/vatsim-build.md, Step 1b.
+ * A thin wrapper: when to fetch is `feed-poll-step.ts`'s pure step, what a feed means is the two parsers, what draws is
+ * `traffic-layers.ts`, and who the pilot is is `self-status.ts`. This class injects the fetch, clock and timers, owns the timer, and keeps
+ * the last good snapshot. One fetch serves every consumer and every screen. Nothing is fetched while nothing needs the feed, or for IVAO
+ * without a VID (Regulation D.2). Plan: winglog-backend docs/plans/vatsim-build.md, Steps 1b, 2 and 4; how it works:
+ * winglog-backend docs/online-networks-how-it-works.md.
  */
 import type { LatLon } from '@shared/geo'
 import type {
@@ -136,11 +138,16 @@ export class NetworkFeedService {
     this.deps.hub.publish('trafficLayers', layers)
     this.deps.onLayers?.(layers)
     const settings = this.deps.settings()
-    if (this.snapshot && this.snapshot.network !== settings.network) {
+    // Another network's feed may no longer be used, nor IVAO's once its VID is cleared (Regulation D.2): drop it, and ignore any answer
+    // still on its way. The time of the last request is kept, so the 15 s floor still holds.
+    const ivaoWithoutVid = settings.network === 'ivao' && settings.ivaoVid === null
+    const otherNetwork = this.snapshot !== null && this.snapshot.network !== settings.network
+    if (otherNetwork || (ivaoWithoutVid && (this.snapshot !== null || this.poll.inFlight))) {
       this.snapshot = null
       this.lastOkMs = null
       this.generation++
       this.abort?.abort()
+      this.poll = { ...this.poll, inFlight: false }
     }
     if (layers.drawNetwork && this.wantedSinceMs === null) this.wantedSinceMs = this.deps.now()
     if (!layers.drawNetwork) {

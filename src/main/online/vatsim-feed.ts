@@ -29,7 +29,7 @@ const NETWORK: OnlineNetwork = 'vatsim'
 const MAX_NAME_CHARS = 40
 
 /**
- * VATSIM has no on-ground flag, so a pilot at or under this ground speed is taken to be on the ground. In the 2026-10-24 captures 585 of
+ * VATSIM has no on-ground flag, so a pilot under this ground speed is taken to be on the ground. In the 2026-10-24 captures 585 of
  * 1,791 pilots were under it, and on IVAO (which does flag it) only 2 of 725 airborne pilots were.
  */
 export const VATSIM_GROUND_SPEED_KT = 40

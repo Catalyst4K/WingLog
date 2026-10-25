@@ -745,6 +745,47 @@ describe('NetworkFeedService', () => {
     })
   })
 
+  describe('IVAO once its VID is cleared (Regulation D.2)', () => {
+    beforeEach(() => {
+      settings = { network: 'ivao', vatsimCid: null, ivaoVid: '900001', keepBeyondAtcOnline: false }
+      fetchMock.mockImplementation(() => Promise.resolve(okResponse(fixtureText('ivao-synthetic.json'))))
+      // TSTA is the synthetic feed's invented airport, with a tower, ground and approach online.
+      tracked = { departure: 'TSTA', arrival: 'EGLL' }
+    })
+
+    it('stops using the IVAO data already read: no controllers, no status, no traffic, no more requests', async () => {
+      service.start()
+      await settle()
+      expect(published.controllers.at(-1)?.airports[0]?.stations.length).toBeGreaterThan(0)
+      expect(statuses().at(-1)).toMatchObject({ state: 'online', callsign: 'TST001', hidesBeyondAtc: true })
+      settings = { ...settings, ivaoVid: null }
+      service.refresh()
+      expect(published.controllers.at(-1)?.airports).toEqual([])
+      expect(statuses().at(-1)).toMatchObject({ state: 'unknown', hidesBeyondAtc: false })
+      expect(last()).toEqual({ network: 'ivao', state: 'needsVid', aircraft: [] })
+      const calls = fetchMock.mock.calls.length
+      await clock.advance(10 * 60_000)
+      expect(fetchMock.mock.calls.length).toBe(calls)
+    })
+
+    it('ignores an IVAO answer still on its way when the VID is cleared, and reads again once it is entered', async () => {
+      let release: (response: Response) => void = () => undefined
+      fetchMock.mockImplementationOnce(() => new Promise<Response>((resolve) => (release = resolve)))
+      service.start()
+      settings = { ...settings, ivaoVid: null }
+      service.refresh()
+      release(okResponse(fixtureText('ivao-synthetic.json')))
+      await settle()
+      expect(statuses().at(-1) ?? { state: 'unknown' }).toMatchObject({ state: 'unknown' })
+      expect(published.controllers.at(-1)?.airports ?? []).toEqual([])
+      settings = { ...settings, ivaoVid: '900001' }
+      service.refresh()
+      await clock.advance(15_000)
+      expect(fetchMock).toHaveBeenCalledTimes(2)
+      expect(statuses().at(-1)).toMatchObject({ state: 'online', callsign: 'TST001' })
+    })
+  })
+
   describe('stopping', () => {
     it('stops all timers and ignores a late answer', async () => {
       let release: (response: Response) => void = () => undefined
