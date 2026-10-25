@@ -100,6 +100,12 @@ describe('OnlineAtcCard', () => {
     expect(screen.queryByText(/Online ATC/)).not.toBeInTheDocument()
   })
 
+  it('keeps its content inside a bounded, scrolling area on the PC, so it never takes the map’s room', async () => {
+    renderCard(HEATHROW)
+    const heathrow = await screen.findByRole('region', { name: 'EGLL' })
+    expect(heathrow.closest('.overflow-y-auto')).toHaveClass('max-h-64')
+  })
+
   it('draws as a collapsed section on the phone, with the same content inside', async () => {
     renderCard(HEATHROW, true)
     const summary = await screen.findByText('Online ATC at your airports (VATSIM)')

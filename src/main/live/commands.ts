@@ -138,7 +138,7 @@ export function trackCommands(selection: {
 }
 
 /**
- * The traffic-layer commands: the one shared switch for the network's traffic on the map.
+ * The traffic-layer commands: the two shared switches, for the network's traffic and the sim's own, on every screen.
  *
  * @param feed Where a switch is sent.
  * @returns The table. A value that is not a boolean is refused.

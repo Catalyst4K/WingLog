@@ -90,12 +90,16 @@ export function OnlineAtcCard(props: { compact?: boolean }): React.JSX.Element |
       </details>
     )
   }
+  // On the PC the card sits above the map in a column that gives the map whatever is left: at a busy event three airports' stations
+  // and ATIS would take it all, so the card scrolls inside a bounded height instead.
   return (
     <Card>
       <CardHeader>
         <CardTitle>{title}</CardTitle>
       </CardHeader>
-      <CardContent>{body}</CardContent>
+      <CardContent>
+        <div className="max-h-64 overflow-y-auto pr-1">{body}</div>
+      </CardContent>
     </Card>
   )
 }

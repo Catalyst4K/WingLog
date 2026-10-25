@@ -1,9 +1,10 @@
 /**
- * Starts the online-network feed service and registers its IPC channels (winglog-backend docs/plans/vatsim-build.md, Step 1b).
+ * Starts the online-network feed service and the sim's traffic reader, and registers their IPC channels (winglog-backend
+ * docs/plans/vatsim-build.md, Steps 1b, 2, 4 and 4b).
  *
- * Channel kinds (coding-standards.md §9): the traffic and the layers are **live** (published to LiveHub, with a getter here for a
- * window's first render), the traffic switch is a **command** (also in the table a second screen may send), and the settings are
- * **queries**. Saving the settings restarts the feed service's decisions at once.
+ * Channel kinds (coding-standards.md §9): the traffic, the layers, the status and the controllers are **live** (published to LiveHub, with
+ * a getter here for a window's first render), the two traffic switches are **commands** (also in the table a second screen may send), and
+ * the settings are **queries**. Saving the settings restarts the feed service's decisions at once.
  */
 import type { IpcMain } from 'electron'
 import { IpcChannels } from '@shared/ipc'
