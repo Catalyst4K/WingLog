@@ -134,12 +134,20 @@ function ensureTrafficLayers(
       ...textPaint
     }
   })
-  for (const id of [airLayerId(style), groundLayerId(style)])
+  for (const id of [airLayerId(style), groundLayerId(style)]) {
     map.on('click', id, (event) => {
       const feature: MapGeoJSONFeature | undefined = event.features?.[0]
       if (!feature) return
       openPopup(map, event.lngLat, popupText(feature.properties as TrafficFeatureProperties))
     })
+    // The canvas's own cursor beats the container's (the grab hand, or the arrow while panning is locked).
+    map.on('mouseenter', id, () => {
+      map.getCanvas().style.cursor = 'pointer'
+    })
+    map.on('mouseleave', id, () => {
+      map.getCanvas().style.cursor = ''
+    })
+  }
 }
 
 /**

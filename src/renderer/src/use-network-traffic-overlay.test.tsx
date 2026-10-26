@@ -41,8 +41,11 @@ function fakeMap() {
   const layers = new Map<string, FakeLayer>()
   const visibility = new Map<string, string>()
   const clicks = new Map<string, (event: unknown) => void>()
+  const hovers = new Map<string, () => void>()
+  const canvas = { style: { cursor: '' } }
   const images: string[] = []
   const map = {
+    getCanvas: () => canvas,
     getSource: (id: string) => sources.get(id),
     addSource: vi.fn((id: string) => {
       sources.set(id, { setData: vi.fn().mockResolvedValue(undefined) })
@@ -60,9 +63,10 @@ function fakeMap() {
     }),
     on: vi.fn((event: string, layerId: string, handler: (event: unknown) => void) => {
       if (event === 'click') clicks.set(layerId, handler)
+      else hovers.set(`${event}:${layerId}`, handler as () => void)
     })
   }
-  return { map, sources, layers, visibility, clicks }
+  return { map, sources, layers, visibility, clicks, hovers, canvas }
 }
 
 const LAYERS_OFF: TrafficLayers = {
@@ -292,6 +296,21 @@ describe('useNetworkTrafficOverlay', () => {
     await mount(client, fake)
     act(() => push('trafficLayers', { ...LAYERS_ON, networkOn: true, drawNetwork: false }))
     expect(fake.visibility.get('network-traffic-air')).toBe('none')
+  })
+
+  describe('the pointer', () => {
+    it.each(['network-traffic-air', 'network-traffic-ground'])(
+      'becomes a pointing hand over %s and goes back when it leaves',
+      async (layerId) => {
+        const fake = fakeMap()
+        const { client } = fakeClient({ traffic: shown(aircraft('A')), layers: LAYERS_ON })
+        await mount(client, fake)
+        fake.hovers.get(`mouseenter:${layerId}`)!()
+        expect(fake.canvas.style.cursor).toBe('pointer')
+        fake.hovers.get(`mouseleave:${layerId}`)!()
+        expect(fake.canvas.style.cursor).toBe('')
+      }
+    )
   })
 
   describe('the popup', () => {
