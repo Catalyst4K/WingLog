@@ -616,12 +616,14 @@ describe('LanServer', () => {
         onFlightChanged: () => (changed += 1)
       })
       await pair()
+      // A heartbeat before the device paired learns the first key and reports it, which is why this counts from here.
+      const settled = changed
       await new Promise((resolve) => setTimeout(resolve, 120))
-      expect(changed).toBe(0)
+      expect(changed).toBe(settled)
       key = 'b'
-      await vi.waitFor(() => expect(changed).toBe(1))
+      await vi.waitFor(() => expect(changed).toBe(settled + 1))
       await new Promise((resolve) => setTimeout(resolve, 120))
-      expect(changed).toBe(1)
+      expect(changed).toBe(settled + 1)
     })
 
     it('gives a connecting device the planned route in its snapshot, and each new one as it is published', async () => {
