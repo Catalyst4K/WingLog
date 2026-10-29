@@ -654,7 +654,11 @@
     "trafficOnGround": "Au sol",
     "showSimTraffic": "Afficher le trafic du sim",
     "hideSimTraffic": "Masquer le trafic du sim",
-    "simTrafficUnavailable": "Trafic du sim indisponible"
+    "simTrafficUnavailable": "Trafic du sim indisponible",
+    "showAtc": "Afficher l’ATC {{network}}",
+    "hideAtc": "Masquer l’ATC {{network}}",
+    "atcNeedsVid": "Saisissez votre VID IVAO dans les réglages pour voir l’ATC IVAO",
+    "atcUnavailable": "ATC {{network}} indisponible"
   },
   "logbookView": {
     "estimatedTrack": "La ligne en pointillés représente environ {{nm}} nm estimés d’après le plan de vol. Ils n’ont pas été enregistrés.",

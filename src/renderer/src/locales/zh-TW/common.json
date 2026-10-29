@@ -646,7 +646,11 @@
     "trafficOnGround": "在地面",
     "showSimTraffic": "顯示模擬器交通",
     "hideSimTraffic": "隱藏模擬器交通",
-    "simTrafficUnavailable": "模擬器交通無法使用"
+    "simTrafficUnavailable": "模擬器交通無法使用",
+    "showAtc": "顯示 {{network}} 管制",
+    "hideAtc": "隱藏 {{network}} 管制",
+    "atcNeedsVid": "請在設定中輸入你的 IVAO VID 以查看 IVAO 管制",
+    "atcUnavailable": "{{network}} 管制無法使用"
   },
   "logbookView": {
     "estimatedTrack": "虛線約 {{nm}} nm，是根據飛行計畫估算的，並非實際記錄。",

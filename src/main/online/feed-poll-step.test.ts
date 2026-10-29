@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  ATC_INTERVAL_MS,
   FEED_FLOOR_MS,
   initialPollState,
   pollFinished,
@@ -137,6 +138,25 @@ describe('stepPoll', () => {
     it('still waits out the back-off when the interval has passed', () => {
       const state = pollFinished(started(initialPollState()), false, T0 + 500)
       expect(stepPoll(state, input({ nowMs: T0 + TRAFFIC_INTERVAL_MS * 2 - 1000 })).fetchNow).toBe(false)
+    })
+  })
+
+  describe('the ATC layer', () => {
+    it('waits a minute between reads, as the status does, and never under the 15 s floor', () => {
+      const done = pollFinished(started(initialPollState(), { wanted: 'atc' }), true, T0 + 400)
+      const early = stepPoll(done, input({ wanted: 'atc', nowMs: T0 + 59_999 }))
+      expect(early.fetchNow).toBe(false)
+      expect(early.wakeAtMs).toBe(T0 + ATC_INTERVAL_MS)
+      expect(stepPoll(done, input({ wanted: 'atc', nowMs: T0 + ATC_INTERVAL_MS })).fetchNow).toBe(true)
+    })
+
+    it('moves to the 15 s traffic interval as soon as traffic is drawn too', () => {
+      const done = pollFinished(started(initialPollState(), { wanted: 'atc' }), true, T0 + 400)
+      expect(stepPoll(done, input({ wanted: 'traffic', nowMs: T0 + FEED_FLOOR_MS })).fetchNow).toBe(true)
+    })
+
+    it('fetches nothing with no network chosen', () => {
+      expect(stepPoll(initialPollState(), input({ wanted: 'atc', network: null })).fetchNow).toBe(false)
     })
   })
 

@@ -42,6 +42,7 @@ export const electronLiveClient: LiveClient = {
       trafficLayers: w.getTrafficLayers,
       onlineStatus: w.getOnlineStatus,
       networkControllers: w.getNetworkControllers,
+      networkAtc: w.getNetworkAtc,
       procedureSelection: w.trackingGetProcedureSelection,
       storageStatus: w.getStorageStatus,
       gsxRemoteStatus: w.gsxRemoteGetStatus,
@@ -92,7 +93,8 @@ export const electronLiveClient: LiveClient = {
       simTraffic: w.onSimTraffic,
       trafficLayers: w.onTrafficLayers,
       onlineStatus: w.onOnlineStatus,
-      networkControllers: w.onNetworkControllers
+      networkControllers: w.onNetworkControllers,
+      networkAtc: w.onNetworkAtc
     }
     return subscribers[topic](listener)
   },
@@ -120,7 +122,8 @@ export const electronLiveClient: LiveClient = {
       'gsx.runCommand': (id) => w.gsxRemoteRunCommand(id),
       'track.setProcedureSelection': (selection) => w.trackingSetProcedureSelection(selection),
       'traffic.setNetworkOn': (on) => w.trafficSetNetworkOn(on),
-      'traffic.setSimOn': (on) => w.trafficSetSimOn(on)
+      'traffic.setSimOn': (on) => w.trafficSetSimOn(on),
+      'traffic.setAtcOn': (on) => w.trafficSetAtcOn(on)
     }
     return (commands[name] as (...a: LiveCommands[typeof name]) => Promise<void>)(...args)
   }

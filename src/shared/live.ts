@@ -15,6 +15,7 @@ import type {
   GsxRemotePromptState,
   ProcedureSelection,
   GsxRemoteServiceStatus,
+  NetworkAtc,
   NetworkControllers,
   NetworkTraffic,
   SimTraffic,
@@ -85,6 +86,8 @@ export interface LiveTopics {
   simTraffic: SimTraffic
   /** The controllers and ATIS online at the flight's airports, from the chosen network's feed. */
   networkControllers: NetworkControllers
+  /** Where the chosen network's controllers are, for the map's ATC layer: the staffed areas and airports of the whole network. */
+  networkAtc: NetworkAtc
   /** Whether the pilot's own flight is on the chosen network, found in its feed (VATSIM or IVAO). */
   onlineStatus: OnlineStatus
   /** The shared traffic switches and which layers draw, decided in main in one function. */
@@ -133,6 +136,7 @@ export interface LiveCommands {
   'track.setProcedureSelection': [selection: ProcedureSelection]
   'traffic.setNetworkOn': [on: boolean]
   'traffic.setSimOn': [on: boolean]
+  'traffic.setAtcOn': [on: boolean]
 }
 
 export type LiveCommand = keyof LiveCommands

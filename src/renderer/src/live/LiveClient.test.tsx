@@ -17,6 +17,7 @@ const SUBSCRIBERS: Record<LiveTopic, keyof WingLogApi> = {
   trafficLayers: 'onTrafficLayers',
   onlineStatus: 'onOnlineStatus',
   networkControllers: 'onNetworkControllers',
+  networkAtc: 'onNetworkAtc',
   storageStatus: 'onStorageStatus',
   gsxRemoteStatus: 'onGsxRemoteStatus',
   gsxRemoteServices: 'onGsxRemoteServices',
@@ -60,7 +61,8 @@ const COMMANDS: { [C in LiveCommand]: [keyof WingLogApi, LiveCommands[C]] } = {
     ]
   ],
   'traffic.setNetworkOn': ['trafficSetNetworkOn', [true]],
-  'traffic.setSimOn': ['trafficSetSimOn', [true]]
+  'traffic.setSimOn': ['trafficSetSimOn', [true]],
+  'traffic.setAtcOn': ['trafficSetAtcOn', [true]]
 }
 
 function mockWinglog(): Record<string, ReturnType<typeof vi.fn>> {
@@ -113,6 +115,9 @@ describe('electronLiveClient (live-data-seam.md, part C)', () => {
     const sim = { state: 'shown', aircraft: [] }
     api.getSimTraffic = vi.fn().mockResolvedValue(sim)
     expect(await electronLiveClient.get('simTraffic')).toEqual(sim)
+    const atc = { network: 'vatsim', state: 'shown', areas: [], airports: [] }
+    api.getNetworkAtc = vi.fn().mockResolvedValue(atc)
+    expect(await electronLiveClient.get('networkAtc')).toEqual(atc)
   })
 })
 

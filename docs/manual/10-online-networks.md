@@ -82,6 +82,19 @@ Human controllers are the only voice when you are online, so WingLog hides Beyon
 
 BeyondATC’s **Auto-tune** is BeyondATC’s own setting, and WingLog never changes it for you. While it is on, BeyondATC can retune your radios to its own frequencies, away from the network’s controllers. So if BeyondATC is connected with Auto-tune on while you are online, WingLog shows a warning on Track (and the phone’s Track) and above the toggles in the **Radios** card on the BeyondATC page, even with **Keep BeyondATC while online** on. Turn **Auto-tune** off there or in BeyondATC and the warning goes.
 
+## ATC on the map
+
+The **radio-mast button** on the Track map (on the phone too) shows where the chosen network's controllers are, **across the whole network, not just near you**. It has a switch of its own, so it shows with or without the traffic, and like the traffic switch it is remembered and shared by the PC and the phone.
+
+- **Centres** (VATSIM and IVAO's area controllers) are shaded **purple** and labelled with their callsign, such as **LON_C_CTR**. A sector has its own shape inside its centre.
+- **Approach and departure** areas are shaded **pink**, such as Heathrow's director.
+- A **dot** marks an airport with something staffed, and its letters say what: **D** delivery, **G** ground, **T** tower, **A** an approach with no area of its own, **I** an ATIS. The letters show from a closer zoom.
+- **Press an area or a dot** to see who is on it: callsign, frequency and, on VATSIM, the controller's name.
+- Labels and letters come in as you zoom in, so a zoomed-out map shows the centres and the dots, not a wall of text.
+- It is read from the network about **once a minute** while only this layer is on (about 35 MB an hour on VATSIM), and from the same download as the traffic when that is on too.
+
+The shapes are VATSIM's community data, **bundled with WingLog** and refreshed at each release, so a sector redrawn since may show its old shape. They are used for **IVAO too**: IVAO's own sectors may differ. An airport's approach with no area in the data is marked at its airport (**A**) rather than drawn as a made-up circle. On IVAO the button needs your VID, like the traffic. The areas' credit shows on the map while they are drawn, and in [Licences](14-licences.md).
+
 ## Who is online at your airports
 
 While a flight is tracked, a button beside **Weather…** and **Procedures…** on Track names the network and how many controllers are online at the flight’s departure, arrival and alternate airports, for example **VATSIM ATC (2)…**. Press it to see them: their position (DEL, GND, TWR, APP), callsign and frequency, and each ATIS station’s frequency and letter (the ATIS text is in the weather card, below). The phone’s Track page has the same list as a folded section. The frequencies are only shown: WingLog never tunes your radios. Some US stations use the three-letter airport code (JFK_TWR for KJFK), which WingLog matches too. Enroute controllers are not listed, because neither network says where they are. On IVAO this needs your VID, like the traffic.

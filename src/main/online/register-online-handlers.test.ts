@@ -146,7 +146,48 @@ describe('online network handlers', () => {
     dispatchCommand(commands, 'traffic.setNetworkOn', [true])
     expect(getTrafficSwitches(db).networkOn).toBe(true)
     expect(invoke(IpcChannels.trafficLayersGet)).toMatchObject({ networkOn: true })
-    expect(Object.keys(commands)).toEqual(['traffic.setNetworkOn', 'traffic.setSimOn'])
+    expect(Object.keys(commands)).toEqual(['traffic.setNetworkOn', 'traffic.setSimOn', 'traffic.setAtcOn'])
+  })
+
+  it('turns the ATC layer on from the window or a second screen, remembers it, and leaves the traffic switches alone', () => {
+    const { commands, invoke } = register()
+    expect(invoke(IpcChannels.networkAtcGet)).toEqual({
+      network: null,
+      state: 'noNetwork',
+      areas: [],
+      airports: []
+    })
+    invoke(IpcChannels.trafficSetAtcOn, true)
+    expect(getTrafficSwitches(db)).toEqual({ networkOn: false, simOn: false, atcOn: true })
+    expect(invoke(IpcChannels.trafficLayersGet)).toMatchObject({ atcOn: true, drawAtc: false })
+    dispatchCommand(commands, 'traffic.setNetworkOn', [true])
+    dispatchCommand(commands, 'traffic.setAtcOn', [false])
+    expect(getTrafficSwitches(db)).toEqual({ networkOn: true, simOn: false, atcOn: false })
+    expect(() => invoke(IpcChannels.trafficSetAtcOn, 'yes')).toThrow('Invalid traffic switch')
+  })
+
+  it('draws the staffed airports of the whole network while the ATC layer is on, from the bundled areas and the airport list', async () => {
+    const { invoke } = register()
+    setOnlineNetworkSettings(db, {
+      network: 'vatsim',
+      vatsimCid: null,
+      ivaoVid: null,
+      keepBeyondAtcOnline: false,
+      simTrafficButton: true
+    })
+    invoke(IpcChannels.trafficSetAtcOn, true)
+    expect(invoke(IpcChannels.trafficLayersGet)).toMatchObject({ atcOn: true, drawAtc: true })
+    // Shown with nothing until the first read lands.
+    await vi.waitFor(() =>
+      expect((invoke(IpcChannels.networkAtcGet) as { airports: unknown[] }).airports.length).toBeGreaterThan(
+        0
+      )
+    )
+    const atc = invoke(IpcChannels.networkAtcGet) as { airports: { icao: string; at: number[] }[] }
+    const heathrow = atc.airports.find((a) => a.icao === 'EGLL')
+    // The position comes from the vendored airport list.
+    expect(heathrow?.at[0]).toBeCloseTo(-0.46, 1)
+    expect(heathrow?.at[1]).toBeCloseTo(51.47, 1)
   })
 
   it("turns the sim's own layer on from the window, remembers it, and opens the sim connection", async () => {
@@ -182,10 +223,14 @@ describe('online network handlers', () => {
     })
     invoke(IpcChannels.trafficSetSimOn, true)
     invoke(IpcChannels.trafficSetNetworkOn, true)
-    expect(invoke(IpcChannels.trafficLayersGet)).toMatchObject({ drawNetwork: true, simOn: false, drawSim: false })
-    expect(getTrafficSwitches(db)).toEqual({ networkOn: true, simOn: false })
+    expect(invoke(IpcChannels.trafficLayersGet)).toMatchObject({
+      drawNetwork: true,
+      simOn: false,
+      drawSim: false
+    })
+    expect(getTrafficSwitches(db)).toEqual({ networkOn: true, simOn: false, atcOn: false })
     invoke(IpcChannels.trafficSetSimOn, true)
-    expect(getTrafficSwitches(db)).toEqual({ networkOn: false, simOn: true })
+    expect(getTrafficSwitches(db)).toEqual({ networkOn: false, simOn: true, atcOn: false })
   })
 
   it('shows the whole network without a position, and narrows to the aircraft when the sim reports one', async () => {

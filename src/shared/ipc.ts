@@ -63,6 +63,7 @@ import type { PlannedRoute, TaxiRoute } from './live'
 import type {
   AtisAnswer,
   AtisRequest,
+  NetworkAtc,
   NetworkControllers,
   NetworkTraffic,
   SimTraffic,
@@ -304,6 +305,10 @@ export interface WingLogApi {
   getNetworkControllers: () => Promise<NetworkControllers>
   /** Pushed when that changes. */
   onNetworkControllers: (listener: (controllers: NetworkControllers) => void) => () => void
+  /** Where the chosen network's controllers are, for the map's ATC layer. */
+  getNetworkAtc: () => Promise<NetworkAtc>
+  /** Pushed when that changes. */
+  onNetworkAtc: (listener: (atc: NetworkAtc) => void) => () => void
   /** Whether the pilot's own flight is on the chosen network. */
   getOnlineStatus: () => Promise<OnlineStatus>
   /** Pushed when that changes. */
@@ -320,6 +325,8 @@ export interface WingLogApi {
   trafficSetNetworkOn: (on: boolean) => Promise<void>
   /** Turns the sim's own traffic layer on or off, for every screen. */
   trafficSetSimOn: (on: boolean) => Promise<void>
+  /** Turns the ATC layer on or off, for every screen. It leaves the two traffic switches as they are. */
+  trafficSetAtcOn: (on: boolean) => Promise<void>
   /** Manually re-runs the resume-cleanup pass for one already-completed flight — the
    *  Logbook detail page's "Clean up track" button, alongside the automatic live/
    *  completion-time pass TrackingController already runs on its own. Useful for a flight

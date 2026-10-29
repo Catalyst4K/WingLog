@@ -1,8 +1,25 @@
 /** What FlightMap draws over the map: its control buttons and its readout pills. */
 
-import { Locate, LocateFixed, Plane, PlaneTakeoff, Radar, Waypoints, ZoomIn, ZoomOut } from 'lucide-react'
+import {
+  Locate,
+  LocateFixed,
+  Plane,
+  PlaneTakeoff,
+  Radar,
+  RadioTower,
+  Waypoints,
+  ZoomIn,
+  ZoomOut
+} from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import type { FlightPhase, NetworkTraffic, SimTelemetry, SimTraffic, TrafficLayers } from '@shared/ipc'
+import type {
+  FlightPhase,
+  NetworkAtc,
+  NetworkTraffic,
+  SimTelemetry,
+  SimTraffic,
+  TrafficLayers
+} from '@shared/ipc'
 import { Button } from '@/components/ui/button'
 import { displayAltitude } from '../display-altitude'
 import type { TransitionAltitudes } from '@shared/route'
@@ -117,6 +134,39 @@ function NetworkTrafficButton(props: {
 }
 
 /**
+ * The shared switch for the ATC layer: the staffed centre and approach areas and airports of the chosen network. Hidden while no network
+ * is chosen; disabled for IVAO until a VID is entered, as the traffic button is. It has a switch of its own: traffic and ATC can show
+ * together.
+ *
+ * @param props The layers (the switch's state), the ATC topic (which network and whether it needs a VID), and the toggle.
+ * @returns The element, or nothing.
+ */
+function AtcButton(props: {
+  layers: TrafficLayers | null
+  atc: NetworkAtc | null
+  onToggle: () => void
+}): React.JSX.Element | null {
+  const { t } = useTranslation()
+  const network = props.atc?.network
+  if (!network) return null
+  const name = NETWORK_NAMES[network]
+  const needsVid = props.atc?.state === 'needsVid'
+  const on = props.layers?.atcOn === true && !needsVid
+  const label = on ? t('flightMap.hideAtc', { network: name }) : t('flightMap.showAtc', { network: name })
+  return (
+    <ToggleControl
+      on={on}
+      label={label}
+      title={needsVid ? t('flightMap.atcNeedsVid') : label}
+      onClick={props.onToggle}
+      disabled={needsVid}
+    >
+      <RadioTower />
+    </ToggleControl>
+  )
+}
+
+/**
  * The shared switch for the sim's own traffic (BeyondATC's aircraft and any other AI traffic). It and the network's button switch each
  * other off (Callum, 2026-10-29), which main does, so this only shows the switch and sends the press.
  *
@@ -150,8 +200,11 @@ export function MapControls(props: {
   networkTraffic?: {
     layers: TrafficLayers | null
     traffic: NetworkTraffic | null
+    /** The ATC layer's topic, for its button (null before it arrives). */
+    atc: NetworkAtc | null
     onToggle: () => void
     onToggleSim: () => void
+    onToggleAtc: () => void
   }
   taxiChartEnabled: boolean
   onToggleTaxiChart: () => void
@@ -187,8 +240,16 @@ export function MapControls(props: {
           <NetworkTrafficButton {...props.networkTraffic} />
           {/* Offered unless switched off in Settings; like the network's button, not before the topics arrive. */}
           {props.networkTraffic.layers?.simOffered && (
-            <SimTrafficButton layers={props.networkTraffic.layers} onToggle={props.networkTraffic.onToggleSim} />
+            <SimTrafficButton
+              layers={props.networkTraffic.layers}
+              onToggle={props.networkTraffic.onToggleSim}
+            />
           )}
+          <AtcButton
+            layers={props.networkTraffic.layers}
+            atc={props.networkTraffic.atc}
+            onToggle={props.networkTraffic.onToggleAtc}
+          />
         </>
       )}
       <ToggleControl
@@ -303,6 +364,26 @@ function SimTrafficPill(props: {
 }
 
 /**
+ * Says the ATC layer cannot be drawn, while it is meant to.
+ *
+ * @param props The layers and the ATC topic.
+ * @returns The pill, or nothing.
+ */
+function AtcPill(props: {
+  layers?: TrafficLayers | null
+  atc?: NetworkAtc | null
+}): React.JSX.Element | null {
+  const { t } = useTranslation()
+  const network = props.atc?.network
+  if (!network || props.layers?.drawAtc !== true || props.atc?.state !== 'unavailable') return null
+  return (
+    <div className={PILL_CLASS_NAME}>
+      {t('flightMap.atcUnavailable', { network: NETWORK_NAMES[network] })}
+    </div>
+  )
+}
+
+/**
  * The pills at the map's top left, one under another so they never cover each other: the nearest airfield (VFR overlay on), then why the
  * network's or the sim's traffic can't be shown.
  *
@@ -314,6 +395,7 @@ function TopLeftPills(props: {
   vfr: { enabled: boolean; nearestText: string | null }
   traffic?: NetworkTraffic | null
   simTraffic?: { layers: TrafficLayers | null; traffic: SimTraffic | null }
+  atc?: { layers: TrafficLayers | null; atc: NetworkAtc | null }
 }): React.JSX.Element | null {
   const { t } = useTranslation()
   if (!props.live) return null
@@ -327,6 +409,7 @@ function TopLeftPills(props: {
         </div>
       )}
       <SimTrafficPill {...props.simTraffic} />
+      <AtcPill {...props.atc} />
     </div>
   )
 }
@@ -351,6 +434,8 @@ export function MapPills(props: {
   traffic?: NetworkTraffic | null
   /** The sim traffic's state and the layers, for the pill that says the sim cannot be read. */
   simTraffic?: { layers: TrafficLayers | null; traffic: SimTraffic | null }
+  /** The ATC layer's topic and the layers, for the pill that says it cannot be drawn. */
+  atc?: { layers: TrafficLayers | null; atc: NetworkAtc | null }
 }): React.JSX.Element {
   const { t } = useTranslation()
   const { live, vfr, taxiChart } = props
@@ -359,7 +444,13 @@ export function MapPills(props: {
       {live && (
         <TelemetryReadout telemetry={props.telemetry} phase={props.phase} transition={props.transition} />
       )}
-      <TopLeftPills live={live} vfr={vfr} traffic={props.traffic} simTraffic={props.simTraffic} />
+      <TopLeftPills
+        live={live}
+        vfr={vfr}
+        traffic={props.traffic}
+        simTraffic={props.simTraffic}
+        atc={props.atc}
+      />
       {taxiChart.enabled && taxiChart.loadingIcao && <TaxiChartLoadingPill icao={taxiChart.loadingIcao} />}
       {props.routeIsApproximate && (
         <div className="absolute bottom-3 left-3 rounded-full border border-border bg-popover/85 px-3 py-1 text-xs text-muted-foreground backdrop-blur-sm">

@@ -12,6 +12,10 @@ particular:
 - **Map tiles** come from OpenFreeMap, with map data © OpenStreetMap contributors (Open Database
   License).
 - **Airport and runway data**: OurAirports (public domain).
+- **ATC coverage areas** (the shapes of the centres and approach areas drawn on the map): the VAT-Spy
+  Data Project and the SimAware TRACON Project, VATSIM community data under the Creative Commons
+  Attribution-ShareAlike 4.0 licence. WingLog trims and rounds them; the credit shows on the map while the
+  areas are drawn.
 - **Airline data**: OpenFlights (Open Database License).
 - **Aircraft type designators**: the ICAO aircraft type designator list (MIT).
 - **Weather** is from the US National Weather Service's Aviation Weather Center

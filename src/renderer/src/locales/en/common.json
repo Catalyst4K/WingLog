@@ -652,7 +652,11 @@
     "trafficOnGround": "On the ground",
     "showSimTraffic": "Show sim traffic",
     "hideSimTraffic": "Hide sim traffic",
-    "simTrafficUnavailable": "Sim traffic unavailable"
+    "simTrafficUnavailable": "Sim traffic unavailable",
+    "showAtc": "Show {{network}} ATC",
+    "hideAtc": "Hide {{network}} ATC",
+    "atcNeedsVid": "Enter your IVAO VID in Settings to see IVAO ATC",
+    "atcUnavailable": "{{network}} ATC unavailable"
   },
   "logbookView": {
     "estimatedTrack": "The dashed line is about {{nm}} nm estimated from the flight plan. It was not recorded.",

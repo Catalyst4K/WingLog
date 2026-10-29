@@ -654,7 +654,11 @@
     "trafficOnGround": "En tierra",
     "showSimTraffic": "Mostrar tráfico del sim",
     "hideSimTraffic": "Ocultar tráfico del sim",
-    "simTrafficUnavailable": "Tráfico del sim no disponible"
+    "simTrafficUnavailable": "Tráfico del sim no disponible",
+    "showAtc": "Mostrar ATC de {{network}}",
+    "hideAtc": "Ocultar ATC de {{network}}",
+    "atcNeedsVid": "Introduce tu VID de IVAO en Ajustes para ver el ATC de IVAO",
+    "atcUnavailable": "ATC de {{network}} no disponible"
   },
   "logbookView": {
     "estimatedTrack": "La línea discontinua son unas {{nm}} nm estimadas a partir del plan de vuelo. No se grabaron.",

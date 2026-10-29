@@ -10,6 +10,7 @@ import type { IpcMain } from 'electron'
 import { IpcChannels, type AtisAnswer } from '@shared/ipc'
 import type { LatLon } from '@shared/geo'
 import { getAirportCoords } from '../airports/airport-search'
+import { bundledAtcAreas } from './bundled-atc-areas'
 import { getFlight } from '../db/flight-repo'
 import { setFlightOnline } from './flight-online'
 import type { WingLogDb } from '../db/client'
@@ -110,6 +111,8 @@ export function registerOnlineHandlers(
     settings: () => getOnlineNetworkSettings(db),
     switches: () => getTrafficSwitches(db),
     saveSwitches: (switches) => setTrafficSwitches(db, switches),
+    atcAreas: bundledAtcAreas,
+    airportAt: getAirportCoords,
     centre: centreOf(deps),
     trackedFlight: () => trackedFlightOf(deps),
     isAirborne: () => sim.getLastTelemetry()?.onGround === false,
@@ -136,6 +139,7 @@ export function registerOnlineHandlers(
   ipcMain.handle(IpcChannels.networkTrafficGet, () => liveHub.snapshot().networkTraffic)
   ipcMain.handle(IpcChannels.simTrafficGet, () => liveHub.snapshot().simTraffic)
   ipcMain.handle(IpcChannels.trafficLayersGet, () => liveHub.snapshot().trafficLayers)
+  ipcMain.handle(IpcChannels.networkAtcGet, () => liveHub.snapshot().networkAtc)
   ipcMain.handle(IpcChannels.onlineStatusGet, () => liveHub.snapshot().onlineStatus)
   ipcMain.handle(IpcChannels.networkControllersGet, () => liveHub.snapshot().networkControllers)
   const atisAt = (requests: unknown): Promise<AtisAnswer> => service.atisAt(parseAtisRequests(requests))
@@ -157,6 +161,9 @@ export function registerOnlineHandlers(
   )
   ipcMain.handle(IpcChannels.trafficSetSimOn, (_event, ...args: unknown[]) =>
     dispatchCommand(commands, 'traffic.setSimOn', args)
+  )
+  ipcMain.handle(IpcChannels.trafficSetAtcOn, (_event, ...args: unknown[]) =>
+    dispatchCommand(commands, 'traffic.setAtcOn', args)
   )
   simTraffic.start()
   service.start()

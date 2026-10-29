@@ -165,7 +165,9 @@ test.describe('Online network traffic', () => {
       await simButton.click()
       await expect(page.getByRole('button', { name: 'Hide sim traffic' })).toBeEnabled()
       await expect(page.getByRole('button', { name: 'Show VATSIM traffic' })).toBeVisible()
-      await expect.poll(() => latestTopic(phone, 'trafficLayers')).toMatchObject({ networkOn: false, simOn: true })
+      await expect
+        .poll(() => latestTopic(phone, 'trafficLayers'))
+        .toMatchObject({ networkOn: false, simOn: true })
 
       // Its button switched off in Settings: gone from the PC's map, the phone told so, and the layer stops. On again, it is back as its
       // switch was.
@@ -191,6 +193,128 @@ test.describe('Online network traffic', () => {
       await offerSim(true)
       await expect(page.getByRole('button', { name: 'Hide sim traffic' })).toBeEnabled()
       phone.close()
+    } finally {
+      await cleanup()
+      await feed.close()
+    }
+  })
+
+  test('the ATC layer has a switch of its own, draws the staffed areas and airports of the whole network on the PC and the phone, and leaves the traffic alone', async () => {
+    const feed = await startNetworkFeedServer({ centre: EGLL, coverage: true })
+    const port = await freePort()
+    const { window: page, cleanup } = await launchApp({
+      env: {
+        WINGLOG_E2E_LAN_ADDRESS: '127.0.0.1',
+        WINGLOG_E2E_VATSIM_URL: feed.vatsimUrl,
+        WINGLOG_E2E_IVAO_URL: feed.ivaoUrl
+      }
+    })
+    const atc = (): Promise<{
+      state: string
+      areas: { id: string; kind: string; name: string; stations: { callsign: string; frequency: string }[] }[]
+      airports: { icao: string; stations: { callsign: string }[] }[]
+    }> => page.evaluate(() => (globalThis as unknown as Window).winglog.getNetworkAtc())
+    try {
+      const code = await page.evaluate(async (p) => {
+        const w = (globalThis as unknown as { winglog: Winglog }).winglog
+        await w.settingsSetOnlineNetwork({
+          network: 'vatsim',
+          vatsimCid: null,
+          ivaoVid: null,
+          keepBeyondAtcOnline: false,
+          simTrafficButton: true
+        })
+        await w.lanSetSettings({ enabled: true, port: p })
+        return (await w.lanStartPairing()).pairing?.code ?? ''
+      }, port)
+      const phone = new Device(port)
+      await phone.opened()
+      phone.send({ t: 'pair', code, name: 'Test phone' })
+      await phone.message('paired')
+      await phone.message('snapshot')
+
+      // Off by default, and nothing is read for it.
+      expect((await atc()).state).toBe('off')
+      await page.waitForTimeout(500)
+      expect(feed.requests).toHaveLength(0)
+      await page.getByRole('tab', { name: 'Track' }).click()
+      await expect(page.getByRole('button', { name: 'Show VATSIM ATC' })).toBeVisible()
+
+      // The map's button turns it on: the whole network's staffed areas and airports, on the PC and on the phone.
+      await page.getByRole('button', { name: 'Show VATSIM ATC' }).click()
+      await expect(page.getByRole('button', { name: 'Hide VATSIM ATC' })).toBeVisible()
+      await expect.poll(async () => (await atc()).areas.length, { timeout: 20_000 }).toBe(2)
+      const layer = await atc()
+      expect(layer.areas.map((a) => [a.kind, a.name])).toEqual([
+        ['approach', 'Heathrow Director'],
+        ['centre', 'London ACC (Central) - London']
+      ])
+      expect(layer.areas[1]?.stations).toMatchObject([{ callsign: 'LON_C_CTR', frequency: '133.700' }])
+      expect(layer.airports.map((a) => [a.icao, a.stations.map((s) => s.callsign)])).toEqual([
+        ['EGLL', ['EGLL_TWR']]
+      ])
+      await expect.poll(() => ((latestTopic(phone, 'networkAtc')?.areas ?? []) as unknown[]).length).toBe(2)
+
+      // It has a switch of its own: the traffic buttons are untouched, and traffic shows with it.
+      await expect(page.getByRole('button', { name: 'Show VATSIM traffic' })).toBeVisible()
+      await page.getByRole('button', { name: 'Show VATSIM traffic' }).click()
+      await expect(page.getByRole('button', { name: 'Hide VATSIM ATC' })).toBeVisible()
+      expect((await layers(page)).networkOn).toBe(true)
+      await expect.poll(async () => (await traffic(page)).state).toBe('shown')
+
+      // The phone turns it off with a command, and the PC follows; a value that is not a boolean is refused.
+      phone.send({ t: 'cmd', name: 'traffic.setAtcOn', args: [false] })
+      await expect(page.getByRole('button', { name: 'Show VATSIM ATC' })).toBeVisible()
+      await expect.poll(() => latestTopic(phone, 'networkAtc')?.state).toBe('off')
+      expect(((await atc()).areas ?? []).length).toBe(0)
+      phone.send({ t: 'cmd', name: 'traffic.setAtcOn', args: ['yes'] })
+      await page.waitForTimeout(300)
+      await expect(page.getByRole('button', { name: 'Show VATSIM ATC' })).toBeVisible()
+      phone.close()
+    } finally {
+      await cleanup()
+      await feed.close()
+    }
+  })
+
+  test('shows no ATC for IVAO without a VID, with the button saying why, and reads IVAO once the VID is entered', async () => {
+    const feed = await startNetworkFeedServer({ centre: EGLL, coverage: true })
+    const { window: page, cleanup } = await launchApp({
+      env: { WINGLOG_E2E_VATSIM_URL: feed.vatsimUrl, WINGLOG_E2E_IVAO_URL: feed.ivaoUrl }
+    })
+    const choose = (ivaoVid: string | null): Promise<void> =>
+      page.evaluate(
+        (vid) =>
+          (globalThis as unknown as { winglog: Winglog }).winglog.settingsSetOnlineNetwork({
+            network: 'ivao',
+            vatsimCid: null,
+            ivaoVid: vid,
+            keepBeyondAtcOnline: false,
+            simTrafficButton: true
+          }),
+        ivaoVid
+      )
+    try {
+      await choose(null)
+      await page.evaluate(() => (globalThis as unknown as Window).winglog.trafficSetAtcOn(true))
+      await page.getByRole('tab', { name: 'Track' }).click()
+      const button = page.getByRole('button', { name: 'Show IVAO ATC' })
+      await expect(button).toBeDisabled()
+      await expect(button).toHaveAttribute('title', 'Enter your IVAO VID in Settings to see IVAO ATC')
+      await page.waitForTimeout(500)
+      expect(feed.requests).toHaveLength(0)
+
+      await choose('900001')
+      await expect(page.getByRole('button', { name: 'Hide IVAO ATC' })).toBeEnabled()
+      await expect
+        .poll(
+          async () =>
+            (await page.evaluate(() => (globalThis as unknown as Window).winglog.getNetworkAtc())).areas
+              .length,
+          { timeout: 20_000 }
+        )
+        .toBe(2)
+      expect(feed.requests.every((r) => r.path === '/ivao')).toBe(true)
     } finally {
       await cleanup()
       await feed.close()
