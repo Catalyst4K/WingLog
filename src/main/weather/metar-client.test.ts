@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { fetchMetars } from './metar-client'
+import { fetchMetars, METAR_URL, resolveMetarUrl } from './metar-client'
 
 // Real response shape captured live from
 // https://aviationweather.gov/api/data/metar?ids=EGLL,KJFK&format=json
@@ -140,5 +140,33 @@ describe('fetchMetars', () => {
     expect(await fetchMetars(['EGLL', 'KJFK', 'EGNM'])).toEqual([
       { icao: 'EGNM', rawText: 'METAR EGNM ...', observedUtc: '', flightCategory: null }
     ])
+  })
+})
+
+describe('where the METARs are read from', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('asks the real service unless told otherwise', async () => {
+    const fetchMock = vi.fn<typeof fetch>(async () => new Response('[]', { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+    await fetchMetars(['EGLL'])
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(`${METAR_URL}?ids=EGLL&format=json`)
+  })
+
+  it('asks the address it is given, with the codes encoded', async () => {
+    const fetchMock = vi.fn<typeof fetch>(async () => new Response('[]', { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+    await fetchMetars(['EGLL', 'KJFK'], 'WingLog/test', 'http://127.0.0.1:9/metar')
+    expect(fetchMock.mock.calls[0]?.[0]).toBe('http://127.0.0.1:9/metar?ids=EGLL%2CKJFK&format=json')
+  })
+
+  it('honours the end-to-end test override in an unpackaged app only, so a released build cannot be redirected', () => {
+    const env = { WINGLOG_E2E_METAR_URL: 'http://127.0.0.1:9/metar' }
+    expect(resolveMetarUrl(false, env)).toBe('http://127.0.0.1:9/metar')
+    expect(resolveMetarUrl(true, env)).toBe(METAR_URL)
+    expect(resolveMetarUrl(false, {})).toBe(METAR_URL)
+    expect(resolveMetarUrl(false, { WINGLOG_E2E_METAR_URL: '' })).toBe(METAR_URL)
   })
 })

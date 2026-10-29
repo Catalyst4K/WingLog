@@ -7,7 +7,7 @@
  * the settings are **queries**. Saving the settings restarts the feed service's decisions at once.
  */
 import type { IpcMain } from 'electron'
-import { IpcChannels } from '@shared/ipc'
+import { IpcChannels, type AtisAnswer } from '@shared/ipc'
 import type { LatLon } from '@shared/geo'
 import { getAirportCoords } from '../airports/airport-search'
 import { getFlight } from '../db/flight-repo'
@@ -20,6 +20,7 @@ import { shownFlightOf } from '../navdata/wire-flight-navdata'
 import type { SimConnectSource } from '../sim/SimConnectSource'
 import type { TrackingController } from '../tracking/TrackingController'
 import type { FeedUrls } from './feed-urls'
+import { parseAtisRequests } from './atis-request'
 import { NetworkFeedService } from './NetworkFeedService'
 import { SimTrafficService } from './SimTrafficService'
 import { openSimTrafficLink } from './sim-traffic-link'
@@ -82,7 +83,12 @@ function trackedFlightOf(
 export function registerOnlineHandlers(
   ipcMain: IpcMain,
   deps: OnlineHandlerDeps
-): { stop: () => void; commands: CommandTable<TrafficCommand> } {
+): {
+  stop: () => void
+  commands: CommandTable<TrafficCommand>
+  /** The live ATIS for the weather panel's airports (the second screen asks through this too). */
+  atisAt: (requests: unknown) => Promise<AtisAnswer>
+} {
   const { db, liveHub, sim, trackingController } = deps
   const timers = {
     set: (callback: () => void, ms: number): unknown => setTimeout(callback, ms),
@@ -132,6 +138,8 @@ export function registerOnlineHandlers(
   ipcMain.handle(IpcChannels.trafficLayersGet, () => liveHub.snapshot().trafficLayers)
   ipcMain.handle(IpcChannels.onlineStatusGet, () => liveHub.snapshot().onlineStatus)
   ipcMain.handle(IpcChannels.networkControllersGet, () => liveHub.snapshot().networkControllers)
+  const atisAt = (requests: unknown): Promise<AtisAnswer> => service.atisAt(parseAtisRequests(requests))
+  ipcMain.handle(IpcChannels.onlineAtisGet, (_event, requests: unknown) => atisAt(requests))
   ipcMain.handle(IpcChannels.onlineGetPretend, () => (deps.isDevBuild ? getPretendCallsign(db) : null))
   ipcMain.handle(IpcChannels.onlineSetPretend, (_event, callsign: unknown) => {
     if (!deps.isDevBuild) return
@@ -157,6 +165,7 @@ export function registerOnlineHandlers(
       service.stop()
       simTraffic.stop()
     },
-    commands
+    commands,
+    atisAt
   }
 }

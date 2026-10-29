@@ -15,13 +15,8 @@ const HEATHROW: NetworkControllers = {
         { callsign: 'EGLL_TWR', frequency: '118.700', position: 'twr', name: null }
       ],
       atis: [
-        {
-          callsign: 'EGLL_ATIS',
-          code: 'C',
-          lines: ['WIND CALM', '<img src=x onerror=alert(1)>'],
-          runway: '27L'
-        },
-        { callsign: 'EGLL_ATIS2', code: null, lines: ['RWY 09 AND 27'], runway: null }
+        { callsign: 'EGLL_D_ATIS', code: 'C', frequency: '121.850' },
+        { callsign: 'EGLL_ATIS2', code: null, frequency: '128.075' }
       ]
     },
     { icao: 'LFPG', stations: [], atis: [] }
@@ -68,19 +63,15 @@ describe('OnlineAtcButton', () => {
     expect(within(heathrow).getByText('118.700')).toBeInTheDocument()
   })
 
-  it('shows the ATIS letter and its text as text only', async () => {
+  it('lists each ATIS station’s frequency among the controllers, with its letter, and none of the ATIS text', async () => {
     const heathrow = within(await openPopup(HEATHROW)).getByRole('region', { name: 'EGLL' })
-    expect(within(heathrow).getByText('ATIS C · EGLL_ATIS')).toBeInTheDocument()
-    expect(within(heathrow).getByText('WIND CALM')).toBeInTheDocument()
-    expect(within(heathrow).getByText('<img src=x onerror=alert(1)>')).toBeInTheDocument()
-    expect(heathrow.querySelector('img')).toBeNull()
-  })
-
-  it('suggests the runway beside the ATIS that names exactly one, and not beside one that names several', async () => {
-    const heathrow = within(await openPopup(HEATHROW)).getByRole('region', { name: 'EGLL' })
-    const suggestions = within(heathrow).getAllByText(/Runway in use \(from the ATIS\)/)
-    expect(suggestions).toHaveLength(1)
-    expect(suggestions[0]).toHaveTextContent('Runway in use (from the ATIS): 27L')
+    const row = within(heathrow).getByText('EGLL_D_ATIS').closest('li')!
+    expect(within(row).getByText('ATIS')).toBeInTheDocument()
+    expect(within(row).getByText('121.850')).toBeInTheDocument()
+    expect(within(row).getByText('C')).toBeInTheDocument()
+    expect(within(heathrow).getByText('128.075')).toBeInTheDocument()
+    // The text and the runway suggestion are in the weather panel now.
+    expect(within(heathrow).queryByText(/Runway in use/)).not.toBeInTheDocument()
   })
 
   it('says when nobody is online at an airport, and that enroute controllers are not listed', async () => {
@@ -125,7 +116,7 @@ describe('OnlineAtcSection', () => {
     expect(details).not.toBeNull()
     expect(details).not.toHaveAttribute('open')
     expect(within(details!).getByText('EGLL_TWR')).toBeInTheDocument()
-    expect(within(details!).getByText('Runway in use (from the ATIS): 27L')).toBeInTheDocument()
+    expect(within(details!).getByText('121.850')).toBeInTheDocument()
   })
 
   it('is not there with no network chosen', () => {

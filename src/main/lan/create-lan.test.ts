@@ -62,10 +62,11 @@ function fakeSelection(): EventEmitter & { current: () => unknown; set: (selecti
 const LOCAL = {
   display: () => ({ weightUnit: 'kg', altitudeUnit: 'ft', windSpeedUnit: 'kt', mapLanguage: 'en' }),
   addOns: () => ({ gsxRemote: true, beyondAtc: false }),
-  metars: (codes: unknown) => Promise.resolve([{ asked: codes }])
+  metars: (codes: unknown) => Promise.resolve([{ asked: codes }]),
+  atis: (requests: unknown) => Promise.resolve({ network: 'vatsim', asked: requests })
 }
 
-const CREATE_DEPS = { navdata: NAVDATA, addOnCommands: {}, userAgent: 'WingLog/test' }
+const CREATE_DEPS = { navdata: NAVDATA, addOnCommands: {}, userAgent: 'WingLog/test', atis: LOCAL.atis }
 
 describe('lanQueries', () => {
   const queries = lanQueries(NAVDATA, LOCAL)
@@ -89,6 +90,11 @@ describe('lanQueries', () => {
     await expect(queries['weather.metars'](['WSSS', 'EGLL'])).resolves.toEqual([{ asked: ['WSSS', 'EGLL'] }])
     expect(() => queries['weather.metars']('WSSS')).toThrow('Invalid airports')
     expect(() => queries['weather.metars'](['A', 'B', 'C', 'D', 'E', 'F', 'G'])).toThrow('Invalid airports')
+  })
+
+  it('hands the weather panel’s ATIS request to the PC’s own lookup, which does the checking', async () => {
+    const asked = [{ icao: 'EGLL', slot: 'departure' }]
+    await expect(queries['online.atis'](asked)).resolves.toEqual({ network: 'vatsim', asked })
   })
 
   it('answers the taxi chart, stands and refresh for an airport code', async () => {

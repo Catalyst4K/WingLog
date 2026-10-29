@@ -2,7 +2,6 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { airportPrefixes, stationsAt } from './airport-stations'
-import { atisRunway } from './atis-runway'
 import type { FeedController, FeedSnapshot } from './feed-snapshot'
 import { parseIvaoFeed } from './ivao-feed'
 import { parseVatsimFeed } from './vatsim-feed'
@@ -93,18 +92,36 @@ describe('stationsAt', () => {
     expect(result[0]?.stations).toHaveLength(1)
   })
 
-  it('carries the name VATSIM publishes and the ATIS as text', () => {
+  it('carries the name VATSIM publishes and each ATIS station’s letter and frequency, without its text', () => {
     const result = stationsAt(
       snapshot(
         [controller('EGLL_TWR', 'twr', 'Test Controller')],
-        [{ callsign: 'EGLL_ATIS', code: 'C', lines: ['<b>WIND CALM</b>'] }]
+        [
+          {
+            callsign: 'EGLL_ATIS',
+            code: 'C',
+            lines: ['<b>WIND CALM</b>'],
+            frequency: '128.075',
+            position: null
+          }
+        ]
       ),
       ['EGLL']
     )
     expect(result[0]?.stations[0]?.name).toBe('Test Controller')
-    expect(result[0]?.atis).toEqual([
-      { callsign: 'EGLL_ATIS', code: 'C', lines: ['<b>WIND CALM</b>'], runway: null }
-    ])
+    expect(result[0]?.atis).toEqual([{ callsign: 'EGLL_ATIS', code: 'C', frequency: '128.075' }])
+  })
+
+  it('lists no ATIS for IVAO: it is the controller’s, whose frequency is already in the list', () => {
+    const result = stationsAt(
+      snapshot(
+        [controller('EGLL_TWR')],
+        [{ callsign: 'EGLL_TWR', code: 'C', lines: ['wind calm'], frequency: null, position: 'twr' }]
+      ),
+      ['EGLL']
+    )
+    expect(result[0]?.stations).toHaveLength(1)
+    expect(result[0]?.atis).toEqual([])
   })
 
   it('gives an airport with nobody online as an empty entry', () => {
@@ -133,8 +150,7 @@ describe('stationsAt', () => {
       const [newark] = stationsAt(feed, ['KEWR'])
       expect(newark?.stations.map((s) => s.callsign)).toEqual(['EWR_GND'])
       expect(newark?.atis.map((a) => [a.callsign, a.code])).toEqual([['KEWR_ATIS', 'C']])
-      expect(newark?.atis[0]?.lines.join(' ')).toContain('ILS RWY 22L')
-      expect(newark?.atis[0]?.runway).toBe(atisRunway(newark?.atis[0]?.lines ?? []))
+      expect(newark?.atis[0]?.frequency).toBe('134.825')
       const all = stationsAt(feed, ['KEWR', 'KLGA', 'KJFK'])
       expect(all.flatMap((a) => a.stations).some((s) => s.callsign.startsWith('TESTOBS'))).toBe(false)
     })

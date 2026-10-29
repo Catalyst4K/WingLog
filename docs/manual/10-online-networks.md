@@ -84,9 +84,18 @@ BeyondATC’s **Auto-tune** is BeyondATC’s own setting, and WingLog never chan
 
 ## Who is online at your airports
 
-While a flight is tracked, a button beside **Weather…** and **Procedures…** on Track names the network and how many controllers are online at the flight’s departure, arrival and alternate airports, for example **VATSIM ATC (2)…**. Press it to see them: their position (DEL, GND, TWR, APP), callsign and frequency, and each airport’s ATIS with its letter and text. The phone’s Track page has the same list as a folded section. The frequencies are only shown: WingLog never tunes your radios. Some US stations use the three-letter airport code (JFK_TWR for KJFK), which WingLog matches too. Enroute controllers are not listed, because neither network says where they are. On IVAO this needs your VID, like the traffic.
+While a flight is tracked, a button beside **Weather…** and **Procedures…** on Track names the network and how many controllers are online at the flight’s departure, arrival and alternate airports, for example **VATSIM ATC (2)…**. Press it to see them: their position (DEL, GND, TWR, APP), callsign and frequency, and each ATIS station’s frequency and letter (the ATIS text is in the weather card, below). The phone’s Track page has the same list as a folded section. The frequencies are only shown: WingLog never tunes your radios. Some US stations use the three-letter airport code (JFK_TWR for KJFK), which WingLog matches too. Enroute controllers are not listed, because neither network says where they are. On IVAO this needs your VID, like the traffic.
 
-When an ATIS names exactly one runway, WingLog shows **Runway in use (from the ATIS)** above its text. It is a suggestion only: nothing is changed or tuned from it. It stays blank whenever the ATIS names several runways, splits arrivals from departures, mentions a closed runway or names none, because a wrong runway is worse than none. In a read of VATSIM's ATIS texts it found one for a little over half of them.
+## The ATIS in the weather card
+
+The live ATIS is under the METAR in the weather card: **Dispatch**'s weather card, the **Weather…** pop-up on Track, and the phone's Dispatch page. Each tab has one folded line, for example **VATSIM departure ATIS L · runway 27R**. Press it to read the text. It is read from the network when the card opens and again when you press **Refresh**, so Dispatch shows it with no flight tracked, and it needs nothing but the network chosen in Settings (and your VID for IVAO).
+
+- **VATSIM** busy airports run a separate departure and arrival ATIS. The **Dep** tab shows the departure one and **Dest** and **Altn** the arrival one. An airport with a single ATIS shows it on every tab, and if the only ATIS there is the other kind, the line says which it is. **Custom** lists every ATIS at the airport.
+- **IVAO** has no ATIS stations: each controller carries their own. **Dep** shows the ATIS of the first controller you would call (delivery, then ground, tower, approach), **Dest** and **Altn** the first on the way in (approach, then tower, ground, delivery), and **Custom** lists them all. A centre's note about its sector is never shown as an airport's ATIS. IVAO puts the controller's voice-server address on the first line of each; WingLog leaves it out.
+- An airport with no ATIS online says **No VATSIM ATIS** (or IVAO), and if the network could not be read, **ATIS unavailable**. With **None** chosen in Settings the card shows no ATIS at all.
+- Reading it counts as a read of the network's feed, so it never goes faster than once every 15 seconds, and the card waits for the next allowed read when it has to.
+
+When an ATIS names exactly one runway, WingLog shows **runway 27R** on its line and **Runway in use (from the ATIS)** above its text. It is a suggestion only: nothing is changed or tuned from it. It stays blank whenever the ATIS names several runways, splits arrivals from departures, mentions a closed runway or names none, because a wrong runway is worse than none. In a read of VATSIM's ATIS texts it found one for a little over half of them.
 
 ## How much data it uses
 

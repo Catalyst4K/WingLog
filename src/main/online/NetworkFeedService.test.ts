@@ -10,6 +10,8 @@ import type {
   TrafficLayers
 } from '@shared/ipc'
 import {
+  ATIS_FRESH_MS,
+  ATIS_WAIT_MS,
   FAILURE_LOG_INTERVAL_MS,
   FEED_TIMEOUT_MS,
   NetworkFeedService,
@@ -929,6 +931,108 @@ describe('NetworkFeedService', () => {
       await clock.advance(15_000)
       expect(fetchMock).toHaveBeenCalledTimes(2)
       expect(statuses().at(-1)).toMatchObject({ state: 'online', callsign: 'TST001' })
+    })
+  })
+
+  describe('the ATIS for the weather panel', () => {
+    const ask = (
+      ...requests: { icao: string; slot: 'departure' | 'destination' | 'alternate' | 'custom' }[]
+    ) => service.atisAt(requests)
+
+    beforeEach(() => {
+      // Nothing draws traffic and no flight is tracked: only the ATIS asks for the feed.
+      switches = { networkOn: false, simOn: false }
+    })
+
+    it('reads the feed once for a request, however nothing else wants it, and answers each tab with its own ATIS', async () => {
+      const answer = ask(
+        { icao: 'EGLL', slot: 'departure' },
+        { icao: 'EGLL', slot: 'destination' },
+        { icao: 'EGSS', slot: 'alternate' }
+      )
+      await settle()
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+      expect(
+        (await answer).airports.map((a) => [a.icao, a.slot, a.state, a.atis.map((x) => x.callsign)])
+      ).toEqual([
+        ['EGLL', 'departure', 'shown', ['EGLL_D_ATIS']],
+        ['EGLL', 'destination', 'shown', ['EGLL_A_ATIS']],
+        ['EGSS', 'alternate', 'none', []]
+      ])
+    })
+
+    it('answers from the feed held while it is under a minute old, with no new read', async () => {
+      await ask({ icao: 'EGKK', slot: 'departure' })
+      await clock.advance(ATIS_FRESH_MS - 1000)
+      const answer = await ask({ icao: 'EGKK', slot: 'destination' })
+      expect(answer.airports[0]).toMatchObject({ state: 'shown' })
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+    })
+
+    it('reads again once the feed held is older than that, and never sooner than 15 s after the last read', async () => {
+      await ask({ icao: 'EGKK', slot: 'departure' })
+      await clock.advance(ATIS_FRESH_MS + 1000)
+      await ask({ icao: 'EGKK', slot: 'departure' })
+      expect(fetchMock).toHaveBeenCalledTimes(2)
+    })
+
+    it('shares one read between requests made together', async () => {
+      const first = ask({ icao: 'EGLL', slot: 'departure' })
+      const second = ask({ icao: 'EGKK', slot: 'departure' })
+      await settle()
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+      expect((await first).airports[0]?.atis[0]?.callsign).toBe('EGLL_D_ATIS')
+      expect((await second).airports[0]?.atis[0]?.callsign).toBe('EGKK_ATIS')
+    })
+
+    it('shows nothing, and reads nothing, with no network chosen', async () => {
+      settings = { ...settings, network: null }
+      expect(await ask({ icao: 'EGLL', slot: 'departure' })).toEqual({ network: null, airports: [] })
+      expect(fetchMock).not.toHaveBeenCalled()
+    })
+
+    it('shows nothing, and reads nothing, for IVAO without a VID (Regulation D.2)', async () => {
+      settings = { ...settings, network: 'ivao', ivaoVid: null }
+      expect(await ask({ icao: 'EGLL', slot: 'departure' })).toEqual({ network: null, airports: [] })
+      await clock.advance(60_000)
+      expect(fetchMock).not.toHaveBeenCalled()
+    })
+
+    it('reads IVAO once the VID is entered, and gives each tab the controller that tab would call', async () => {
+      settings = { ...settings, network: 'ivao', ivaoVid: '900001' }
+      fetchMock.mockImplementation(() => Promise.resolve(okResponse(fixtureText('ivao-synthetic.json'))))
+      const answer = await ask({ icao: 'TSTA', slot: 'departure' }, { icao: 'TSTA', slot: 'destination' })
+      expect(answer.network).toBe('ivao')
+      expect(answer.airports.map((a) => a.atis.map((x) => x.callsign))).toEqual([['TSTA_TWR'], ['TSTA_APP']])
+    })
+
+    it('says unavailable when the read fails, and holds to the back-off for the next request', async () => {
+      fetchMock.mockImplementation(() => Promise.reject(new Error('network down')))
+      const failed = ask({ icao: 'EGLL', slot: 'departure' })
+      await settle()
+      expect((await failed).airports[0]).toMatchObject({ state: 'unavailable', atis: [] })
+      // The next request must wait out the 30 s back-off: it gives up at its own limit, with no new read.
+      const waiting = ask({ icao: 'EGLL', slot: 'departure' })
+      await clock.advance(ATIS_WAIT_MS + 1000)
+      expect((await waiting).airports[0]?.state).toBe('unavailable')
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+    })
+
+    it('answers a waiting request when the service stops, as unavailable, and clears its timer', async () => {
+      let release: (response: Response) => void = () => undefined
+      fetchMock.mockImplementation(() => new Promise<Response>((resolve) => (release = resolve)))
+      const waiting = ask({ icao: 'EGLL', slot: 'departure' })
+      await settle()
+      service.stop()
+      release(okResponse(fixtureText('vatsim-busy.json')))
+      await settle()
+      expect((await waiting).airports[0]?.state).toBe('unavailable')
+      expect(clock.pendingCount).toBe(0)
+    })
+
+    it('answers nothing after the service has stopped, without waiting', async () => {
+      service.stop()
+      expect(await ask({ icao: 'EGLL', slot: 'departure' })).toEqual({ network: null, airports: [] })
     })
   })
 
