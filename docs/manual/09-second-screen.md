@@ -40,8 +40,8 @@ A bar along the bottom switches between four pages:
   traffic and the sim's own traffic (see [Online networks](10-online-networks.md)) and the taxi chart on and off, and **Procedures** lets you choose departure and arrival procedures in two
   tabs. Your choice is saved on the PC, just as if you'd made it there. If the sim isn't connected to
   WingLog on the PC, the page says so and shows no speed or altitude until it is.
-- **Dispatch**: the weather for your airports above your flight plan's figures (weights, fuel,
-  step climbs and so on). It shows the flight being tracked, or your newest planned flight.
+- **Dispatch**: the weather for your airports, with the live ATIS under each METAR when VATSIM or
+  IVAO is chosen, above your flight plan's figures (weights, fuel, step climbs and so on). It shows the flight being tracked, or your newest planned flight.
 - **Ground services**: the same GSX menu, gate, commands and services as on the PC. Needs **GSX
   Remote Control** on (see [GSX](08-gsx.md)).
 - **BeyondATC**: clearances, actions and the transcript. **Radios** is behind a button so the page

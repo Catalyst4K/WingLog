@@ -62,9 +62,9 @@ For a free flight these use a great-circle line to the destination.
 **Procedures…** changes your SID, STAR, approach and transitions in flight (pick *None* to remove
 one). For a flight with an alternate, switch **Arrival airport** to the alternate to see its STARs
 and approaches, which is handy for a diversion. **Weather…** shows the METARs for your departure,
-destination and alternate, and for any airport you look up. With VATSIM or IVAO chosen, a button
-between them such as **VATSIM ATC (2)…** shows who is online at your airports (see
-[Online networks](10-online-networks.md)).
+destination and alternate, and for any airport you look up, with the airport's live ATIS under each
+METAR when VATSIM or IVAO is chosen. A button between them such as **VATSIM ATC (2)…** shows who is
+online at your airports (see [Online networks](10-online-networks.md)).
 
 ## Finishing a flight
 

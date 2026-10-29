@@ -107,7 +107,10 @@ function readAtis(value: unknown): FeedAtis | null {
   const atis = asRecord(value)
   const callsign = cleanText(atis?.callsign, MAX_CALLSIGN_CHARS + 8)
   const lines = textLines(atis?.text_atis)
-  return callsign && lines.length > 0 ? { callsign, code: clippedText(atis?.atis_code, 2), lines } : null
+  const frequency = formatFrequency(Number(atis?.frequency))
+  return callsign && lines.length > 0
+    ? { callsign, code: clippedText(atis?.atis_code, 2), lines, frequency, position: null }
+    : null
 }
 
 /**

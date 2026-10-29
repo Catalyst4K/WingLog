@@ -1,7 +1,8 @@
 /**
  * Who is online at the flight's airports (winglog-backend docs/plans/vatsim-build.md, Step 4): each controller's position, callsign and
- * frequency, and each ATIS with its letter and text. Frequencies are only shown, never tuned. Every string here came from a network feed,
- * so it is rendered as text only. Enroute controllers are not listed: neither network gives them a position.
+ * frequency, and each ATIS station's frequency. Frequencies are only shown, never tuned. The ATIS text itself is in the weather panel
+ * (docs/plans/online-atis-weather.md). Every string here came from a network feed, so it is rendered as text only. Enroute controllers
+ * are not listed: neither network gives them a position.
  * On the PC a button beside Weather and Procedures opens it in a pop-up (Callum, 2026-10-25: as a card above the map it took too much
  * room); on the phone it is a folded section.
  */
@@ -45,24 +46,16 @@ function Airport({ airport }: { airport: OnlineAirportStations }): React.JSX.Ele
             {station.name && <span className="text-muted-foreground">{station.name}</span>}
           </li>
         ))}
+        {/* The ATIS station's frequency only: its text is in the weather panel. */}
+        {airport.atis.map((atis) => (
+          <li key={atis.callsign} className="flex flex-wrap items-baseline gap-x-2">
+            <span className="w-9 font-mono text-xs text-muted-foreground">ATIS</span>
+            <span className="font-mono">{atis.callsign}</span>
+            <span className="font-mono text-foreground">{atis.frequency}</span>
+            {atis.code && <span className="text-muted-foreground">{atis.code}</span>}
+          </li>
+        ))}
       </ul>
-      {airport.atis.map((atis) => (
-        <div key={atis.callsign} className="rounded-md border border-border bg-muted/40 px-2 py-1 text-xs">
-          <div className="font-mono font-medium">
-            ATIS {atis.code ?? ''} · {atis.callsign}
-          </div>
-          {atis.runway && (
-            <div className="font-medium text-foreground" title={t('online.atc.runwayHint')}>
-              {t('online.atc.runway', { runway: atis.runway })}
-            </div>
-          )}
-          {atis.lines.map((line, index) => (
-            <div key={index} className="break-words text-muted-foreground">
-              {line}
-            </div>
-          ))}
-        </div>
-      ))}
     </section>
   )
 }

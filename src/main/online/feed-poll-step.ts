@@ -32,8 +32,11 @@ export interface PollState {
 export interface PollInput {
   nowMs: number
   network: OnlineNetwork | null
-  /** 'traffic': the map is showing it. 'status': only the pilot's own status. 'none': nothing needs the feed. */
-  wanted: 'traffic' | 'status' | 'none'
+  /**
+   * 'traffic': the map is showing it. 'once': a screen asked for the ATIS and the feed held is too old: one read as soon as the floor
+   * allows. 'status': only the pilot's own status. 'none': nothing needs the feed.
+   */
+  wanted: 'traffic' | 'once' | 'status' | 'none'
 }
 
 /** What the step decides. */
@@ -54,8 +57,8 @@ export function initialPollState(): PollState {
  * @param wanted What needs the feed.
  * @returns The interval for it, milliseconds.
  */
-function intervalFor(wanted: 'traffic' | 'status'): number {
-  return wanted === 'traffic' ? TRAFFIC_INTERVAL_MS : STATUS_INTERVAL_MS
+function intervalFor(wanted: 'traffic' | 'once' | 'status'): number {
+  return wanted === 'status' ? STATUS_INTERVAL_MS : TRAFFIC_INTERVAL_MS
 }
 
 /**

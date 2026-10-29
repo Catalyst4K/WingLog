@@ -55,6 +55,7 @@ import { registerLanHandlers } from './ipc/lan-handlers'
 import { createLan } from './lan/create-lan'
 import { resolveFeedUrls } from './online/feed-urls'
 import { registerOnlineHandlers } from './online/register-online-handlers'
+import { resolveMetarUrl } from './weather/metar-client'
 import { registerPrefileHandlers } from './online/register-prefile-handlers'
 import { registerDiagnosticsHandlers, registerSimHandlers } from './ipc/sim-handlers'
 import { createBackgroundSync, registerSyncHandlers, startPeriodicSync } from './ipc/sync-handlers'
@@ -270,11 +271,11 @@ function startUpdates(db: WingLogDb, window: BrowserWindow, isFlightActive: () =
  * The online network's traffic (VATSIM or IVAO): off until a network is chosen and its switch turned on.
  *
  * @param deps The database, the live hub, the sim and tracking.
- * @returns The traffic command table, for the second screen to send from.
+ * @returns The traffic command table and the ATIS lookup, for the second screen to use.
  */
 function startOnlineNetwork(
   deps: Pick<Parameters<typeof registerOnlineHandlers>[1], 'db' | 'liveHub' | 'sim' | 'trackingController'>
-): ReturnType<typeof registerOnlineHandlers>['commands'] {
+): Pick<ReturnType<typeof registerOnlineHandlers>, 'commands' | 'atisAt'> {
   const online = registerOnlineHandlers(ipcMain, {
     ...deps,
     appVersion: app.getVersion(),
@@ -283,7 +284,7 @@ function startOnlineNetwork(
   })
   app.on('before-quit', () => online.stop())
   registerPrefileHandlers(ipcMain, { db: deps.db, openExternal: (url) => shell.openExternal(url) })
-  return online.commands
+  return { commands: online.commands, atisAt: online.atisAt }
 }
 
 /**
@@ -294,12 +295,13 @@ function startOnlineNetwork(
 function startSecondScreen(
   deps: Pick<
     Parameters<typeof createLan>[0],
-    'db' | 'liveHub' | 'trackingController' | 'selection' | 'navdata' | 'addOnCommands'
+    'db' | 'liveHub' | 'trackingController' | 'selection' | 'navdata' | 'addOnCommands' | 'atis'
   >
 ): void {
   const lan = createLan({
     ...deps,
     userAgent: `WingLog/${app.getVersion()}`,
+    metarUrl: resolveMetarUrl(app.isPackaged, process.env),
     systemLocale: () => app.getLocale(),
     pageFolder: join(__dirname, '../lan'),
     testAddress: app.isPackaged ? undefined : process.env.WINGLOG_E2E_LAN_ADDRESS
@@ -451,7 +453,8 @@ function startApp(): void {
     trackingController,
     selection: flightServices.selection,
     navdata: navdataProvider,
-    addOnCommands: { ...beyondAtc.commands, ...gsxRemote.commands, ...onlineNetwork }
+    addOnCommands: { ...beyondAtc.commands, ...gsxRemote.commands, ...onlineNetwork.commands },
+    atis: onlineNetwork.atisAt
   })
 
   registerSyncHandlers(ipcMain, { cloudSync, enabled: __WINGLOG_CLOUD_SYNC_ENABLED__ })
@@ -470,9 +473,7 @@ function startApp(): void {
   // CI packaging check (see .github/workflows/package.yml): proves the built
   // binary launches, migrates the DB and renders a first frame, then exits
   // clean — without needing a person at the keyboard on every platform.
-  if (process.env['WINGLOG_SMOKE_TEST']) {
-    window.on('ready-to-show', () => setTimeout(() => app.exit(0), 1000))
-  }
+  if (process.env['WINGLOG_SMOKE_TEST']) window.on('ready-to-show', () => setTimeout(() => app.exit(0), 1000))
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()

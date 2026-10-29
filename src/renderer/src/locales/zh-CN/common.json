@@ -1019,9 +1019,17 @@
       "title": "你的机场在线管制 ({{network}})",
       "button": "{{network}} 管制 ({{online}})…",
       "nobody": "没有在线管制员",
-      "enrouteNote": "不列出航路管制员。",
+      "enrouteNote": "不列出航路管制员。"
+    },
+    "atis": {
+      "departure": "{{network}} 离场 ATIS {{code}}",
+      "arrival": "{{network}} 进场 ATIS {{code}}",
+      "single": "{{network}} ATIS {{code}}",
+      "runwayShort": "跑道 {{runway}}",
       "runway": "使用跑道（来自 ATIS）：{{runway}}",
-      "runwayHint": "从 ATIS 文本读取，仅供参考。请对照文本核实。"
+      "runwayHint": "从 ATIS 文本读取，仅供参考。请对照文本核实。",
+      "none": "没有 {{network}} ATIS",
+      "unavailable": "{{network}} ATIS 不可用"
     }
   }
 }

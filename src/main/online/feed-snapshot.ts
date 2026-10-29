@@ -59,6 +59,10 @@ export interface FeedAtis {
   /** The information letter, or null when none is given. */
   code: string | null
   lines: string[]
+  /** MHz with three decimals: VATSIM's ATIS stations have their own. Null on IVAO, whose ATIS is the controller's. */
+  frequency: string | null
+  /** IVAO: the position of the controller whose ATIS this is. Null on VATSIM, whose ATIS are stations of their own. */
+  position: ControllerPosition | null
 }
 
 /** A whole feed, parsed. */

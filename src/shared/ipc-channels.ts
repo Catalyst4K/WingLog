@@ -68,6 +68,7 @@ export const IpcChannels = {
   onlineStatusGet: 'online:status-get',
   networkControllers: 'online:controllers',
   networkControllersGet: 'online:controllers-get',
+  onlineAtisGet: 'online:atis-get',
   onlineGetPretend: 'online:get-pretend',
   onlineSetPretend: 'online:set-pretend',
   trafficLayersGet: 'online:traffic-layers-get',

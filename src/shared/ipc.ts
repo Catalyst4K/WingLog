@@ -61,6 +61,8 @@ import type {
 } from './types/gsx'
 import type { PlannedRoute, TaxiRoute } from './live'
 import type {
+  AtisAnswer,
+  AtisRequest,
   NetworkControllers,
   NetworkTraffic,
   SimTraffic,
@@ -293,6 +295,11 @@ export interface WingLogApi {
   onlineGetPretend: () => Promise<string | null>
   /** Dev build only: sets it; empty clears. Ignored in a release build. */
   onlineSetPretend: (callsign: string | null) => Promise<void>
+  /**
+   * The live ATIS for the weather panel's airports (at most 8, each with the tab asking), in the same order. Read with the METAR; nothing
+   * is shown with no network chosen. Main checks the request.
+   */
+  onlineAtisGet: (requests: AtisRequest[]) => Promise<AtisAnswer>
   /** The controllers and ATIS online at the flight's airports. */
   getNetworkControllers: () => Promise<NetworkControllers>
   /** Pushed when that changes. */

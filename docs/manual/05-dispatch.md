@@ -35,7 +35,9 @@ aircraft**.
 ## Weather
 
 METARs for the departure, destination and alternate are shown alongside the plan, with their flight
-category (VFR, MVFR, IFR, LIFR).
+category (VFR, MVFR, IFR, LIFR). With VATSIM or IVAO chosen in Settings, each tab also has the airport's
+live ATIS under its METAR (see [Online networks](10-online-networks.md)), read when the card opens and
+again when you press Refresh, so you can look before you file.
 
 ## Procedures
 

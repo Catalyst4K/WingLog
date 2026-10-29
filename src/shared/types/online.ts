@@ -86,14 +86,50 @@ export interface OnlineStation {
   name: string | null
 }
 
-/** An airport's ATIS, as text: never parsed into anything here, never HTML. */
+/** An ATIS station's frequency, for the ATC list: the text itself is in `AtisAnswer`. Only VATSIM's ATIS stations have one. */
 export interface OnlineAtis {
   callsign: string
   /** The information letter, or null when none is given. */
   code: string | null
+  /** MHz with three decimals, for example "128.075". Only ever shown, never tuned. */
+  frequency: string
+}
+
+/** Which weather tab asks: the flight's departure, destination or alternate, or any other airport. */
+export type AtisSlot = 'departure' | 'destination' | 'alternate' | 'custom'
+
+/** One airport an ATIS is asked for, and the weather tab asking. */
+export interface AtisRequest {
+  icao: string
+  slot: AtisSlot
+}
+
+/** Whether an ATIS is for departing aircraft, arriving ones, or both (the airport has one ATIS, or the network does not say). */
+export type AtisKind = 'departure' | 'arrival' | 'single'
+
+/** An ATIS as the weather panel shows it: text, never parsed into anything here, never HTML. */
+export interface WeatherAtis {
+  callsign: string
+  /** The information letter, or null when none is given. */
+  code: string | null
+  kind: AtisKind
   lines: string[]
   /** The one runway the text names, when it names exactly one: a suggestion to show beside the text, never applied. */
   runway: string | null
+}
+
+/** What the network says for one request: 'shown' with its ATIS, 'none' when no ATIS is online there, 'unavailable' when it could not be read. */
+export interface AirportAtis {
+  icao: string
+  slot: AtisSlot
+  state: 'shown' | 'none' | 'unavailable'
+  atis: WeatherAtis[]
+}
+
+/** The answer to a list of requests: in the same order. `network` is null with no network chosen (or IVAO without a VID): nothing is shown. */
+export interface AtisAnswer {
+  network: OnlineNetwork | null
+  airports: AirportAtis[]
 }
 
 /** Who is online at one airport. */

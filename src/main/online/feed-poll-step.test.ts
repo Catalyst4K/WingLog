@@ -139,4 +139,39 @@ describe('stepPoll', () => {
       expect(stepPoll(state, input({ nowMs: T0 + TRAFFIC_INTERVAL_MS * 2 - 1000 })).fetchNow).toBe(false)
     })
   })
+
+  describe('a one-off read for the ATIS', () => {
+    it('reads at once when nothing has been read, and only once at a time', () => {
+      const state = started(initialPollState(), { wanted: 'once' })
+      expect(state).toMatchObject({ inFlight: true, lastStartMs: T0 })
+      expect(stepPoll(state, input({ wanted: 'once', nowMs: T0 + 1 })).fetchNow).toBe(false)
+    })
+
+    it('waits for the 15 s floor after the last read, whatever read it was', () => {
+      for (const earlier of ['traffic', 'status'] as const) {
+        const done = pollFinished(started(initialPollState(), { wanted: earlier }), true, T0 + 400)
+        const early = stepPoll(done, input({ wanted: 'once', nowMs: T0 + 14_999 }))
+        expect(early.fetchNow).toBe(false)
+        expect(early.wakeAtMs).toBe(T0 + FEED_FLOOR_MS)
+        expect(stepPoll(done, input({ wanted: 'once', nowMs: T0 + FEED_FLOOR_MS })).fetchNow).toBe(true)
+      }
+    })
+
+    it('does not wait out the 60 s status interval: it is read as soon as the floor allows', () => {
+      const done = pollFinished(started(initialPollState(), { wanted: 'status' }), true, T0 + 400)
+      expect(stepPoll(done, input({ wanted: 'status', nowMs: T0 + FEED_FLOOR_MS })).fetchNow).toBe(false)
+      expect(stepPoll(done, input({ wanted: 'once', nowMs: T0 + FEED_FLOOR_MS })).fetchNow).toBe(true)
+    })
+
+    it('holds to the back-off after a failure', () => {
+      const failed = pollFinished(started(initialPollState(), { wanted: 'once' }), false, T0 + 500)
+      const step = stepPoll(failed, input({ wanted: 'once', nowMs: T0 + 20_000 }))
+      expect(step.fetchNow).toBe(false)
+      expect(step.wakeAtMs).toBe(T0 + 500 + 30_000)
+    })
+
+    it('reads nothing with no network chosen', () => {
+      expect(stepPoll(initialPollState(), input({ wanted: 'once', network: null })).fetchNow).toBe(false)
+    })
+  })
 })

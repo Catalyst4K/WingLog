@@ -1055,9 +1055,17 @@
       "title": "Диспетчеры онлайн в ваших аэропортах ({{network}})",
       "button": "Диспетчеры {{network}} ({{online}})…",
       "nobody": "Диспетчеров онлайн нет",
-      "enrouteNote": "Диспетчеры маршрута не показаны.",
+      "enrouteNote": "Диспетчеры маршрута не показаны."
+    },
+    "atis": {
+      "departure": "ATIS вылета {{network}} {{code}}",
+      "arrival": "ATIS прилёта {{network}} {{code}}",
+      "single": "ATIS {{network}} {{code}}",
+      "runwayShort": "ВПП {{runway}}",
       "runway": "ВПП в использовании (по ATIS): {{runway}}",
-      "runwayHint": "Прочитано из текста ATIS как подсказка. Проверьте по тексту."
+      "runwayHint": "Прочитано из текста ATIS как подсказка. Проверьте по тексту.",
+      "none": "Нет ATIS {{network}}",
+      "unavailable": "ATIS {{network}} недоступен"
     }
   }
 }

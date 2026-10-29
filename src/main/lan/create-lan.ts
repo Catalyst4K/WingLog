@@ -59,8 +59,12 @@ export interface CreateLanDeps {
   >
   /** The BeyondATC and GSX Remote commands a second screen may send (the same tables the window's own channels use). */
   addOnCommands: Partial<Record<LiveCommand, (...args: unknown[]) => void>>
+  /** The live ATIS for the weather panel's airports, as the PC's own window asks for it (it checks the request). */
+  atis: (requests: unknown) => Promise<unknown>
   /** The User-Agent METAR lookups send. */
   userAgent: string
+  /** Where METAR lookups go: the real service unless an end-to-end test says otherwise (an unpackaged build only; see index.ts). */
+  metarUrl?: string
   /** The OS language the PC reports, which its "system" language setting follows; the phone shows the same one. */
   systemLocale?: () => string
   /** The built page's folder (`out/lan`). */
@@ -104,6 +108,8 @@ export interface LanLocalData {
   addOns(): { gsxRemote: boolean; beyondAtc: boolean }
   /** Current METARs for airport codes. */
   metars(codes: unknown): Promise<unknown>
+  /** The live ATIS for the weather panel's airports. Checks the request. */
+  atis(requests: unknown): Promise<unknown>
 }
 
 /**
@@ -128,6 +134,7 @@ export function lanQueries(
       if (!Array.isArray(codes) || codes.length > MAX_METAR_CODES) throw new Error('Invalid airports')
       return local.metars(codes)
     },
+    'online.atis': (requests) => local.atis(requests),
     'taxi.has': (icao) => navdata.hasTaxiNetwork(icaoArg(icao)),
     // The PC fetches the shown flight's navdata itself (FlightNavdataFetcher); a device never makes it open a sim connection. The
     // lookups stay, answering at once, for pages that still ask.
@@ -162,7 +169,9 @@ export function createLan({
   selection,
   navdata,
   addOnCommands,
+  atis,
   userAgent,
+  metarUrl,
   systemLocale = () => 'en',
   pageFolder,
   testAddress
@@ -216,7 +225,8 @@ export function createLan({
         gsxRemote: getGsxRemoteSettings(db).enabled,
         beyondAtc: getBeyondAtcSettings(db).enabled
       }),
-      metars: (codes) => fetchMetars(codes, userAgent)
+      metars: (codes) => fetchMetars(codes, userAgent, metarUrl),
+      atis: (requests) => atis(requests)
     }),
     flightKey: () => lanFlightKey(db, trackingController.getActive()?.flightId),
     onFlightChanged: () => route.refresh(),

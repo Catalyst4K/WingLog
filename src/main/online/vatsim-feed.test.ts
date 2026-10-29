@@ -205,6 +205,22 @@ describe('parseVatsimFeed', () => {
       expect(atis?.lines[0]).toContain('EWR ATIS INFO C')
     })
 
+    it('keeps an ATIS station’s own frequency, and none for one that is not a number; it has no controller position', () => {
+      const snapshot = parseVatsimFeed(
+        feed([], {
+          atis: [
+            { callsign: 'EGLL_D_ATIS', frequency: '121.850', atis_code: 'L', text_atis: ['wind calm'] },
+            { callsign: 'EGKK_ATIS', frequency: 'abc', atis_code: 'B', text_atis: ['wind calm'] }
+          ]
+        }),
+        RECEIVED_MS
+      )
+      expect(snapshot?.atis.map((a) => [a.callsign, a.frequency, a.position])).toEqual([
+        ['EGLL_D_ATIS', '121.850', null],
+        ['EGKK_ATIS', null, null]
+      ])
+    })
+
     it('drops an ATIS with no text, and clips a very long line', () => {
       const snapshot = parseVatsimFeed(
         feed([], {
