@@ -207,7 +207,19 @@
       "keepBeyondAtc": "Mantieni BeyondATC online",
       "keepBeyondAtcHint": "Mentre sei online, i suggerimenti, la linea di rullaggio, le frequenze e le salite a gradini di BeyondATC sono nascosti o silenziosi, perché i controllori della rete sono l'unica voce. Attiva per mantenerli.",
       "simTrafficButton": "Pulsante del traffico del sim",
-      "simTrafficButtonHint": "Gli aerei turchesi sulla mappa di Track: il traffico del sim stesso (quello di BeyondATC e altra IA). Spento, il pulsante sparisce dalla mappa, sul PC e sul telefono."
+      "simTrafficButtonHint": "Gli aerei turchesi sulla mappa di Track: il traffico del sim stesso (quello di BeyondATC e altra IA). Spento, il pulsante sparisce dalla mappa, sul PC e sul telefono.",
+      "atcAreas": "Mantieni aggiornate le aree ATC",
+      "atcAreasHint": "Circa una volta a settimana WingLog chiede a GitHub aree di copertura più recenti dai progetti della community VAT-Spy e SimAware TRACON. Non invia altro che la versione di WingLog.",
+      "atcAreasInUse": "In uso: VAT-Spy {{vatspy}}, TRACON {{tracon}} ({{source}}).",
+      "atcAreasBundled": "incluse in WingLog",
+      "atcAreasDownloaded": "scaricate da GitHub",
+      "atcAreasChecked": "Ultimo controllo: {{when}}.",
+      "atcAreasNeverChecked": "Non ancora controllato.",
+      "atcAreasCheckNow": "Controlla ora",
+      "atcAreasChecking": "Controllo…",
+      "atcAreasUpdated": "Aggiornato a VAT-Spy {{vatspy}}, TRACON {{tracon}}.",
+      "atcAreasCurrent": "Già la più recente.",
+      "atcAreasFailed": "Impossibile controllare. Riprova più tardi."
     }
   },
   "app": {

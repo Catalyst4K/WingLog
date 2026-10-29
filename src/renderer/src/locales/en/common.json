@@ -205,7 +205,19 @@
       "keepBeyondAtc": "Keep BeyondATC while online",
       "keepBeyondAtcHint": "While you are online, BeyondATC's prompts, taxi line, frequencies and step climbs are hidden or silent, since the network's controllers are the only voice. Turn this on to keep them.",
       "simTrafficButton": "Sim traffic button",
-      "simTrafficButtonHint": "The teal aircraft on Track's map: the sim's own traffic (BeyondATC's and other AI). Off removes the button from the map, on the PC and the phone."
+      "simTrafficButtonHint": "The teal aircraft on Track's map: the sim's own traffic (BeyondATC's and other AI). Off removes the button from the map, on the PC and the phone.",
+      "atcAreas": "Keep ATC areas up to date",
+      "atcAreasHint": "About once a week WingLog asks GitHub for newer coverage areas from the community's VAT-Spy and SimAware TRACON projects. It sends nothing but WingLog's version.",
+      "atcAreasInUse": "In use: VAT-Spy {{vatspy}}, TRACON {{tracon}} ({{source}}).",
+      "atcAreasBundled": "bundled with WingLog",
+      "atcAreasDownloaded": "downloaded from GitHub",
+      "atcAreasChecked": "Last checked {{when}}.",
+      "atcAreasNeverChecked": "Not checked yet.",
+      "atcAreasCheckNow": "Check now",
+      "atcAreasChecking": "Checking…",
+      "atcAreasUpdated": "Updated to VAT-Spy {{vatspy}}, TRACON {{tracon}}.",
+      "atcAreasCurrent": "Already the newest.",
+      "atcAreasFailed": "Could not check. Try again later."
     }
   },
   "app": {

@@ -61,6 +61,8 @@ import type {
 } from './types/gsx'
 import type { PlannedRoute, TaxiRoute } from './live'
 import type {
+  AtcAreasCheck,
+  AtcAreasStatus,
   AtisAnswer,
   AtisRequest,
   NetworkAtc,
@@ -586,6 +588,12 @@ export interface WingLogApi {
   /** Runs one of the three command-bar commands (`command.run`) — GSX's own client requires
    *  a second confirming call for RESTART_COUATL (the UI enforces this, not this method). */
   gsxRemoteRunCommand: (id: GsxRemoteCommandId) => Promise<void>
+  /** The ATC areas in use, and whether the app keeps them up to date by itself. */
+  atcAreasGetStatus: () => Promise<AtcAreasStatus>
+  /** Turns the automatic look for newer ATC areas on or off. */
+  atcAreasSetAuto: (on: boolean) => Promise<AtcAreasStatus>
+  /** Asks GitHub now whether newer ATC areas are out, and uses them if so. Never throws: a failure is the outcome "failed". */
+  atcAreasCheckNow: () => Promise<AtcAreasCheck>
   settingsGetOnlineNetwork: () => Promise<OnlineNetworkSettings>
   /** Saving restarts the feed service. Refuses a member number that is not 1 to 10 digits. */
   settingsSetOnlineNetwork: (settings: OnlineNetworkSettings) => Promise<void>

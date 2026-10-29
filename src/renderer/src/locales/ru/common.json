@@ -221,7 +221,19 @@
       "keepBeyondAtc": "Оставить BeyondATC онлайн",
       "keepBeyondAtcHint": "Пока вы онлайн, подсказки, линия руления, частоты и ступенчатые набора высоты BeyondATC скрыты или молчат, так как единственный голос — диспетчеры сети. Включите, чтобы оставить их.",
       "simTrafficButton": "Кнопка трафика симулятора",
-      "simTrafficButtonHint": "Бирюзовые самолёты на карте Track: собственный трафик симулятора (BeyondATC и другой ИИ). Если выключено, кнопки нет на карте ни на ПК, ни на телефоне."
+      "simTrafficButtonHint": "Бирюзовые самолёты на карте Track: собственный трафик симулятора (BeyondATC и другой ИИ). Если выключено, кнопки нет на карте ни на ПК, ни на телефоне.",
+      "atcAreas": "Поддерживать зоны ATC в актуальном состоянии",
+      "atcAreasHint": "Примерно раз в неделю WingLog запрашивает у GitHub более новые зоны покрытия из проектов сообщества VAT-Spy и SimAware TRACON. Отправляется только версия WingLog.",
+      "atcAreasInUse": "Используются: VAT-Spy {{vatspy}}, TRACON {{tracon}} ({{source}}).",
+      "atcAreasBundled": "входят в состав WingLog",
+      "atcAreasDownloaded": "загружены с GitHub",
+      "atcAreasChecked": "Последняя проверка: {{when}}.",
+      "atcAreasNeverChecked": "Ещё не проверялось.",
+      "atcAreasCheckNow": "Проверить сейчас",
+      "atcAreasChecking": "Проверка…",
+      "atcAreasUpdated": "Обновлено до VAT-Spy {{vatspy}}, TRACON {{tracon}}.",
+      "atcAreasCurrent": "Уже самая новая версия.",
+      "atcAreasFailed": "Не удалось проверить. Повторите позже."
     }
   },
   "app": {

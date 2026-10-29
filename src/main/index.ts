@@ -55,6 +55,8 @@ import { registerBeyondAtcHandlers } from './ipc/beyondatc-handlers'
 import { registerLanHandlers } from './ipc/lan-handlers'
 import { createLan } from './lan/create-lan'
 import { resolveFeedUrls } from './online/feed-urls'
+import { registerAtcAreas } from './online/atc-areas-handlers'
+import { resolveAreaSource } from './online/atc-areas-download'
 import { registerOnlineHandlers } from './online/register-online-handlers'
 import { resolveMetarUrl } from './weather/metar-client'
 import { registerPrefileHandlers } from './online/register-prefile-handlers'
@@ -277,13 +279,23 @@ function startUpdates(db: WingLogDb, window: BrowserWindow, isFlightActive: () =
 function startOnlineNetwork(
   deps: Pick<Parameters<typeof registerOnlineHandlers>[1], 'db' | 'liveHub' | 'sim' | 'trackingController'>
 ): Pick<ReturnType<typeof registerOnlineHandlers>, 'commands' | 'atisAt'> {
+  const areas = registerAtcAreas(ipcMain, {
+    db: deps.db,
+    userDataDir: app.getPath('userData'),
+    appVersion: app.getVersion(),
+    source: resolveAreaSource(app.isPackaged, process.env)
+  })
   const online = registerOnlineHandlers(ipcMain, {
     ...deps,
     appVersion: app.getVersion(),
     isDevBuild: __WINGLOG_DEV_BUILD__,
-    urls: resolveFeedUrls(app.isPackaged, process.env)
+    urls: resolveFeedUrls(app.isPackaged, process.env),
+    atcAreas: areas.current
   })
-  app.on('before-quit', () => online.stop())
+  app.on('before-quit', () => {
+    online.stop()
+    areas.stop()
+  })
   registerPrefileHandlers(ipcMain, { db: deps.db, openExternal: (url) => shell.openExternal(url) })
   return { commands: online.commands, atisAt: online.atisAt }
 }

@@ -205,7 +205,19 @@
       "keepBeyondAtc": "BeyondATC online beibehalten",
       "keepBeyondAtcHint": "Solange du online bist, sind die Hinweise, die Rollroute, die Frequenzen und die Steigflug-Anfragen von BeyondATC ausgeblendet oder stumm, da nur die Lotsen des Netzwerks sprechen. Schalte dies ein, um sie zu behalten.",
       "simTrafficButton": "Sim-Verkehr-Schaltfläche",
-      "simTrafficButtonHint": "Die türkisen Flugzeuge auf der Track-Karte: der eigene Verkehr des Sims (der von BeyondATC und andere KI). Aus entfernt die Schaltfläche von der Karte, am PC und auf dem Handy."
+      "simTrafficButtonHint": "Die türkisen Flugzeuge auf der Track-Karte: der eigene Verkehr des Sims (der von BeyondATC und andere KI). Aus entfernt die Schaltfläche von der Karte, am PC und auf dem Handy.",
+      "atcAreas": "ATC-Gebiete aktuell halten",
+      "atcAreasHint": "Etwa einmal pro Woche fragt WingLog bei GitHub nach neueren Abdeckungsgebieten aus den Community-Projekten VAT-Spy und SimAware TRACON. Es wird nur die Version von WingLog gesendet.",
+      "atcAreasInUse": "In Gebrauch: VAT-Spy {{vatspy}}, TRACON {{tracon}} ({{source}}).",
+      "atcAreasBundled": "mit WingLog geliefert",
+      "atcAreasDownloaded": "von GitHub geladen",
+      "atcAreasChecked": "Zuletzt geprüft: {{when}}.",
+      "atcAreasNeverChecked": "Noch nicht geprüft.",
+      "atcAreasCheckNow": "Jetzt prüfen",
+      "atcAreasChecking": "Prüfe …",
+      "atcAreasUpdated": "Aktualisiert auf VAT-Spy {{vatspy}}, TRACON {{tracon}}.",
+      "atcAreasCurrent": "Bereits die neueste Version.",
+      "atcAreasFailed": "Prüfung nicht möglich. Versuche es später erneut."
     }
   },
   "app": {

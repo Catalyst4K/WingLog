@@ -8,6 +8,15 @@ function setup(initial: OnlineNetworkSettings) {
   const api = {
     settingsGetOnlineNetwork: vi.fn(() => Promise.resolve(initial)),
     settingsSetOnlineNetwork: vi.fn(() => Promise.resolve()),
+    atcAreasGetStatus: vi.fn(() =>
+      Promise.resolve({
+        auto: true,
+        source: 'bundled',
+        vatspy: 'v2610.1',
+        tracon: 'v1.2.13',
+        checkedAt: null
+      })
+    ),
     onlineGetPretend: vi.fn((): Promise<string | null> => Promise.resolve(null)),
     onlineSetPretend: vi.fn(() => Promise.resolve()),
     appLogRendererError: vi.fn(() => Promise.resolve())

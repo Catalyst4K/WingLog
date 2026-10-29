@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input'
 import { winglogApi } from '../data/winglog-api'
 import { asyncHandler, runAsync } from '../report-error'
 import { SegmentedRow } from '../SettingsFields'
+import { AtcAreasRow } from './AtcAreasRow'
 import { OnOffControl, SettingRow, SettingsCard } from './ui/SettingsCard'
 
 type NetworkChoice = OnlineNetwork | 'none'
@@ -149,6 +150,8 @@ export function OnlineNetworkCard(props: OnlineNetworkCardProps): React.JSX.Elem
           />
         </SettingRow>
       )}
+      {/* The areas the map draws are only fetched while a network is chosen, so the row is only there then. */}
+      {network && <AtcAreasRow />}
       {/* Not a network feature: the sim's own traffic is offered whatever the network, unless switched off here. */}
       <SettingRow
         label={t('settingsView.onlineNetwork.simTrafficButton')}

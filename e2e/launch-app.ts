@@ -111,6 +111,8 @@ export async function launchApp(options: LaunchAppOptions = {}): Promise<Launche
   env.WINGLOG_E2E_IVAO_URL = `http://127.0.0.1:${await unusedPort()}/ivao`
   // And the METARs the weather panel reads: a closed port, replaced by a test's own fake server.
   env.WINGLOG_E2E_METAR_URL = `http://127.0.0.1:${await unusedPort()}/metar`
+  // And the community releases the ATC areas update themselves from (GitHub's): a closed port, replaced by atc-areas-release-server.ts.
+  env.WINGLOG_E2E_ATC_AREAS_URL = `http://127.0.0.1:${await unusedPort()}`
   // And the sim's navigation data, read from disk: an empty folder instead of this machine's own Navigraph install, so a run is the same
   // everywhere. navdata-cycle.spec.ts fills it.
   env.WINGLOG_E2E_MSFS_DIR = join(userDataDir, 'fake-msfs')

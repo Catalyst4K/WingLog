@@ -11,6 +11,7 @@ import { createFlight, getFlight } from '../db/flight-repo'
 import { fakeIpc } from '../ipc/fake-ipc'
 import { dispatchCommand } from '../live/commands'
 import { LiveHub } from '../live/LiveHub'
+import { bundledAtcAreas } from './bundled-atc-areas'
 import { REAL_FEED_URLS } from './feed-urls'
 import { getTrafficSwitches, setOnlineNetworkSettings, setPretendCallsign } from './online-settings'
 import { registerOnlineHandlers } from './register-online-handlers'
@@ -39,6 +40,7 @@ describe('online network handlers', () => {
       trackingController: tracking as never,
       appVersion: '1.6.0',
       isDevBuild: options.isDevBuild ?? false,
+      atcAreas: bundledAtcAreas,
       urls: { ...REAL_FEED_URLS, vatsimStatus: null, vatsimData: 'http://feed.test/vatsim' }
     })
     stop = registered.stop
