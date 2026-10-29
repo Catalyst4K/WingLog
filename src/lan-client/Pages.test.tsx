@@ -195,7 +195,10 @@ describe('the Track page while the pilot is online', () => {
         payload: { ...EMPTY_BEYONDATC_STATE, autoTune: true }
       })
     })
-    expect(await screen.findByText('VATSIM · TSTPIL1')).toHaveAttribute('title', 'Online on VATSIM as TSTPIL1.')
+    expect(await screen.findByText('VATSIM · TSTPIL1')).toHaveAttribute(
+      'title',
+      'Online on VATSIM as TSTPIL1.'
+    )
     expect(screen.queryByText(/BeyondATC is hidden/)).not.toBeInTheDocument()
     expect(screen.getByRole('alert')).toHaveTextContent("BeyondATC's auto-tune is on")
   })

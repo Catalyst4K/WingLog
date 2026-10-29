@@ -641,7 +641,13 @@ describe('App', () => {
 
     act(() => {
       for (const listener of listeners) {
-        listener({ network: 'vatsim', state: 'offline', callsign: null, filedPlan: null, hidesBeyondAtc: false })
+        listener({
+          network: 'vatsim',
+          state: 'offline',
+          callsign: null,
+          filedPlan: null,
+          hidesBeyondAtc: false
+        })
       }
     })
     expect(screen.queryByText('VATSIM · BAW1')).not.toBeInTheDocument()

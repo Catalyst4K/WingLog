@@ -45,7 +45,9 @@ describe('OnlineBadge', () => {
   it('ends a "probably" match in a question mark and says why in its title', async () => {
     renderWith({ ...base, state: 'probably' })
     const badge = await screen.findByText('VATSIM · BAW1?')
-    expect(badge.getAttribute('title')).toMatch(/^Probably online on VATSIM as BAW1: .*Enter your CID in Settings/)
+    expect(badge.getAttribute('title')).toMatch(
+      /^Probably online on VATSIM as BAW1: .*Enter your CID in Settings/
+    )
   })
 
   it('shows whether or not BeyondATC is hidden, since it says the pilot is online, not what is hidden', async () => {
