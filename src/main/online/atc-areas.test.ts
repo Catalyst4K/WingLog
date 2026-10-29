@@ -67,6 +67,45 @@ describe('parseAreaData on the bundled file', () => {
   })
 })
 
+describe('rings', () => {
+  it('are closed on every shape of the bundled file, Heathrow Director included (its ring ends one point short in the file)', () => {
+    const heathrow = approachArea(real, 'EGLL_APP')
+    expect(heathrow?.coordinates[0][0]).toHaveLength(8)
+    for (const area of [...real.firs.values(), ...real.approaches.values()]) {
+      for (const polygon of area.coordinates) {
+        for (const ring of polygon) expect(ring[0]).toEqual(ring[ring.length - 1])
+      }
+    }
+  })
+
+  it('are closed when the file leaves one open, and left alone when it is already closed', () => {
+    const open = [
+      [
+        [
+          [0, 0],
+          [1, 0],
+          [1, 1]
+        ]
+      ]
+    ]
+    const data = parseAreaData(
+      file({
+        firs: {
+          EGTT: { name: 'London', at: [-1, 52], coordinates: open },
+          CZVR: { name: 'Vancouver', at: [-123, 49], coordinates: SQUARE }
+        }
+      })
+    ) as AreaData
+    expect(data.firs.get('EGTT')?.coordinates[0][0]).toEqual([
+      [0, 0],
+      [1, 0],
+      [1, 1],
+      [0, 0]
+    ])
+    expect(data.firs.get('CZVR')?.coordinates).toEqual(SQUARE)
+  })
+})
+
 describe('centreAreaIds on the bundled file', () => {
   it('finds a centre by its callsign prefix, and a sector by its longer one', () => {
     expect(centreAreaIds(real, 'LON_C_CTR')).toEqual(['EGTT-C'])

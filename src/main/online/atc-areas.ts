@@ -78,7 +78,9 @@ function isPoint(value: unknown): value is [number, number] {
 /**
  * @param value A MultiPolygon's coordinates, from the file.
  * @param budget How many points may still be read in all; reduced by what this reads.
- * @returns The coordinates, or null when any ring is not made of points, has fewer than four of them, or the budget is gone.
+ * @returns The coordinates, with every ring closed (the file's own rings are not always: 95 of the approach shapes, Heathrow Director
+ *   among them, end one point short, and the map draws such a ring as wrong wedges), or null when any ring is not made of points, has
+ *   fewer than three of them, or the budget is gone.
  */
 function readCoordinates(value: unknown, budget: { points: number }): number[][][][] | null {
   if (!Array.isArray(value) || value.length === 0) return null
@@ -87,7 +89,7 @@ function readCoordinates(value: unknown, budget: { points: number }): number[][]
     if (!Array.isArray(polygon) || polygon.length === 0) return null
     const rings: number[][][] = []
     for (const ring of polygon as unknown[]) {
-      if (!Array.isArray(ring) || ring.length < 4) return null
+      if (!Array.isArray(ring) || ring.length < 3) return null
       budget.points -= ring.length
       if (budget.points < 0) return null
       const points: number[][] = []
@@ -95,6 +97,8 @@ function readCoordinates(value: unknown, budget: { points: number }): number[][]
         if (!isPoint(point)) return null
         points.push([point[0], point[1]])
       }
+      const [first, last] = [points[0], points[points.length - 1]]
+      if (first[0] !== last[0] || first[1] !== last[1]) points.push([first[0], first[1]])
       rings.push(points)
     }
     polygons.push(rings)
