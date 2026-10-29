@@ -43,7 +43,12 @@ export function openCardPopup(map: MapLibreMap, at: { lng: number; lat: number }
   Object.assign(content.style, { minWidth: '230px', fontSize: '12px', lineHeight: '1.4' })
   const title = document.createElement('div')
   title.textContent = card.title
-  Object.assign(title.style, { fontWeight: '600', marginBottom: card.rows.length > 0 ? '6px' : '0' })
+  // The right-hand padding keeps a long title clear of the cross in the corner.
+  Object.assign(title.style, {
+    fontWeight: '600',
+    paddingRight: '16px',
+    marginBottom: card.rows.length > 0 ? '6px' : '0'
+  })
   content.appendChild(title)
   const grid = document.createElement('div')
   Object.assign(grid.style, {
@@ -87,7 +92,7 @@ export function openTextPopup(
   const content = document.createElement('div')
   lines.forEach((line, index) => {
     const row = document.createElement('div')
-    if (index === 0) row.style.fontWeight = '600'
+    if (index === 0) Object.assign(row.style, { fontWeight: '600', paddingRight: '16px' })
     row.textContent = line
     content.appendChild(row)
   })
