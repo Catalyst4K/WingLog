@@ -143,6 +143,24 @@ test('the ATC layer over London, zoomed out and in, light and dark, with and wit
       note: 'The Heathrow director (pink) and the London sector it sits in (purple), with the labels, the dots for the airports and their letters.'
     })
 
+    // The cards: press Heathrow's dot (it sits just east of the aircraft at this zoom), then the Heathrow director's area.
+    const map = page.locator('.maplibregl-map').first()
+    await map.click({ position: { x: 605, y: 285 } })
+    await page.waitForTimeout(800)
+    await snap(page, {
+      file: '2b-card-airport.png',
+      title: 'Pressing an airport’s dot',
+      note: 'The card: the airport, then a row for each station (what it is, the callsign, the frequency), and the ATIS stations last, with their information letter.'
+    })
+    await map.click({ position: { x: 700, y: 430 } })
+    await page.waitForTimeout(800)
+    await snap(page, {
+      file: '2c-card-area.png',
+      title: 'Pressing an area',
+      note: 'The same card for an area: its name, then who is on it, with the controller’s name under the callsign when the network publishes one.'
+    })
+    await map.click({ position: { x: 100, y: 500 } })
+
     await zoomOut(3)
     await snap(page, {
       file: '3-london-wider.png',

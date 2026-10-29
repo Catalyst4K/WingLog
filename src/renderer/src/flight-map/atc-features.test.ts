@@ -5,7 +5,7 @@ import {
   airportLetters,
   areaFeatures,
   areaLabelFeatures,
-  atcPopupLines,
+  atcPopupCard,
   layerData
 } from './atc-features'
 
@@ -50,16 +50,18 @@ const HEATHROW: AtcAirport = {
 }
 
 describe('areaFeatures', () => {
-  it('gives each area its shape as it is, its kind, the first controller’s callsign as its label, and the popup’s lines', () => {
+  it('gives each area its shape as it is, its kind, the first controller’s callsign as its label, and the popup’s card', () => {
     const [feature] = areaFeatures([LONDON]).features
     expect(feature?.geometry).toEqual({ type: 'MultiPolygon', coordinates: SQUARE })
     expect(feature?.properties.kind).toBe('centre')
     expect(feature?.properties.label).toBe('LON_C_CTR')
-    expect(atcPopupLines(feature!.properties)).toEqual([
-      'London ACC (Central) - London',
-      'LON_C_CTR 133.700 — Test Controller',
-      'LON_CS_CTR 135.100'
-    ])
+    expect(atcPopupCard(feature!.properties)).toEqual({
+      title: 'London ACC (Central) - London',
+      rows: [
+        { tag: 'CTR', callsign: 'LON_C_CTR', frequency: '133.700', note: 'Test Controller' },
+        { tag: 'CTR', callsign: 'LON_CS_CTR', frequency: '135.100', note: null }
+      ]
+    })
   })
 
   it('is empty for no areas', () => {
@@ -96,45 +98,70 @@ describe('airportLetters', () => {
 })
 
 describe('airportFeatures', () => {
-  it('puts a point at each airport, with its code, its letters and the popup’s lines', () => {
+  it('puts a point at each airport, with its code, its letters and the popup’s card', () => {
     const [feature] = airportFeatures([HEATHROW]).features
     expect(feature?.geometry).toEqual({ type: 'Point', coordinates: [-0.4619, 51.4706] })
     expect(feature?.properties).toMatchObject({ label: 'EGLL', letters: 'G T I' })
-    expect(atcPopupLines(feature!.properties)).toEqual([
-      'EGLL',
-      'EGLL_GND 121.700',
-      'EGLL_TWR 118.500',
-      'EGLL_D_ATIS 121.850 (L)'
-    ])
+    expect(atcPopupCard(feature!.properties)).toEqual({
+      title: 'EGLL',
+      rows: [
+        { tag: 'GND', callsign: 'EGLL_GND', frequency: '121.700', note: null },
+        { tag: 'TWR', callsign: 'EGLL_TWR', frequency: '118.500', note: null },
+        { tag: 'ATIS L', callsign: 'EGLL_D_ATIS', frequency: '121.850', note: null }
+      ]
+    })
   })
 
-  it('leaves out the letter in brackets for an ATIS with none', () => {
+  it('tags an ATIS with no information letter as just ATIS', () => {
     const airport = {
       ...HEATHROW,
       stations: [],
       atis: [{ callsign: 'EGLL_ATIS', code: null, frequency: '128.075' }]
     }
-    expect(atcPopupLines(airportFeatures([airport]).features[0]!.properties)).toEqual([
-      'EGLL',
-      'EGLL_ATIS 128.075'
+    expect(atcPopupCard(airportFeatures([airport]).features[0]!.properties)?.rows).toEqual([
+      { tag: 'ATIS', callsign: 'EGLL_ATIS', frequency: '128.075', note: null }
     ])
   })
 })
 
-describe('atcPopupLines', () => {
+describe('atcPopupCard', () => {
+  const card = (value: unknown): { card: string } => ({ card: JSON.stringify(value) })
+
   it('keeps the text as it came, never as markup', () => {
-    const lines = atcPopupLines({
-      lines: JSON.stringify(['<img src=x onerror=alert(1)>', 'EGLL_TWR 118.500'])
+    const row = {
+      tag: 'TWR',
+      callsign: '<img src=x onerror=alert(1)>',
+      frequency: '118.500',
+      note: '<b>x</b>'
+    }
+    expect(atcPopupCard(card({ title: '<i>EGLL</i>', rows: [row] }))).toEqual({
+      title: '<i>EGLL</i>',
+      rows: [row]
     })
-    expect(lines).toEqual(['<img src=x onerror=alert(1)>', 'EGLL_TWR 118.500'])
   })
 
-  it.each([[undefined], [5], ['not json'], ['{"a":1}'], ['null']])('is empty for %j', (value) => {
-    expect(atcPopupLines({ lines: value })).toEqual([])
+  it.each([[undefined], [5], ['not json'], ['{"a":1}'], ['null'], ['[]']])('is null for %j', (value) => {
+    expect(atcPopupCard({ card: value })).toBeNull()
   })
 
-  it('drops anything in the list that is not text', () => {
-    expect(atcPopupLines({ lines: JSON.stringify(['title', 5, null, 'row']) })).toEqual(['title', 'row'])
+  it('is null without a title or a list of rows', () => {
+    expect(atcPopupCard(card({ rows: [] }))).toBeNull()
+    expect(atcPopupCard(card({ title: 'x', rows: 'many' }))).toBeNull()
+  })
+
+  it('drops a row that is not made of text, and a note that is not text', () => {
+    const good = { tag: 'CTR', callsign: 'LON_CTR', frequency: '135.100' }
+    expect(
+      atcPopupCard(
+        card({
+          title: 'London',
+          rows: [good, { ...good, tag: 5 }, null, 'row', { ...good, note: 7 }]
+        })
+      )?.rows
+    ).toEqual([
+      { ...good, note: null },
+      { ...good, note: null }
+    ])
   })
 })
 

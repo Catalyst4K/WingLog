@@ -290,17 +290,38 @@ describe('useNetworkAtcOverlay', () => {
       await mount(fakeClient({ atc: shown() }).client, fake)
       return fake
     }
-    const featureWith = (lines: string[]) => ({ properties: { lines: JSON.stringify(lines) } })
+    const row = (callsign: string, note: string | null = null) => ({
+      tag: 'CTR',
+      callsign,
+      frequency: '133.700',
+      note
+    })
+    const featureWith = (title: string, rows: ReturnType<typeof row>[] = []) => ({
+      properties: { card: JSON.stringify({ title, rows }) }
+    })
 
-    it('lists the controllers of an area in a popup of text nodes', async () => {
+    it('lays an area out as a title and one aligned row per controller, the name beneath, all as text nodes', async () => {
       const fake = await drawn()
       fake.clicks.get(ATC_FILL_LAYER)?.({
         lngLat: { lng: 1, lat: 2 },
         point: { x: 10, y: 10 },
-        features: [featureWith(['London ACC', '<b>LON_C_CTR 133.700</b>'])]
+        features: [featureWith('London ACC', [row('<b>LON_C_CTR</b>', 'Test Controller'), row('LON_CS_CTR')])]
       })
       expect(popups).toHaveLength(1)
-      expect(popups[0]?.content?.textContent).toBe('London ACC<b>LON_C_CTR 133.700</b>')
+      const [title, grid] = Array.from(popups[0]!.content!.children) as HTMLElement[]
+      expect(title?.textContent).toBe('London ACC')
+      expect(title?.style.fontWeight).toBe('600')
+      // Each row is its kind, callsign and frequency across three columns; a name takes its own line under the callsign.
+      expect(Array.from(grid!.children).map((cell) => cell.textContent)).toEqual([
+        'CTR',
+        '<b>LON_C_CTR</b>',
+        '133.700',
+        'Test Controller',
+        'CTR',
+        'LON_CS_CTR',
+        '133.700'
+      ])
+      expect(grid?.style.display).toBe('grid')
       expect(popups[0]?.content?.querySelector('b')).toBeNull()
     })
 
@@ -309,9 +330,19 @@ describe('useNetworkAtcOverlay', () => {
       fake.clicks.get(ATC_AIRPORT_DOT_LAYER)?.({
         lngLat: { lng: 1, lat: 2 },
         point: { x: 10, y: 10 },
-        features: [featureWith(['EGLL', 'EGLL_TWR 118.500'])]
+        features: [featureWith('EGLL', [row('EGLL_TWR')])]
       })
-      expect(popups[0]?.content?.textContent).toBe('EGLLEGLL_TWR 118.500')
+      expect(popups[0]?.content?.textContent).toBe('EGLLCTREGLL_TWR133.700')
+    })
+
+    it('gives a card with no controllers just its title', async () => {
+      const fake = await drawn()
+      fake.clicks.get(ATC_AIRPORT_DOT_LAYER)?.({
+        lngLat: { lng: 1, lat: 2 },
+        point: { x: 10, y: 10 },
+        features: [featureWith('EGLL')]
+      })
+      expect(popups[0]?.content?.textContent).toBe('EGLL')
     })
 
     it('leaves a click on an airport’s marker or an aircraft to them, not the area under it', async () => {
@@ -322,13 +353,13 @@ describe('useNetworkAtcOverlay', () => {
         fake.clicks.get(ATC_FILL_LAYER)?.({
           lngLat: { lng: 1, lat: 2 },
           point: { x: 10, y: 10 },
-          features: [featureWith(['London ACC'])]
+          features: [featureWith('London ACC')]
         })
       }
       expect(popups).toHaveLength(0)
     })
 
-    it('opens nothing for a feature with no lines', async () => {
+    it('opens nothing for a feature with no card', async () => {
       const fake = await drawn()
       fake.clicks.get(ATC_FILL_LAYER)?.({
         lngLat: { lng: 1, lat: 2 },

@@ -11,6 +11,7 @@ import type {
   OnlineStation,
   OnlineStationPosition
 } from '@shared/ipc'
+import type { PopupCard, PopupCardRow } from './map-popup'
 
 /** A GeoJSON feature collection, the shape MapLibre's sources take. */
 export interface FeatureCollection<Geometry, Properties> {
@@ -21,11 +22,11 @@ export interface FeatureCollection<Geometry, Properties> {
 type Polygons = { type: 'MultiPolygon'; coordinates: number[][][][] }
 type Point = { type: 'Point'; coordinates: [number, number] }
 
-/** What a drawn area carries. `lines` is the popup's text, as JSON, since a feature's property cannot hold a list. */
+/** What a drawn area carries. `card` is the popup's content, as JSON, since a feature's property cannot hold a list. */
 export interface AreaProperties {
   kind: AtcArea['kind']
   label: string
-  lines: string
+  card: string
 }
 
 /** What a drawn airport carries. */
@@ -33,7 +34,7 @@ export interface AirportProperties {
   label: string
   /** One letter for each kind of station staffed there, such as "D G T I". */
   letters: string
-  lines: string
+  card: string
 }
 
 /** Aviation abbreviations stay in English in every language. */
@@ -49,18 +50,38 @@ const LETTER_ORDER = ['D', 'G', 'T', 'A', 'I']
 
 /**
  * @param station A station.
- * @returns "LON_C_CTR 133.700", with the name the network publishes after a dash.
+ * @returns Its row: "CTR", the callsign, the frequency, and the name the network publishes.
  */
-function stationLine(station: OnlineStation): string {
-  return `${station.callsign} ${station.frequency}${station.name ? ` — ${station.name}` : ''}`
+function stationRow(station: OnlineStation): PopupCardRow {
+  return {
+    tag: station.position.toUpperCase(),
+    callsign: station.callsign,
+    frequency: station.frequency,
+    note: station.name
+  }
 }
 
 /**
  * @param atis An ATIS station.
- * @returns "EGLL_D_ATIS 121.850 (L)".
+ * @returns Its row: "ATIS L" (the information letter, when it has one), the callsign and the frequency.
  */
-function atisLine(atis: OnlineAtis): string {
-  return `${atis.callsign} ${atis.frequency}${atis.code ? ` (${atis.code})` : ''}`
+function atisRow(atis: OnlineAtis): PopupCardRow {
+  return {
+    tag: atis.code ? `ATIS ${atis.code}` : 'ATIS',
+    callsign: atis.callsign,
+    frequency: atis.frequency,
+    note: null
+  }
+}
+
+/**
+ * @param title The card's title.
+ * @param rows Its rows.
+ * @returns The card, as the JSON a feature's property holds.
+ */
+function cardJson(title: string, rows: PopupCardRow[]): string {
+  const card: PopupCard = { title, rows }
+  return JSON.stringify(card)
 }
 
 /**
@@ -76,7 +97,7 @@ export function areaFeatures(areas: AtcArea[]): FeatureCollection<Polygons, Area
       properties: {
         kind: area.kind,
         label: area.stations[0]?.callsign ?? area.id,
-        lines: JSON.stringify([area.name, ...area.stations.map(stationLine)])
+        card: cardJson(area.name, area.stations.map(stationRow))
       }
     }))
   }
@@ -95,7 +116,7 @@ export function areaLabelFeatures(areas: AtcArea[]): FeatureCollection<Point, Ar
       properties: {
         kind: area.kind,
         label: area.stations[0]?.callsign ?? area.id,
-        lines: JSON.stringify([area.name, ...area.stations.map(stationLine)])
+        card: cardJson(area.name, area.stations.map(stationRow))
       }
     }))
   }
@@ -124,11 +145,7 @@ export function airportFeatures(airports: AtcAirport[]): FeatureCollection<Point
       properties: {
         label: airport.icao,
         letters: airportLetters(airport),
-        lines: JSON.stringify([
-          airport.icao,
-          ...airport.stations.map(stationLine),
-          ...airport.atis.map(atisLine)
-        ])
+        card: cardJson(airport.icao, [...airport.stations.map(stationRow), ...airport.atis.map(atisRow)])
       }
     }))
   }
@@ -136,16 +153,38 @@ export function airportFeatures(airports: AtcAirport[]): FeatureCollection<Point
 
 /**
  * @param properties A clicked feature's properties.
- * @returns The popup's lines: the first is the title. Empty when the property is not what this layer wrote.
+ * @returns The popup's card, or null when the property is not what this layer wrote. Only text is kept: a row that is not made of text
+ *   is dropped.
  */
-export function atcPopupLines(properties: { lines?: unknown }): string[] {
-  if (typeof properties.lines !== 'string') return []
+export function atcPopupCard(properties: { card?: unknown }): PopupCard | null {
+  if (typeof properties.card !== 'string') return null
+  let parsed: unknown
   try {
-    const lines: unknown = JSON.parse(properties.lines)
-    return Array.isArray(lines) ? lines.filter((line): line is string => typeof line === 'string') : []
+    parsed = JSON.parse(properties.card)
   } catch {
-    return []
+    return null
   }
+  const card = typeof parsed === 'object' && parsed !== null ? (parsed as Record<string, unknown>) : null
+  if (!card || typeof card.title !== 'string' || !Array.isArray(card.rows)) return null
+  const rows = (card.rows as unknown[]).flatMap((entry): PopupCardRow[] => {
+    const row = typeof entry === 'object' && entry !== null ? (entry as Record<string, unknown>) : null
+    if (
+      !row ||
+      typeof row.tag !== 'string' ||
+      typeof row.callsign !== 'string' ||
+      typeof row.frequency !== 'string'
+    )
+      return []
+    return [
+      {
+        tag: row.tag,
+        callsign: row.callsign,
+        frequency: row.frequency,
+        note: typeof row.note === 'string' ? row.note : null
+      }
+    ]
+  })
+  return { title: card.title, rows }
 }
 
 /**

@@ -18,8 +18,8 @@ import type { NetworkAtc, TrafficLayers } from '@shared/ipc'
 import { useLiveClient } from './live/LiveClient'
 import { reportError } from './report-error'
 import { setSourceData } from './map-source'
-import { atcPopupLines, layerData } from './flight-map/atc-features'
-import { openTextPopup } from './flight-map/map-popup'
+import { atcPopupCard, layerData } from './flight-map/atc-features'
+import { openCardPopup } from './flight-map/map-popup'
 
 /** What a GeoJSON source accepts as data. */
 type GeoData = GeoJSONSourceSpecification['data']
@@ -185,8 +185,8 @@ function ensureAtcLayers(map: MapLibreMap): void {
  */
 function addClickHandlers(map: MapLibreMap): void {
   const open = (at: { lng: number; lat: number }, feature: MapGeoJSONFeature | undefined): void => {
-    const lines = atcPopupLines(feature?.properties ?? {})
-    if (lines.length > 0) openTextPopup(map, at, lines, '280px')
+    const card = atcPopupCard(feature?.properties ?? {})
+    if (card) openCardPopup(map, at, card)
   }
   map.on('click', ATC_AIRPORT_DOT_LAYER, (event) => open(event.lngLat, event.features?.[0]))
   map.on('click', ATC_FILL_LAYER, (event) => {
