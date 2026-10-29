@@ -46,7 +46,9 @@ test('selecting a fleet aircraft prefills the plan, and the Advanced dialog open
       await page.getByRole('option', { name: /G-DISP/ }).click({ timeout: 2_000 })
       await expect(trigger).toContainText('G-DISP', { timeout: 1_000 })
     }).toPass({ timeout: 15_000 })
-    await expect(page.getByText('EGLL', { exact: true }).first()).toBeVisible({ timeout: 10_000 })
+    // The weather card follows the departure, so it names it. The launcher points the METAR lookup at a closed port (no test reaches
+    // aviationweather.gov), so the card says there is no METAR for it; this used to wait for the real report to put "EGLL" on screen.
+    await expect(page.getByText('No current METAR for EGLL.')).toBeVisible({ timeout: 10_000 })
 
     // Advanced dialog opens and closes without touching anything network-dependent.
     await page.getByRole('button', { name: /Advanced/ }).click()
