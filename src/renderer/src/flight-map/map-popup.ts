@@ -36,8 +36,9 @@ function span(text: string, style: Partial<CSSStyleDeclaration>): HTMLSpanElemen
  * @param map The map.
  * @param at Where the area or airport was clicked.
  * @param card The title and rows.
+ * @returns The popup, for a caller that wants to take it away again.
  */
-export function openCardPopup(map: MapLibreMap, at: { lng: number; lat: number }, card: PopupCard): void {
+export function openCardPopup(map: MapLibreMap, at: { lng: number; lat: number }, card: PopupCard): Popup {
   const content = document.createElement('div')
   Object.assign(content.style, { minWidth: '230px', fontSize: '12px', lineHeight: '1.4' })
   const title = document.createElement('div')
@@ -64,7 +65,9 @@ export function openCardPopup(map: MapLibreMap, at: { lng: number; lat: number }
     }
   }
   content.appendChild(grid)
-  new Popup({ closeButton: true, maxWidth: '320px' }).setLngLat(at).setDOMContent(content).addTo(map)
+  const popup = new Popup({ closeButton: true, maxWidth: '320px' })
+  popup.setLngLat(at).setDOMContent(content).addTo(map)
+  return popup
 }
 
 /**

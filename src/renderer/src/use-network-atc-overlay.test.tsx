@@ -5,13 +5,35 @@ import type { LiveTopic, LiveTopics } from '@shared/live'
 import type { AtcAirport, AtcArea, NetworkAtc, TrafficLayers } from '@shared/ipc'
 import { LiveClientContext, type LiveClient } from './live/LiveClient'
 
-const popups: { lngLat: unknown; content: HTMLElement | null }[] = []
+const popups: { lngLat: unknown; content: HTMLElement | null; removed: boolean; close: () => void }[] = []
 
 vi.mock('maplibre-gl', () => ({
   Popup: class {
-    state: { lngLat: unknown; content: HTMLElement | null } = { lngLat: null, content: null }
+    closeHandlers: (() => void)[] = []
+    state: (typeof popups)[number] = {
+      lngLat: null,
+      content: null,
+      removed: false,
+      // The popup's own cross.
+      close: () => {
+        this.state.removed = true
+        this.closeHandlers.forEach((handler) => handler())
+      }
+    }
     constructor() {
       popups.push(this.state)
+    }
+    on(_event: 'close', handler: () => void): this {
+      this.closeHandlers.push(handler)
+      return this
+    }
+    isOpen(): boolean {
+      return !this.state.removed
+    }
+    remove(): this {
+      this.state.removed = true
+      this.state.close()
+      return this
     }
     setLngLat(at: unknown): this {
       this.state.lngLat = at
@@ -179,6 +201,8 @@ function lastFeatures(
 
 describe('useNetworkAtcOverlay', () => {
   beforeEach(() => {
+    // A map that is torn down closes its popups, which is what clears the card remembered between tests.
+    popups.forEach((popup) => popup.close())
     popups.length = 0
   })
   afterEach(() => vi.clearAllMocks())
@@ -333,6 +357,56 @@ describe('useNetworkAtcOverlay', () => {
         features: [featureWith('EGLL', [row('EGLL_TWR')])]
       })
       expect(popups[0]?.content?.textContent).toBe('EGLLCTREGLL_TWR133.700')
+    })
+
+    it('takes an airport’s card away on a second click on its marker, and brings it back on a third', async () => {
+      const fake = await drawn()
+      const clickAirport = (title: string): void =>
+        fake.clicks.get(ATC_AIRPORT_DOT_LAYER)?.({
+          lngLat: { lng: 1, lat: 2 },
+          point: { x: 10, y: 10 },
+          features: [featureWith(title, [row(`${title}_TWR`)])]
+        })
+      clickAirport('EGLL')
+      expect(popups.map((popup) => popup.removed)).toEqual([false])
+      clickAirport('EGLL')
+      expect(popups.map((popup) => popup.removed)).toEqual([true])
+      clickAirport('EGLL')
+      expect(popups.map((popup) => popup.removed)).toEqual([true, false])
+    })
+
+    it('swaps to another airport’s card rather than dismissing, and forgets a card closed by its own button', async () => {
+      const fake = await drawn()
+      const clickAirport = (title: string): void =>
+        fake.clicks.get(ATC_AIRPORT_DOT_LAYER)?.({
+          lngLat: { lng: 1, lat: 2 },
+          point: { x: 10, y: 10 },
+          features: [featureWith(title)]
+        })
+      clickAirport('EGLL')
+      clickAirport('EGKK')
+      expect(popups).toHaveLength(2)
+      expect(popups[1]?.removed).toBe(false)
+      // The pilot closes EGKK's card with its cross (a close event, not our dismissal): the next click opens it afresh.
+      popups[1]!.close()
+      clickAirport('EGKK')
+      expect(popups).toHaveLength(3)
+    })
+
+    it('opens the card afresh when the one remembered has gone with its map', async () => {
+      const fake = await drawn()
+      const click = (): void =>
+        fake.clicks.get(ATC_AIRPORT_DOT_LAYER)?.({
+          lngLat: { lng: 1, lat: 2 },
+          point: { x: 10, y: 10 },
+          features: [featureWith('EGLL')]
+        })
+      click()
+      // Gone without a close event reaching us.
+      popups[0]!.removed = true
+      click()
+      expect(popups).toHaveLength(2)
+      expect(popups[1]?.removed).toBe(false)
     })
 
     it('gives a card with no controllers just its title', async () => {

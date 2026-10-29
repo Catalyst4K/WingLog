@@ -12,7 +12,8 @@ import type {
   FilterSpecification,
   GeoJSONSourceSpecification,
   Map as MapLibreMap,
-  MapGeoJSONFeature
+  MapGeoJSONFeature,
+  Popup
 } from 'maplibre-gl'
 import type { NetworkAtc, TrafficLayers } from '@shared/ipc'
 import { useLiveClient } from './live/LiveClient'
@@ -184,11 +185,24 @@ function ensureAtcLayers(map: MapLibreMap): void {
  * @param map The map.
  */
 function addClickHandlers(map: MapLibreMap): void {
-  const open = (at: { lng: number; lat: number }, feature: MapGeoJSONFeature | undefined): void => {
+  // The card on screen, so that a second click on the same airport takes it away again.
+  let shown: { popup: Popup; title: string } | null = null
+  const open = (
+    at: { lng: number; lat: number },
+    feature: MapGeoJSONFeature | undefined,
+    toggles = false
+  ): void => {
     const card = atcPopupCard(feature?.properties ?? {})
-    if (card) openCardPopup(map, at, card)
+    if (!card) return
+    if (toggles && shown?.title === card.title && shown.popup.isOpen()) {
+      shown.popup.remove()
+      shown = null
+      return
+    }
+    shown = { popup: openCardPopup(map, at, card), title: card.title }
   }
-  map.on('click', ATC_AIRPORT_DOT_LAYER, (event) => open(event.lngLat, event.features?.[0]))
+  // Only an airport's marker toggles: a second click on an area, further along, moves its card there instead.
+  map.on('click', ATC_AIRPORT_DOT_LAYER, (event) => open(event.lngLat, event.features?.[0], true))
   map.on('click', ATC_FILL_LAYER, (event) => {
     const smaller = [ATC_AIRPORT_DOT_LAYER, ...TRAFFIC_LAYERS].filter((id) => map.getLayer(id))
     if (map.queryRenderedFeatures(event.point, { layers: smaller }).length > 0) return
