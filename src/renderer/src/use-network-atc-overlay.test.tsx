@@ -375,6 +375,22 @@ describe('useNetworkAtcOverlay', () => {
       expect(popups.map((popup) => popup.removed)).toEqual([true, false])
     })
 
+    it('takes an area’s card away on a second click anywhere inside it, and swaps to another area’s card', async () => {
+      const fake = await drawn()
+      const clickArea = (title: string, lng: number): void =>
+        fake.clicks.get(ATC_FILL_LAYER)?.({
+          lngLat: { lng, lat: 2 },
+          point: { x: 10, y: 10 },
+          features: [featureWith(title, [row('LON_C_CTR')])]
+        })
+      clickArea('London ACC', 1)
+      clickArea('London ACC', 3)
+      expect(popups.map((popup) => popup.removed)).toEqual([true])
+      clickArea('London ACC', 5)
+      clickArea('Scottish ACC', 7)
+      expect(popups.map((popup) => popup.removed)).toEqual([true, false, false])
+    })
+
     it('swaps to another airport’s card rather than dismissing, and forgets a card closed by its own button', async () => {
       const fake = await drawn()
       const clickAirport = (title: string): void =>
