@@ -1,4 +1,7 @@
-/** A one-line note on Track (and the phone's Track) saying why BeyondATC is hidden: the pilot is online, and the network's controllers are the only voice. */
+/**
+ * A one-line note in the BeyondATC page's radios card, in place of the frequencies, saying why BeyondATC is hidden: the pilot is online,
+ * and the network's controllers are the only voice. Track and the phone show the online badge instead (Callum, 2026-10-29).
+ */
 import { useTranslation } from 'react-i18next'
 import { useOnlineStatus } from '../live/use-online-status'
 

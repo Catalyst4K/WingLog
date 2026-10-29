@@ -1025,6 +1025,8 @@
     "noPrefileLink": "Questo piano non ha un link di deposito {{network}}.",
     "beyondAtcHidden": "BeyondATC è nascosto mentre sei online su {{network}}. I controllori della rete sono l'unica voce.",
     "autoTuneWarning": "L'auto-sintonia di BeyondATC è attiva e può cambiare la frequenza delle tue radio, lontano dai controllori di {{network}}. Disattiva Auto-sintonia nella pagina BeyondATC mentre sei online.",
+    "badgeTitle": "Online su {{network}} come {{callsign}}.",
+    "badgeProbably": "Probabilmente online su {{network}} come {{callsign}}: un pilota con la partenza e l'arrivo del tuo volo è entro 5 NM da te. Inserisci il tuo CID nelle Impostazioni per esserne certo.",
     "atc": {
       "title": "ATC online ai tuoi aeroporti ({{network}})",
       "button": "ATC {{network}} ({{online}})…",

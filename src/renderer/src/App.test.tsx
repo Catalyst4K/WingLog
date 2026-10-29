@@ -12,6 +12,7 @@ import type {
   FleetStats,
   GsxFirstLaunchResult,
   GsxRemoteMenuState,
+  OnlineStatus,
   SimConnectionStatus,
   SimTelemetry,
   SyncStatus,
@@ -612,6 +613,39 @@ describe('App', () => {
     await clickTab(user, 'Fleet')
     expect(await screen.findByText('Fleet', { selector: 'h1' }, lazyTimeout)).toBeInTheDocument()
   }, 15000)
+
+  it('shows the online badge in the header on every page while the pilot is online, and drops it when they go offline', async () => {
+    const listeners = new Set<(status: OnlineStatus) => void>()
+    setWinglog({
+      getOnlineStatus: vi.fn().mockResolvedValue({
+        network: 'vatsim',
+        state: 'online',
+        callsign: 'BAW1',
+        filedPlan: null,
+        hidesBeyondAtc: true
+      }),
+      // Every screen piece that reads the status subscribes: each one is told.
+      onOnlineStatus: vi.fn((listener) => {
+        listeners.add(listener)
+        return () => listeners.delete(listener)
+      })
+    })
+    const user = userEvent.setup()
+    render(<App />)
+    await screen.findByText('Fleet', { selector: 'h1' })
+    expect(await screen.findByText('VATSIM · BAW1')).toBeInTheDocument()
+
+    await clickTab(user, 'Logbook')
+    await screen.findByText('Logbook', { selector: 'h1' }, { timeout: 10000 })
+    expect(screen.getByText('VATSIM · BAW1')).toBeInTheDocument()
+
+    act(() => {
+      for (const listener of listeners) {
+        listener({ network: 'vatsim', state: 'offline', callsign: null, filedPlan: null, hidesBeyondAtc: false })
+      }
+    })
+    expect(screen.queryByText('VATSIM · BAW1')).not.toBeInTheDocument()
+  })
 
   it('reflects a live SimConnect status push, and clears telemetry once disconnected', async () => {
     let statusListener: ((status: SimConnectionStatus) => void) | undefined

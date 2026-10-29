@@ -70,9 +70,10 @@ test('a flight flown while online is recorded with its network and callsign, and
   const feed = await startFeed()
   const { window, cleanup } = await launchApp({ env: replayEnv(feed) })
   try {
-    // Found in the feed by CID: BeyondATC is hidden with the reason on Track.
+    // Found in the feed by CID: the header says so, and Track has no BeyondATC note (Callum, 2026-10-29).
     await startOnlineFlight(window)
-    await expect(window.getByText(/BeyondATC is hidden while you are online on VATSIM/)).toBeVisible()
+    await expect(window.getByTitle('Online on VATSIM as TSTPIL1.')).toHaveText('VATSIM · TSTPIL1')
+    await expect(window.getByText(/BeyondATC is hidden/)).toHaveCount(0)
     expect(feed.requests.length).toBeGreaterThan(0)
 
     // The controllers and ATIS at the flight's airport: a button beside Weather says how many are online and opens them in a pop-up.

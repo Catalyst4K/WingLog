@@ -1023,6 +1023,8 @@
     "noPrefileLink": "This plan has no {{network}} filing link.",
     "beyondAtcHidden": "BeyondATC is hidden while you are online on {{network}}. The network's controllers are the only voice.",
     "autoTuneWarning": "BeyondATC's auto-tune is on and can retune your radios away from {{network}}'s controllers. Turn Auto-tune off on the BeyondATC page while you are online.",
+    "badgeTitle": "Online on {{network}} as {{callsign}}.",
+    "badgeProbably": "Probably online on {{network}} as {{callsign}}: a pilot with your flight's departure and arrival is within 5 nm of you. Enter your CID in Settings to be sure.",
     "atc": {
       "title": "Online ATC at your airports ({{network}})",
       "button": "{{network}} ATC ({{online}})…",
