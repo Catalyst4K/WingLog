@@ -261,10 +261,11 @@ export function TrackView(props: {
         />
       )}
 
-      {/* Fills the space left, and never gets shorter than 288 px. A box shorter than the map (whose own minimum is 256 px), once the
+      {/* Fills the space left, and never gets shorter than 324 px. A box shorter than the map (whose own minimum is 256 px), once the
        * cards above took the space at a small window, left the map spilling out of it and its overlays floating mid-map; and below
-       * 288 px the map's seven buttons reach the attribution in the bottom corner, which then covers Zoom out. */}
-      <div className="min-h-72 flex-1">
+       * 324 px the map's eight buttons (the ATC button made it eight, from 288 px for seven) reach the attribution in the bottom
+       * corner, which then covers Zoom out. */}
+      <div className="min-h-[324px] flex-1">
         <FlightMap
           live
           route={route}

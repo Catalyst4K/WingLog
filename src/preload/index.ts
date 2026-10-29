@@ -47,6 +47,7 @@ import {
 import type { PlannedRoute, TaxiRoute } from '@shared/live'
 import type {
   AtisRequest,
+  NetworkAtc,
   NetworkControllers,
   NetworkTraffic,
   SimTraffic,
@@ -179,6 +180,12 @@ const api: WingLogApi = {
   onlineGetPretend: () => ipcRenderer.invoke(IpcChannels.onlineGetPretend),
   onlineSetPretend: (callsign: string | null) => ipcRenderer.invoke(IpcChannels.onlineSetPretend, callsign),
   onlineAtisGet: (requests: AtisRequest[]) => ipcRenderer.invoke(IpcChannels.onlineAtisGet, requests),
+  getNetworkAtc: () => ipcRenderer.invoke(IpcChannels.networkAtcGet),
+  onNetworkAtc: (listener: (atc: NetworkAtc) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, atc: NetworkAtc): void => listener(atc)
+    ipcRenderer.on(IpcChannels.networkAtc, handler)
+    return () => ipcRenderer.removeListener(IpcChannels.networkAtc, handler)
+  },
   getNetworkControllers: () => ipcRenderer.invoke(IpcChannels.networkControllersGet),
   onNetworkControllers: (listener: (controllers: NetworkControllers) => void) => {
     const handler = (_event: Electron.IpcRendererEvent, controllers: NetworkControllers): void =>
@@ -204,6 +211,7 @@ const api: WingLogApi = {
     ipcRenderer.invoke(IpcChannels.onlinePrefileForFlight, flightId, network),
   trafficSetNetworkOn: (on: boolean) => ipcRenderer.invoke(IpcChannels.trafficSetNetworkOn, on),
   trafficSetSimOn: (on: boolean) => ipcRenderer.invoke(IpcChannels.trafficSetSimOn, on),
+  trafficSetAtcOn: (on: boolean) => ipcRenderer.invoke(IpcChannels.trafficSetAtcOn, on),
   logbookListCompletedFlights: () => ipcRenderer.invoke(IpcChannels.logbookListCompletedFlights),
   logbookGetFlight: (id: number) => ipcRenderer.invoke(IpcChannels.logbookGetFlight, id),
   logbookGetStats: () => ipcRenderer.invoke(IpcChannels.logbookGetStats),

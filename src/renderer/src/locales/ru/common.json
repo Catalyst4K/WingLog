@@ -673,7 +673,11 @@
     "trafficOnGround": "На земле",
     "showSimTraffic": "Показать трафик симулятора",
     "hideSimTraffic": "Скрыть трафик симулятора",
-    "simTrafficUnavailable": "Трафик симулятора недоступен"
+    "simTrafficUnavailable": "Трафик симулятора недоступен",
+    "showAtc": "Показать диспетчеров {{network}}",
+    "hideAtc": "Скрыть диспетчеров {{network}}",
+    "atcNeedsVid": "Введите свой IVAO VID в настройках, чтобы видеть диспетчеров IVAO",
+    "atcUnavailable": "Диспетчеры {{network}} недоступны"
   },
   "logbookView": {
     "estimatedTrack": "Пунктирная линия — около {{nm}} nm, оценённых по плану полёта. Они не были записаны.",

@@ -11,9 +11,17 @@ const VATSIM_CID_KEY = 'vatsimCid'
 const IVAO_VID_KEY = 'ivaoVid'
 const NETWORK_ON_KEY = 'trafficNetworkOn'
 const SIM_ON_KEY = 'trafficSimOn'
+const ATC_ON_KEY = 'trafficAtcOn'
 const PRETEND_CALLSIGN_KEY = 'devPretendCallsign'
 const KEEP_BEYONDATC_KEY = 'onlineKeepBeyondAtc'
 const SIM_BUTTON_KEY = 'trafficSimButton'
+
+/** The shared switches: the network's traffic, the sim's traffic and the ATC areas. */
+export interface TrafficSwitches {
+  networkOn: boolean
+  simOn: boolean
+  atcOn: boolean
+}
 
 /** A callsign: letters, digits, underscore and hyphen, at most 12. */
 const CALLSIGN = /^[A-Za-z0-9_-]{1,12}$/
@@ -108,12 +116,13 @@ export function setPretendCallsign(db: WingLogDb, callsign: unknown): void {
 
 /**
  * @param db The database.
- * @returns Whether each traffic layer's shared switch is on (both off by default).
+ * @returns Whether each layer's shared switch is on: the network's traffic, the sim's traffic and the ATC areas (all off by default).
  */
-export function getTrafficSwitches(db: WingLogDb): { networkOn: boolean; simOn: boolean } {
+export function getTrafficSwitches(db: WingLogDb): TrafficSwitches {
   return {
     networkOn: getSetting(db, NETWORK_ON_KEY) === '1',
-    simOn: getSetting(db, SIM_ON_KEY) === '1'
+    simOn: getSetting(db, SIM_ON_KEY) === '1',
+    atcOn: getSetting(db, ATC_ON_KEY) === '1'
   }
 }
 
@@ -123,7 +132,8 @@ export function getTrafficSwitches(db: WingLogDb): { networkOn: boolean; simOn: 
  * @param db The database.
  * @param switches The new values.
  */
-export function setTrafficSwitches(db: WingLogDb, switches: { networkOn: boolean; simOn: boolean }): void {
+export function setTrafficSwitches(db: WingLogDb, switches: TrafficSwitches): void {
   setSetting(db, NETWORK_ON_KEY, switches.networkOn ? '1' : '0')
   setSetting(db, SIM_ON_KEY, switches.simOn ? '1' : '0')
+  setSetting(db, ATC_ON_KEY, switches.atcOn ? '1' : '0')
 }

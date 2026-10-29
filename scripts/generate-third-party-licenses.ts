@@ -118,6 +118,10 @@ remain under a free/open licence, in any distribution of this app.
 const DATA_FILES = [
   { title: 'Airports — OurAirports', path: 'resources/airports.LICENSE.txt' },
   { title: 'Runways — OurAirports', path: 'resources/runways.LICENSE.txt' },
+  {
+    title: 'ATC coverage areas — VAT-Spy Data Project and SimAware TRACON Project (CC BY-SA 4.0)',
+    path: 'resources/atc-areas.LICENSE.txt'
+  },
   { title: 'Airlines — OpenFlights (ODbL 1.0)', path: 'resources/airlines.LICENSE.txt' },
   {
     title: 'Aircraft type designators — ICAO Doc 8643 list',

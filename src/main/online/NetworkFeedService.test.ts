@@ -3,6 +3,7 @@ import { join } from 'node:path'
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
 import type { LatLon } from '@shared/geo'
 import type {
+  NetworkAtc,
   NetworkControllers,
   NetworkTraffic,
   OnlineNetworkSettings,
@@ -19,6 +20,14 @@ import {
   type FeedTimers
 } from './NetworkFeedService'
 import { REAL_FEED_URLS, type FeedUrls } from './feed-urls'
+import { parseAreaData, type AreaData } from './atc-areas'
+import type { TrafficSwitches } from './online-settings'
+
+const REAL_AREAS = parseAreaData(readFileSync(join(__dirname, '../../../resources/atc-areas.json'), 'utf8'))
+const AIRPORTS: Record<string, LatLon> = {
+  EGLL: { lat: 51.4706, lon: -0.4619 },
+  EGKK: { lat: 51.1481, lon: -0.1903 }
+}
 
 const T0 = Date.parse('2026-10-24T21:05:06Z')
 /** Over EGLL, where the busy fixture's aircraft are. */
@@ -77,9 +86,11 @@ describe('NetworkFeedService', () => {
     layers: TrafficLayers[]
     status: OnlineStatus[]
     controllers: NetworkControllers[]
+    atc: NetworkAtc[]
   }
   let settings: OnlineNetworkSettings
-  let switches: { networkOn: boolean; simOn: boolean }
+  let switches: TrafficSwitches
+  let areaData: AreaData | null
   let centre: LatLon | null
   let tracked: { departure: string; arrival: string; alternate?: string | null } | null
   let airborne: boolean
@@ -99,6 +110,7 @@ describe('NetworkFeedService', () => {
           if (topic === 'trafficLayers') published.layers.push(payload as TrafficLayers)
           if (topic === 'onlineStatus') published.status.push(payload as OnlineStatus)
           if (topic === 'networkControllers') published.controllers.push(payload as NetworkControllers)
+          if (topic === 'networkAtc') published.atc.push(payload as NetworkAtc)
         }) as never
       },
       fetch: fetchMock as unknown as typeof fetch,
@@ -111,6 +123,8 @@ describe('NetworkFeedService', () => {
       saveSwitches: (next) => {
         switches = next
       },
+      atcAreas: () => areaData,
+      airportAt: (icao) => AIRPORTS[icao] ?? null,
       centre: () => centre,
       trackedFlight: () => tracked,
       isAirborne: () => airborne,
@@ -124,7 +138,8 @@ describe('NetworkFeedService', () => {
 
   beforeEach(() => {
     clock = new FakeClock()
-    published = { traffic: [], layers: [], status: [], controllers: [] }
+    published = { traffic: [], layers: [], status: [], controllers: [], atc: [] }
+    areaData = REAL_AREAS
     settings = {
       network: 'vatsim',
       vatsimCid: null,
@@ -132,7 +147,7 @@ describe('NetworkFeedService', () => {
       keepBeyondAtcOnline: false,
       simTrafficButton: true
     }
-    switches = { networkOn: true, simOn: false }
+    switches = { networkOn: true, simOn: false, atcOn: false }
     centre = EGLL
     tracked = null
     airborne = false
@@ -146,7 +161,7 @@ describe('NetworkFeedService', () => {
 
   describe('publishing', () => {
     it('says the layer is off, without a request, while the switch is off', async () => {
-      switches = { networkOn: false, simOn: false }
+      switches = { networkOn: false, simOn: false, atcOn: false }
       service.start()
       await clock.advance(60_000)
       expect(last()).toEqual({ network: 'vatsim', state: 'off', aircraft: [] })
@@ -253,7 +268,7 @@ describe('NetworkFeedService', () => {
     })
 
     it('publishes the layers at start, and again when the switch is turned on from any screen', async () => {
-      switches = { networkOn: false, simOn: false }
+      switches = { networkOn: false, simOn: false, atcOn: false }
       service.start()
       expect(published.layers.at(-1)).toMatchObject({ networkOn: false })
       service.setNetworkOn(true)
@@ -273,7 +288,7 @@ describe('NetworkFeedService', () => {
     })
 
     it('draws only the network layer when both switches are stored on, and shows the sim switch off', async () => {
-      switches = { networkOn: true, simOn: true }
+      switches = { networkOn: true, simOn: true, atcOn: false }
       service.start()
       expect(published.layers.at(-1)).toMatchObject({
         drawNetwork: true,
@@ -285,10 +300,10 @@ describe('NetworkFeedService', () => {
 
   describe('the sim layer', () => {
     it('draws when its switch is on and the network layer is not, and tells the sim reader', () => {
-      switches = { networkOn: false, simOn: false }
+      switches = { networkOn: false, simOn: false, atcOn: false }
       service.start()
       service.setSimOn(true)
-      expect(switches).toEqual({ networkOn: false, simOn: true })
+      expect(switches).toEqual({ networkOn: false, simOn: true, atcOn: false })
       expect(published.layers.at(-1)).toMatchObject({ drawSim: true, drawNetwork: false, simOn: true })
       expect(told.at(-1)?.drawSim).toBe(true)
       service.setSimOn(false)
@@ -296,25 +311,25 @@ describe('NetworkFeedService', () => {
     })
 
     it('and the network layer switch each other off: turning one on turns the other off, and it stays off (Callum, 2026-10-29)', () => {
-      switches = { networkOn: false, simOn: true }
+      switches = { networkOn: false, simOn: true, atcOn: false }
       service.start()
       expect(told.at(-1)?.drawSim).toBe(true)
       service.setNetworkOn(true)
-      expect(switches).toEqual({ networkOn: true, simOn: false })
+      expect(switches).toEqual({ networkOn: true, simOn: false, atcOn: false })
       expect(told.at(-1)).toMatchObject({ drawNetwork: true, drawSim: false, simOn: false })
       service.setSimOn(true)
-      expect(switches).toEqual({ networkOn: false, simOn: true })
+      expect(switches).toEqual({ networkOn: false, simOn: true, atcOn: false })
       expect(told.at(-1)).toMatchObject({ drawNetwork: false, drawSim: true })
       // Turning one off leaves the other as it is.
       service.setSimOn(false)
-      expect(switches).toEqual({ networkOn: false, simOn: false })
+      expect(switches).toEqual({ networkOn: false, simOn: false, atcOn: false })
       service.setNetworkOn(true)
       service.setNetworkOn(false)
-      expect(switches).toEqual({ networkOn: false, simOn: false })
+      expect(switches).toEqual({ networkOn: false, simOn: false, atcOn: false })
     })
 
     it('is neither offered nor drawn once its button is switched off in Settings, and the sim reader is told to stop', () => {
-      switches = { networkOn: false, simOn: true }
+      switches = { networkOn: false, simOn: true, atcOn: false }
       service.start()
       expect(told.at(-1)).toMatchObject({ simOffered: true, drawSim: true })
       settings = { ...settings, simTrafficButton: false }
@@ -623,6 +638,8 @@ describe('NetworkFeedService', () => {
       settings: () => settings,
       switches: () => switches,
       saveSwitches: () => undefined,
+      atcAreas: () => areaData,
+      airportAt: (icao) => AIRPORTS[icao] ?? null,
       centre: () => centre,
       trackedFlight: () => tracked,
       isAirborne: () => airborne,
@@ -654,7 +671,7 @@ describe('NetworkFeedService', () => {
     }
 
     it('is unknown, with nothing fetched, while no flight is tracked and the layer is off', async () => {
-      switches = { networkOn: false, simOn: false }
+      switches = { networkOn: false, simOn: false, atcOn: false }
       service.start()
       await clock.advance(5 * 60_000)
       expect(statuses().at(-1) ?? { state: 'unknown' }).toMatchObject({ state: 'unknown' })
@@ -663,7 +680,7 @@ describe('NetworkFeedService', () => {
 
     it('is looked up every 60 s while a flight is tracked, even with the traffic layer off', async () => {
       const self = planned()
-      switches = { networkOn: false, simOn: false }
+      switches = { networkOn: false, simOn: false, atcOn: false }
       settings = {
         network: 'vatsim',
         vatsimCid: String(self.cid),
@@ -859,7 +876,7 @@ describe('NetworkFeedService', () => {
     })
 
     it('lists no airports while no flight is tracked, and nothing was fetched for it', async () => {
-      switches = { networkOn: false, simOn: false }
+      switches = { networkOn: false, simOn: false, atcOn: false }
       service.start()
       await settle()
       expect(published.controllers.at(-1) ?? { airports: [] }).toMatchObject({ airports: [] })
@@ -941,7 +958,7 @@ describe('NetworkFeedService', () => {
 
     beforeEach(() => {
       // Nothing draws traffic and no flight is tracked: only the ATIS asks for the feed.
-      switches = { networkOn: false, simOn: false }
+      switches = { networkOn: false, simOn: false, atcOn: false }
     })
 
     it('reads the feed once for a request, however nothing else wants it, and answers each tab with its own ATIS', async () => {
@@ -1033,6 +1050,165 @@ describe('NetworkFeedService', () => {
     it('answers nothing after the service has stopped, without waiting', async () => {
       service.stop()
       expect(await ask({ icao: 'EGLL', slot: 'departure' })).toEqual({ network: null, airports: [] })
+    })
+  })
+
+  describe('the ATC layer', () => {
+    const atcLayer = (): NetworkAtc | undefined => published.atc.at(-1)
+    const chooseVatsim = (): void => {
+      settings = { ...settings, network: 'vatsim' }
+    }
+
+    /** A feed with one centre controller and nothing else. */
+    function centreFeed(): Response {
+      return okResponse(
+        JSON.stringify({
+          general: { update_timestamp: '2026-10-24T21:05:00Z' },
+          pilots: [],
+          controllers: [
+            { callsign: 'LON_C_CTR', name: 'Test Controller', frequency: '133.700', facility: 6 }
+          ],
+          atis: []
+        })
+      )
+    }
+
+    beforeEach(() => {
+      switches = { networkOn: false, simOn: false, atcOn: true }
+      chooseVatsim()
+    })
+
+    it('says it is off, and reads nothing, while its switch is off', async () => {
+      switches = { networkOn: false, simOn: false, atcOn: false }
+      service.start()
+      await clock.advance(120_000)
+      expect(atcLayer()).toEqual({ network: 'vatsim', state: 'off', areas: [], airports: [] })
+      expect(fetchMock).not.toHaveBeenCalled()
+      expect(published.layers.at(-1)).toMatchObject({ atcOn: false, drawAtc: false })
+    })
+
+    it('says no network is chosen, and reads nothing, even with its switch on', async () => {
+      settings = { ...settings, network: null }
+      service.start()
+      await clock.advance(120_000)
+      expect(atcLayer()).toEqual({ network: null, state: 'noNetwork', areas: [], airports: [] })
+      expect(published.layers.at(-1)).toMatchObject({ atcOn: true, drawAtc: false })
+      expect(fetchMock).not.toHaveBeenCalled()
+    })
+
+    it('reads nothing for IVAO without a VID (Regulation D.2), and says why', async () => {
+      settings = { ...settings, network: 'ivao', ivaoVid: null }
+      service.start()
+      await clock.advance(120_000)
+      expect(atcLayer()).toEqual({ network: 'ivao', state: 'needsVid', areas: [], airports: [] })
+      expect(fetchMock).not.toHaveBeenCalled()
+    })
+
+    it('reads the feed once a minute while it is the only thing drawing, and publishes the staffed airports of the whole network', async () => {
+      service.start()
+      await settle()
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+      await clock.advance(59_000)
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+      await clock.advance(1_000)
+      expect(fetchMock).toHaveBeenCalledTimes(2)
+      const layer = atcLayer()
+      expect(layer?.state).toBe('shown')
+      expect(
+        layer?.airports.map((a) => [a.icao, a.stations.map((s) => s.callsign), a.atis.map((x) => x.callsign)])
+      ).toEqual([
+        ['EGKK', ['EGKK_N_GND', 'EGKK_TWR'], ['EGKK_ATIS']],
+        ['EGLL', ['EGLL_2_GND'], ['EGLL_A_ATIS', 'EGLL_D_ATIS']]
+      ])
+      expect(layer?.areas).toEqual([])
+    })
+
+    it('draws a staffed centre as its area, with who is on it', async () => {
+      fetchMock.mockImplementation(() => Promise.resolve(centreFeed()))
+      service.start()
+      await settle()
+      const [area] = atcLayer()?.areas ?? []
+      expect(area).toMatchObject({ kind: 'centre', id: 'EGTT-C', name: 'London ACC (Central) - London' })
+      expect(area?.stations).toEqual([
+        { callsign: 'LON_C_CTR', frequency: '133.700', position: 'ctr', name: 'Test Controller' }
+      ])
+    })
+
+    it('publishes only what changed: a read that finds the same controllers publishes nothing', async () => {
+      service.start()
+      await clock.advance(60_000)
+      const count = published.atc.length
+      await clock.advance(60_000)
+      await clock.advance(60_000)
+      expect(fetchMock.mock.calls.length).toBeGreaterThanOrEqual(3)
+      expect(published.atc.length).toBe(count)
+    })
+
+    it('publishes the change when a controller logs on', async () => {
+      service.start()
+      await settle()
+      fetchMock.mockImplementation(() => Promise.resolve(centreFeed()))
+      await clock.advance(60_000)
+      expect(atcLayer()?.areas.map((a) => a.id)).toEqual(['EGTT-C'])
+      expect(atcLayer()?.airports).toEqual([])
+    })
+
+    it('has a switch of its own: it leaves the two traffic switches as they were, and they leave it', () => {
+      switches = { networkOn: true, simOn: false, atcOn: false }
+      service.start()
+      service.setAtcOn(true)
+      expect(switches).toEqual({ networkOn: true, simOn: false, atcOn: true })
+      service.setSimOn(true)
+      expect(switches).toEqual({ networkOn: false, simOn: true, atcOn: true })
+      service.setNetworkOn(true)
+      expect(switches).toEqual({ networkOn: true, simOn: false, atcOn: true })
+      service.setAtcOn(false)
+      expect(switches).toEqual({ networkOn: true, simOn: false, atcOn: false })
+    })
+
+    it('shows with the network traffic: the traffic layer’s 15 s read serves both', async () => {
+      switches = { networkOn: true, simOn: false, atcOn: true }
+      service.start()
+      await settle()
+      await clock.advance(15_000)
+      expect(fetchMock).toHaveBeenCalledTimes(2)
+      expect(published.layers.at(-1)).toMatchObject({ drawNetwork: true, drawAtc: true })
+      expect(atcLayer()?.airports.length).toBeGreaterThan(0)
+      expect(last()?.state).toBe('shown')
+    })
+
+    it('stops reading and says it is off when switched off, and starts again when switched on', async () => {
+      service.start()
+      await settle()
+      service.setAtcOn(false)
+      expect(atcLayer()).toEqual({ network: 'vatsim', state: 'off', areas: [], airports: [] })
+      await clock.advance(120_000)
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+      service.setAtcOn(true)
+      await settle()
+      expect(atcLayer()?.state).toBe('shown')
+      expect(atcLayer()?.airports.length).toBeGreaterThan(0)
+    })
+
+    it('says it is unavailable once the feed has failed for as long as the last answer is kept, with nothing drawn', async () => {
+      service.start()
+      await settle()
+      fetchMock.mockImplementation(() => Promise.reject(new Error('down')))
+      await clock.advance(60_000 + STALE_AFTER_MS + 1_000)
+      expect(atcLayer()).toEqual({ network: 'vatsim', state: 'unavailable', areas: [], airports: [] })
+    })
+
+    it('says it is unavailable when the bundled areas cannot be read, rather than drawing half of it', async () => {
+      areaData = null
+      service.start()
+      await settle()
+      expect(atcLayer()).toEqual({ network: 'vatsim', state: 'unavailable', areas: [], airports: [] })
+    })
+
+    it('is shown with nothing until the first read lands', () => {
+      fetchMock.mockImplementation(() => new Promise<Response>(() => undefined))
+      service.start()
+      expect(atcLayer()).toEqual({ network: 'vatsim', state: 'shown', areas: [], airports: [] })
     })
   })
 

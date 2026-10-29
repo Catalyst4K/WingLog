@@ -145,6 +145,42 @@ export interface NetworkControllers {
   airports: OnlineAirportStations[]
 }
 
+/** One staffed centre or approach area, with its shape: the map draws it and lists who is on it. */
+export interface AtcArea {
+  /** The area's id in the community data: the same on every refresh while it is staffed. */
+  id: string
+  kind: 'centre' | 'approach'
+  /** The community data's name for it, such as "London ACC (Central) - London". */
+  name: string
+  /** Where its label sits: [longitude, latitude]. */
+  at: [number, number]
+  /** The shape, as a MultiPolygon's coordinates: [longitude, latitude] pairs, rounded to 4 decimals. */
+  coordinates: number[][][][]
+  /** Who is on it, nearest the gate first. */
+  stations: OnlineStation[]
+}
+
+/** One airport with a staffed delivery, ground, tower or ATIS station, or an approach that has no area of its own. */
+export interface AtcAirport {
+  icao: string
+  /** [longitude, latitude]. */
+  at: [number, number]
+  stations: OnlineStation[]
+  atis: OnlineAtis[]
+}
+
+/**
+ * The `networkAtc` live topic: where the chosen network's controllers are, for the map's ATC layer (winglog-backend
+ * docs/plans/online-atc-map.md). The whole network, not just around the aircraft: only what is staffed is sent. 'off': the switch is off.
+ * 'noNetwork': none chosen. 'needsVid': IVAO with no VID. 'unavailable': the feed has been failing past the time the last answer is kept.
+ */
+export interface NetworkAtc {
+  network: OnlineNetwork | null
+  state: 'shown' | 'off' | 'noNetwork' | 'needsVid' | 'unavailable'
+  areas: AtcArea[]
+  airports: AtcAirport[]
+}
+
 /** The `trafficLayers` live topic: the shared switches and what actually draws. Decided in main, in one function. */
 export interface TrafficLayers {
   networkOn: boolean
@@ -152,7 +188,11 @@ export interface TrafficLayers {
   simOn: boolean
   /** Whether the screens offer the sim traffic button at all: the "Sim traffic button" setting. */
   simOffered: boolean
+  /** The ATC layer's switch: it does not touch the two traffic switches, so traffic and ATC can show together. */
+  atcOn: boolean
   /** What each screen draws now. */
   drawNetwork: boolean
   drawSim: boolean
+  /** The ATC layer draws when its switch is on and a network is chosen (for IVAO, with a VID). */
+  drawAtc: boolean
 }

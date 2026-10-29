@@ -13,6 +13,7 @@ import type { LatLon } from '@shared/geo'
 import type {
   AtisAnswer,
   AtisRequest,
+  NetworkAtc,
   NetworkTraffic,
   OnlineNetwork,
   OnlineNetworkSettings,
@@ -33,6 +34,9 @@ import {
 import { parseIvaoFeed } from './ivao-feed'
 import { stationsAt } from './airport-stations'
 import { answerAtis } from './atis-for-slot'
+import type { AreaData } from './atc-areas'
+import { buildAtcLayer } from './network-atc'
+import type { TrafficSwitches } from './online-settings'
 import { selfStatus, unknownStatus } from './self-status'
 import { decideTrafficLayers } from './traffic-layers'
 import { parseVatsimFeed } from './vatsim-feed'
@@ -76,9 +80,13 @@ export interface NetworkFeedDeps {
   /** The app's version, for the User-Agent. */
   appVersion: string
   settings: () => OnlineNetworkSettings
-  switches: () => { networkOn: boolean; simOn: boolean }
+  switches: () => TrafficSwitches
   /** Stores the new switches. */
-  saveSwitches: (switches: { networkOn: boolean; simOn: boolean }) => void
+  saveSwitches: (switches: TrafficSwitches) => void
+  /** The bundled ATC coverage areas, loaded on first use; null when the file cannot be read. */
+  atcAreas: () => AreaData | null
+  /** Where an airport is, by its ICAO code, or null when it is not known. */
+  airportAt: (icao: string) => LatLon | null
   /** Where to look around: the aircraft, else the departure airport of the flight shown, else null. */
   centre: () => LatLon | null
   /** The flight being tracked (its filed airports), or null when none is: the pilot's status is only looked up while one is. */
@@ -110,6 +118,8 @@ export class NetworkFeedService {
   private status: OnlineStatus = unknownStatus(null)
   /** The last controllers payload published, as text, so only a change is published. */
   private lastControllers = ''
+  /** The last ATC layer payload published, as text, for the same reason. */
+  private lastAtc = ''
   /** The callsign found by plan rather than member number: left out of the traffic. */
   private ownCallsign: string | null = null
   /** The network and callsign the pilot was last seen online with while airborne, for the flight's record. */
@@ -143,8 +153,8 @@ export class NetworkFeedService {
    * @param on The new state of the switch.
    */
   setNetworkOn(on: boolean): void {
-    const { simOn } = this.deps.switches()
-    this.deps.saveSwitches({ networkOn: on, simOn: on ? false : simOn })
+    const switches = this.deps.switches()
+    this.deps.saveSwitches({ ...switches, networkOn: on, simOn: on ? false : switches.simOn })
     this.refresh()
   }
 
@@ -154,8 +164,19 @@ export class NetworkFeedService {
    * @param on The new state of the switch.
    */
   setSimOn(on: boolean): void {
-    const { networkOn } = this.deps.switches()
-    this.deps.saveSwitches({ networkOn: on ? false : networkOn, simOn: on })
+    const switches = this.deps.switches()
+    this.deps.saveSwitches({ ...switches, networkOn: on ? false : switches.networkOn, simOn: on })
+    this.refresh()
+  }
+
+  /**
+   * Turns the ATC layer on or off for every screen, and remembers it. It does not touch the two traffic switches: ATC areas and traffic
+   * show together.
+   *
+   * @param on The new state of the switch.
+   */
+  setAtcOn(on: boolean): void {
+    this.deps.saveSwitches({ ...this.deps.switches(), atcOn: on })
     this.refresh()
   }
 
@@ -242,6 +263,7 @@ export class NetworkFeedService {
     }
     this.updateStatus()
     this.publishTraffic()
+    this.publishAtc()
     this.tick()
   }
 
@@ -277,7 +299,8 @@ export class NetworkFeedService {
       simOn: switches.simOn,
       network: settings.network,
       ivaoVidSet: settings.ivaoVid !== null,
-      simOffered: settings.simTrafficButton
+      simOffered: settings.simTrafficButton,
+      atcOn: switches.atcOn
     })
   }
 
@@ -285,13 +308,14 @@ export class NetworkFeedService {
    * @returns The network whose feed should be read now and why: its traffic is drawn, or only the pilot's own status is wanted (a flight
    *   is tracked). Null when neither, and always for IVAO without a VID.
    */
-  private wanted(): { network: OnlineNetwork; kind: 'traffic' | 'once' | 'status' } | null {
+  private wanted(): { network: OnlineNetwork; kind: 'traffic' | 'once' | 'atc' | 'status' } | null {
     const settings = this.deps.settings()
     const network = settings.network
     if (network === null || (network === 'ivao' && settings.ivaoVid === null)) return null
     // The traffic is read whenever its layer draws, with or without a position (the whole network without one).
     if (this.layers().drawNetwork) return { network, kind: 'traffic' }
     if (this.atisWaiters.length > 0) return { network, kind: 'once' }
+    if (this.layers().drawAtc) return { network, kind: 'atc' }
     return this.deps.trackedFlight() !== null ? { network, kind: 'status' } : null
   }
 
@@ -403,6 +427,7 @@ export class NetworkFeedService {
     this.clearStaleTimer()
     this.updateStatus()
     this.publishTraffic()
+    this.publishAtc()
     this.answerWaiters(true)
   }
 
@@ -477,11 +502,45 @@ export class NetworkFeedService {
       this.staleTimer = this.deps.timers.set(() => this.markUnavailable(), waitMs)
   }
 
-  /** Drops the last aircraft and says the feed is unavailable. */
+  /** Drops the last aircraft and controllers and says the feed is unavailable. */
   private markUnavailable(): void {
     this.staleTimer = null
     this.snapshot = null
     this.publishTraffic(true)
+    this.publishAtc(true)
+  }
+
+  /**
+   * Publishes the ATC layer for the current settings and snapshot, when it changed: the staffed areas and airports of the whole network,
+   * which are only sent while the layer draws.
+   *
+   * @param unavailable True when the feed has been failing past the time the last answer is kept.
+   */
+  private publishAtc(unavailable = false): void {
+    const settings = this.deps.settings()
+    const network = settings.network
+    const empty = { areas: [], airports: [] }
+    let atc: NetworkAtc
+    if (network === null) atc = { network, state: 'noNetwork', ...empty }
+    else if (network === 'ivao' && settings.ivaoVid === null) atc = { network, state: 'needsVid', ...empty }
+    else if (!this.layers().atcOn) atc = { network, state: 'off', ...empty }
+    else if (unavailable) atc = { network, state: 'unavailable', ...empty }
+    else {
+      const data = this.deps.atcAreas()
+      const snapshot = this.heldSnapshot(network)
+      // Nothing from the feed yet: shown with nothing, until the first read lands or fails. Without the bundled areas it cannot be drawn.
+      if (!data) atc = { network, state: 'unavailable', ...empty }
+      else
+        atc = {
+          network,
+          state: 'shown',
+          ...(snapshot ? buildAtcLayer(snapshot, data, this.deps.airportAt) : empty)
+        }
+    }
+    const text = JSON.stringify(atc)
+    if (text === this.lastAtc) return
+    this.lastAtc = text
+    this.deps.hub.publish('networkAtc', atc)
   }
 
   /**

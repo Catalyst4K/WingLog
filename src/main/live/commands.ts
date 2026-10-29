@@ -138,7 +138,7 @@ export function trackCommands(selection: {
 }
 
 /**
- * The traffic-layer commands: the two shared switches, for the network's traffic and the sim's own, on every screen.
+ * The traffic-layer commands: the three shared switches, for the network's traffic, the sim's own and the ATC areas, on every screen.
  *
  * @param feed Where a switch is sent.
  * @returns The table. A value that is not a boolean is refused.
@@ -146,6 +146,7 @@ export function trackCommands(selection: {
 export function trafficCommands(feed: {
   setNetworkOn(on: boolean): void
   setSimOn(on: boolean): void
+  setAtcOn(on: boolean): void
 }): CommandTable<TrafficCommand> {
   return {
     'traffic.setNetworkOn': (on) => {
@@ -155,6 +156,10 @@ export function trafficCommands(feed: {
     'traffic.setSimOn': (on) => {
       if (typeof on !== 'boolean') throw new Error('Invalid traffic switch')
       feed.setSimOn(on)
+    },
+    'traffic.setAtcOn': (on) => {
+      if (typeof on !== 'boolean') throw new Error('Invalid traffic switch')
+      feed.setAtcOn(on)
     }
   }
 }

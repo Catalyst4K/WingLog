@@ -1,15 +1,17 @@
 import { describe, expect, it, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import type { NetworkTraffic, TrafficLayers } from '@shared/ipc'
+import type { NetworkAtc, NetworkTraffic, TrafficLayers } from '@shared/ipc'
 import { MapControls, MapPills } from './MapOverlays'
 
 const LAYERS_OFF: TrafficLayers = {
   networkOn: false,
   simOn: false,
   simOffered: true,
+  atcOn: false,
   drawNetwork: false,
-  drawSim: false
+  drawSim: false,
+  drawAtc: false
 }
 const LAYERS_ON: TrafficLayers = { ...LAYERS_OFF, networkOn: true, drawNetwork: true }
 
@@ -20,7 +22,13 @@ function traffic(network: NetworkTraffic['network'], state: NetworkTraffic['stat
 type TrafficProp = NonNullable<Parameters<typeof MapControls>[0]['networkTraffic']>
 
 function controls(
-  networkTraffic: (Omit<TrafficProp, 'onToggleSim'> & { onToggleSim?: () => void }) | undefined,
+  networkTraffic:
+    | (Omit<TrafficProp, 'onToggleSim' | 'onToggleAtc' | 'atc'> & {
+        onToggleSim?: () => void
+        onToggleAtc?: () => void
+        atc?: NetworkAtc | null
+      })
+    | undefined,
   live = true
 ): void {
   render(
@@ -30,7 +38,9 @@ function controls(
       onToggleFollow={() => {}}
       vfrEnabled={false}
       onToggleVfr={() => {}}
-      networkTraffic={networkTraffic && { onToggleSim: () => {}, ...networkTraffic }}
+      networkTraffic={
+        networkTraffic && { onToggleSim: () => {}, onToggleAtc: () => {}, atc: null, ...networkTraffic }
+      }
       taxiChartEnabled={false}
       onToggleTaxiChart={() => {}}
       onZoomIn={() => {}}
@@ -129,6 +139,140 @@ describe('the sim traffic button', () => {
   ])('is not offered %s', (_case, layers) => {
     controls({ layers, traffic: traffic(null, 'noNetwork'), onToggle: () => {} })
     expect(screen.queryByRole('button', { name: /sim traffic/ })).not.toBeInTheDocument()
+  })
+})
+
+function atc(network: NetworkAtc['network'], state: NetworkAtc['state']): NetworkAtc {
+  return { network, state, areas: [], airports: [] }
+}
+
+describe('the ATC button', () => {
+  const LAYERS_ATC = { ...LAYERS_OFF, atcOn: true, drawAtc: true }
+
+  it('is hidden while no network is chosen, before the topic arrives, and on a finished flight', () => {
+    controls({
+      layers: LAYERS_OFF,
+      traffic: traffic(null, 'noNetwork'),
+      atc: atc(null, 'noNetwork'),
+      onToggle: () => {}
+    })
+    expect(screen.queryByRole('button', { name: /ATC/ })).not.toBeInTheDocument()
+    cleanup()
+    controls({ layers: LAYERS_OFF, traffic: traffic('vatsim', 'off'), atc: null, onToggle: () => {} })
+    expect(screen.queryByRole('button', { name: /ATC/ })).not.toBeInTheDocument()
+    cleanup()
+    controls(
+      {
+        layers: LAYERS_OFF,
+        traffic: traffic('vatsim', 'off'),
+        atc: atc('vatsim', 'off'),
+        onToggle: () => {}
+      },
+      false
+    )
+    expect(screen.queryByRole('button', { name: /ATC/ })).not.toBeInTheDocument()
+  })
+
+  it('offers to show the chosen network’s ATC while its switch is off, and sends its own toggle on click', async () => {
+    const onToggleAtc = vi.fn()
+    const onToggle = vi.fn()
+    controls({
+      layers: LAYERS_OFF,
+      traffic: traffic('vatsim', 'off'),
+      atc: atc('vatsim', 'off'),
+      onToggle,
+      onToggleAtc
+    })
+    const button = screen.getByRole('button', { name: 'Show VATSIM ATC' })
+    expect(button).toHaveAttribute('aria-pressed', 'false')
+    await userEvent.click(button)
+    expect(onToggleAtc).toHaveBeenCalledOnce()
+    expect(onToggle).not.toHaveBeenCalled()
+  })
+
+  it('reads as on, offering to hide, while its switch is on; and names IVAO for IVAO', () => {
+    controls({
+      layers: LAYERS_ATC,
+      traffic: traffic('vatsim', 'off'),
+      atc: atc('vatsim', 'shown'),
+      onToggle: () => {}
+    })
+    expect(screen.getByRole('button', { name: 'Hide VATSIM ATC' })).toHaveAttribute('aria-pressed', 'true')
+    cleanup()
+    controls({
+      layers: LAYERS_OFF,
+      traffic: traffic('ivao', 'off'),
+      atc: atc('ivao', 'off'),
+      onToggle: () => {}
+    })
+    expect(screen.getByRole('button', { name: 'Show IVAO ATC' })).toBeInTheDocument()
+  })
+
+  it('is disabled for IVAO without a VID, with a title that says what to do, and reads as off', () => {
+    controls({
+      layers: LAYERS_ATC,
+      traffic: traffic('ivao', 'needsVid'),
+      atc: atc('ivao', 'needsVid'),
+      onToggle: () => {}
+    })
+    const button = screen.getByRole('button', { name: 'Show IVAO ATC' })
+    expect(button).toBeDisabled()
+    expect(button).toHaveAttribute('aria-pressed', 'false')
+    expect(button).toHaveAttribute('title', 'Enter your IVAO VID in Settings to see IVAO ATC')
+  })
+
+  it('is a button of its own: pressed with traffic on, it does not read as the traffic button', () => {
+    controls({
+      layers: { ...LAYERS_ATC, networkOn: true, drawNetwork: true },
+      traffic: traffic('vatsim', 'shown'),
+      atc: atc('vatsim', 'shown'),
+      onToggle: () => {}
+    })
+    expect(screen.getByRole('button', { name: 'Hide VATSIM traffic' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Hide VATSIM ATC' })).toBeInTheDocument()
+  })
+})
+
+describe('the ATC pill', () => {
+  function atcPill(
+    state: NetworkAtc['state'],
+    drawAtc: boolean,
+    live = true,
+    network: 'vatsim' | 'ivao' = 'vatsim'
+  ): void {
+    render(
+      <MapPills
+        live={live}
+        telemetry={null}
+        phase={undefined}
+        transition={null}
+        vfr={{ enabled: false, nearestText: null }}
+        taxiChart={{ enabled: false, loadingIcao: null }}
+        routeIsApproximate={false}
+        atc={{ layers: { ...LAYERS_OFF, atcOn: true, drawAtc }, atc: atc(network, state) }}
+      />
+    )
+  }
+
+  it('says the ATC cannot be drawn, only while the layer draws and is unavailable', () => {
+    atcPill('unavailable', true)
+    expect(screen.getByText('VATSIM ATC unavailable')).toBeInTheDocument()
+  })
+
+  it('names IVAO for IVAO', () => {
+    atcPill('unavailable', true, true, 'ivao')
+    expect(screen.getByText('IVAO ATC unavailable')).toBeInTheDocument()
+  })
+
+  it.each([
+    ['shown', true, true],
+    ['off', true, true],
+    ['needsVid', true, true],
+    ['unavailable', false, true],
+    ['unavailable', true, false]
+  ] as const)('says nothing for %s with drawAtc %s and live %s', (state, drawAtc, live) => {
+    atcPill(state, drawAtc, live)
+    expect(screen.queryByText(/ATC unavailable/)).not.toBeInTheDocument()
   })
 })
 

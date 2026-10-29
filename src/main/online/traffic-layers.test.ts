@@ -6,7 +6,8 @@ const base: TrafficLayerInput = {
   simOn: false,
   network: null,
   ivaoVidSet: false,
-  simOffered: true
+  simOffered: true,
+  atcOn: false
 }
 
 describe('decideTrafficLayers', () => {
@@ -15,8 +16,48 @@ describe('decideTrafficLayers', () => {
       networkOn: false,
       simOn: false,
       simOffered: true,
+      atcOn: false,
       drawNetwork: false,
-      drawSim: false
+      drawSim: false,
+      drawAtc: false
+    })
+  })
+
+  describe('the ATC layer', () => {
+    it('draws once a network is chosen and its own switch is on, whatever the traffic switches say', () => {
+      for (const [networkOn, simOn] of [
+        [false, false],
+        [true, false],
+        [false, true]
+      ]) {
+        const layers = decideTrafficLayers({ ...base, network: 'vatsim', atcOn: true, networkOn, simOn })
+        expect(layers).toMatchObject({ atcOn: true, drawAtc: true })
+      }
+    })
+
+    it('does not draw with its switch off, however the network’s is', () => {
+      const layers = decideTrafficLayers({ ...base, network: 'vatsim', networkOn: true, atcOn: false })
+      expect(layers).toMatchObject({ atcOn: false, drawAtc: false, drawNetwork: true })
+    })
+
+    it('does not draw with no network chosen, but remembers that its switch is on', () => {
+      expect(decideTrafficLayers({ ...base, atcOn: true })).toMatchObject({ atcOn: true, drawAtc: false })
+    })
+
+    it('needs the VID for IVAO, and not for VATSIM', () => {
+      expect(decideTrafficLayers({ ...base, network: 'ivao', atcOn: true }).drawAtc).toBe(false)
+      expect(decideTrafficLayers({ ...base, network: 'ivao', ivaoVidSet: true, atcOn: true }).drawAtc).toBe(
+        true
+      )
+      expect(
+        decideTrafficLayers({ ...base, network: 'vatsim', ivaoVidSet: false, atcOn: true }).drawAtc
+      ).toBe(true)
+    })
+
+    it('does not depend on the sim traffic button being offered', () => {
+      expect(
+        decideTrafficLayers({ ...base, network: 'vatsim', atcOn: true, simOffered: false }).drawAtc
+      ).toBe(true)
     })
   })
 

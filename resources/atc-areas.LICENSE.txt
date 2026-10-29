@@ -1,0 +1,18 @@
+atc-areas.json
+
+Source: the VAT-Spy Data Project, https://github.com/vatsimnetwork/vatspy-data-project
+        (Boundaries.geojson and VATSpy.dat, release recorded in the file's "sources" field)
+        and the SimAware TRACON Project, https://github.com/vatsimnetwork/simaware-tracon-project
+        (TRACONBoundaries.geojson, release recorded in the same field).
+        Both are maintained by VATSIM's community data teams and their approved contributors.
+License: Creative Commons Attribution-ShareAlike 4.0 International (CC BY-SA 4.0)
+         https://creativecommons.org/licenses/by-sa/4.0/
+
+Changes made by WingLog (npm run data:atc-areas): the three files were merged into one JSON file. Only the area shapes, their label
+points and names, the callsign-prefix tables ([FIRs] and [UIRs] of VATSpy.dat) and the approach areas' prefixes were kept; everything else
+(airports, countries, other properties) was left out, and every coordinate was rounded to 4 decimal places (about 11 m). No shape was
+edited by hand.
+
+This file stays under CC BY-SA 4.0: anyone may copy and change it under those terms, with this notice and the same licence. It is data
+read by WingLog, a separate work; WingLog's own source code is not part of it and keeps its own licence. The data is provided as is,
+with no warranty of accuracy: the shapes are the community's best drawing of each facility's airspace, not an official source.

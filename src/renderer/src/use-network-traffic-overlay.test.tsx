@@ -73,8 +73,10 @@ const LAYERS_OFF: TrafficLayers = {
   networkOn: false,
   simOn: false,
   simOffered: true,
+  atcOn: false,
   drawNetwork: false,
-  drawSim: false
+  drawSim: false,
+  drawAtc: false
 }
 const LAYERS_ON: TrafficLayers = { ...LAYERS_OFF, networkOn: true, drawNetwork: true }
 

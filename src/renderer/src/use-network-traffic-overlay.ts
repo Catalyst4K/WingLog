@@ -8,17 +8,13 @@
  * between refreshes, once a second, timed from when this screen received the payload.
  */
 import { useEffect, useRef, useState, type MutableRefObject } from 'react'
-import {
-  Popup,
-  type GeoJSONSourceSpecification,
-  type Map as MapLibreMap,
-  type MapGeoJSONFeature
-} from 'maplibre-gl'
+import type { GeoJSONSourceSpecification, Map as MapLibreMap, MapGeoJSONFeature } from 'maplibre-gl'
 import { useTranslation } from 'react-i18next'
 import type { NetworkTraffic, SimTraffic, TrafficAircraft, TrafficLayers } from '@shared/ipc'
 import { useLiveClient } from './live/LiveClient'
 import { reportError } from './report-error'
 import { setSourceData } from './map-source'
+import { openTextPopup } from './flight-map/map-popup'
 import { addTrafficIcon, TRAFFIC_ICON_ID } from './flight-map/traffic-icon'
 import { popupLines, trafficFeatures, type TrafficFeatureProperties } from './flight-map/traffic-features'
 
@@ -138,7 +134,7 @@ function ensureTrafficLayers(
     map.on('click', id, (event) => {
       const feature: MapGeoJSONFeature | undefined = event.features?.[0]
       if (!feature) return
-      openPopup(map, event.lngLat, popupText(feature.properties as TrafficFeatureProperties))
+      openTextPopup(map, event.lngLat, popupText(feature.properties as TrafficFeatureProperties))
     })
     // The canvas's own cursor beats the container's (the grab hand, or the arrow while panning is locked).
     map.on('mouseenter', id, () => {
@@ -148,24 +144,6 @@ function ensureTrafficLayers(
       map.getCanvas().style.cursor = ''
     })
   }
-}
-
-/**
- * Opens a popup built from text nodes only: the lines came from a network feed, so none of it is ever parsed as HTML.
- *
- * @param map The map.
- * @param at Where the symbol was clicked.
- * @param lines The popup's lines.
- */
-function openPopup(map: MapLibreMap, at: { lng: number; lat: number }, lines: string[]): void {
-  const content = document.createElement('div')
-  lines.forEach((line, index) => {
-    const row = document.createElement('div')
-    if (index === 0) row.style.fontWeight = '600'
-    row.textContent = line
-    content.appendChild(row)
-  })
-  new Popup({ closeButton: true, maxWidth: '240px' }).setLngLat(at).setDOMContent(content).addTo(map)
 }
 
 /**

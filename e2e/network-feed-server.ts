@@ -24,8 +24,36 @@ export interface FeedScene {
    * ground and a tower controller are online, each with their own ATIS (D and H), the first line of each being the voice-server address.
    */
   station?: string
+  /**
+   * Invented London controllers, for the ATC layer: the Central sector's centre (LON_C_CTR, 133.700), Heathrow's director
+   * (EGLL_APP, 119.725) and tower (EGLL_TWR, 118.500). Their areas are in the bundled community data, so they draw on the map.
+   */
+  coverage?: boolean
+  /** More invented controllers, for a busier picture: a callsign, a frequency and VATSIM's facility number (the same on IVAO, by position). */
+  extraControllers?: { callsign: string; frequency: string; facility: number }[]
   /** An airport with a separate departure ATIS (letter L, runway 27R) and arrival ATIS (letter M, runway 27L), as VATSIM's busy airports run them. */
   splitStation?: string
+}
+
+/**
+ * @param cid An invented member number.
+ * @param callsign The controller's callsign.
+ * @param frequency The frequency, as VATSIM writes it (text, MHz).
+ * @param facility VATSIM's facility number (4 tower, 5 approach, 6 enroute).
+ * @returns A VATSIM-shaped controller.
+ */
+function vatsimController(cid: number, callsign: string, frequency: string, facility: number): object {
+  return {
+    cid,
+    name: 'Test Controller',
+    callsign,
+    frequency,
+    facility,
+    rating: 4,
+    server: 'TEST',
+    visual_range: 50,
+    text_atis: null
+  }
 }
 
 /**
@@ -56,21 +84,33 @@ export function vatsimBody(scene: FeedScene): string {
         ? [pilot(scene.self.cid, scene.self.callsign, scene.centre.lat, scene.centre.lon, 0)]
         : [])
     ],
-    controllers: scene.station
-      ? [
-          {
-            cid: 1000010,
-            name: 'Test Controller',
-            callsign: `${scene.station}_TWR`,
-            frequency: '118.700',
-            facility: 4,
-            rating: 4,
-            server: 'TEST',
-            visual_range: 50,
-            text_atis: null
-          }
-        ]
-      : [],
+    controllers: [
+      ...(scene.station
+        ? [
+            {
+              cid: 1000010,
+              name: 'Test Controller',
+              callsign: `${scene.station}_TWR`,
+              frequency: '118.700',
+              facility: 4,
+              rating: 4,
+              server: 'TEST',
+              visual_range: 50,
+              text_atis: null
+            }
+          ]
+        : []),
+      ...(scene.coverage
+        ? [
+            vatsimController(1000020, 'LON_C_CTR', '133.700', 6),
+            vatsimController(1000021, 'EGLL_APP', '119.725', 5),
+            vatsimController(1000022, 'EGLL_TWR', '118.500', 4)
+          ]
+        : []),
+      ...(scene.extraControllers ?? []).map((c, index) =>
+        vatsimController(1000100 + index, c.callsign, c.frequency, c.facility)
+      )
+    ],
     atis: [
       ...(scene.station
         ? [
@@ -110,6 +150,9 @@ export function vatsimBody(scene: FeedScene): string {
     ]
   })
 }
+
+/** IVAO's position names, by VATSIM's facility numbers. */
+const IVAO_POSITIONS: Record<number, string> = { 2: 'DEL', 3: 'GND', 4: 'TWR', 5: 'APP', 6: 'CTR' }
 
 /**
  * @param callsign The controller's callsign.
@@ -161,12 +204,30 @@ export function ivaoBody(scene: FeedScene): string {
         pilot(1, 'NEAR1', scene.centre.lat + 0.3, scene.centre.lon + 0.3),
         pilot(2, 'FAR1', -33.9, 151.2)
       ],
-      atcs: scene.station
-        ? [
-            ivaoController(`${scene.station}_GND`, 'GND', 121.6, 'D', 'INVENTED IVAO GROUND ATIS D'),
-            ivaoController(`${scene.station}_TWR`, 'TWR', 118.4, 'H', 'INVENTED IVAO TOWER ATIS H')
-          ]
-        : [],
+      atcs: [
+        ...(scene.station
+          ? [
+              ivaoController(`${scene.station}_GND`, 'GND', 121.6, 'D', 'INVENTED IVAO GROUND ATIS D'),
+              ivaoController(`${scene.station}_TWR`, 'TWR', 118.4, 'H', 'INVENTED IVAO TOWER ATIS H')
+            ]
+          : []),
+        ...(scene.coverage
+          ? [
+              ivaoController('LON_C_CTR', 'CTR', 133.7, 'Z', 'INVENTED IVAO CENTRE NOTE'),
+              ivaoController('EGLL_APP', 'APP', 119.725, 'K', 'INVENTED IVAO APPROACH ATIS K'),
+              ivaoController('EGLL_TWR', 'TWR', 118.5, 'H', 'INVENTED IVAO TOWER ATIS H')
+            ]
+          : []),
+        ...(scene.extraControllers ?? []).map((c) =>
+          ivaoController(
+            c.callsign,
+            IVAO_POSITIONS[c.facility] ?? 'TWR',
+            Number(c.frequency),
+            'A',
+            'INVENTED'
+          )
+        )
+      ],
       observers: [],
       followMe: []
     }

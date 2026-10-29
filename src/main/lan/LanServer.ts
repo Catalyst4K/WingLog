@@ -31,6 +31,7 @@ export const LAN_TOPICS: readonly LiveTopic[] = [
   'trafficLayers',
   'onlineStatus',
   'networkControllers',
+  'networkAtc',
   'storageStatus',
   'gsxRemoteStatus',
   'gsxRemoteServices',

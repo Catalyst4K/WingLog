@@ -64,7 +64,8 @@ one). For a flight with an alternate, switch **Arrival airport** to the alternat
 and approaches, which is handy for a diversion. **Weather…** shows the METARs for your departure,
 destination and alternate, and for any airport you look up, with the airport's live ATIS under each
 METAR when VATSIM or IVAO is chosen. A button between them such as **VATSIM ATC (2)…** shows who is
-online at your airports (see [Online networks](10-online-networks.md)).
+online at your airports, and the radio-mast button on the map shows where the network's controllers are (both in
+[Online networks](10-online-networks.md)).
 
 ## Finishing a flight
 

@@ -13,6 +13,8 @@ export const FEED_FLOOR_MS = 15_000
 export const TRAFFIC_INTERVAL_MS = 15_000
 /** The interval while only the pilot's own online status is wanted, milliseconds. */
 export const STATUS_INTERVAL_MS = 60_000
+/** The interval while only the map's ATC layer is drawn, milliseconds: controllers come and go slowly (about 35 MB an hour on VATSIM). */
+export const ATC_INTERVAL_MS = 60_000
 /** How long to wait after the 1st, 2nd, 3rd... failure in a row, seconds; the last holds for every later one. */
 const BACKOFF_S = [30, 60, 120, 240, 300]
 
@@ -34,9 +36,9 @@ export interface PollInput {
   network: OnlineNetwork | null
   /**
    * 'traffic': the map is showing it. 'once': a screen asked for the ATIS and the feed held is too old: one read as soon as the floor
-   * allows. 'status': only the pilot's own status. 'none': nothing needs the feed.
+   * allows. 'atc': only the map's ATC layer is drawing. 'status': only the pilot's own status. 'none': nothing needs the feed.
    */
-  wanted: 'traffic' | 'once' | 'status' | 'none'
+  wanted: 'traffic' | 'once' | 'atc' | 'status' | 'none'
 }
 
 /** What the step decides. */
@@ -57,7 +59,8 @@ export function initialPollState(): PollState {
  * @param wanted What needs the feed.
  * @returns The interval for it, milliseconds.
  */
-function intervalFor(wanted: 'traffic' | 'once' | 'status'): number {
+function intervalFor(wanted: 'traffic' | 'once' | 'atc' | 'status'): number {
+  if (wanted === 'atc') return ATC_INTERVAL_MS
   return wanted === 'status' ? STATUS_INTERVAL_MS : TRAFFIC_INTERVAL_MS
 }
 
