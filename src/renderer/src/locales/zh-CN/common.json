@@ -1014,6 +1014,8 @@
     "noPrefileLink": "此计划没有 {{network}} 的提交链接。",
     "beyondAtcHidden": "你在 {{network}} 在线时，BeyondATC 已隐藏。网络的管制员是唯一的声音。",
     "autoTuneWarning": "BeyondATC 的自动调频已开启，可能会把你的无线电调离 {{network}} 管制员的频率。在线时请在 BeyondATC 页面关闭自动调频。",
+    "badgeTitle": "在 {{network}} 在线，呼号 {{callsign}}。",
+    "badgeProbably": "可能在 {{network}} 在线，呼号 {{callsign}}：一名起飞和到达机场与你的航班相同的飞行员距你不到 5 海里。在设置中输入你的 CID 即可确认。",
     "atc": {
       "title": "你的机场在线管制 ({{network}})",
       "button": "{{network}} 管制 ({{online}})…",

@@ -69,16 +69,16 @@ On **Dispatch** (beside the OFP’s PDF button) and on **Track** (on the flight 
 
 ## Knowing you are online
 
-While a flight is being tracked, WingLog looks for you in the network’s feed about once a minute (or every 15 seconds while the traffic is shown, from the same download). The network’s own program (vPilot, Altitude and so on) is what connects you: WingLog only notices.
+While a flight is being tracked, WingLog looks for you in the network’s feed about once a minute (or every 15 seconds while the traffic is shown, from the same download). The network’s own program (vPilot, Altitude and so on) is what connects you: WingLog only notices. Once it has found you, a badge at the top right of every page shows the network and your callsign, for example **VATSIM · BAW123** (on the phone, in the flight bar along the top of Track). It goes when you go offline.
 
 - **With your CID or VID entered,** you are found by it.
-- **Without one (VATSIM only),** you are "probably" online if a pilot has filed the same departure and arrival as your flight and is within 5 nm of your aircraft.
+- **Without one (VATSIM only),** you are "probably" online if a pilot has filed the same departure and arrival as your flight and is within 5 nm of your aircraft. The badge then ends in a question mark.
 
 A flight you were online for while in the air is saved with the network and your callsign. The **Logbook** shows a VATSIM or IVAO badge on it, the callsign on its detail page, and offers **All / Online / VATSIM / IVAO** buttons above the list once you have flown online.
 
 ## BeyondATC while online
 
-Human controllers are the only voice when you are online, so WingLog hides BeyondATC’s clearance prompt and its taxi line, hides its frequency suggestions, and stops the auto step climb asking for levels. A note on Track says why. BeyondATC itself keeps running, and everything comes back when you are offline again. To keep it all anyway, turn on **Keep BeyondATC while online** in Settings → 3rd party → Online network.
+Human controllers are the only voice when you are online, so WingLog hides BeyondATC’s clearance prompt and its taxi line, hides its frequency suggestions, and stops the auto step climb asking for levels. The **Radios** card on the BeyondATC page says why, in place of its frequencies. BeyondATC itself keeps running, and everything comes back when you are offline again. To keep it all anyway, turn on **Keep BeyondATC while online** in Settings → 3rd party → Online network.
 
 BeyondATC’s **Auto-tune** is BeyondATC’s own setting, and WingLog never changes it for you. While it is on, BeyondATC can retune your radios to its own frequencies, away from the network’s controllers. So if BeyondATC is connected with Auto-tune on while you are online, WingLog shows a warning on Track (and the phone’s Track) and above the toggles in the **Radios** card on the BeyondATC page, even with **Keep BeyondATC while online** on. Turn **Auto-tune** off there or in BeyondATC and the warning goes.
 

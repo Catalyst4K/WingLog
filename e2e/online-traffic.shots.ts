@@ -197,9 +197,7 @@ test('a tracked flight flown online: the BeyondATC note, the ATC pop-up with the
     await page.getByRole('tab', { name: 'Track' }).click()
     await page.getByRole('button', { name: 'Free flight' }).click()
     await page.getByRole('button', { name: 'Start tracking' }).click()
-    await expect(page.getByText(/BeyondATC is hidden while you are online on VATSIM/)).toBeVisible({
-      timeout: 30_000
-    })
+    await expect(page.getByTitle('Online on VATSIM as TSTPIL1.')).toBeVisible({ timeout: 30_000 })
     const atcButton = page.getByRole('button', { name: 'VATSIM ATC (1)…' })
     await expect(atcButton).toBeVisible()
     // The map moves to the aircraft with the first track point, which is when its marker appears; then the tiles load.
@@ -208,7 +206,7 @@ test('a tracked flight flown online: the BeyondATC note, the ATC pop-up with the
     await snap(page, {
       file: '7-online-track.png',
       title: 'Tracked and found online (by CID)',
-      note: 'The note says why BeyondATC is hidden. Beside Weather, "VATSIM ATC (1)…" says one controller is online at your airports, with the map straight below.'
+      note: 'The header says "VATSIM · TSTPIL1", and Track has no BeyondATC note. Beside Weather, "VATSIM ATC (1)…" says one controller is online at your airports, with the map straight below.'
     })
 
     await atcButton.click()
@@ -244,7 +242,7 @@ test('a tracked flight flown online: the BeyondATC note, the ATC pop-up with the
     await snap(page, {
       file: '10-online-autotune-warning.png',
       title: "BeyondATC connected with auto-tune on, while you're online",
-      note: 'The amber warning under the BeyondATC note: auto-tune can retune your radios away from the network’s controllers. WingLog never switches it off itself.'
+      note: 'The amber warning, the only box at the top of Track: auto-tune can retune your radios away from the network’s controllers. WingLog never switches it off itself.'
     })
 
     await page.getByRole('tab', { name: 'BeyondATC' }).click()

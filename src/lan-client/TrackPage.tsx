@@ -25,8 +25,8 @@ import { ProcedureSelector } from '@/ProcedureSelector'
 import { AtcClearanceDialog } from '@/app/AppDialogs'
 import { useAtcClearancePrompt } from '@/app/use-prompts'
 import { AutoTuneOnlineWarning } from '@/online/AutoTuneOnlineWarning'
-import { BeyondAtcHiddenNote } from '@/online/BeyondAtcHiddenNote'
 import { OnlineAtcSection } from '@/online/OnlineAtc'
+import { OnlineBadge } from '@/online/OnlineBadge'
 import type { ProcedureAirports } from '@shared/procedure-selection'
 import { parseTransitionAltitudes } from '@shared/route'
 import type { LanConnection } from './lan-connection'
@@ -60,7 +60,7 @@ function useCollapsedAttribution(): void {
 }
 
 /**
- * The flight at a glance along the top: its number, the route, and the aircraft.
+ * The flight at a glance along the top: its number, the route, the aircraft, and the online badge while the pilot is online.
  *
  * @param props The flight being tracked.
  * @returns The element.
@@ -73,7 +73,10 @@ function FlightBanner({ flight }: { flight: LanFlight }): React.JSX.Element {
       <span className="truncate font-mono font-medium">
         {[flight.flightNumber, route].filter(Boolean).join(' · ')}
       </span>
-      {aircraft && <span className="shrink-0 text-muted-foreground">{aircraft}</span>}
+      <span className="flex shrink-0 items-center gap-2">
+        {aircraft && <span className="text-muted-foreground">{aircraft}</span>}
+        <OnlineBadge />
+      </span>
     </div>
   )
 }
@@ -322,7 +325,6 @@ function FlightHeader(props: {
         </p>
       )}
       {snapshot && <FlightBanner flight={snapshot.flight} />}
-      <BeyondAtcHiddenNote />
       <AutoTuneOnlineWarning />
       <OnlineAtcSection />
       {snapshot && <TimesBanner times={times} />}

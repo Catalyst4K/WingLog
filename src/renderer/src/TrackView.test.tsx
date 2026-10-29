@@ -410,7 +410,7 @@ describe('TrackView', () => {
       expect(screen.queryByRole('button', { name: 'File on IVAO' })).not.toBeInTheDocument()
     })
 
-    it('says why BeyondATC is hidden while the pilot is online, and says nothing otherwise', async () => {
+    it('has no BeyondATC note while the pilot is online, even with BeyondATC open: the header badge says so (Callum, 2026-10-29)', async () => {
       setWinglog({
         aircraftList: vi.fn().mockResolvedValue([]),
         flightList: vi.fn().mockResolvedValue([]),
@@ -421,12 +421,16 @@ describe('TrackView', () => {
           filedPlan: null,
           hidesBeyondAtc: true
         }),
-        onOnlineStatus: vi.fn(() => () => {})
+        onOnlineStatus: vi.fn(() => () => {}),
+        beyondAtcGetStatus: vi.fn().mockResolvedValue({ state: 'connected', lastError: null }),
+        onBeyondAtcStatus: vi.fn(() => () => {}),
+        beyondAtcGetState: vi.fn().mockResolvedValue({ ...EMPTY_BEYONDATC_STATE, autoTune: true }),
+        onBeyondAtcState: vi.fn(() => () => {})
       })
       renderTrack()
-      expect(
-        await screen.findByText(/BeyondATC is hidden while you are online on VATSIM/)
-      ).toBeInTheDocument()
+      // The auto-tune warning appearing proves the online status has arrived.
+      await screen.findByRole('alert')
+      expect(screen.queryByText(/BeyondATC is hidden/)).not.toBeInTheDocument()
     })
 
     it('warns while the pilot is online and a connected BeyondATC has auto-tune on', async () => {

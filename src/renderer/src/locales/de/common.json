@@ -1023,6 +1023,8 @@
     "noPrefileLink": "Dieser Plan hat keinen {{network}}-Aufgabelink.",
     "beyondAtcHidden": "BeyondATC ist ausgeblendet, solange du online bei {{network}} bist. Nur die Lotsen des Netzwerks sprechen.",
     "autoTuneWarning": "Die Auto-Einstellung von BeyondATC ist an und kann deine Funkgeräte umstellen, weg von den Lotsen bei {{network}}. Schalte die Auto-Einstellung auf der BeyondATC-Seite aus, solange du online bist.",
+    "badgeTitle": "Online bei {{network}} als {{callsign}}.",
+    "badgeProbably": "Wahrscheinlich online bei {{network}} als {{callsign}}: Ein Pilot mit Abflug und Ziel deines Flugs ist weniger als 5 NM von dir entfernt. Gib deine CID in den Einstellungen ein, um sicher zu sein.",
     "atc": {
       "title": "ATC online an deinen Flughäfen ({{network}})",
       "button": "{{network}}-ATC ({{online}})…",

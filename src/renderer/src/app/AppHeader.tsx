@@ -1,4 +1,4 @@
-/** The app's header: the tab strip and the sim connection badge. */
+/** The app's header: the tab strip, the online badge and the sim connection badge. */
 
 import { BookOpen, Plane, Radar, Radio, Route, Settings as SettingsIcon, Truck } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -7,6 +7,7 @@ import type { AppPage, SimConnectionStatus } from '@shared/ipc'
 import { Badge } from '@/components/ui/badge'
 import { TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { DevBuildBadge } from '../DevBuildBadge'
+import { OnlineBadge } from '../online/OnlineBadge'
 
 /**
  * The tabs, in order. GSX Remote Control and BeyondATC's own tabs are gated on their settings'
@@ -63,7 +64,7 @@ function connectionStatusVariant(status: SimConnectionStatus): 'default' | 'seco
 }
 
 /**
- * The header: one tab per enabled page, then the dev-build and connection badges.
+ * The header: one tab per enabled page, then the dev-build, online and connection badges.
  *
  * @param props Which optional tabs exist, the tab-click handler, and the sim connection status.
  * @returns The element.
@@ -105,6 +106,8 @@ export function AppHeader(props: {
       </TabsList>
       <div className="flex shrink-0 items-center gap-2">
         <DevBuildBadge />
+        {/* Not below sm: the tabs and the connection badge only just fit at 360 px. */}
+        <OnlineBadge className="hidden sm:inline-flex" />
         <Badge
           variant={connectionStatusVariant(simStatus)}
           title={connectionStatusLabel(simStatus, t)}
