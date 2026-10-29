@@ -94,6 +94,7 @@ describe('planRequest', () => {
 describe('flightFromOfp', () => {
   const ofp: DispatchOfp = {
     ofpId: '1759823700_ABC123',
+    airac: null,
     aircraftIcaoType: 'A320',
     aircraftRegistration: 'G-EUYB',
     flightNumber: 'BAW304',

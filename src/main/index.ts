@@ -47,6 +47,7 @@ import { registerAppHandlers } from './ipc/app-handlers'
 import { registerSettingsHandlers } from './ipc/settings-handlers'
 import { registerDispatchHandlers } from './ipc/dispatch-handlers'
 import { registerNavdataHandlers } from './ipc/navdata-handlers'
+import { createNavdataSignatureReader, signatureFilesFor } from './navdata/sim-navdata-signature'
 import { registerFlightHandlers, registerTrackingHandlers } from './ipc/tracking-handlers'
 import { registerGsxHandlers } from './ipc/gsx-handlers'
 import { registerGsxRemoteHandlers } from './ipc/gsx-remote-handlers'
@@ -398,7 +399,8 @@ function startApp(): void {
 
   // Navdata: its own short-lived SimConnect connection per refresh, separate from the live one (docs/navdata-notes.md). The services that
   // follow the flight shown (its navdata, taxi line and procedure choice) run here, whichever screen is open.
-  const navdataProvider = new SimFacilitiesProvider(db)
+  const readNavdataSignature = createNavdataSignatureReader(signatureFilesFor(app.isPackaged, process.env))
+  const navdataProvider = new SimFacilitiesProvider(db, undefined, undefined, readNavdataSignature)
   const flightServices = startFlightServices(ipcMain, {
     db,
     sim,
@@ -467,7 +469,7 @@ function startApp(): void {
   registerSettingsHandlers(ipcMain, { db, trackingController, trayController })
   registerAppHandlers(ipcMain, { updateService })
 
-  registerNavdataHandlers(ipcMain, { navdataProvider })
+  registerNavdataHandlers(ipcMain, { navdataProvider, readSignature: readNavdataSignature })
   recordParkedStandOnCompletion(db, sim, trackingController, navdataProvider)
 
   // CI packaging check (see .github/workflows/package.yml): proves the built

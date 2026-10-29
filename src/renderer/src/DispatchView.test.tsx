@@ -95,6 +95,7 @@ function makeFlight(overrides: Partial<Flight> = {}): Flight {
 function makeOfp(overrides: Partial<DispatchOfp> = {}): DispatchOfp {
   return {
     ofpId: 'ofp-1',
+    airac: null,
     aircraftIcaoType: 'A320',
     aircraftRegistration: 'G-ABCD',
     flightNumber: 'TA100',
@@ -146,6 +147,14 @@ function createWinglog(overrides: Record<string, unknown> = {}): typeof window.w
     flightCreate: vi.fn().mockResolvedValue(makeFlight()),
     weatherGetMetars: vi.fn().mockResolvedValue([]),
     airportSearch: vi.fn().mockResolvedValue([]),
+    navdataGetStatus: vi.fn().mockResolvedValue({
+      source: 'default',
+      cycle: null,
+      revision: null,
+      validTo: null,
+      calendarCycle: '2611',
+      state: 'default'
+    }),
     navdataRefreshAirport: vi.fn().mockResolvedValue(undefined),
     navdataHasAirport: vi.fn().mockResolvedValue(false),
     navdataListRunways: vi.fn().mockResolvedValue([]),
@@ -1009,6 +1018,38 @@ describe('DispatchView', () => {
     })
     render(<Harness initialOfp={makeOfp()} />)
     await waitFor(() => expect(selectTriggerNear('Approach')).toHaveTextContent('ILS 25R'))
+  })
+
+  it('warns in the Procedures card when the plan was made with a different AIRAC cycle from the sim’s', async () => {
+    window.winglog = createWinglog({
+      navdataGetStatus: vi.fn().mockResolvedValue({
+        source: 'navigraph',
+        cycle: '2611',
+        revision: '1',
+        validTo: '2026-11-25',
+        calendarCycle: '2611',
+        state: 'current'
+      })
+    })
+    render(<Harness initialOfp={makeOfp({ airac: '2610' })} />)
+    expect(
+      await screen.findByText(/This plan was made with AIRAC 2610, but your sim has 2611/)
+    ).toBeInTheDocument()
+  })
+
+  it('says nothing about the cycle when the plan and the sim agree', async () => {
+    const navdataGetStatus = vi.fn().mockResolvedValue({
+      source: 'navigraph',
+      cycle: '2611',
+      revision: '1',
+      validTo: '2026-11-25',
+      calendarCycle: '2611',
+      state: 'current'
+    })
+    window.winglog = createWinglog({ navdataGetStatus })
+    render(<Harness initialOfp={makeOfp({ airac: '2611' })} />)
+    await waitFor(() => expect(navdataGetStatus).toHaveBeenCalled())
+    expect(screen.queryByText(/This plan was made with AIRAC/)).not.toBeInTheDocument()
   })
 
   it('allows opening and setting an Advanced dispatch option, reflected in the button label', async () => {

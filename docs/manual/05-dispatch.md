@@ -49,6 +49,13 @@ change them right up until you land, on the Track page too.
 With BeyondATC turned on, WingLog reads your clearance and offers to fill these in for you (see
 [BeyondATC](07-beyondatc.md)).
 
+If your sim uses Navigraph's navigation data, the card tells you when it is out of step. It warns you
+when the data in your sim is an older AIRAC cycle than the current one (update it in the Navigraph
+Hub), and when your SimBrief plan was made with a different cycle from your sim's, because a route can
+fail to load in the sim when the two differ. If you use the sim's own data, which states no cycle,
+there is nothing to compare and the card says nothing. **Settings** shows which data WingLog sees (see
+[Settings](12-settings.md)).
+
 ## Starting the flight
 
 Press **Fly** to save the flight and go to Track. If another flight is already planned or being

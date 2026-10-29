@@ -111,6 +111,9 @@ export async function launchApp(options: LaunchAppOptions = {}): Promise<Launche
   env.WINGLOG_E2E_IVAO_URL = `http://127.0.0.1:${await unusedPort()}/ivao`
   // And the METARs the weather panel reads: a closed port, replaced by a test's own fake server.
   env.WINGLOG_E2E_METAR_URL = `http://127.0.0.1:${await unusedPort()}/metar`
+  // And the sim's navigation data, read from disk: an empty folder instead of this machine's own Navigraph install, so a run is the same
+  // everywhere. navdata-cycle.spec.ts fills it.
+  env.WINGLOG_E2E_APPDATA_DIR = join(userDataDir, 'fake-appdata')
   // The window is shown without taking the keyboard focus, on a second display when there is one, so a run doesn't interrupt other
   // work. Set WINGLOG_E2E_WINDOW=normal to watch a run like a normal launch, or hidden to show nothing; WINGLOG_E2E_DISPLAY picks a display.
   env.WINGLOG_E2E_WINDOW = process.env.WINGLOG_E2E_WINDOW ?? 'inactive'

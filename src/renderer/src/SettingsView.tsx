@@ -26,6 +26,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useResetSignal } from './hooks/use-reset-signal'
 import { asyncHandler, runAsync } from './report-error'
 import { BeyondAtcCard, CredentialsCard, GsxCard, GsxRemoteCard } from './settings/AddonCards'
+import { NavdataCard } from './navdata/NavdataCycle'
 import { OnlineNetworkCard } from './settings/OnlineNetworkCard'
 import { CloudSyncCard, DataCard } from './settings/DataCards'
 import {
@@ -243,6 +244,7 @@ export function SettingsView(
           <GsxRemoteCard gsxRemote={gsxRemote} />
           <BeyondAtcCard beyondAtc={beyondAtc} />
           <OnlineNetworkCard />
+          <NavdataCard />
         </TabsContent>
 
         <TabsContent value="data" className={PANEL}>

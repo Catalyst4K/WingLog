@@ -9,6 +9,7 @@ import type { IpcMain } from 'electron'
 import { IpcChannels, type NavdataProcedureKind } from '@shared/ipc'
 import { logger } from '../logging/logger'
 import type { NavdataProvider } from '../navdata/navdata-provider'
+import { navdataStatusOf, type NavdataSignature } from '../navdata/sim-navdata-signature'
 
 /**
  * A refresh that needs the sim: when the sim isn't running or is still loading, the cache keeps serving and the caller tries again
@@ -32,12 +33,16 @@ async function refreshQuietly(icao: string, what: string, refresh: () => Promise
  *
  * @param ipcMain Electron's IPC.
  * @param deps The navdata provider, shared with tracking (which records the stand a flight
- *   parked on).
+ *   parked on), and the reader of what the sim's navigation data is (from disk, never the sim).
  */
 export function registerNavdataHandlers(
   ipcMain: IpcMain,
-  { navdataProvider }: { navdataProvider: NavdataProvider }
+  {
+    navdataProvider,
+    readSignature
+  }: { navdataProvider: NavdataProvider; readSignature: () => NavdataSignature }
 ): void {
+  ipcMain.handle(IpcChannels.navdataGetStatus, () => navdataStatusOf(readSignature(), new Date()))
   ipcMain.handle(IpcChannels.navdataRefreshAirport, (_event, icao: string) =>
     refreshQuietly(icao, 'runways and procedures', () => navdataProvider.refreshAirport(icao))
   )

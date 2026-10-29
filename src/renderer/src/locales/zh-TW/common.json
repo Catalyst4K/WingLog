@@ -1035,5 +1035,15 @@
       "none": "沒有 {{network}} ATIS",
       "unavailable": "{{network}} ATIS 無法使用"
     }
+  },
+  "navdataCycle": {
+    "behind": "你的模擬器導航資料是 Navigraph AIRAC {{cycle}}，但目前的週期是 {{current}}。請在 Navigraph Hub 中更新。",
+    "planMismatch": "此計畫使用 AIRAC {{plan}} 製作，而你的模擬器是 {{sim}}。兩者不同時，航路可能無法在模擬器中載入：請更新模擬器資料或重新規劃航班。",
+    "cardTitle": "導航資料",
+    "cardDescription": "你的模擬器使用的導航資料。WingLog 會儲存從模擬器讀取的每個機場的資料，並在模擬器資料變化時重新讀取。",
+    "navigraph": "Navigraph AIRAC {{cycle}}，修訂 {{revision}}",
+    "navigraphValid": "Navigraph AIRAC {{cycle}}，修訂 {{revision}}，有效至 {{validTo}}",
+    "simOwn": "模擬器自帶的資料。無法讀取其週期，因此 WingLog 以 AIRAC 日曆為準（目前週期 {{current}}）。",
+    "statusCurrent": "已是目前週期（{{current}}）。"
   }
 }

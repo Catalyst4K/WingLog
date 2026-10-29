@@ -187,6 +187,7 @@ function makeFlight(overrides: Partial<Flight> = {}): LogbookFlight {
 function makeDispatchOfp(overrides: Partial<DispatchOfp> = {}): DispatchOfp {
   return {
     ofpId: 'ofp-1',
+    airac: null,
     aircraftIcaoType: 'A35K',
     aircraftRegistration: 'G-XWBS',
     flightNumber: 'BAW31',
@@ -282,6 +283,14 @@ function buildWinglog(overrides: Partial<WingLogApi> = {}): WingLogApi {
     trackingSetDeparture: vi.fn().mockResolvedValue(undefined),
     weatherGetMetars: vi.fn().mockResolvedValue([]),
     trackingSetProcedureSelection: vi.fn().mockResolvedValue(undefined),
+    navdataGetStatus: vi.fn().mockResolvedValue({
+      source: 'default',
+      cycle: null,
+      revision: null,
+      validTo: null,
+      calendarCycle: '2611',
+      state: 'default'
+    }),
     navdataRefreshAirport: vi.fn().mockResolvedValue(undefined),
     navdataListRunways: vi.fn().mockResolvedValue([]),
     navdataListSids: vi.fn().mockResolvedValue([]),
@@ -926,6 +935,24 @@ describe('TrackView', () => {
     expect(screen.getByText('Start tracking')).toBeInTheDocument()
     expect(screen.getByText('Procedures…')).toBeInTheDocument()
     expect(screen.getByText('Nothing selected yet')).toBeInTheDocument()
+  })
+
+  it('warns in the Procedures dialog when the sim’s Navigraph data is a cycle behind', async () => {
+    setWinglog({
+      aircraftList: vi.fn().mockResolvedValue([AIRCRAFT]),
+      flightList: vi.fn().mockResolvedValue([makeFlight()]),
+      navdataGetStatus: vi.fn().mockResolvedValue({
+        source: 'navigraph',
+        cycle: '2610',
+        revision: '1',
+        validTo: '2026-10-28',
+        calendarCycle: '2611',
+        state: 'behind'
+      })
+    })
+    renderTrack()
+    await userEvent.click(await screen.findByRole('button', { name: 'Procedures…' }))
+    expect(await screen.findByText(/Navigraph AIRAC 2610, but 2611 is the current cycle/)).toBeInTheDocument()
   })
 
   it('shows the joined selection summary instead of "Nothing selected yet" once something is chosen', async () => {

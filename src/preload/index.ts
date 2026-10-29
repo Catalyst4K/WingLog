@@ -268,6 +268,7 @@ const api: WingLogApi = {
   appOpenGithub: () => ipcRenderer.invoke(IpcChannels.appOpenGithub),
   appOpenManual: () => ipcRenderer.invoke(IpcChannels.appOpenManual),
   navdataRefreshAirport: (icao: string) => ipcRenderer.invoke(IpcChannels.navdataRefreshAirport, icao),
+  navdataGetStatus: () => ipcRenderer.invoke(IpcChannels.navdataGetStatus),
   navdataHasAirport: (icao: string) => ipcRenderer.invoke(IpcChannels.navdataHasAirport, icao),
   navdataListRunways: (icao: string) => ipcRenderer.invoke(IpcChannels.navdataListRunways, icao),
   navdataListSids: (icao: string, runway?: string | null) =>

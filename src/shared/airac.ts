@@ -19,6 +19,32 @@ export function airacCycleStart(at: Date): Date {
 }
 
 /**
+ * The AIRAC cycle's number as the data providers write it: the year's last two digits, then the cycle's place in that year (2611 is the
+ * eleventh cycle of 2026). A year's cycles are counted from the first to take effect in it.
+ *
+ * @param at The moment.
+ * @returns The cycle in force at that moment, such as "2611".
+ */
+export function airacCycleNumber(at: Date): string {
+  const start = airacCycleStart(at)
+  const year = start.getUTCFullYear()
+  const place = Math.floor((start.getTime() - Date.UTC(year, 0, 1)) / AIRAC_CYCLE_MS) + 1
+  return `${String(year % 100).padStart(2, '0')}${String(place).padStart(2, '0')}`
+}
+
+/**
+ * Whether data fetched at one moment predates a cutoff.
+ *
+ * @param fetchedAtIso When the data was fetched, as an ISO time.
+ * @param cutoffMs The moment it had to be fetched after.
+ * @returns True when it was fetched before the cutoff. False for a time that doesn't parse.
+ */
+export function fetchedBefore(fetchedAtIso: string, cutoffMs: number): boolean {
+  const fetched = Date.parse(fetchedAtIso)
+  return Number.isFinite(fetched) && fetched < cutoffMs
+}
+
+/**
  * Whether data fetched at one moment predates the cycle in force at another.
  *
  * @param fetchedAtIso When the data was fetched, as an ISO time.
@@ -26,6 +52,5 @@ export function airacCycleStart(at: Date): Date {
  * @returns True when a new cycle has taken effect since the fetch. False for a time that doesn't parse.
  */
 export function predatesCurrentCycle(fetchedAtIso: string, now: Date): boolean {
-  const fetched = Date.parse(fetchedAtIso)
-  return Number.isFinite(fetched) && fetched < airacCycleStart(now).getTime()
+  return fetchedBefore(fetchedAtIso, airacCycleStart(now).getTime())
 }
