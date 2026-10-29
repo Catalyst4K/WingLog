@@ -6,7 +6,7 @@ import { launchApp } from './launch-app'
 
 /**
  * Which navigation data the sim has, read from a fake Navigraph install in the test's own app-data folder
- * (winglog-backend docs/plans/navdata-cycle-check.md). The launcher points the app at `<profile>/fake-appdata`, so no run reads this
+ * (winglog-backend docs/plans/navdata-cycle-check.md). The launcher points the app at `<profile>/fake-msfs`, so no run reads this
  * machine's real Navigraph files; the cycles used are an ancient one and a far-future one, so the test does not depend on the date.
  */
 
@@ -15,7 +15,7 @@ import { launchApp } from './launch-app'
  * @param cycle The cycle the fake Navigraph package states, or null for no Navigraph at all.
  */
 function installNavigraph(profile: string, cycle: string | null): void {
-  const cfgDir = join(profile, 'fake-appdata', 'Microsoft Flight Simulator 2024')
+  const cfgDir = join(profile, 'fake-msfs')
   const packages = join(profile, 'fake-packages')
   mkdirSync(cfgDir, { recursive: true })
   writeFileSync(join(cfgDir, 'UserCfg.opt'), `InstalledPackagesPath "${packages}"\r\n`)

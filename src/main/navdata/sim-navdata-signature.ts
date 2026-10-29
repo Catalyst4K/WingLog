@@ -9,6 +9,7 @@
 import { existsSync, readFileSync, statSync } from 'node:fs'
 import { isAbsolute, join } from 'node:path'
 import { airacCycleNumber } from '@shared/airac'
+import { thisMachinesMsfsUserCfgPaths } from '../platform/this-machine'
 import type { NavdataStatus } from '@shared/ipc'
 
 /** What the sim's navigation data is. */
@@ -27,8 +28,8 @@ export type NavdataSignature =
 
 /** The disk, as far as this module reads it: injected so the tests need no sim and no Navigraph. */
 export interface SignatureFiles {
-  localAppData: string | undefined
-  appData: string | undefined
+  /** Where MSFS 2024's `UserCfg.opt` may be, in order. */
+  userCfgPaths: string[]
   /** The file's text, or null when it is missing, unreadable or longer than `maxBytes`. */
   readText: (path: string, maxBytes: number) => string | null
   /** The file's modified time, or null when it is missing. */
@@ -39,23 +40,6 @@ const CFG_MAX_BYTES = 512 * 1024
 const CYCLE_MAX_BYTES = 4 * 1024
 /** How long a read is reused: an airport used twice in a second does not read the disk twice. */
 const READ_TTL_MS = 30_000
-
-/**
- * The places MSFS 2024 keeps its `UserCfg.opt`, which names the packages folder: the Microsoft Store build, then Steam's. WingLog
- * talks to MSFS 2024 only, so MSFS 2020's folders are not looked at.
- *
- * @param files The disk.
- * @returns The candidate paths, in order.
- */
-function userCfgPaths(files: SignatureFiles): string[] {
-  const paths: string[] = []
-  if (files.localAppData)
-    paths.push(
-      join(files.localAppData, 'Packages', 'Microsoft.Limitless_8wekyb3d8bbwe', 'LocalCache', 'UserCfg.opt')
-    )
-  if (files.appData) paths.push(join(files.appData, 'Microsoft Flight Simulator 2024', 'UserCfg.opt'))
-  return paths
-}
 
 /**
  * @param cfgText A `UserCfg.opt`.
@@ -95,7 +79,7 @@ export function parseNavigraphCycle(text: string, installedAtMs: number): Navdat
  * @returns What the sim's navigation data is: Navigraph's package when it is installed, else the sim's own.
  */
 export function readNavdataSignature(files: SignatureFiles): NavdataSignature {
-  for (const cfgPath of userCfgPaths(files)) {
+  for (const cfgPath of files.userCfgPaths) {
     const cfg = files.readText(cfgPath, CFG_MAX_BYTES)
     const packages = cfg === null ? null : parsePackagesPath(cfg)
     if (!packages) continue
@@ -140,8 +124,7 @@ export function createNavdataSignatureReader(
  */
 export function realSignatureFiles(): SignatureFiles {
   return {
-    localAppData: process.env.LOCALAPPDATA,
-    appData: process.env.APPDATA,
+    userCfgPaths: thisMachinesMsfsUserCfgPaths(),
     readText: (path, maxBytes) => {
       try {
         if (!existsSync(path) || statSync(path).size > maxBytes) return null
@@ -163,16 +146,16 @@ export function realSignatureFiles(): SignatureFiles {
 /**
  * @param isPackaged Whether this is an installed build.
  * @param env The environment.
- * @returns The disk to read: the real one, except that an end-to-end run of an unpackaged build is pointed at a folder of its own as
- *   the roaming app data (with no local one), so a test never reads this machine's own Navigraph install.
+ * @returns The disk to read: the real one, except that an end-to-end run of an unpackaged build is pointed at a folder of its own for
+ *   `UserCfg.opt`, so a test never reads this machine's own Navigraph install.
  */
 export function signatureFilesFor(
   isPackaged: boolean,
   env: Record<string, string | undefined>
 ): SignatureFiles {
   const real = realSignatureFiles()
-  const dir = isPackaged ? undefined : env.WINGLOG_E2E_APPDATA_DIR
-  return dir ? { ...real, localAppData: undefined, appData: dir } : real
+  const dir = isPackaged ? undefined : env.WINGLOG_E2E_MSFS_DIR
+  return dir ? { ...real, userCfgPaths: [join(dir, 'UserCfg.opt')] } : real
 }
 
 /**

@@ -38,8 +38,7 @@ const cycleFileIn = (packages: string): string =>
 /** A disk of named files: the text of each, and when it was written. */
 function disk(files: Record<string, string>, modified = INSTALLED_MS): SignatureFiles {
   return {
-    localAppData: LOCAL,
-    appData: ROAMING,
+    userCfgPaths: [STORE_CFG, STEAM_CFG],
     readText: (path, maxBytes) => {
       const text = files[path]
       return text === undefined || text.length > maxBytes ? null : text
@@ -121,7 +120,7 @@ describe('readNavdataSignature', () => {
       readNavdataSignature(disk({ [STORE_CFG]: cfgWith(PACKAGES), [cycleFileIn(PACKAGES)]: 'not json' }))
     ).toEqual({ source: 'default' })
     expect(readNavdataSignature(disk({}))).toEqual({ source: 'default' })
-    expect(readNavdataSignature({ ...disk({}), localAppData: undefined, appData: undefined })).toEqual({
+    expect(readNavdataSignature({ ...disk({}), userCfgPaths: [] })).toEqual({
       source: 'default'
     })
   })
@@ -150,17 +149,16 @@ describe('createNavdataSignatureReader', () => {
 })
 
 describe('signatureFilesFor', () => {
-  const folder = join('C:', 'temp', 'fake-appdata')
+  const folder = join('C:', 'temp', 'fake-msfs')
 
-  it('points an unpackaged end-to-end run at its own folder, with no local app data, so it never reads this machine’s install', () => {
-    const files = signatureFilesFor(false, { WINGLOG_E2E_APPDATA_DIR: folder })
-    expect(files.appData).toBe(folder)
-    expect(files.localAppData).toBeUndefined()
+  it('points an unpackaged end-to-end run at a UserCfg.opt of its own, so it never reads this machine’s install', () => {
+    const files = signatureFilesFor(false, { WINGLOG_E2E_MSFS_DIR: folder })
+    expect(files.userCfgPaths).toEqual([join(folder, 'UserCfg.opt')])
   })
 
   it('ignores the override in an installed build', () => {
-    const files = signatureFilesFor(true, { WINGLOG_E2E_APPDATA_DIR: folder })
-    expect(files.appData).not.toBe(folder)
+    const files = signatureFilesFor(true, { WINGLOG_E2E_MSFS_DIR: folder })
+    expect(files.userCfgPaths).not.toContain(join(folder, 'UserCfg.opt'))
   })
 
   it('reads the real disk, where a file that is not there is simply not there', () => {
