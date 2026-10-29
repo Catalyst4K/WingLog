@@ -673,7 +673,6 @@
     "trafficOnGround": "На земле",
     "showSimTraffic": "Показать трафик симулятора",
     "hideSimTraffic": "Скрыть трафик симулятора",
-    "simTrafficBlocked": "Выключено, пока показан трафик {{network}}",
     "simTrafficUnavailable": "Трафик симулятора недоступен"
   },
   "logbookView": {

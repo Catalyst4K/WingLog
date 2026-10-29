@@ -144,7 +144,8 @@ test.describe('Online network traffic', () => {
       await expect(page.getByText('Sim traffic unavailable')).toBeHidden()
       expect(feed.requests).toHaveLength(0)
 
-      // Turn it on, then the network layer: the sim's button gives way and says why, and the switch is not lost.
+      // Turn it on, then the network layer: the network's turns the sim's off, and pressing the sim's turns the network's off (Callum,
+      // 2026-10-29).
       await page.evaluate(async () => {
         const w = (globalThis as unknown as { winglog: Winglog }).winglog
         await w.settingsSetOnlineNetwork({
@@ -157,14 +158,14 @@ test.describe('Online network traffic', () => {
         await w.trafficSetSimOn(true)
         await w.trafficSetNetworkOn(true)
       })
-      const blocked = page.getByRole('button', { name: 'Show sim traffic' })
-      await expect(blocked).toBeDisabled()
-      await expect(blocked).toHaveAttribute('title', 'Off while VATSIM traffic is shown')
+      await expect(page.getByRole('button', { name: 'Hide VATSIM traffic' })).toBeVisible()
+      const simButton = page.getByRole('button', { name: 'Show sim traffic' })
+      await expect(simButton).toBeEnabled()
       await expect.poll(() => latestTopic(phone, 'simTraffic')?.state).toBe('off')
-
-      // The network layer off again: the sim's comes back as it was.
-      await page.evaluate(() => (globalThis as unknown as Window).winglog.trafficSetNetworkOn(false))
+      await simButton.click()
       await expect(page.getByRole('button', { name: 'Hide sim traffic' })).toBeEnabled()
+      await expect(page.getByRole('button', { name: 'Show VATSIM traffic' })).toBeVisible()
+      await expect.poll(() => latestTopic(phone, 'trafficLayers')).toMatchObject({ networkOn: false, simOn: true })
 
       // Its button switched off in Settings: gone from the PC's map, the phone told so, and the layer stops. On again, it is back as its
       // switch was.

@@ -120,22 +120,25 @@ export class NetworkFeedService {
   }
 
   /**
-   * Turns the network layer on or off for every screen, and remembers it.
+   * Turns the network layer on or off for every screen, and remembers it. Turning it on turns the sim's layer off: the two switch each
+   * other off (Callum, 2026-10-29).
    *
    * @param on The new state of the switch.
    */
   setNetworkOn(on: boolean): void {
-    this.deps.saveSwitches({ ...this.deps.switches(), networkOn: on })
+    const { simOn } = this.deps.switches()
+    this.deps.saveSwitches({ networkOn: on, simOn: on ? false : simOn })
     this.refresh()
   }
 
   /**
-   * Turns the sim's own traffic layer on or off for every screen, and remembers it.
+   * Turns the sim's own traffic layer on or off for every screen, and remembers it. Turning it on turns the network's layer off.
    *
    * @param on The new state of the switch.
    */
   setSimOn(on: boolean): void {
-    this.deps.saveSwitches({ ...this.deps.switches(), simOn: on })
+    const { networkOn } = this.deps.switches()
+    this.deps.saveSwitches({ networkOn: on ? false : networkOn, simOn: on })
     this.refresh()
   }
 

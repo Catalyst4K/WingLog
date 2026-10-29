@@ -104,8 +104,7 @@ describe('electronLiveClient (live-data-seam.md, part C)', () => {
       networkOn: true,
       simOn: false,
       drawNetwork: true,
-      drawSim: false,
-      simBlockedByNetwork: false
+      drawSim: false
     }
     api.getNetworkTraffic = vi.fn().mockResolvedValue(traffic)
     api.getTrafficLayers = vi.fn().mockResolvedValue(layers)

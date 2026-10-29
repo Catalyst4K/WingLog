@@ -1,6 +1,7 @@
 /**
- * Which traffic layers draw. The one place the "never both" rule lives: while the network's traffic is drawn the sim's is not, whatever
- * its switch says (the network's pilots are also injected into the sim, so both would draw the same aircraft twice).
+ * Which traffic layers draw. The one place the "never both" rule lives: the network's pilots are also injected into the sim, so both
+ * would draw the same aircraft twice. The switches turn each other off (`NetworkFeedService`), so both are only on together when stored
+ * that way by a build from before (Callum, 2026-10-29); then the network's wins and the sim's reads as off.
  */
 import type { OnlineNetwork, TrafficLayers } from '@shared/ipc'
 
@@ -16,18 +17,17 @@ export interface TrafficLayerInput {
 
 /**
  * @param input The switches, the chosen network and whether the sim traffic button is offered.
- * @returns Which layers draw, and whether the sim's was held back by the network's.
+ * @returns Which layers draw.
  */
 export function decideTrafficLayers(input: TrafficLayerInput): TrafficLayers {
   const networkChosen = input.network !== null && (input.network !== 'ivao' || input.ivaoVidSet)
   const drawNetwork = input.networkOn && networkChosen
-  const simWanted = input.simOffered && input.simOn
+  const simOn = input.simOn && !drawNetwork
   return {
     networkOn: input.networkOn,
-    simOn: input.simOn,
+    simOn,
     simOffered: input.simOffered,
     drawNetwork,
-    drawSim: simWanted && !drawNetwork,
-    simBlockedByNetwork: simWanted && drawNetwork
+    drawSim: input.simOffered && simOn
   }
 }

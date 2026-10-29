@@ -74,8 +74,7 @@ const LAYERS_OFF: TrafficLayers = {
   simOn: false,
   simOffered: true,
   drawNetwork: false,
-  drawSim: false,
-  simBlockedByNetwork: false
+  drawSim: false
 }
 const LAYERS_ON: TrafficLayers = { ...LAYERS_OFF, networkOn: true, drawNetwork: true }
 
@@ -414,7 +413,7 @@ describe('useNetworkTrafficOverlay', () => {
     it('shows nothing of the sim while the layers say the network draws', async () => {
       const fake = fakeMap()
       const { client } = fakeClient({
-        layers: { ...LAYERS_ON, simOn: true, simBlockedByNetwork: true },
+        layers: LAYERS_ON,
         traffic: shown(aircraft('NET1')),
         sim: simShown(aircraft('UAL1'))
       })

@@ -16,8 +16,7 @@ describe('decideTrafficLayers', () => {
       simOn: false,
       simOffered: true,
       drawNetwork: false,
-      drawSim: false,
-      simBlockedByNetwork: false
+      drawSim: false
     })
   })
 
@@ -44,7 +43,6 @@ describe('decideTrafficLayers', () => {
   it('draws the sim layer when its switch is on', () => {
     const layers = decideTrafficLayers({ ...base, simOn: true })
     expect(layers.drawSim).toBe(true)
-    expect(layers.simBlockedByNetwork).toBe(false)
   })
 
   it('neither offers nor draws the sim layer when its button is switched off in Settings, whatever its switch says', () => {
@@ -52,27 +50,13 @@ describe('decideTrafficLayers', () => {
     expect(layers).toMatchObject({
       simOn: true,
       simOffered: false,
-      drawSim: false,
-      simBlockedByNetwork: false
+      drawSim: false
     })
-    // Not "held back by the network" either: there is no button to grey out.
-    expect(
-      decideTrafficLayers({ ...base, networkOn: true, network: 'vatsim', simOn: true, simOffered: false })
-        .simBlockedByNetwork
-    ).toBe(false)
   })
 
-  it('never draws both: the network layer holds the sim layer back, whatever its switch says', () => {
+  it('never draws both: with both switches stored on (a build from before they switched each other off), the network wins and the sim reads as off', () => {
     const layers = decideTrafficLayers({ ...base, networkOn: true, simOn: true, network: 'vatsim' })
-    expect(layers.drawNetwork).toBe(true)
-    expect(layers.drawSim).toBe(false)
-    expect(layers.simBlockedByNetwork).toBe(true)
-  })
-
-  it('lets the sim layer come back as it was when the network layer stops drawing', () => {
-    const layers = decideTrafficLayers({ ...base, networkOn: false, simOn: true, network: 'vatsim' })
-    expect(layers.drawSim).toBe(true)
-    expect(layers.simBlockedByNetwork).toBe(false)
+    expect(layers).toMatchObject({ drawNetwork: true, simOn: false, drawSim: false })
   })
 
   it('does not block the sim layer for an IVAO choice that draws nothing yet (no VID)', () => {

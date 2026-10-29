@@ -270,13 +270,13 @@ describe('NetworkFeedService', () => {
       expect(last()?.state).toBe('off')
     })
 
-    it('holds the sim layer back while the network layer draws', async () => {
+    it('draws only the network layer when both switches are stored on, and shows the sim switch off', async () => {
       switches = { networkOn: true, simOn: true }
       service.start()
       expect(published.layers.at(-1)).toMatchObject({
         drawNetwork: true,
-        drawSim: false,
-        simBlockedByNetwork: true
+        simOn: false,
+        drawSim: false
       })
     })
   })
@@ -293,14 +293,22 @@ describe('NetworkFeedService', () => {
       expect(told.at(-1)?.drawSim).toBe(false)
     })
 
-    it('is told it must stop when the network layer takes over, and starts again when that ends', () => {
+    it('and the network layer switch each other off: turning one on turns the other off, and it stays off (Callum, 2026-10-29)', () => {
       switches = { networkOn: false, simOn: true }
       service.start()
       expect(told.at(-1)?.drawSim).toBe(true)
       service.setNetworkOn(true)
-      expect(told.at(-1)).toMatchObject({ drawSim: false, simBlockedByNetwork: true })
+      expect(switches).toEqual({ networkOn: true, simOn: false })
+      expect(told.at(-1)).toMatchObject({ drawNetwork: true, drawSim: false, simOn: false })
+      service.setSimOn(true)
+      expect(switches).toEqual({ networkOn: false, simOn: true })
+      expect(told.at(-1)).toMatchObject({ drawNetwork: false, drawSim: true })
+      // Turning one off leaves the other as it is.
+      service.setSimOn(false)
+      expect(switches).toEqual({ networkOn: false, simOn: false })
+      service.setNetworkOn(true)
       service.setNetworkOn(false)
-      expect(told.at(-1)?.drawSim).toBe(true)
+      expect(switches).toEqual({ networkOn: false, simOn: false })
     })
 
     it('is neither offered nor drawn once its button is switched off in Settings, and the sim reader is told to stop', () => {

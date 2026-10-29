@@ -654,7 +654,6 @@
     "trafficOnGround": "Au sol",
     "showSimTraffic": "Afficher le trafic du sim",
     "hideSimTraffic": "Masquer le trafic du sim",
-    "simTrafficBlocked": "Désactivé tant que le trafic {{network}} est affiché",
     "simTrafficUnavailable": "Trafic du sim indisponible"
   },
   "logbookView": {
