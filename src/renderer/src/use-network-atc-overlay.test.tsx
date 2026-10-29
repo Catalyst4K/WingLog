@@ -375,6 +375,37 @@ describe('useNetworkAtcOverlay', () => {
       expect(popups.map((popup) => popup.removed)).toEqual([true, false])
     })
 
+    it('lists every area under the click in one card, the approach ahead of the centre over it, each once', async () => {
+      const fake = await drawn()
+      const area = (kind: string, title: string, callsign: string) => ({
+        properties: { kind, card: JSON.stringify({ title, rows: [row(callsign)] }) }
+      })
+      const centre = area('centre', 'Hong Kong Radar', 'HKG_CTR')
+      const approach = area('approach', 'Hong Kong Approach', 'VHHH_APP')
+      fake.clicks.get(ATC_FILL_LAYER)?.({
+        lngLat: { lng: 1, lat: 2 },
+        point: { x: 10, y: 10 },
+        features: [centre, approach, centre]
+      })
+      expect(popups).toHaveLength(1)
+      const sections = Array.from(popups[0]!.content!.children) as HTMLElement[]
+      expect(sections.map((section) => section.firstElementChild?.textContent)).toEqual([
+        'Hong Kong Approach',
+        'Hong Kong Radar'
+      ])
+      expect(popups[0]?.content?.textContent).toBe(
+        'Hong Kong ApproachCTRVHHH_APP133.700Hong Kong RadarCTRHKG_CTR133.700'
+      )
+      // The same two areas again take the one card away.
+      fake.clicks.get(ATC_FILL_LAYER)?.({
+        lngLat: { lng: 1, lat: 2 },
+        point: { x: 11, y: 11 },
+        features: [approach, centre]
+      })
+      expect(popups[0]?.removed).toBe(true)
+      expect(popups).toHaveLength(1)
+    })
+
     it('takes an area’s card away on a second click anywhere inside it, and swaps to another area’s card', async () => {
       const fake = await drawn()
       const clickArea = (title: string, lng: number): void =>
