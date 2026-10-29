@@ -20,6 +20,27 @@ export interface OnlineNetworkSettings {
   simTrafficButton: boolean
 }
 
+/** The ATC areas the map draws, and how they are kept up to date (Settings → Online network). */
+export interface AtcAreasStatus {
+  /** Whether the app asks GitHub for newer areas by itself (default on). */
+  auto: boolean
+  /** Where the areas in use come from: the file bundled with this version, or the copy the app made from a newer release. */
+  source: 'bundled' | 'downloaded'
+  /** The VAT-Spy release in use, such as "v2610.1" (empty when no areas can be read). */
+  vatspy: string
+  /** The SimAware TRACON release in use, such as "v1.2.13". */
+  tracon: string
+  /** When the app last asked GitHub, as an ISO time, or null when it never has. */
+  checkedAt: string | null
+}
+
+/** What a look for newer areas did. */
+export interface AtcAreasCheck {
+  /** "updated": newer areas are now in use. "current": already the newest. "failed": GitHub or the files could not be read, nothing changed. "skipped": none was due. */
+  outcome: 'updated' | 'current' | 'failed' | 'skipped'
+  status: AtcAreasStatus
+}
+
 /** One aircraft as a screen draws it: the network's, or the sim's. */
 export interface TrafficAircraft {
   /** Unique within one payload: the callsign for a network, the SimConnect object id for the sim. */

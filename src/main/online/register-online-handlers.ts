@@ -10,7 +10,7 @@ import type { IpcMain } from 'electron'
 import { IpcChannels, type AtisAnswer } from '@shared/ipc'
 import type { LatLon } from '@shared/geo'
 import { getAirportCoords } from '../airports/airport-search'
-import { bundledAtcAreas } from './bundled-atc-areas'
+import type { AreaData } from './atc-areas'
 import { getFlight } from '../db/flight-repo'
 import { setFlightOnline } from './flight-online'
 import type { WingLogDb } from '../db/client'
@@ -46,6 +46,8 @@ export interface OnlineHandlerDeps {
   isDevBuild: boolean
   /** Where the feeds are (the real addresses, or the end-to-end test server's). */
   urls: FeedUrls
+  /** The ATC areas in use now: the bundled ones, or the newer copy the app made itself (`registerAtcAreas`). */
+  atcAreas: () => AreaData | null
 }
 
 /**
@@ -111,7 +113,7 @@ export function registerOnlineHandlers(
     settings: () => getOnlineNetworkSettings(db),
     switches: () => getTrafficSwitches(db),
     saveSwitches: (switches) => setTrafficSwitches(db, switches),
-    atcAreas: bundledAtcAreas,
+    atcAreas: deps.atcAreas,
     airportAt: getAirportCoords,
     centre: centreOf(deps),
     trackedFlight: () => trackedFlightOf(deps),

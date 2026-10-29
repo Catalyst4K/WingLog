@@ -93,7 +93,7 @@ The **radio-mast button** on the Track map (on the phone too) shows where the ch
 - Labels and letters come in as you zoom in, so a zoomed-out map shows the centres and the dots, not a wall of text.
 - It is read from the network about **once a minute** while only this layer is on (about 35 MB an hour on VATSIM), and from the same download as the traffic when that is on too.
 
-The shapes are VATSIM's community data, **bundled with WingLog** and refreshed at each release, so a sector redrawn since may show its old shape. They are used for **IVAO too**: IVAO's own sectors may differ. An airport's approach with no area in the data is marked at its airport (**A**) rather than drawn as a made-up circle. On IVAO the button needs your VID, like the traffic. The areas' credit shows on the map while they are drawn, and in [Licences](14-licences.md).
+The shapes are VATSIM's community data. WingLog ships with a copy and, while you have a network chosen, **keeps it up to date by itself**: about once a week it asks GitHub whether the VAT-Spy and SimAware TRACON projects have a newer release, and downloads it (about 5 MB) only if they do. It sends nothing but WingLog's version, and a failed check just leaves what you have. **Settings → 3rd party → Online network** shows the releases in use and when it last checked, and has **Check now** and an off switch. They are used for **IVAO too**: IVAO's own sectors may differ. An airport's approach with no area in the data is marked at its airport (**A**) rather than drawn as a made-up circle. On IVAO the button needs your VID, like the traffic. The areas' credit shows on the map while they are drawn, and in [Licences](14-licences.md).
 
 ## Who is online at your airports
 

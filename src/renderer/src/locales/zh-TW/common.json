@@ -200,7 +200,19 @@
       "keepBeyondAtc": "線上時保留 BeyondATC",
       "keepBeyondAtcHint": "線上時，BeyondATC 的提示、滑行線、頻率和階梯爬升會被隱藏或靜音，因為網路的管制員是唯一的聲音。開啟此項可保留它們。",
       "simTrafficButton": "模擬器交通按鈕",
-      "simTrafficButtonHint": "Track 地圖上的青色飛機：模擬器自己的交通（BeyondATC 的及其他 AI）。關閉後，PC 和手機的地圖上都不再顯示該按鈕。"
+      "simTrafficButtonHint": "Track 地圖上的青色飛機：模擬器自己的交通（BeyondATC 的及其他 AI）。關閉後，PC 和手機的地圖上都不再顯示該按鈕。",
+      "atcAreas": "保持 ATC 區域為最新",
+      "atcAreasHint": "WingLog 大約每週向 GitHub 查詢一次社群專案 VAT-Spy 和 SimAware TRACON 的較新涵蓋區域，只傳送 WingLog 的版本號。",
+      "atcAreasInUse": "使用中：VAT-Spy {{vatspy}}，TRACON {{tracon}}（{{source}}）。",
+      "atcAreasBundled": "隨 WingLog 提供",
+      "atcAreasDownloaded": "從 GitHub 下載",
+      "atcAreasChecked": "上次檢查：{{when}}。",
+      "atcAreasNeverChecked": "尚未檢查。",
+      "atcAreasCheckNow": "立即檢查",
+      "atcAreasChecking": "正在檢查…",
+      "atcAreasUpdated": "已更新到 VAT-Spy {{vatspy}}，TRACON {{tracon}}。",
+      "atcAreasCurrent": "已是最新。",
+      "atcAreasFailed": "無法檢查，請稍後再試。"
     }
   },
   "app": {

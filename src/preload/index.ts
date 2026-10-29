@@ -353,6 +353,9 @@ const api: WingLogApi = {
     ipcRenderer.invoke(IpcChannels.gsxRemoteSubmitPrompt, gen, text),
   gsxRemoteCancelPrompt: (gen: number) => ipcRenderer.invoke(IpcChannels.gsxRemoteCancelPrompt, gen),
   gsxRemoteRunCommand: (id: GsxRemoteCommandId) => ipcRenderer.invoke(IpcChannels.gsxRemoteRunCommand, id),
+  atcAreasGetStatus: () => ipcRenderer.invoke(IpcChannels.atcAreasGetStatus),
+  atcAreasSetAuto: (on: boolean) => ipcRenderer.invoke(IpcChannels.atcAreasSetAuto, on),
+  atcAreasCheckNow: () => ipcRenderer.invoke(IpcChannels.atcAreasCheckNow),
   settingsGetOnlineNetwork: () => ipcRenderer.invoke(IpcChannels.settingsGetOnlineNetwork),
   settingsSetOnlineNetwork: (settings: OnlineNetworkSettings) =>
     ipcRenderer.invoke(IpcChannels.settingsSetOnlineNetwork, settings),

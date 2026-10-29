@@ -6161,7 +6161,7 @@ Source: the VAT-Spy Data Project, https://github.com/vatsimnetwork/vatspy-data-p
 License: Creative Commons Attribution-ShareAlike 4.0 International (CC BY-SA 4.0)
          https://creativecommons.org/licenses/by-sa/4.0/
 
-Changes made by WingLog (npm run data:atc-areas): the three files were merged into one JSON file. Only the area shapes, their label
+Changes made by WingLog (npm run data:atc-areas, which the app also runs itself to keep its own copy current): the three files were merged into one JSON file. Only the area shapes, their label
 points and names, the callsign-prefix tables ([FIRs] and [UIRs] of VATSpy.dat) and the approach areas' prefixes were kept; everything else
 (airports, countries, other properties) was left out, and every coordinate was rounded to 4 decimal places (about 11 m). No shape was
 edited by hand.

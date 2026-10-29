@@ -26,7 +26,8 @@ Settings has four sections down the left.
 - **GSX Remote Control**: on/off, host and port.
 - **BeyondATC**: on/off and host (see [BeyondATC](07-beyondatc.md)).
 - **Online network**: VATSIM, IVAO or None (None hides every VATSIM and IVAO feature) and your member
-  number, keeping BeyondATC while online, and whether the map offers the sim traffic button (see
+  number, keeping BeyondATC while online, whether the map offers the sim traffic button, and whether the
+  ATC areas keep themselves up to date from GitHub, with the releases in use and **Check now** (see
   [Online networks](10-online-networks.md)).
 - **Navigation data**: which navigation data your sim has. With Navigraph it shows the AIRAC cycle,
   its revision and how long it is valid, and warns when it is behind the current cycle. With the
