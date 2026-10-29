@@ -652,7 +652,6 @@
     "trafficOnGround": "On the ground",
     "showSimTraffic": "Show sim traffic",
     "hideSimTraffic": "Hide sim traffic",
-    "simTrafficBlocked": "Off while {{network}} traffic is shown",
     "simTrafficUnavailable": "Sim traffic unavailable"
   },
   "logbookView": {

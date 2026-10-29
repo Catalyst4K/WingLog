@@ -112,12 +112,11 @@ export interface NetworkControllers {
 /** The `trafficLayers` live topic: the shared switches and what actually draws. Decided in main, in one function. */
 export interface TrafficLayers {
   networkOn: boolean
+  /** Off while the network's layer draws: the two switch each other off. */
   simOn: boolean
   /** Whether the screens offer the sim traffic button at all: the "Sim traffic button" setting. */
   simOffered: boolean
   /** What each screen draws now. */
   drawNetwork: boolean
   drawSim: boolean
-  /** True while the sim switch is on but the network layer is drawing: the two are never drawn together. */
-  simBlockedByNetwork: boolean
 }

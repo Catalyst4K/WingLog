@@ -170,7 +170,7 @@ describe('online network handlers', () => {
     expect(getTrafficSwitches(db).simOn).toBe(true)
   })
 
-  it('does not read the sim while the network layer draws', () => {
+  it('does not read the sim while the network layer draws: turning the network on turns the sim off, and back', () => {
     vi.mocked(openSimTrafficLink).mockClear()
     const { invoke } = register()
     setOnlineNetworkSettings(db, {
@@ -180,10 +180,12 @@ describe('online network handlers', () => {
       keepBeyondAtcOnline: false,
       simTrafficButton: true
     })
-    invoke(IpcChannels.trafficSetNetworkOn, true)
     invoke(IpcChannels.trafficSetSimOn, true)
-    expect(invoke(IpcChannels.trafficLayersGet)).toMatchObject({ drawSim: false, simBlockedByNetwork: true })
-    expect(openSimTrafficLink).not.toHaveBeenCalled()
+    invoke(IpcChannels.trafficSetNetworkOn, true)
+    expect(invoke(IpcChannels.trafficLayersGet)).toMatchObject({ drawNetwork: true, simOn: false, drawSim: false })
+    expect(getTrafficSwitches(db)).toEqual({ networkOn: true, simOn: false })
+    invoke(IpcChannels.trafficSetSimOn, true)
+    expect(getTrafficSwitches(db)).toEqual({ networkOn: false, simOn: true })
   })
 
   it('shows the whole network without a position, and narrows to the aircraft when the sim reports one', async () => {

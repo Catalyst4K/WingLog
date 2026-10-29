@@ -52,10 +52,10 @@ PC and the phone, and it is remembered.
 
 - It works whether or not you have chosen a network, and it reads the sim directly. Nothing is
   sent anywhere.
-- **It is off while the network's traffic is shown.** The networks' pilots are also placed in the
-  sim as AI aircraft, so showing both would draw each one twice. The button greys out with
-  "Off while VATSIM traffic is shown" (or IVAO), and comes back, still on, when you hide the
-  network's traffic.
+- **It and the network's traffic button switch each other off.** The networks' pilots are also
+  placed in the sim as AI aircraft, so showing both would draw each one twice. Turning the sim
+  traffic on turns the network's traffic off, and the other way round. Turning one off leaves the
+  other off too.
 - Your own aircraft is left out, and so are the scenery objects some add-ons list as aircraft
   (jetway helpers and the like).
 - If the sim isn't running yet, the map says "Sim traffic unavailable" and tries again every 15

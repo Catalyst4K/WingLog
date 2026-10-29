@@ -646,7 +646,6 @@
     "trafficOnGround": "在地面",
     "showSimTraffic": "顯示模擬器交通",
     "hideSimTraffic": "隱藏模擬器交通",
-    "simTrafficBlocked": "顯示 {{network}} 交通時已關閉",
     "simTrafficUnavailable": "模擬器交通無法使用"
   },
   "logbookView": {

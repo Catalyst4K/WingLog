@@ -9,8 +9,7 @@ const LAYERS_OFF: TrafficLayers = {
   simOn: false,
   simOffered: true,
   drawNetwork: false,
-  drawSim: false,
-  simBlockedByNetwork: false
+  drawSim: false
 }
 const LAYERS_ON: TrafficLayers = { ...LAYERS_OFF, networkOn: true, drawNetwork: true }
 
@@ -109,25 +108,14 @@ describe('the sim traffic button', () => {
     expect(screen.getByRole('button', { name: 'Hide sim traffic' })).toHaveAttribute('aria-pressed', 'true')
   })
 
-  it('is disabled and says why while the network layer draws, and the switch is left as it was', async () => {
+  it('reads as off and can still be pressed while the network layer draws: pressing it swaps the layers (Callum, 2026-10-29)', async () => {
     const onToggleSim = vi.fn()
-    const layers = { ...LAYERS_ON, simOn: true, simBlockedByNetwork: true }
-    controls({ layers, traffic: traffic('vatsim', 'shown'), onToggle: () => {}, onToggleSim })
+    controls({ layers: LAYERS_ON, traffic: traffic('vatsim', 'shown'), onToggle: () => {}, onToggleSim })
     const button = screen.getByRole('button', { name: 'Show sim traffic' })
-    expect(button).toBeDisabled()
+    expect(button).toBeEnabled()
     expect(button).toHaveAttribute('aria-pressed', 'false')
-    expect(button).toHaveAttribute('title', 'Off while VATSIM traffic is shown')
     await userEvent.click(button)
-    expect(onToggleSim).not.toHaveBeenCalled()
-  })
-
-  it('names IVAO when IVAO is what holds it back', () => {
-    const layers = { ...LAYERS_ON, simOn: true, simBlockedByNetwork: true }
-    controls({ layers, traffic: traffic('ivao', 'shown'), onToggle: () => {} })
-    expect(screen.getByRole('button', { name: 'Show sim traffic' })).toHaveAttribute(
-      'title',
-      'Off while IVAO traffic is shown'
-    )
+    expect(onToggleSim).toHaveBeenCalledOnce()
   })
 
   it('is not shown on a finished flight', () => {

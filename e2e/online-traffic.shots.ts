@@ -99,7 +99,7 @@ test('the traffic layers, their buttons and what they say', async () => {
       note: 'The IVAO button is greyed out (its tooltip says to enter the VID in Settings), and IVAO is never contacted.'
     })
 
-    // The sim switch goes on too: it is greyed out only while it is on and the network's traffic is drawn ("never both").
+    // The sim switch was on before the network's: turning the network's on turned it off (the two switch each other off).
     await page.evaluate(async () => {
       const w = (globalThis as unknown as { winglog: Winglog }).winglog
       await w.settingsSetOnlineNetwork({
@@ -110,18 +110,17 @@ test('the traffic layers, their buttons and what they say', async () => {
         simTrafficButton: true
       })
       await w.trafficSetSimOn(true)
+      await w.trafficSetNetworkOn(true)
     })
     await page.waitForTimeout(6000)
-    await expect(page.getByRole('button', { name: 'Show sim traffic' })).toBeDisabled()
+    await expect(page.getByRole('button', { name: 'Show sim traffic' })).toBeEnabled()
     await snap(page, {
       file: '3-network.png',
-      title: 'VATSIM traffic on, with the sim switch on as well',
-      note: 'With no flight tracked the map stays zoomed out, so the two invented aircraft near London show as one amber mark (picture 9 has them up close). The sim button is greyed out, its tooltip "Off while VATSIM traffic is shown": the two are never drawn together.'
+      title: 'VATSIM traffic on, which turned the sim traffic off',
+      note: 'With no flight tracked the map stays zoomed out, so the two invented aircraft near London show as one amber mark (picture 9 has them up close). The sim button is off but can be pressed: pressing it turns the VATSIM traffic off, as the next picture shows.'
     })
 
-    await page.evaluate(() =>
-      (globalThis as unknown as { winglog: Winglog }).winglog.trafficSetNetworkOn(false)
-    )
+    await page.getByRole('button', { name: 'Show sim traffic' }).click()
     await page.waitForTimeout(3000)
     await snap(page, {
       file: '4-sim-unavailable.png',
@@ -197,9 +196,7 @@ test('a tracked flight flown online: the BeyondATC note, the ATC pop-up with the
     await page.getByRole('tab', { name: 'Track' }).click()
     await page.getByRole('button', { name: 'Free flight' }).click()
     await page.getByRole('button', { name: 'Start tracking' }).click()
-    await expect(page.getByText(/BeyondATC is hidden while you are online on VATSIM/)).toBeVisible({
-      timeout: 30_000
-    })
+    await expect(page.getByTitle('Online on VATSIM as TSTPIL1.')).toBeVisible({ timeout: 30_000 })
     const atcButton = page.getByRole('button', { name: 'VATSIM ATC (1)…' })
     await expect(atcButton).toBeVisible()
     // The map moves to the aircraft with the first track point, which is when its marker appears; then the tiles load.
@@ -208,7 +205,7 @@ test('a tracked flight flown online: the BeyondATC note, the ATC pop-up with the
     await snap(page, {
       file: '7-online-track.png',
       title: 'Tracked and found online (by CID)',
-      note: 'The note says why BeyondATC is hidden. Beside Weather, "VATSIM ATC (1)…" says one controller is online at your airports, with the map straight below.'
+      note: 'The header says "VATSIM · TSTPIL1", and Track has no BeyondATC note. Beside Weather, "VATSIM ATC (1)…" says one controller is online at your airports, with the map straight below.'
     })
 
     await atcButton.click()
@@ -244,7 +241,7 @@ test('a tracked flight flown online: the BeyondATC note, the ATC pop-up with the
     await snap(page, {
       file: '10-online-autotune-warning.png',
       title: "BeyondATC connected with auto-tune on, while you're online",
-      note: 'The amber warning under the BeyondATC note: auto-tune can retune your radios away from the network’s controllers. WingLog never switches it off itself.'
+      note: 'The amber warning, the only box at the top of Track: auto-tune can retune your radios away from the network’s controllers. WingLog never switches it off itself.'
     })
 
     await page.getByRole('tab', { name: 'BeyondATC' }).click()

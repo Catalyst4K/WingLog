@@ -117,32 +117,18 @@ function NetworkTrafficButton(props: {
 }
 
 /**
- * The shared switch for the sim's own traffic (BeyondATC's aircraft and any other AI traffic). While the network's traffic is drawn it is
- * disabled and says why, and it comes back as it was when the network layer goes off (the switch itself is not touched).
+ * The shared switch for the sim's own traffic (BeyondATC's aircraft and any other AI traffic). It and the network's button switch each
+ * other off (Callum, 2026-10-29), which main does, so this only shows the switch and sends the press.
  *
- * @param props The layers (the switch's state and whether the network holds it back), the traffic (which network), and the toggle.
+ * @param props The layers (the switch's state) and the toggle.
  * @returns The element.
  */
-function SimTrafficButton(props: {
-  layers: TrafficLayers | null
-  traffic: NetworkTraffic | null
-  onToggle: () => void
-}): React.JSX.Element {
+function SimTrafficButton(props: { layers: TrafficLayers | null; onToggle: () => void }): React.JSX.Element {
   const { t } = useTranslation()
-  const blocked = props.layers?.simBlockedByNetwork === true
-  const on = props.layers?.simOn === true && !blocked
+  const on = props.layers?.simOn === true
   const label = on ? t('flightMap.hideSimTraffic') : t('flightMap.showSimTraffic')
-  const network = props.traffic?.network
   return (
-    <ToggleControl
-      on={on}
-      label={label}
-      title={
-        blocked && network ? t('flightMap.simTrafficBlocked', { network: NETWORK_NAMES[network] }) : label
-      }
-      onClick={props.onToggle}
-      disabled={blocked}
-    >
+    <ToggleControl on={on} label={label} title={label} onClick={props.onToggle}>
       <PlaneTakeoff />
     </ToggleControl>
   )
@@ -201,11 +187,7 @@ export function MapControls(props: {
           <NetworkTrafficButton {...props.networkTraffic} />
           {/* Offered unless switched off in Settings; like the network's button, not before the topics arrive. */}
           {props.networkTraffic.layers?.simOffered && (
-            <SimTrafficButton
-              layers={props.networkTraffic.layers}
-              traffic={props.networkTraffic.traffic}
-              onToggle={props.networkTraffic.onToggleSim}
-            />
+            <SimTrafficButton layers={props.networkTraffic.layers} onToggle={props.networkTraffic.onToggleSim} />
           )}
         </>
       )}
