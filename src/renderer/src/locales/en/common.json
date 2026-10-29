@@ -1044,5 +1044,15 @@
       "none": "No {{network}} ATIS",
       "unavailable": "{{network}} ATIS unavailable"
     }
+  },
+  "navdataCycle": {
+    "behind": "Your sim's navigation data is Navigraph AIRAC {{cycle}}, but {{current}} is the current cycle. Update it in the Navigraph Hub.",
+    "planMismatch": "This plan was made with AIRAC {{plan}}, but your sim has {{sim}}. A route can fail to load in the sim when the two differ: update the sim's data or plan the flight again.",
+    "cardTitle": "Navigation data",
+    "cardDescription": "Which navigation data your sim has. WingLog keeps what it reads from the sim for each airport, and reads it again when the sim's data changes.",
+    "navigraph": "Navigraph AIRAC {{cycle}}, revision {{revision}}",
+    "navigraphValid": "Navigraph AIRAC {{cycle}}, revision {{revision}}, valid until {{validTo}}",
+    "simOwn": "The sim's own data. Its cycle cannot be read, so WingLog goes by the AIRAC calendar (current cycle {{current}}).",
+    "statusCurrent": "Up to date with the current cycle ({{current}})."
   }
 }

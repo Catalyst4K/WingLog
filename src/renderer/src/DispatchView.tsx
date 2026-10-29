@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { DispatchAdvancedDialog } from './DispatchAdvancedDialog'
 import { useConfirm } from './hooks/use-confirm'
 import { MetarPanel } from './MetarPanel'
+import { NavdataCycleNote } from './navdata/NavdataCycle'
 import { ProcedureSelector } from './ProcedureSelector'
 import { flightLabel } from './flight-label'
 import { useLiveWaypoints } from './procedure-selection'
@@ -269,7 +270,8 @@ export function DispatchView(props: {
               <CardHeader>
                 <CardTitle>{t('dispatchView.procedures')}</CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="flex flex-col gap-3">
+                <NavdataCycleNote planAirac={ofp.airac} />
                 <ProcedureSelector
                   airports={ofp}
                   selection={props.selection}

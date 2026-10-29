@@ -8,6 +8,7 @@ import { createLanding, listLandingsByFlight } from '../db/landing-repo'
 import { navdataRunway } from '../db/schema'
 import type { FetchedAirportNavdata, FetchedTaxiNetwork } from './sim-facilities-fetch'
 import { SimFacilitiesProvider, type OpenSimConnect } from './sim-facilities-provider'
+import type { NavdataSignature } from './sim-navdata-signature'
 
 vi.mock('./sim-facilities-fetch', () => ({
   fetchAirportNavdata: vi.fn(),
@@ -211,6 +212,82 @@ describe('navdata follows the AIRAC cycle', () => {
     clock = EARLY_OCTOBER
     expect(await provider.getStands('EGLL')).toHaveLength(1)
     await vi.waitFor(() => expect(fetchTaxi).toHaveBeenCalledTimes(1))
+  })
+
+  describe('with Navigraph’s data in the sim, the cutoff is when the package was installed, not the calendar', () => {
+    // 2611 took effect on 29 October; the pilot installed it at 15:49 UTC that day, after using WingLog in the morning.
+    const NEW_CYCLE_MORNING = new Date('2026-10-29T10:00:00Z')
+    const INSTALLED = new Date('2026-10-29T15:49:31Z')
+    const EVENING = new Date('2026-10-29T18:00:00Z')
+    const installedAt = (iso: string): NavdataSignature => ({
+      source: 'navigraph',
+      cycle: '2611',
+      revision: '1',
+      validTo: '2026-11-25',
+      installedAtMs: Date.parse(iso)
+    })
+    let signature: NavdataSignature
+
+    beforeEach(() => {
+      // The old cycle's package, installed on 2 October.
+      signature = { ...installedAt('2026-10-02T09:00:00Z'), cycle: '2610' } as NavdataSignature
+      provider = new SimFacilitiesProvider(
+        db,
+        open as unknown as OpenSimConnect,
+        () => clock,
+        () => signature
+      )
+    })
+
+    it('does not re-fetch on the day a cycle takes effect while the package is still the old one: that would stamp old data fresh', async () => {
+      clock = new Date('2026-10-15T10:00:00Z')
+      await provider.refreshAirport('EGLL')
+      open.mockClear()
+      clock = NEW_CYCLE_MORNING
+      provider.listRunways('EGLL')
+      await settle()
+      expect(open).not.toHaveBeenCalled()
+    })
+
+    it('re-fetches once the new package is installed, though the cache was stamped after the calendar’s cycle began', async () => {
+      clock = NEW_CYCLE_MORNING
+      await provider.refreshAirport('EGLL')
+      await provider.refreshTaxiNetwork('EGLL')
+      fetchAirport.mockClear()
+      fetchTaxi.mockClear()
+      open.mockClear()
+      clock = EVENING
+      provider.listRunways('EGLL')
+      await settle()
+      expect(open).not.toHaveBeenCalled()
+      // The pilot updates the sim: the same airport, used again, is fetched from the new data.
+      signature = installedAt(INSTALLED.toISOString())
+      provider.listRunways('EGLL')
+      await vi.waitFor(() => expect(fetchAirport).toHaveBeenCalledTimes(1))
+      await vi.waitFor(() => expect(fetchTaxi).toHaveBeenCalledTimes(1))
+      await settle()
+      expect(navdataFetchTimes(db, 'EGLL').airport).toBe(EVENING.toISOString())
+    })
+
+    it('catches a revision installed mid-cycle, and then leaves the airport alone until the next install', async () => {
+      signature = installedAt('2026-10-30T08:00:00Z')
+      clock = new Date('2026-11-03T10:00:00Z')
+      await provider.refreshAirport('EGLL')
+      fetchAirport.mockClear()
+      open.mockClear()
+      provider.listRunways('EGLL')
+      await settle()
+      expect(open).not.toHaveBeenCalled()
+      signature = installedAt('2026-11-05T08:00:00Z')
+      clock = new Date('2026-11-06T10:00:00Z')
+      provider.listRunways('EGLL')
+      await vi.waitFor(() => expect(fetchAirport).toHaveBeenCalledTimes(1))
+      await settle()
+      provider.listRunways('EGLL')
+      provider.listStars('EGLL')
+      await settle()
+      expect(fetchAirport).toHaveBeenCalledTimes(1)
+    })
   })
 
   describe('runways cached before the sim displaced thresholds were read', () => {

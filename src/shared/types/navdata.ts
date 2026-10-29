@@ -6,6 +6,23 @@
  * airport. `refresh` is the only channel that touches the sim; the rest read the cache, so
  * a Dispatch dropdown doesn't wait on a live SimConnect round-trip on every keystroke.
  */
+/**
+ * What navigation data the sim has, against the AIRAC calendar (winglog-backend docs/plans/navdata-cycle-check.md). A Navigraph
+ * subscriber's package states its cycle; the sim's own data states none, so there is nothing to compare for "default".
+ */
+export interface NavdataStatus {
+  source: 'navigraph' | 'default'
+  /** The cycle the sim's data is, such as "2611", for Navigraph only. */
+  cycle: string | null
+  revision: string | null
+  /** The last day the package is valid, as YYYY-MM-DD, when it says. */
+  validTo: string | null
+  /** The cycle the calendar says is in force today. */
+  calendarCycle: string
+  /** "behind" is a Navigraph cycle older than the calendar's: the pilot has not updated the sim. */
+  state: 'current' | 'behind' | 'default'
+}
+
 export interface NavdataRunwayOption {
   ident: string
   headingTrueDeg: number

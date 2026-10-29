@@ -30,6 +30,32 @@ export function userDataDirectory(
 }
 
 /**
+ * Where MSFS 2024 keeps its `UserCfg.opt`, which names its packages folder: the Microsoft Store build's `%LOCALAPPDATA%\Packages\...`, then
+ * Steam's `%APPDATA%\Microsoft Flight Simulator 2024`. MSFS runs on Windows only, and WingLog talks to MSFS 2024 only, so MSFS 2020's
+ * folders are not here.
+ *
+ * @param platform The platform.
+ * @param env The environment variables (`LOCALAPPDATA`, `APPDATA`).
+ * @returns The candidate paths, in order; none off Windows.
+ */
+export function msfsUserCfgPaths(platform: Platform, env: Record<string, string | undefined>): string[] {
+  if (platform !== 'win32') return []
+  const paths: string[] = []
+  if (env.LOCALAPPDATA)
+    paths.push(
+      win32.join(
+        env.LOCALAPPDATA,
+        'Packages',
+        'Microsoft.Limitless_8wekyb3d8bbwe',
+        'LocalCache',
+        'UserCfg.opt'
+      )
+    )
+  if (env.APPDATA) paths.push(win32.join(env.APPDATA, 'Microsoft Flight Simulator 2024', 'UserCfg.opt'))
+  return paths
+}
+
+/**
  * Where GSX writes its receipts, to pre-fill Settings. GSX is a Windows-only product, so this only ever resolves on Windows. `%APPDATA%`
  * is the real variable Windows sets rather than an assumed `~/AppData/Roaming`: a user with a redirected profile folder would otherwise get
  * a wrong, confidently stated path. Only a pre-fill; the field stays editable, since a silently wrong detected path is worse than an

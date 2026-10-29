@@ -84,6 +84,7 @@ import type {
   NavdataProcedureOption,
   NavdataRunwayOption,
   NavdataStand,
+  NavdataStatus,
   NavdataTaxiSegment
 } from './types/navdata'
 import type {
@@ -484,6 +485,8 @@ export interface WingLogApi {
    *  cache for it — the write path (call on OFP import, or a manual "Refresh from sim"
    *  control). Throws if the sim isn't reachable or the fetch fails/times out. */
   navdataRefreshAirport: (icao: string) => Promise<void>
+  /** What navigation data the sim has, against the AIRAC calendar. Read from disk, never from the sim. */
+  navdataGetStatus: () => Promise<NavdataStatus>
   /** True once navdataRefreshAirport has completed for this ICAO at least once — lets the
    *  caller offer "refresh from sim" instead of showing an empty list as if it were final. */
   navdataHasAirport: (icao: string) => Promise<boolean>

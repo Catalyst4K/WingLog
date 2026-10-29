@@ -30,6 +30,7 @@ import { OnlineAtcButton } from '../online/OnlineAtc'
 import { PrefileButtons } from '../online/PrefileButtons'
 import { winglogApi } from '../data/winglog-api'
 import type { ProcedureAirports } from '@shared/procedure-selection'
+import { NavdataCycleNote } from '../navdata/NavdataCycle'
 import { ProcedureSelector } from '../ProcedureSelector'
 import { asyncHandler } from '../report-error'
 import { formatDuration, formatElapsed, formatUtcTime, type TrackTimes } from '../track-times'
@@ -316,6 +317,7 @@ export function FlightToolbar(props: {
               <DialogHeader>
                 <DialogTitle>{t('trackView.procedures')}</DialogTitle>
               </DialogHeader>
+              <NavdataCycleNote />
               <ProcedureSelector
                 airports={airports}
                 selection={selection}

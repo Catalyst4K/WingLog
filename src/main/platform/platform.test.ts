@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { canHostSim, canShowTray, currentPlatform, quitsWhenAllWindowsClose } from './platform'
-import { gsxReceiptsDefaultPath, userDataDirectory } from './paths'
+import { gsxReceiptsDefaultPath, msfsUserCfgPaths, userDataDirectory } from './paths'
 
 describe('currentPlatform', () => {
   it('knows Windows and macOS, and treats every other Unix as Linux', () => {
@@ -61,6 +61,29 @@ describe('userDataDirectory', () => {
 
   it('has no answer on Windows without APPDATA', () => {
     expect(userDataDirectory('win32', {}, 'C:\\Users\\Test')).toBeNull()
+  })
+})
+
+describe('msfsUserCfgPaths', () => {
+  const env = {
+    LOCALAPPDATA: 'C:\\Users\\Test\\AppData\\Local',
+    APPDATA: 'C:\\Users\\Test\\AppData\\Roaming'
+  }
+
+  it('lists the Store build’s UserCfg.opt, then Steam’s, with Windows separators on any OS', () => {
+    expect(msfsUserCfgPaths('win32', env)).toEqual([
+      'C:\\Users\\Test\\AppData\\Local\\Packages\\Microsoft.Limitless_8wekyb3d8bbwe\\LocalCache\\UserCfg.opt',
+      'C:\\Users\\Test\\AppData\\Roaming\\Microsoft Flight Simulator 2024\\UserCfg.opt'
+    ])
+  })
+
+  it('lists only the folders whose variable is set, and none off Windows', () => {
+    expect(msfsUserCfgPaths('win32', { APPDATA: env.APPDATA })).toEqual([
+      'C:\\Users\\Test\\AppData\\Roaming\\Microsoft Flight Simulator 2024\\UserCfg.opt'
+    ])
+    expect(msfsUserCfgPaths('win32', {})).toEqual([])
+    expect(msfsUserCfgPaths('darwin', env)).toEqual([])
+    expect(msfsUserCfgPaths('linux', env)).toEqual([])
   })
 })
 

@@ -20,7 +20,28 @@ describe('navdata IPC handlers', () => {
     getStands: vi.fn(() => [{ name: '12' }])
   }
   const { ipcMain, invoke } = fakeIpc()
-  registerNavdataHandlers(ipcMain, { navdataProvider: provider as unknown as NavdataProvider })
+  const signature = {
+    source: 'navigraph',
+    cycle: '2699',
+    revision: '1',
+    validTo: '2026-11-25',
+    installedAtMs: 1
+  } as const
+  registerNavdataHandlers(ipcMain, {
+    navdataProvider: provider as unknown as NavdataProvider,
+    readSignature: () => signature
+  })
+
+  it('answers the navigation data status from disk, without touching the provider or the sim', async () => {
+    // Cycle 2699 is ahead of whatever the calendar says, so the answer does not depend on today's date.
+    expect(await invoke(IpcChannels.navdataGetStatus)).toMatchObject({
+      source: 'navigraph',
+      cycle: '2699',
+      revision: '1',
+      validTo: '2026-11-25',
+      state: 'current'
+    })
+  })
 
   it('passes each lookup to the provider with its arguments', () => {
     invoke(IpcChannels.navdataRefreshAirport, 'ZJSY')

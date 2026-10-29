@@ -33,6 +33,8 @@ export interface SimBriefStepClimb {
 
 export interface SimBriefOfp {
   ofpId: string
+  /** The AIRAC cycle SimBrief planned with (`params.airac`, such as "2611"), or null when the OFP does not say. */
+  airac: string | null
   aircraftIcaoType: string
   /** Tail number from the OFP, for auto-matching against a Fleet aircraft — may not match anything. */
   aircraftRegistration: string
@@ -226,6 +228,7 @@ export function parseOfp(raw: unknown): SimBriefOfp {
 
   return {
     ofpId: str(params.request_id),
+    airac: optStr(params.airac),
     aircraftIcaoType: str(aircraft.icaocode),
     aircraftRegistration: str(aircraft.reg),
     flightNumber: `${str(general.icao_airline)}${str(general.flight_number)}`,

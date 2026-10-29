@@ -43,6 +43,17 @@ describe('parseOfp', () => {
     expect(ofp.fuelPlannedKg).toBe(85029)
   })
 
+  it('reads the AIRAC cycle SimBrief planned with, and leaves it null when the OFP does not say', () => {
+    const withCycle = JSON.parse(JSON.stringify(fixture('kgs'))) as { params: Record<string, unknown> }
+    expect(parseOfp(withCycle).airac).toBeNull()
+    withCycle.params.airac = '2611'
+    expect(parseOfp(withCycle).airac).toBe('2611')
+    withCycle.params.airac = ''
+    expect(parseOfp(withCycle).airac).toBeNull()
+    withCycle.params.airac = 2611
+    expect(parseOfp(withCycle).airac).toBeNull()
+  })
+
   it('throws on a non-object value rather than crashing on property access', () => {
     expect(() => parseOfp(null)).toThrow('not a valid JSON object')
     expect(() => parseOfp('garbage')).toThrow('not a valid JSON object')

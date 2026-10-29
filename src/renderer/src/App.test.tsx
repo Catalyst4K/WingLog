@@ -211,6 +211,7 @@ function makeStats(overrides: Partial<FleetStats> = {}): FleetStats {
 function makeOfp(overrides: Partial<DispatchOfp> = {}): DispatchOfp {
   return {
     ofpId: 'ofp-1',
+    airac: null,
     aircraftIcaoType: 'A320',
     aircraftRegistration: 'G-ABCD',
     flightNumber: 'TA100',
@@ -332,6 +333,14 @@ function createWinglog(overrides: Partial<WingLogApi> = {}): WingLogApi {
     dispatchOpenOfpPdf: vi.fn().mockResolvedValue(true),
     flightCreate: vi.fn().mockResolvedValue(makeFlight()),
     weatherGetMetars: vi.fn().mockResolvedValue([]),
+    navdataGetStatus: vi.fn().mockResolvedValue({
+      source: 'default',
+      cycle: null,
+      revision: null,
+      validTo: null,
+      calendarCycle: '2611',
+      state: 'default'
+    }),
     navdataRefreshAirport: vi.fn().mockResolvedValue(undefined),
     navdataHasAirport: vi.fn().mockResolvedValue(false),
     navdataListRunways: vi.fn().mockResolvedValue([]),

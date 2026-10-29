@@ -1044,5 +1044,15 @@
       "none": "Kein {{network}}-ATIS",
       "unavailable": "{{network}}-ATIS nicht verfügbar"
     }
+  },
+  "navdataCycle": {
+    "behind": "Die Navigationsdaten deines Simulators sind Navigraph AIRAC {{cycle}}, aktuell ist aber der Zyklus {{current}}. Aktualisiere sie im Navigraph Hub.",
+    "planMismatch": "Dieser Flugplan wurde mit AIRAC {{plan}} erstellt, dein Simulator hat aber {{sim}}. Eine Route kann im Simulator nicht laden, wenn beide abweichen: Aktualisiere die Daten des Simulators oder plane den Flug neu.",
+    "cardTitle": "Navigationsdaten",
+    "cardDescription": "Welche Navigationsdaten dein Simulator hat. WingLog speichert, was es für jeden Flughafen aus dem Simulator liest, und liest es neu, wenn sich die Daten des Simulators ändern.",
+    "navigraph": "Navigraph AIRAC {{cycle}}, Revision {{revision}}",
+    "navigraphValid": "Navigraph AIRAC {{cycle}}, Revision {{revision}}, gültig bis {{validTo}}",
+    "simOwn": "Die eigenen Daten des Simulators. Ihr Zyklus lässt sich nicht lesen, daher richtet sich WingLog nach dem AIRAC-Kalender (aktueller Zyklus {{current}}).",
+    "statusCurrent": "Auf dem Stand des aktuellen Zyklus ({{current}})."
   }
 }

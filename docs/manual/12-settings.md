@@ -28,6 +28,11 @@ Settings has four sections down the left.
 - **Online network**: VATSIM, IVAO or None (None hides every VATSIM and IVAO feature) and your member
   number, keeping BeyondATC while online, and whether the map offers the sim traffic button (see
   [Online networks](10-online-networks.md)).
+- **Navigation data**: which navigation data your sim has. With Navigraph it shows the AIRAC cycle,
+  its revision and how long it is valid, and warns when it is behind the current cycle. With the
+  sim's own data it says WingLog cannot read the cycle and goes by the AIRAC calendar. WingLog keeps
+  what it reads from the sim for each airport, and reads it again when you update the sim's data, so
+  install the new cycle in the Navigraph Hub first and then open your airports in WingLog.
 
 ## Data
 

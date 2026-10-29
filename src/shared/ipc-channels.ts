@@ -135,6 +135,7 @@ export const IpcChannels = {
   appOpenManual: 'app:open-manual',
   appLogRendererError: 'app:log-renderer-error',
   navdataRefreshAirport: 'navdata:refresh-airport',
+  navdataGetStatus: 'navdata:get-status',
   navdataHasAirport: 'navdata:has-airport',
   navdataListRunways: 'navdata:list-runways',
   navdataListSids: 'navdata:list-sids',
