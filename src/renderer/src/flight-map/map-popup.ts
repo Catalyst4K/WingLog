@@ -30,20 +30,21 @@ function span(text: string, style: Partial<CSSStyleDeclaration>): HTMLSpanElemen
 }
 
 /**
- * Opens a card: a bold title, then one aligned row for each station (its kind, callsign and frequency, with the name beneath when there
- * is one). Built from text nodes only: the text came from a network feed, so none of it is ever parsed as HTML.
- *
- * @param map The map.
- * @param at Where the area or airport was clicked.
  * @param card The title and rows.
+ * @returns One card: a bold title, then one aligned row for each station (its kind, callsign and frequency, with the name beneath when
+ *   there is one).
  */
-export function openCardPopup(map: MapLibreMap, at: { lng: number; lat: number }, card: PopupCard): void {
-  const content = document.createElement('div')
-  Object.assign(content.style, { minWidth: '230px', fontSize: '12px', lineHeight: '1.4' })
+function cardElement(card: PopupCard): HTMLDivElement {
+  const element = document.createElement('div')
   const title = document.createElement('div')
   title.textContent = card.title
-  Object.assign(title.style, { fontWeight: '600', marginBottom: card.rows.length > 0 ? '6px' : '0' })
-  content.appendChild(title)
+  // The right-hand padding keeps a long title clear of the cross in the corner.
+  Object.assign(title.style, {
+    fontWeight: '600',
+    paddingRight: '16px',
+    marginBottom: card.rows.length > 0 ? '6px' : '0'
+  })
+  element.appendChild(title)
   const grid = document.createElement('div')
   Object.assign(grid.style, {
     display: 'grid',
@@ -63,8 +64,38 @@ export function openCardPopup(map: MapLibreMap, at: { lng: number; lat: number }
       grid.appendChild(note)
     }
   }
-  content.appendChild(grid)
-  new Popup({ closeButton: true, maxWidth: '320px' }).setLngLat(at).setDOMContent(content).addTo(map)
+  element.appendChild(grid)
+  return element
+}
+
+/**
+ * Opens a popup of cards, one under another with a rule between them: where areas overlap (an approach under its centre) the click
+ * is on all of them. Built from text nodes only: the text came from a network feed, so none of it is ever parsed as HTML.
+ *
+ * @param map The map.
+ * @param at Where the area or airport was clicked.
+ * @param cards The cards to show, at least one.
+ * @returns The popup, for a caller that wants to take it away again.
+ */
+export function openCardPopup(map: MapLibreMap, at: { lng: number; lat: number }, cards: PopupCard[]): Popup {
+  const elements = cards.map(cardElement)
+  const [only] = elements
+  const content = only && elements.length === 1 ? only : document.createElement('div')
+  if (content !== only) {
+    elements.forEach((element, index) => {
+      if (index > 0)
+        Object.assign(element.style, {
+          marginTop: '8px',
+          paddingTop: '8px',
+          borderTop: '1px solid color-mix(in srgb, currentColor 25%, transparent)'
+        })
+      content.appendChild(element)
+    })
+  }
+  Object.assign(content.style, { minWidth: '230px', fontSize: '12px', lineHeight: '1.4' })
+  const popup = new Popup({ closeButton: true, maxWidth: '320px' })
+  popup.setLngLat(at).setDOMContent(content).addTo(map)
+  return popup
 }
 
 /**
@@ -84,7 +115,7 @@ export function openTextPopup(
   const content = document.createElement('div')
   lines.forEach((line, index) => {
     const row = document.createElement('div')
-    if (index === 0) row.style.fontWeight = '600'
+    if (index === 0) Object.assign(row.style, { fontWeight: '600', paddingRight: '16px' })
     row.textContent = line
     content.appendChild(row)
   })

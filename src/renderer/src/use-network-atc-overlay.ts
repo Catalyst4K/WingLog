@@ -12,14 +12,15 @@ import type {
   FilterSpecification,
   GeoJSONSourceSpecification,
   Map as MapLibreMap,
-  MapGeoJSONFeature
+  MapGeoJSONFeature,
+  Popup
 } from 'maplibre-gl'
 import type { NetworkAtc, TrafficLayers } from '@shared/ipc'
 import { useLiveClient } from './live/LiveClient'
 import { reportError } from './report-error'
 import { setSourceData } from './map-source'
 import { atcPopupCard, layerData } from './flight-map/atc-features'
-import { openCardPopup } from './flight-map/map-popup'
+import { openCardPopup, type PopupCard } from './flight-map/map-popup'
 
 /** What a GeoJSON source accepts as data. */
 type GeoData = GeoJSONSourceSpecification['data']
@@ -178,21 +179,49 @@ function ensureAtcLayers(map: MapLibreMap): void {
 }
 
 /**
- * A click on an airport's marker lists its stations; a click on an area, anywhere inside it, lists its controllers, unless something
+ * @param features The features of one layer under a click, topmost first.
+ * @returns Their cards, each once, the approaches ahead of the centres that cover them: where areas overlap, the click is on all of
+ *   them, and a pilot looking for the approach frequency must not be shown only the centre over it.
+ */
+function cardsUnder(features: MapGeoJSONFeature[]): PopupCard[] {
+  const wanted = features.flatMap((feature) => {
+    const card = atcPopupCard(feature.properties ?? {})
+    return card ? [{ card, approach: feature.properties?.kind === 'approach' }] : []
+  })
+  // A shape the map has cut into tiles comes back once for each tile it spans.
+  const unique = wanted.filter(
+    ({ card }, index) => wanted.findIndex((one) => one.card.title === card.title) === index
+  )
+  return [...unique.filter((one) => one.approach), ...unique.filter((one) => !one.approach)].map(
+    (one) => one.card
+  )
+}
+
+/**
+ * A click on an airport's marker lists its stations; a click on an area, anywhere inside it, lists its controllers (every area there, where they overlap), unless something
  * smaller is under the click (an airport's marker, or an aircraft), which gets its own popup instead.
  *
  * @param map The map.
  */
 function addClickHandlers(map: MapLibreMap): void {
-  const open = (at: { lng: number; lat: number }, feature: MapGeoJSONFeature | undefined): void => {
-    const card = atcPopupCard(feature?.properties ?? {})
-    if (card) openCardPopup(map, at, card)
+  // The card on screen, so that a second click on the same airport or area takes it away again.
+  let shown: { popup: Popup; key: string } | null = null
+  const open = (at: { lng: number; lat: number }, features: MapGeoJSONFeature[] | undefined): void => {
+    const cards = cardsUnder(features ?? [])
+    if (cards.length === 0) return
+    const key = cards.map((card) => card.title).join('|')
+    if (shown?.key === key && shown.popup.isOpen()) {
+      shown.popup.remove()
+      shown = null
+      return
+    }
+    shown = { popup: openCardPopup(map, at, cards), key }
   }
-  map.on('click', ATC_AIRPORT_DOT_LAYER, (event) => open(event.lngLat, event.features?.[0]))
+  map.on('click', ATC_AIRPORT_DOT_LAYER, (event) => open(event.lngLat, event.features))
   map.on('click', ATC_FILL_LAYER, (event) => {
     const smaller = [ATC_AIRPORT_DOT_LAYER, ...TRAFFIC_LAYERS].filter((id) => map.getLayer(id))
     if (map.queryRenderedFeatures(event.point, { layers: smaller }).length > 0) return
-    open(event.lngLat, event.features?.[0])
+    open(event.lngLat, event.features)
   })
   // The canvas's own cursor beats the container's (the grab hand, or the arrow while panning is locked).
   map.on('mouseenter', ATC_AIRPORT_DOT_LAYER, () => {

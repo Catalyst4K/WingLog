@@ -184,6 +184,15 @@
 .dark .maplibregl-popup .maplibregl-popup-close-button {
   color: var(--popover-foreground);
 }
+/* MapLibre leaves the cross a bare button, so its size followed the browser's button font and its click area was a few pixels. A fixed box. */
+.maplibregl-popup .maplibregl-popup-close-button {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  font-size: 18px;
+  line-height: 24px;
+  text-align: center;
+}
 /* MapLibre's blue focus ring on the (i) stays after a click or tap, and the inversion above turns it orange. The map has no use for it. */
 .maplibregl-ctrl-attrib .maplibregl-ctrl-attrib-button:focus,
 .maplibregl-ctrl-attrib .maplibregl-ctrl-attrib-button:focus-visible {
