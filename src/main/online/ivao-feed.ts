@@ -122,7 +122,7 @@ function readAtc(value: unknown): { controller: FeedController | null; atis: Fee
   const frequencyMhz = finiteNumber(session?.frequency)
   const frequency = frequencyMhz === null ? null : formatFrequency(frequencyMhz)
   return {
-    controller: position && frequency ? { callsign, frequency, position, name: null } : null,
+    controller: position && frequency ? { callsign, frequency, position } : null,
     atis: readControllerAtis(asRecord(atc?.atis), callsign, position ?? null)
   }
 }

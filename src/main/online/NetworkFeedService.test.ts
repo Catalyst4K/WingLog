@@ -1130,7 +1130,8 @@ describe('NetworkFeedService', () => {
       const [area] = atcLayer()?.areas ?? []
       expect(area).toMatchObject({ kind: 'centre', id: 'EGTT-C', name: 'London ACC (Central) - London' })
       expect(area?.stations).toEqual([
-        { callsign: 'LON_C_CTR', frequency: '133.700', position: 'ctr', name: 'Test Controller' }
+        // The feed names this controller; the name is never carried.
+        { callsign: 'LON_C_CTR', frequency: '133.700', position: 'ctr' }
       ])
     })
 

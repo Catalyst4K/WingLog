@@ -7,8 +7,6 @@ export interface PopupCardRow {
   tag: string
   callsign: string
   frequency: string
-  /** The controller's name, when the network publishes it. */
-  note: string | null
 }
 
 /** A title and a short table, for the ATC layer's popups. */
@@ -31,8 +29,7 @@ function span(text: string, style: Partial<CSSStyleDeclaration>): HTMLSpanElemen
 
 /**
  * @param card The title and rows.
- * @returns One card: a bold title, then one aligned row for each station (its kind, callsign and frequency, with the name beneath when
- *   there is one).
+ * @returns One card: a bold title, then one aligned row for each station (its kind, callsign and frequency).
  */
 function cardElement(card: PopupCard): HTMLDivElement {
   const element = document.createElement('div')
@@ -59,10 +56,6 @@ function cardElement(card: PopupCard): HTMLDivElement {
     grid.appendChild(span(row.tag, { ...faint, ...mono, fontSize: '11px' }))
     grid.appendChild(span(row.callsign, mono))
     grid.appendChild(span(row.frequency, { ...mono, fontWeight: '600', textAlign: 'right' }))
-    if (row.note) {
-      const note = span(row.note, { ...faint, gridColumn: '2 / -1', marginBottom: '2px' })
-      grid.appendChild(note)
-    }
   }
   element.appendChild(grid)
   return element

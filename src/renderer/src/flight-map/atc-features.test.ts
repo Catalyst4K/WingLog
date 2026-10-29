@@ -24,10 +24,9 @@ const SQUARE = [
 function station(
   callsign: string,
   position: OnlineStation['position'],
-  frequency = '118.700',
-  name: string | null = null
+  frequency = '118.700'
 ): OnlineStation {
-  return { callsign, frequency, position, name }
+  return { callsign, frequency, position }
 }
 
 const LONDON: AtcArea = {
@@ -36,10 +35,7 @@ const LONDON: AtcArea = {
   name: 'London ACC (Central) - London',
   at: [-0.15, 52.178],
   coordinates: SQUARE,
-  stations: [
-    station('LON_C_CTR', 'ctr', '133.700', 'Test Controller'),
-    station('LON_CS_CTR', 'ctr', '135.100')
-  ]
+  stations: [station('LON_C_CTR', 'ctr', '133.700'), station('LON_CS_CTR', 'ctr', '135.100')]
 }
 
 const HEATHROW: AtcAirport = {
@@ -58,8 +54,8 @@ describe('areaFeatures', () => {
     expect(atcPopupCard(feature!.properties)).toEqual({
       title: 'London ACC (Central) - London',
       rows: [
-        { tag: 'CTR', callsign: 'LON_C_CTR', frequency: '133.700', note: 'Test Controller' },
-        { tag: 'CTR', callsign: 'LON_CS_CTR', frequency: '135.100', note: null }
+        { tag: 'CTR', callsign: 'LON_C_CTR', frequency: '133.700' },
+        { tag: 'CTR', callsign: 'LON_CS_CTR', frequency: '135.100' }
       ]
     })
   })
@@ -105,9 +101,9 @@ describe('airportFeatures', () => {
     expect(atcPopupCard(feature!.properties)).toEqual({
       title: 'EGLL',
       rows: [
-        { tag: 'GND', callsign: 'EGLL_GND', frequency: '121.700', note: null },
-        { tag: 'TWR', callsign: 'EGLL_TWR', frequency: '118.500', note: null },
-        { tag: 'ATIS L', callsign: 'EGLL_D_ATIS', frequency: '121.850', note: null }
+        { tag: 'GND', callsign: 'EGLL_GND', frequency: '121.700' },
+        { tag: 'TWR', callsign: 'EGLL_TWR', frequency: '118.500' },
+        { tag: 'ATIS L', callsign: 'EGLL_D_ATIS', frequency: '121.850' }
       ]
     })
   })
@@ -119,7 +115,7 @@ describe('airportFeatures', () => {
       atis: [{ callsign: 'EGLL_ATIS', code: null, frequency: '128.075' }]
     }
     expect(atcPopupCard(airportFeatures([airport]).features[0]!.properties)?.rows).toEqual([
-      { tag: 'ATIS', callsign: 'EGLL_ATIS', frequency: '128.075', note: null }
+      { tag: 'ATIS', callsign: 'EGLL_ATIS', frequency: '128.075' }
     ])
   })
 })
@@ -131,8 +127,7 @@ describe('atcPopupCard', () => {
     const row = {
       tag: 'TWR',
       callsign: '<img src=x onerror=alert(1)>',
-      frequency: '118.500',
-      note: '<b>x</b>'
+      frequency: '118.500'
     }
     expect(atcPopupCard(card({ title: '<i>EGLL</i>', rows: [row] }))).toEqual({
       title: '<i>EGLL</i>',
@@ -149,19 +144,16 @@ describe('atcPopupCard', () => {
     expect(atcPopupCard(card({ title: 'x', rows: 'many' }))).toBeNull()
   })
 
-  it('drops a row that is not made of text, and a note that is not text', () => {
+  it('drops a row that is not made of text, and keeps only a row’s three texts, never a name sent along', () => {
     const good = { tag: 'CTR', callsign: 'LON_CTR', frequency: '135.100' }
     expect(
       atcPopupCard(
         card({
           title: 'London',
-          rows: [good, { ...good, tag: 5 }, null, 'row', { ...good, note: 7 }]
+          rows: [good, { ...good, tag: 5 }, null, 'row', { ...good, note: 'A Name' }]
         })
       )?.rows
-    ).toEqual([
-      { ...good, note: null },
-      { ...good, note: null }
-    ])
+    ).toEqual([{ ...good }, { ...good }])
   })
 })
 

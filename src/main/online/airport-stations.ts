@@ -50,7 +50,7 @@ export function stationsAt(snapshot: FeedSnapshot, icaos: string[]): OnlineAirpo
       stations: snapshot.controllers
         .filter((c) => here(c.callsign))
         .sort((a, b) => POSITION_ORDER.indexOf(a.position) - POSITION_ORDER.indexOf(b.position))
-        .map((c) => ({ callsign: c.callsign, frequency: c.frequency, position: c.position, name: c.name })),
+        .map((c) => ({ callsign: c.callsign, frequency: c.frequency, position: c.position })),
       // Only an ATIS station with a frequency of its own (VATSIM's): IVAO's ATIS is the controller's, already listed above.
       atis: snapshot.atis.flatMap((a) =>
         here(a.callsign) && a.frequency !== null

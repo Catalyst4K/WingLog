@@ -157,7 +157,7 @@ test('the ATC layer over London, zoomed out and in, light and dark, with and wit
     await snap(page, {
       file: '2c-card-area.png',
       title: 'Pressing an area',
-      note: 'The same card for an area: its name, then who is on it, with the controller’s name under the callsign when the network publishes one.'
+      note: 'The same card for an area: its name, then who is on it (kind, callsign, frequency), every area under the click listed, the approach first.'
     })
     await map.click({ position: { x: 100, y: 500 } })
 

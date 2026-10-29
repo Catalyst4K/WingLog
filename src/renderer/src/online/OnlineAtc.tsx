@@ -43,7 +43,6 @@ function Airport({ airport }: { airport: OnlineAirportStations }): React.JSX.Ele
             </span>
             <span className="font-mono">{station.callsign}</span>
             <span className="font-mono text-foreground">{station.frequency}</span>
-            {station.name && <span className="text-muted-foreground">{station.name}</span>}
           </li>
         ))}
         {/* The ATIS station's frequency only: its text is in the weather panel. */}
