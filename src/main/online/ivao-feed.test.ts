@@ -135,7 +135,36 @@ describe('parseIvaoFeed', () => {
         feed([], [atc('TWR', 118.1, { lines: ['one', 'two'], revision: 'H', timestamp: 'x' })]),
         RECEIVED_MS
       )
-      expect(snapshot?.atis).toEqual([{ callsign: 'TSTA_TWR', code: 'H', lines: ['one', 'two'] }])
+      expect(snapshot?.atis).toEqual([
+        { callsign: 'TSTA_TWR', code: 'H', lines: ['one', 'two'], frequency: null, position: 'twr' }
+      ])
+    })
+
+    it("drops the first ATIS line when it is the controller's voice-server address, and only then", () => {
+      const lines = ['xx-1.xx-yyyy-1.zzzz.ivao/TSTA_TWR', 'wind calm']
+      const snapshot = parseIvaoFeed(
+        feed(
+          [],
+          [
+            atc('TWR', 118.1, { lines, revision: 'H' }),
+            atc('GND', 121.7, { lines: ['see a/b', 'wind calm'], revision: 'A' }),
+            atc('APP', 119.1, { lines: ['other.host/OTHER_CALL', 'wind calm'], revision: 'B' })
+          ]
+        ),
+        RECEIVED_MS
+      )
+      expect(snapshot?.atis.map((a) => a.lines)).toEqual([
+        ['wind calm'],
+        ['see a/b', 'wind calm'],
+        ['other.host/OTHER_CALL', 'wind calm']
+      ])
+    })
+
+    it('has no ATIS for a controller whose only line was the voice-server address', () => {
+      const lines = ['xx.ivao/TSTA_TWR']
+      expect(
+        parseIvaoFeed(feed([], [atc('TWR', 118.1, { lines, revision: 'H' })]), RECEIVED_MS)?.atis
+      ).toEqual([])
     })
 
     it('drops a controller with an unknown position or a frequency that is not a number, keeping its ATIS if it has one', () => {
@@ -214,6 +243,9 @@ describe('both parsers, for the same situation', () => {
       ),
       RECEIVED_MS
     )
-    expect({ ...ivao, network: 'vatsim' }).toEqual(vatsim)
+    // Same form; only the ATIS differs where the networks do: IVAO's belongs to a controller of a position.
+    expect({ ...ivao, network: 'vatsim', atis: ivao?.atis.map((a) => ({ ...a, position: null })) }).toEqual(
+      vatsim
+    )
   })
 })

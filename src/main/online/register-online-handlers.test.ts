@@ -295,6 +295,55 @@ describe('online network handlers', () => {
     })
   })
 
+  describe('the ATIS lookup', () => {
+    const choose = (network: 'vatsim' | 'ivao' | null, ivaoVid: string | null = null): void =>
+      setOnlineNetworkSettings(db, {
+        network,
+        vatsimCid: null,
+        ivaoVid,
+        keepBeyondAtcOnline: false,
+        simTrafficButton: true
+      })
+
+    it('reads the feed for a request and answers with the ATIS, for the PC window and the second screen alike', async () => {
+      const { invoke, atisAt } = register()
+      choose('vatsim')
+      const asked = [{ icao: 'egll', slot: 'departure' }]
+      const answer = (await invoke(IpcChannels.onlineAtisGet, asked)) as {
+        airports: { atis: { callsign: string }[] }[]
+      }
+      expect(answer.airports[0]?.atis.map((a) => a.callsign)).toEqual(['EGLL_D_ATIS'])
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+      // The second screen's lookup is the same function: answered from the feed just read.
+      const again = (await atisAt(asked)) as { airports: unknown[] }
+      expect(again.airports).toHaveLength(1)
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+    })
+
+    it.each([
+      ['a code that is not four characters', [{ icao: 'EGL', slot: 'departure' }]],
+      ['a tab that does not exist', [{ icao: 'EGLL', slot: 'arrival' }]],
+      ['something that is not a list', 'EGLL']
+    ])('refuses %s, from either screen, without reading anything', async (_name, bad) => {
+      const { invoke, atisAt } = register()
+      choose('vatsim')
+      await expect(Promise.resolve().then(() => invoke(IpcChannels.onlineAtisGet, bad))).rejects.toThrow(
+        'Invalid ATIS request'
+      )
+      await expect(Promise.resolve().then(() => atisAt(bad))).rejects.toThrow('Invalid ATIS request')
+      expect(fetchMock).not.toHaveBeenCalled()
+    })
+
+    it('shows nothing, and reads nothing, with no network chosen or IVAO without a VID', async () => {
+      const { invoke } = register()
+      const asked = [{ icao: 'EGLL', slot: 'departure' }]
+      expect(await invoke(IpcChannels.onlineAtisGet, asked)).toEqual({ network: null, airports: [] })
+      choose('ivao')
+      expect(await invoke(IpcChannels.onlineAtisGet, asked)).toEqual({ network: null, airports: [] })
+      expect(fetchMock).not.toHaveBeenCalled()
+    })
+  })
+
   it('looks again when tracking starts or stops, since the flight shown may change, and the traffic stays shown', () => {
     sim.getLastTelemetry = () => undefined
     const { invoke } = register()

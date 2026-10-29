@@ -1,4 +1,4 @@
-/** Dispatch's METAR panel. */
+/** The weather panel: Dispatch's weather card, Track's Weather pop-up and the phone's Dispatch page. METAR, and the live ATIS beneath it. */
 
 import { winglogApi } from './data/winglog-api'
 import { useEffect, useState } from 'react'
@@ -10,6 +10,8 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { AirportSearch } from './AirportSearch'
+import { AtisLine } from './online/WeatherAtis'
+import { atisFor, useWeatherAtis } from './online/use-weather-atis'
 import { formatWind, parseWindGroup } from './metar-wind'
 import { runAsync } from './report-error'
 
@@ -97,6 +99,15 @@ export function MetarPanel(props: {
   const [metars, setMetars] = useState<Record<string, MetarReport>>({})
   const [loading, setLoading] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
+  const atis = useWeatherAtis(
+    {
+      departure: props.depIcao,
+      destination: props.arrIcao,
+      alternate: props.altnIcao,
+      custom: debouncedCustomIcao
+    },
+    refreshKey
+  )
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedCustomIcao(customIcao), 400)
@@ -176,6 +187,7 @@ export function MetarPanel(props: {
               report={reportFor(props.depIcao)}
               windSpeedUnit={props.windSpeedUnit}
             />
+            <AtisLine answer={atisFor(atis, 'departure', props.depIcao)} network={atis?.network ?? null} />
           </TabsContent>
           <TabsContent value="destination">
             <MetarBody
@@ -184,6 +196,7 @@ export function MetarPanel(props: {
               report={reportFor(props.arrIcao)}
               windSpeedUnit={props.windSpeedUnit}
             />
+            <AtisLine answer={atisFor(atis, 'destination', props.arrIcao)} network={atis?.network ?? null} />
           </TabsContent>
           <TabsContent value="alternate">
             <MetarBody
@@ -192,6 +205,7 @@ export function MetarPanel(props: {
               report={reportFor(props.altnIcao)}
               windSpeedUnit={props.windSpeedUnit}
             />
+            <AtisLine answer={atisFor(atis, 'alternate', props.altnIcao)} network={atis?.network ?? null} />
           </TabsContent>
           <TabsContent value="custom" className="flex flex-col gap-2">
             <AirportSearch
@@ -205,6 +219,7 @@ export function MetarPanel(props: {
               report={reportFor(customIcao)}
               windSpeedUnit={props.windSpeedUnit}
             />
+            <AtisLine answer={atisFor(atis, 'custom', debouncedCustomIcao)} network={atis?.network ?? null} />
           </TabsContent>
         </Tabs>
       </CardContent>

@@ -42,6 +42,13 @@ describe('installWindowShim', () => {
     expect(query).toHaveBeenCalledWith('navdata.refreshAirport', 'WSSS')
   })
 
+  it('asks the PC for the live ATIS the weather panel shows, as the same request the PC window makes', async () => {
+    const query = vi.fn((name: string, ...args: unknown[]) => Promise.resolve({ name, args }))
+    installWindowShim({ latest: () => undefined, query })
+    const asked = [{ icao: 'EGLL', slot: 'departure' as const }]
+    await expect(window.winglog.onlineAtisGet(asked)).resolves.toEqual({ name: 'online.atis', args: [asked] })
+  })
+
   it('carries on without a chart when the PC cannot refresh one', async () => {
     installWindowShim({ latest: () => undefined, query: () => Promise.reject(new Error('no sim')) })
     await expect(window.winglog.navdataRefreshTaxiNetwork('WSSS')).resolves.toBeUndefined()

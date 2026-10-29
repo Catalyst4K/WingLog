@@ -12,7 +12,7 @@ import { createCustomAirframeFromShare } from '../simbrief/simbrief-generate'
 import { searchAirports } from '../airports/airport-search'
 import { listAirfields } from '../airports/airfields'
 import { searchAirlines, findAirlineByIcao } from '../airlines/airline-search'
-import { fetchMetars } from '../weather/metar-client'
+import { fetchMetars, resolveMetarUrl } from '../weather/metar-client'
 import { fetchExchangeRate } from '../fx/fx-client'
 
 /**
@@ -44,7 +44,7 @@ export function registerLookupHandlers(ipcMain: IpcMain): void {
   ipcMain.handle(IpcChannels.airlineFindByIcao, (_event, icao: string) => findAirlineByIcao(icao))
 
   ipcMain.handle(IpcChannels.weatherGetMetars, (_event, icaoCodes: unknown) =>
-    fetchMetars(icaoCodes, `WingLog/${app.getVersion()}`)
+    fetchMetars(icaoCodes, `WingLog/${app.getVersion()}`, resolveMetarUrl(app.isPackaged, process.env))
   )
 
   ipcMain.handle(IpcChannels.fxGetRate, (_event, targetCurrency: string, date?: string) =>

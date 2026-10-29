@@ -7,7 +7,6 @@
  * letter. Observers are never in the snapshot's controllers. Enroute controllers have no position in either feed and are not listed.
  */
 import type { OnlineAirportStations, OnlineStationPosition } from '@shared/ipc'
-import { atisRunway } from './atis-runway'
 import type { FeedSnapshot } from './feed-snapshot'
 
 /** The order stations are listed in, from the gate outwards. */
@@ -27,7 +26,7 @@ export function airportPrefixes(icao: string): string[] {
  * @param callsign A controller's or ATIS's callsign.
  * @returns The part before the first underscore, upper-case.
  */
-function prefixOf(callsign: string): string {
+export function prefixOf(callsign: string): string {
   return (callsign.split('_')[0] ?? '').toUpperCase()
 }
 
@@ -52,9 +51,12 @@ export function stationsAt(snapshot: FeedSnapshot, icaos: string[]): OnlineAirpo
         .filter((c) => here(c.callsign))
         .sort((a, b) => POSITION_ORDER.indexOf(a.position) - POSITION_ORDER.indexOf(b.position))
         .map((c) => ({ callsign: c.callsign, frequency: c.frequency, position: c.position, name: c.name })),
-      atis: snapshot.atis
-        .filter((a) => here(a.callsign))
-        .map((a) => ({ callsign: a.callsign, code: a.code, lines: a.lines, runway: atisRunway(a.lines) }))
+      // Only an ATIS station with a frequency of its own (VATSIM's): IVAO's ATIS is the controller's, already listed above.
+      atis: snapshot.atis.flatMap((a) =>
+        here(a.callsign) && a.frequency !== null
+          ? [{ callsign: a.callsign, code: a.code, frequency: a.frequency }]
+          : []
+      )
     }
   })
 }

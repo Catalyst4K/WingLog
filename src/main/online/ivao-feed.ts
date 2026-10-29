@@ -79,6 +79,37 @@ function readPilot(value: unknown, updatedMs: number | null): FeedPilot | null {
 }
 
 /**
+ * IVAO's first ATIS line is the controller's voice-server address, a host then `/` and the controller's own callsign: not ATIS text
+ * (the 2026-10-24 capture: 69 of 69). It is dropped only when it is exactly that, so a text that merely contains a slash is kept.
+ *
+ * @param lines The ATIS's lines.
+ * @param callsign The controller's callsign.
+ * @returns The lines without a leading voice-server line.
+ */
+function withoutVoiceLine(lines: string[], callsign: string): string[] {
+  const first = lines[0]
+  const isVoiceLine =
+    first !== undefined && first.toUpperCase().endsWith('/' + callsign.toUpperCase()) && !/\s/.test(first)
+  return isVoiceLine ? lines.slice(1) : lines
+}
+
+/**
+ * @param atis A controller's `atis` field.
+ * @param callsign The controller's callsign.
+ * @param position The controller's position, when it is one WingLog lists.
+ * @returns The controller's ATIS, or null when it has no text left once the voice-server line is taken out.
+ */
+function readControllerAtis(
+  atis: Record<string, unknown> | null,
+  callsign: string,
+  position: ControllerPosition | null
+): FeedAtis | null {
+  const lines = withoutVoiceLine(textLines(atis?.lines), callsign)
+  if (lines.length === 0) return null
+  return { callsign, code: clippedText(atis?.revision, 2), lines, frequency: null, position }
+}
+
+/**
  * @param value One entry of `clients.atcs`.
  * @returns The controller and its ATIS, either of which may be absent.
  */
@@ -90,10 +121,9 @@ function readAtc(value: unknown): { controller: FeedController | null; atis: Fee
   const position = typeof session?.position === 'string' ? POSITIONS[session.position] : undefined
   const frequencyMhz = finiteNumber(session?.frequency)
   const frequency = frequencyMhz === null ? null : formatFrequency(frequencyMhz)
-  const lines = textLines(asRecord(atc?.atis)?.lines)
   return {
     controller: position && frequency ? { callsign, frequency, position, name: null } : null,
-    atis: lines.length > 0 ? { callsign, code: clippedText(asRecord(atc?.atis)?.revision, 2), lines } : null
+    atis: readControllerAtis(asRecord(atc?.atis), callsign, position ?? null)
   }
 }
 

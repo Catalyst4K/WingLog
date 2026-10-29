@@ -13,6 +13,21 @@
  */
 import type { MetarReport } from '@shared/ipc'
 
+/** Where the METARs are read from. */
+export const METAR_URL = 'https://aviationweather.gov/api/data/metar'
+
+/**
+ * Where to read METARs: the end-to-end test override is honoured only in an unpackaged app (as the update and feed addresses are), so a
+ * released build can never be pointed somewhere else by an environment variable.
+ *
+ * @param isPackaged Whether this is a packaged (released) app.
+ * @param env The environment.
+ * @returns The address to use.
+ */
+export function resolveMetarUrl(isPackaged: boolean, env: Record<string, string | undefined>): string {
+  return isPackaged ? METAR_URL : env.WINGLOG_E2E_METAR_URL || METAR_URL
+}
+
 class MetarError extends Error {}
 
 interface AviationWeatherMetar {
@@ -31,9 +46,14 @@ function isFlightCategory(value: unknown): value is MetarReport['flightCategory'
  *
  * @param icaoCodes The airports, from the renderer.
  * @param userAgent The User-Agent to send.
+ * @param baseUrl Where to read them: the real service unless an end-to-end test says otherwise (`resolveMetarUrl`).
  * @returns A METAR for each airport that has one.
  */
-export async function fetchMetars(icaoCodes: unknown, userAgent = 'WingLog'): Promise<MetarReport[]> {
+export async function fetchMetars(
+  icaoCodes: unknown,
+  userAgent = 'WingLog',
+  baseUrl = METAR_URL
+): Promise<MetarReport[]> {
   // From the renderer: only ICAO-shaped strings go into the query.
   if (!Array.isArray(icaoCodes)) return []
   const codes = [
@@ -46,7 +66,7 @@ export async function fetchMetars(icaoCodes: unknown, userAgent = 'WingLog'): Pr
   ]
   if (codes.length === 0) return []
 
-  const url = `https://aviationweather.gov/api/data/metar?ids=${encodeURIComponent(codes.join(','))}&format=json`
+  const url = `${baseUrl}?ids=${encodeURIComponent(codes.join(','))}&format=json`
   const response = await fetch(url, { headers: { 'User-Agent': userAgent } })
   if (response.status === 204) return []
   if (!response.ok) {

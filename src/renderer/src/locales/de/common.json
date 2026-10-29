@@ -1027,9 +1027,17 @@
       "title": "ATC online an deinen Flughäfen ({{network}})",
       "button": "{{network}}-ATC ({{online}})…",
       "nobody": "Keine Lotsen online",
-      "enrouteNote": "Streckenlotsen werden nicht aufgeführt.",
+      "enrouteNote": "Streckenlotsen werden nicht aufgeführt."
+    },
+    "atis": {
+      "departure": "{{network}} Abflug-ATIS {{code}}",
+      "arrival": "{{network}} Anflug-ATIS {{code}}",
+      "single": "{{network}}-ATIS {{code}}",
+      "runwayShort": "Piste {{runway}}",
       "runway": "Aktive Bahn (laut ATIS): {{runway}}",
-      "runwayHint": "Aus dem ATIS-Text gelesen, nur ein Vorschlag. Mit dem Text abgleichen."
+      "runwayHint": "Aus dem ATIS-Text gelesen, nur ein Vorschlag. Mit dem Text abgleichen.",
+      "none": "Kein {{network}}-ATIS",
+      "unavailable": "{{network}}-ATIS nicht verfügbar"
     }
   }
 }

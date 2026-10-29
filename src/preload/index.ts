@@ -46,6 +46,7 @@ import {
 } from '@shared/ipc'
 import type { PlannedRoute, TaxiRoute } from '@shared/live'
 import type {
+  AtisRequest,
   NetworkControllers,
   NetworkTraffic,
   SimTraffic,
@@ -177,6 +178,7 @@ const api: WingLogApi = {
   },
   onlineGetPretend: () => ipcRenderer.invoke(IpcChannels.onlineGetPretend),
   onlineSetPretend: (callsign: string | null) => ipcRenderer.invoke(IpcChannels.onlineSetPretend, callsign),
+  onlineAtisGet: (requests: AtisRequest[]) => ipcRenderer.invoke(IpcChannels.onlineAtisGet, requests),
   getNetworkControllers: () => ipcRenderer.invoke(IpcChannels.networkControllersGet),
   onNetworkControllers: (listener: (controllers: NetworkControllers) => void) => {
     const handler = (_event: Electron.IpcRendererEvent, controllers: NetworkControllers): void =>

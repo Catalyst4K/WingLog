@@ -75,16 +75,29 @@ test('a flight flown while online is recorded with its network and callsign, and
     await expect(window.getByText(/BeyondATC is hidden while you are online on VATSIM/)).toBeVisible()
     expect(feed.requests.length).toBeGreaterThan(0)
 
-    // The controllers and ATIS at the flight's airport: a button beside Weather says how many are online and opens them in a pop-up.
+    // The controllers at the flight's airport: a button beside Weather says how many are online and opens them in a pop-up, with the
+    // ATIS station's frequency among them and none of its text.
     await window.getByRole('button', { name: 'VATSIM ATC (1)…' }).click()
     const popup = window.getByRole('dialog')
     const atc = popup.getByRole('region', { name: 'VHHH' })
     await expect(atc.getByText('VHHH_TWR')).toBeVisible()
     await expect(atc.getByText('118.700')).toBeVisible()
-    await expect(atc.getByText('RUNWAY 07R IN USE')).toBeVisible()
-    await expect(atc.getByText('Runway in use (from the ATIS): 07R')).toBeVisible()
+    await expect(atc.getByText('VHHH_ATIS')).toBeVisible()
+    await expect(atc.getByText('127.000')).toBeVisible()
+    await expect(atc.getByText('RUNWAY 07R IN USE')).toHaveCount(0)
     await window.keyboard.press('Escape')
     await expect(popup).toBeHidden()
+
+    // The ATIS itself is in the Weather pop-up, under the METAR: one folded line with the runway the text names, the text when pressed.
+    await window.getByRole('button', { name: 'Weather…' }).click()
+    const weather = window.getByRole('dialog')
+    const atisLine = weather.getByText('VATSIM ATIS C · runway 07R')
+    await expect(atisLine).toBeVisible()
+    await atisLine.click()
+    await expect(weather.getByText('RUNWAY 07R IN USE')).toBeVisible()
+    await expect(weather.getByText('Runway in use (from the ATIS): 07R')).toBeVisible()
+    await window.keyboard.press('Escape')
+    await expect(weather).toBeHidden()
 
     // Fly it, finish it, and find it in the Logbook with its network and callsign.
     await window.evaluate(
@@ -116,6 +129,70 @@ test('a flight flown while online is recorded with its network and callsign, and
     await expect(row.getByText('VATSIM')).toHaveAttribute('title', 'TSTPIL1')
     await row.click()
     await expect(window.getByText('VATSIM · TSTPIL1')).toBeVisible()
+  } finally {
+    await cleanup()
+    await feed.close()
+  }
+})
+
+test('the weather panel on Dispatch shows the live ATIS with no flight tracked, for each tab, on VATSIM and on IVAO', async () => {
+  const feed = await startNetworkFeedServer({
+    centre: VHHH,
+    station: 'VHHH',
+    splitStation: 'EGLL'
+  })
+  const { window, cleanup } = await launchApp({
+    env: { WINGLOG_E2E_VATSIM_URL: feed.vatsimUrl, WINGLOG_E2E_IVAO_URL: feed.ivaoUrl }
+  })
+  const setNetwork = (network: 'vatsim' | 'ivao' | null): Promise<void> =>
+    window.evaluate(
+      (chosen) =>
+        (globalThis as unknown as { winglog: Winglog }).winglog.settingsSetOnlineNetwork({
+          network: chosen,
+          vatsimCid: null,
+          ivaoVid: '900001',
+          keepBeyondAtcOnline: false,
+          simTrafficButton: true
+        }),
+      network
+    )
+  try {
+    await setNetwork('vatsim')
+    await window.getByRole('tab', { name: 'Dispatch' }).click()
+    await window.getByRole('tab', { name: 'Custom' }).click()
+    const airport = window.getByPlaceholder('Enter an ICAO code')
+
+    // An airport that splits its ATIS: the custom tab lists both, each with the runway its text names.
+    await airport.fill('EGLL')
+    await expect(window.getByText('VATSIM departure ATIS L · runway 27R')).toBeVisible()
+    await expect(window.getByText('VATSIM arrival ATIS M · runway 27L')).toBeVisible()
+
+    // One ATIS: pressing the folded line shows its text.
+    await airport.fill('VHHH')
+    const line = window.getByText('VATSIM ATIS C · runway 07R')
+    await expect(line).toBeVisible()
+    await line.click()
+    await expect(window.getByText('RUNWAY 07R IN USE')).toBeVisible()
+
+    // An airport with none says so.
+    await airport.fill('EGSS')
+    await expect(window.getByText('No VATSIM ATIS')).toBeVisible()
+
+    // IVAO has no ATIS stations: each controller carries its own, nearest the gate first on the custom tab, without the voice-server line.
+    await setNetwork('ivao')
+    await airport.fill('VHHH')
+    await window.getByTitle('Refresh METAR').click()
+    // A new network's feed is read when asked for, but never within 15 s of the last read of either (IVAO's rule).
+    await expect(window.getByText('IVAO ATIS H')).toBeVisible({ timeout: 30_000 })
+    await expect(window.getByText('IVAO ATIS D')).toBeVisible()
+    await window.getByText('IVAO ATIS H').click()
+    await expect(window.getByText('INVENTED IVAO TOWER ATIS H')).toBeVisible()
+    await expect(window.getByText(/voice.test.ivao/)).toHaveCount(0)
+
+    // None chosen: nothing about ATIS at all.
+    await setNetwork(null)
+    await window.getByTitle('Refresh METAR').click()
+    await expect(window.getByText(/ATIS/)).toHaveCount(0)
   } finally {
     await cleanup()
     await feed.close()

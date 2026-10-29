@@ -1029,9 +1029,17 @@
       "title": "ATC en ligne à vos aéroports ({{network}})",
       "button": "ATC {{network}} ({{online}})…",
       "nobody": "Aucun contrôleur en ligne",
-      "enrouteNote": "Les contrôleurs en route ne sont pas listés.",
+      "enrouteNote": "Les contrôleurs en route ne sont pas listés."
+    },
+    "atis": {
+      "departure": "ATIS départ {{network}} {{code}}",
+      "arrival": "ATIS arrivée {{network}} {{code}}",
+      "single": "ATIS {{network}} {{code}}",
+      "runwayShort": "piste {{runway}}",
       "runway": "Piste en service (d’après l’ATIS) : {{runway}}",
-      "runwayHint": "Lue dans le texte de l’ATIS, à titre de suggestion. Vérifiez-la dans le texte."
+      "runwayHint": "Lue dans le texte de l’ATIS, à titre de suggestion. Vérifiez-la dans le texte.",
+      "none": "Pas d’ATIS {{network}}",
+      "unavailable": "ATIS {{network}} indisponible"
     }
   }
 }

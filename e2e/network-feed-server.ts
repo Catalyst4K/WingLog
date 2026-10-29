@@ -19,8 +19,13 @@ export interface FeedScene {
   centre: { lat: number; lon: number }
   /** An invented pilot with this member number and callsign, at the centre: the test pilot's own aircraft. */
   self?: { cid: number; callsign: string }
-  /** An airport that has an invented tower and ATIS online. */
+  /**
+   * An airport that has an invented tower and ATIS online. On VATSIM the ATIS is a station of its own (letter C, runway 07R); on IVAO a
+   * ground and a tower controller are online, each with their own ATIS (D and H), the first line of each being the voice-server address.
+   */
   station?: string
+  /** An airport with a separate departure ATIS (letter L, runway 27R) and arrival ATIS (letter M, runway 27L), as VATSIM's busy airports run them. */
+  splitStation?: string
 }
 
 /**
@@ -66,20 +71,66 @@ export function vatsimBody(scene: FeedScene): string {
           }
         ]
       : [],
-    atis: scene.station
-      ? [
-          {
-            cid: 1000011,
-            name: 'Test ATIS',
-            callsign: `${scene.station}_ATIS`,
-            frequency: '127.000',
-            facility: 4,
-            atis_code: 'C',
-            text_atis: ['INVENTED ATIS INFORMATION C', 'RUNWAY 07R IN USE']
-          }
-        ]
-      : []
+    atis: [
+      ...(scene.station
+        ? [
+            {
+              cid: 1000011,
+              name: 'Test ATIS',
+              callsign: `${scene.station}_ATIS`,
+              frequency: '127.000',
+              facility: 4,
+              atis_code: 'C',
+              text_atis: ['INVENTED ATIS INFORMATION C', 'RUNWAY 07R IN USE']
+            }
+          ]
+        : []),
+      ...(scene.splitStation
+        ? [
+            {
+              cid: 1000012,
+              name: 'Test ATIS',
+              callsign: `${scene.splitStation}_D_ATIS`,
+              frequency: '121.850',
+              facility: 4,
+              atis_code: 'L',
+              text_atis: ['INVENTED DEPARTURE INFORMATION L', 'RUNWAY 27R IN USE']
+            },
+            {
+              cid: 1000013,
+              name: 'Test ATIS',
+              callsign: `${scene.splitStation}_A_ATIS`,
+              frequency: '128.075',
+              facility: 4,
+              atis_code: 'M',
+              text_atis: ['INVENTED ARRIVAL INFORMATION M', 'RUNWAY 27L IN USE']
+            }
+          ]
+        : [])
+    ]
   })
+}
+
+/**
+ * @param callsign The controller's callsign.
+ * @param position IVAO's position name.
+ * @param frequency The frequency, which IVAO sends as a number.
+ * @param letter The ATIS's letter.
+ * @param text The ATIS's text.
+ * @returns An IVAO-shaped controller carrying its own ATIS, whose first line is the voice-server address.
+ */
+function ivaoController(
+  callsign: string,
+  position: string,
+  frequency: number,
+  letter: string,
+  text: string
+): object {
+  return {
+    callsign,
+    atcSession: { position, frequency },
+    atis: { revision: letter, lines: [`voice.test.ivao/${callsign}`, text] }
+  }
 }
 
 /**
@@ -110,7 +161,12 @@ export function ivaoBody(scene: FeedScene): string {
         pilot(1, 'NEAR1', scene.centre.lat + 0.3, scene.centre.lon + 0.3),
         pilot(2, 'FAR1', -33.9, 151.2)
       ],
-      atcs: [],
+      atcs: scene.station
+        ? [
+            ivaoController(`${scene.station}_GND`, 'GND', 121.6, 'D', 'INVENTED IVAO GROUND ATIS D'),
+            ivaoController(`${scene.station}_TWR`, 'TWR', 118.4, 'H', 'INVENTED IVAO TOWER ATIS H')
+          ]
+        : [],
       observers: [],
       followMe: []
     }

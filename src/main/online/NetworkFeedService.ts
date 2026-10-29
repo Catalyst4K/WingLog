@@ -11,6 +11,8 @@
  */
 import type { LatLon } from '@shared/geo'
 import type {
+  AtisAnswer,
+  AtisRequest,
   NetworkTraffic,
   OnlineNetwork,
   OnlineNetworkSettings,
@@ -30,6 +32,7 @@ import {
 } from './feed-snapshot'
 import { parseIvaoFeed } from './ivao-feed'
 import { stationsAt } from './airport-stations'
+import { answerAtis } from './atis-for-slot'
 import { selfStatus, unknownStatus } from './self-status'
 import { decideTrafficLayers } from './traffic-layers'
 import { parseVatsimFeed } from './vatsim-feed'
@@ -40,8 +43,19 @@ export const FEED_TIMEOUT_MS = 10_000
 export const STALE_AFTER_MS = 45_000
 /** The least time between two log lines about failing feeds, milliseconds. */
 export const FAILURE_LOG_INTERVAL_MS = 10 * 60_000
+/** How old the feed held may be and still answer an ATIS request, milliseconds: the status interval. */
+export const ATIS_FRESH_MS = 60_000
+/** How long an ATIS request waits for a read, milliseconds: the 15 s floor and then the request's own 10 s timeout, with a margin. */
+export const ATIS_WAIT_MS = 27_000
 /** The biggest feed body read, bytes: the busiest real feed is about 2.5 MB. */
 const MAX_BODY_BYTES = 30_000_000
+
+/** An ATIS request waiting for a read. */
+interface AtisWaiter {
+  requests: AtisRequest[]
+  resolve: (answer: AtisAnswer) => void
+  timer: unknown
+}
 
 /** An error carrying a short, safe description (never feed content) for the log. */
 class FeedError extends Error {}
@@ -102,6 +116,8 @@ export class NetworkFeedService {
   private seen: { network: OnlineNetwork; callsign: string } | null = null
   /** Bumped when the network changes or the service stops, so a late answer from the old request is ignored. */
   private generation = 0
+  /** The ATIS requests waiting for a read. */
+  private atisWaiters: AtisWaiter[] = []
 
   /** @param deps The fetch, clock, timers, settings and the hub. */
   constructor(private readonly deps: NetworkFeedDeps) {}
@@ -114,6 +130,7 @@ export class NetworkFeedService {
   /** Stops the timers and any request in flight. */
   stop(): void {
     this.stopped = true
+    this.answerWaiters(false)
     this.generation++
     this.clearTimers()
     this.abort?.abort()
@@ -137,6 +154,64 @@ export class NetworkFeedService {
   setSimOn(on: boolean): void {
     this.deps.saveSwitches({ ...this.deps.switches(), simOn: on })
     this.refresh()
+  }
+
+  /**
+   * The ATIS for the weather panel's airports, live like the METAR: from the feed held when it is under a minute old, otherwise after one
+   * read through the same poll step, so the 15 s floor and the back-off hold however many panels ask.
+   *
+   * @param requests The airports and tabs, already checked.
+   * @returns The answer in the same order; nothing is shown with no network chosen, and unavailable when the read failed or took too long.
+   */
+  atisAt(requests: AtisRequest[]): Promise<AtisAnswer> {
+    const network = this.atisNetwork()
+    if (network === null || this.stopped) return Promise.resolve(answerAtis(null, null, requests))
+    const held = this.heldSnapshot(network)
+    if (held && this.deps.now() - held.receivedMs < ATIS_FRESH_MS) {
+      return Promise.resolve(answerAtis(held, network, requests))
+    }
+    return new Promise<AtisAnswer>((resolve) => {
+      const waiter: AtisWaiter = { requests, resolve, timer: null }
+      waiter.timer = this.deps.timers.set(() => {
+        this.atisWaiters = this.atisWaiters.filter((w) => w !== waiter)
+        resolve(answerAtis(this.heldSnapshot(network), this.atisNetwork(), requests))
+      }, ATIS_WAIT_MS)
+      this.atisWaiters.push(waiter)
+      this.tick()
+    })
+  }
+
+  /**
+   * @returns The network whose ATIS may be read: the one chosen, and for IVAO only once the VID is entered (Regulation D.2); else null.
+   */
+  private atisNetwork(): OnlineNetwork | null {
+    const settings = this.deps.settings()
+    if (settings.network === 'ivao' && settings.ivaoVid === null) return null
+    return settings.network
+  }
+
+  /**
+   * @param network A network.
+   * @returns The feed held, when it is that network's.
+   */
+  private heldSnapshot(network: OnlineNetwork | null): FeedSnapshot | null {
+    return this.snapshot !== null && this.snapshot.network === network ? this.snapshot : null
+  }
+
+  /**
+   * Answers every waiting ATIS request from the feed held (or as unavailable when the read failed) and forgets them.
+   *
+   * @param readOk Whether the read that ended gave a feed.
+   */
+  private answerWaiters(readOk: boolean): void {
+    const waiters = this.atisWaiters
+    this.atisWaiters = []
+    const network = this.atisNetwork()
+    const held = readOk ? this.heldSnapshot(network) : null
+    for (const waiter of waiters) {
+      this.deps.timers.clear(waiter.timer)
+      waiter.resolve(answerAtis(held, network, waiter.requests))
+    }
   }
 
   /** Re-reads the settings and switches and acts on them: call after either changes. */
@@ -207,12 +282,13 @@ export class NetworkFeedService {
    * @returns The network whose feed should be read now and why: its traffic is drawn, or only the pilot's own status is wanted (a flight
    *   is tracked). Null when neither, and always for IVAO without a VID.
    */
-  private wanted(): { network: OnlineNetwork; kind: 'traffic' | 'status' } | null {
+  private wanted(): { network: OnlineNetwork; kind: 'traffic' | 'once' | 'status' } | null {
     const settings = this.deps.settings()
     const network = settings.network
     if (network === null || (network === 'ivao' && settings.ivaoVid === null)) return null
     // The traffic is read whenever its layer draws, with or without a position (the whole network without one).
     if (this.layers().drawNetwork) return { network, kind: 'traffic' }
+    if (this.atisWaiters.length > 0) return { network, kind: 'once' }
     return this.deps.trackedFlight() !== null ? { network, kind: 'status' } : null
   }
 
@@ -324,6 +400,7 @@ export class NetworkFeedService {
     this.clearStaleTimer()
     this.updateStatus()
     this.publishTraffic()
+    this.answerWaiters(true)
   }
 
   /**
@@ -383,6 +460,7 @@ export class NetworkFeedService {
   private onFailure(network: OnlineNetwork, error: unknown): void {
     const nowMs = this.deps.now()
     this.poll = pollFinished(this.poll, false, nowMs)
+    this.answerWaiters(false)
     if (this.lastLogMs === null || nowMs - this.lastLogMs >= FAILURE_LOG_INTERVAL_MS) {
       this.lastLogMs = nowMs
       // Only the network and a short reason: never feed content, a callsign or a member number.

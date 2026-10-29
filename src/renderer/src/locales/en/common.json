@@ -1027,9 +1027,17 @@
       "title": "Online ATC at your airports ({{network}})",
       "button": "{{network}} ATC ({{online}})…",
       "nobody": "No controllers online",
-      "enrouteNote": "Enroute controllers are not listed.",
+      "enrouteNote": "Enroute controllers are not listed."
+    },
+    "atis": {
+      "departure": "{{network}} departure ATIS {{code}}",
+      "arrival": "{{network}} arrival ATIS {{code}}",
+      "single": "{{network}} ATIS {{code}}",
+      "runwayShort": "runway {{runway}}",
       "runway": "Runway in use (from the ATIS): {{runway}}",
-      "runwayHint": "Read from the ATIS text as a suggestion. Check it against the text."
+      "runwayHint": "Read from the ATIS text as a suggestion. Check it against the text.",
+      "none": "No {{network}} ATIS",
+      "unavailable": "{{network}} ATIS unavailable"
     }
   }
 }
