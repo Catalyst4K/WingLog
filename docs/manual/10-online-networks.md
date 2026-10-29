@@ -89,7 +89,7 @@ The **radio-mast button** on the Track map (on the phone too) shows where the ch
 - **Centres** (VATSIM and IVAO's area controllers) are shaded **purple** and labelled with their callsign, such as **LON_C_CTR**. A sector has its own shape inside its centre.
 - **Approach and departure** areas are shaded **pink**, such as Heathrow's director.
 - A **dot** marks an airport with something staffed, and its letters say what: **D** delivery, **G** ground, **T** tower, **A** an approach with no area of its own, **I** an ATIS. The letters show from a closer zoom.
-- **Press an area or a dot** to see who is on it: callsign, frequency and, on VATSIM, the controller's name.
+- **Press an area or a dot** to see who is on it: kind, callsign and frequency. Where areas overlap, such as an approach under its centre, the card lists every one under your click, the approach first. Press the same airport or area again to close its card.
 - Labels and letters come in as you zoom in, so a zoomed-out map shows the centres and the dots, not a wall of text.
 - It is read from the network about **once a minute** while only this layer is on (about 35 MB an hour on VATSIM), and from the same download as the traffic when that is on too.
 

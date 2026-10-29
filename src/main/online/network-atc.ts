@@ -5,7 +5,7 @@
  *
  * Nothing is invented: an approach with no area in the community data is marked at its airport, never drawn as a made-up circle, and a
  * controller whose airport has no position is left out. Controllers never carry a member number or a position of their own (neither feed
- * gives one), so only their callsign, frequency and, on VATSIM, the name the network publishes are sent.
+ * gives one), so only their callsign, frequency and position are sent: never the name VATSIM publishes for a controller, which is a person's.
  */
 import type { LatLon } from '@shared/geo'
 import type { AtcAirport, AtcArea, OnlineStation, OnlineStationPosition } from '@shared/ipc'
@@ -30,8 +30,7 @@ function stationOf(controller: FeedController): OnlineStation {
   return {
     callsign: controller.callsign,
     frequency: controller.frequency,
-    position: controller.position,
-    name: controller.name
+    position: controller.position
   }
 }
 

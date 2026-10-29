@@ -82,8 +82,6 @@ export interface OnlineStation {
   /** MHz with three decimals, for example "118.700". Only ever shown, never tuned. */
   frequency: string
   position: OnlineStationPosition
-  /** The controller's name when the network publishes it (VATSIM does, IVAO does not), else null. */
-  name: string | null
 }
 
 /** An ATIS station's frequency, for the ATC list: the text itself is in `AtisAnswer`. Only VATSIM's ATIS stations have one. */

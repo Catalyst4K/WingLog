@@ -49,8 +49,6 @@ export interface FeedController {
   /** MHz with three decimals, for example "131.900". */
   frequency: string
   position: ControllerPosition
-  /** The controller's name when the network publishes it (VATSIM), else null. */
-  name: string | null
 }
 
 /** An airport's ATIS, as text. */

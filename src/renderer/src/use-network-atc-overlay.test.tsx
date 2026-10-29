@@ -137,12 +137,12 @@ const CENTRE: AtcArea = {
   name: 'London ACC (Central) - London',
   at: [-0.15, 52.178],
   coordinates: SQUARE,
-  stations: [{ callsign: 'LON_C_CTR', frequency: '133.700', position: 'ctr', name: null }]
+  stations: [{ callsign: 'LON_C_CTR', frequency: '133.700', position: 'ctr' }]
 }
 const HEATHROW: AtcAirport = {
   icao: 'EGLL',
   at: [-0.4619, 51.4706],
-  stations: [{ callsign: 'EGLL_TWR', frequency: '118.500', position: 'twr', name: null }],
+  stations: [{ callsign: 'EGLL_TWR', frequency: '118.500', position: 'twr' }],
   atis: []
 }
 
@@ -314,33 +314,27 @@ describe('useNetworkAtcOverlay', () => {
       await mount(fakeClient({ atc: shown() }).client, fake)
       return fake
     }
-    const row = (callsign: string, note: string | null = null) => ({
-      tag: 'CTR',
-      callsign,
-      frequency: '133.700',
-      note
-    })
+    const row = (callsign: string) => ({ tag: 'CTR', callsign, frequency: '133.700' })
     const featureWith = (title: string, rows: ReturnType<typeof row>[] = []) => ({
       properties: { card: JSON.stringify({ title, rows }) }
     })
 
-    it('lays an area out as a title and one aligned row per controller, the name beneath, all as text nodes', async () => {
+    it('lays an area out as a title and one aligned row per controller, all as text nodes', async () => {
       const fake = await drawn()
       fake.clicks.get(ATC_FILL_LAYER)?.({
         lngLat: { lng: 1, lat: 2 },
         point: { x: 10, y: 10 },
-        features: [featureWith('London ACC', [row('<b>LON_C_CTR</b>', 'Test Controller'), row('LON_CS_CTR')])]
+        features: [featureWith('London ACC', [row('<b>LON_C_CTR</b>'), row('LON_CS_CTR')])]
       })
       expect(popups).toHaveLength(1)
       const [title, grid] = Array.from(popups[0]!.content!.children) as HTMLElement[]
       expect(title?.textContent).toBe('London ACC')
       expect(title?.style.fontWeight).toBe('600')
-      // Each row is its kind, callsign and frequency across three columns; a name takes its own line under the callsign.
+      // Each row is its kind, callsign and frequency across three columns.
       expect(Array.from(grid!.children).map((cell) => cell.textContent)).toEqual([
         'CTR',
         '<b>LON_C_CTR</b>',
         '133.700',
-        'Test Controller',
         'CTR',
         'LON_CS_CTR',
         '133.700'

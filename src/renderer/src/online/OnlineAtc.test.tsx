@@ -11,8 +11,8 @@ const HEATHROW: NetworkControllers = {
     {
       icao: 'EGLL',
       stations: [
-        { callsign: 'EGLL_GND', frequency: '121.700', position: 'gnd', name: 'Test Controller' },
-        { callsign: 'EGLL_TWR', frequency: '118.700', position: 'twr', name: null }
+        { callsign: 'EGLL_GND', frequency: '121.700', position: 'gnd' },
+        { callsign: 'EGLL_TWR', frequency: '118.700', position: 'twr' }
       ],
       atis: [
         { callsign: 'EGLL_D_ATIS', code: 'C', frequency: '121.850' },
@@ -59,7 +59,6 @@ describe('OnlineAtcButton', () => {
     expect(within(heathrow).getByText('GND')).toBeInTheDocument()
     expect(within(heathrow).getByText('EGLL_GND')).toBeInTheDocument()
     expect(within(heathrow).getByText('121.700')).toBeInTheDocument()
-    expect(within(heathrow).getByText('Test Controller')).toBeInTheDocument()
     expect(within(heathrow).getByText('118.700')).toBeInTheDocument()
   })
 

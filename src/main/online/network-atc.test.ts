@@ -21,13 +21,8 @@ const AIRPORTS: Record<string, LatLon> = {
 }
 const airportAt = (icao: string): LatLon | null => AIRPORTS[icao] ?? null
 
-function controller(
-  callsign: string,
-  position: ControllerPosition,
-  frequency = '118.700',
-  name: string | null = null
-): FeedController {
-  return { callsign, frequency, position, name }
+function controller(callsign: string, position: ControllerPosition, frequency = '118.700'): FeedController {
+  return { callsign, frequency, position }
 }
 
 function snapshot(controllers: FeedController[], atis: FeedAtis[] = []): FeedSnapshot {
@@ -37,10 +32,7 @@ function snapshot(controllers: FeedController[], atis: FeedAtis[] = []): FeedSna
 describe('buildAtcLayer', () => {
   it('draws a staffed centre as its area, with who is on it, and puts a sector on its own area', () => {
     const { areas, airports } = buildAtcLayer(
-      snapshot([
-        controller('LON_C_CTR', 'ctr', '133.700', 'Test Controller'),
-        controller('LON_CTR', 'ctr', '135.100')
-      ]),
+      snapshot([controller('LON_C_CTR', 'ctr', '133.700'), controller('LON_CTR', 'ctr', '135.100')]),
       data,
       airportAt
     )
@@ -54,8 +46,7 @@ describe('buildAtcLayer', () => {
     expect(central.stations[0]).toEqual({
       callsign: 'LON_C_CTR',
       frequency: '133.700',
-      position: 'ctr',
-      name: 'Test Controller'
+      position: 'ctr'
     })
     expect(central.coordinates.length).toBeGreaterThan(0)
     expect(central.at).toEqual([-0.15, 52.178])
@@ -160,14 +151,14 @@ describe('buildAtcLayer', () => {
     expect(buildAtcLayer(snapshot([]), data, airportAt)).toEqual({ areas: [], airports: [] })
   })
 
-  it('carries no member number: a station is only a callsign, frequency, position and the network’s published name', () => {
+  it('carries no member number: a station is only a callsign, frequency and position', () => {
     const { areas, airports } = buildAtcLayer(
-      snapshot([controller('LON_C_CTR', 'ctr', '133.700', 'Test Controller'), controller('EGLL_TWR', 'twr')]),
+      snapshot([controller('LON_C_CTR', 'ctr', '133.700'), controller('EGLL_TWR', 'twr')]),
       data,
       airportAt
     )
     const keys = new Set([...areas, ...airports].flatMap((a) => a.stations.flatMap((s) => Object.keys(s))))
-    expect([...keys].sort()).toEqual(['callsign', 'frequency', 'name', 'position'])
+    expect([...keys].sort()).toEqual(['callsign', 'frequency', 'position'])
   })
 })
 

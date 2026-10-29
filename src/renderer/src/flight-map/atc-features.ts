@@ -50,14 +50,13 @@ const LETTER_ORDER = ['D', 'G', 'T', 'A', 'I']
 
 /**
  * @param station A station.
- * @returns Its row: "CTR", the callsign, the frequency, and the name the network publishes.
+ * @returns Its row: "CTR", the callsign and the frequency.
  */
 function stationRow(station: OnlineStation): PopupCardRow {
   return {
     tag: station.position.toUpperCase(),
     callsign: station.callsign,
-    frequency: station.frequency,
-    note: station.name
+    frequency: station.frequency
   }
 }
 
@@ -69,8 +68,7 @@ function atisRow(atis: OnlineAtis): PopupCardRow {
   return {
     tag: atis.code ? `ATIS ${atis.code}` : 'ATIS',
     callsign: atis.callsign,
-    frequency: atis.frequency,
-    note: null
+    frequency: atis.frequency
   }
 }
 
@@ -179,8 +177,7 @@ export function atcPopupCard(properties: { card?: unknown }): PopupCard | null {
       {
         tag: row.tag,
         callsign: row.callsign,
-        frequency: row.frequency,
-        note: typeof row.note === 'string' ? row.note : null
+        frequency: row.frequency
       }
     ]
   })

@@ -6,12 +6,8 @@ import type { FeedController, FeedSnapshot } from './feed-snapshot'
 import { parseIvaoFeed } from './ivao-feed'
 import { parseVatsimFeed } from './vatsim-feed'
 
-function controller(
-  callsign: string,
-  position: FeedController['position'] = 'twr',
-  name: string | null = null
-): FeedController {
-  return { callsign, frequency: '118.700', position, name }
+function controller(callsign: string, position: FeedController['position'] = 'twr'): FeedController {
+  return { callsign, frequency: '118.700', position }
 }
 
 function snapshot(controllers: FeedController[], atis: FeedSnapshot['atis'] = []): FeedSnapshot {
@@ -92,10 +88,10 @@ describe('stationsAt', () => {
     expect(result[0]?.stations).toHaveLength(1)
   })
 
-  it('carries the name VATSIM publishes and each ATIS station’s letter and frequency, without its text', () => {
+  it('carries each ATIS station’s letter and frequency, without its text, and a controller’s callsign, frequency and position only', () => {
     const result = stationsAt(
       snapshot(
-        [controller('EGLL_TWR', 'twr', 'Test Controller')],
+        [controller('EGLL_TWR', 'twr')],
         [
           {
             callsign: 'EGLL_ATIS',
@@ -108,7 +104,7 @@ describe('stationsAt', () => {
       ),
       ['EGLL']
     )
-    expect(result[0]?.stations[0]?.name).toBe('Test Controller')
+    expect(result[0]?.stations[0]).toEqual({ callsign: 'EGLL_TWR', frequency: '118.700', position: 'twr' })
     expect(result[0]?.atis).toEqual([{ callsign: 'EGLL_ATIS', code: 'C', frequency: '128.075' }])
   })
 
@@ -158,10 +154,10 @@ describe('stationsAt', () => {
     it('finds the synthetic IVAO tower with its frequency formatted the same way', () => {
       const feed = parseIvaoFeed(read('ivao-synthetic.json'), 0)!
       const [airport] = stationsAt(feed, ['TSTA'])
-      expect(airport?.stations.map((s) => [s.position, s.frequency, s.name])).toEqual([
-        ['gnd', '121.700', null],
-        ['twr', '118.100', null],
-        ['app', '119.725', null]
+      expect(airport?.stations.map((s) => [s.position, s.frequency])).toEqual([
+        ['gnd', '121.700'],
+        ['twr', '118.100'],
+        ['app', '119.725']
       ])
     })
   })
