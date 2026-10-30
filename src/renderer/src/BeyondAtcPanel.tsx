@@ -13,6 +13,7 @@ import type {
   BeyondAtcTranscriptEntry
 } from '@shared/ipc'
 import { EMPTY_BEYONDATC_STATE } from '@shared/beyondatc-state'
+import { BeyondAtcAtisButton } from './BeyondAtcAtis'
 import { BeyondAtcActions, BeyondAtcRadios } from './BeyondAtcControls'
 import { latestAtcInstruction, type AtcInstruction } from './beyond-atc-instruction'
 import { useLiveClient, useLiveTopic } from './live/LiveClient'
@@ -71,6 +72,9 @@ function InfoCard(props: { state: BeyondAtcState }): React.JSX.Element {
             {t('beyondAtcPanel.progress', { from: progress.from, to: progress.to, pct: progress.pct })}
           </span>
         )}
+        <span className="ml-auto">
+          <BeyondAtcAtisButton />
+        </span>
       </CardContent>
     </Card>
   )

@@ -6084,7 +6084,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ## Bundled data
 
-Four reference datasets are vendored into the app. Their per-file provenance and terms
+The reference datasets below are vendored into the app. Their per-file provenance and terms
 are reproduced verbatim below, from `resources/*.LICENSE.txt` in the source repository.
 
 **Note on the airline database:** it is licensed under the Open Database License (ODbL)

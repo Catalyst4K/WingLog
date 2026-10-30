@@ -135,6 +135,11 @@ export interface WeatherAtis {
   lines: string[]
   /** The one runway the text names, when it names exactly one: a suggestion to show beside the text, never applied. */
   runway: string | null
+  /** 'beyondatc' for BeyondATC's own D-ATIS, absent for a network's. */
+  source?: 'beyondatc'
+  /** BeyondATC's ATIS only: the runways it labels for arrivals and for departures, like "27R". Empty when the text names none cleanly. */
+  arrivalRunways?: string[]
+  departureRunways?: string[]
 }
 
 /** What the network says for one request: 'shown' with its ATIS, 'none' when no ATIS is online there, 'unavailable' when it could not be read. */
@@ -143,6 +148,8 @@ export interface AirportAtis {
   slot: AtisSlot
   state: 'shown' | 'none' | 'unavailable'
   atis: WeatherAtis[]
+  /** True when BeyondATC is connected but did not answer in time: its ATIS could not be read now (an older one is never shown). */
+  beyondAtcUnavailable?: boolean
 }
 
 /** The answer to a list of requests: in the same order. `network` is null with no network chosen (or IVAO without a VID): nothing is shown. */

@@ -21,6 +21,7 @@ import type {
 import type { Airfield, AirportOption, MetarReport } from './types/airports'
 import type {
   BeyondAtcArrivalClearance,
+  BeyondAtcAtisList,
   BeyondAtcConnectionStatus,
   BeyondAtcSettings,
   BeyondAtcState,
@@ -610,6 +611,8 @@ export interface WingLogApi {
   onBeyondAtcState: (listener: (state: BeyondAtcState) => void) => () => void
   /** The current transcript buffer (last 100 lines), for a renderer mounting mid-flight. */
   beyondAtcGetTranscript: () => Promise<BeyondAtcTranscriptEntry[]>
+  /** BeyondATC's ATIS for each airport it has one for, read fresh from BeyondATC (a query: it asks BeyondATC each time). */
+  beyondAtcGetAtis: () => Promise<BeyondAtcAtisList>
   onBeyondAtcTranscript: (listener: (transcript: BeyondAtcTranscriptEntry[]) => void) => () => void
   /** Fires the given entry from the live Actions list (`set_action`) — no-op if not
    *  connected. */

@@ -376,6 +376,7 @@ const api: WingLogApi = {
     return () => ipcRenderer.removeListener(IpcChannels.beyondAtcState, handler)
   },
   beyondAtcGetTranscript: () => ipcRenderer.invoke(IpcChannels.beyondAtcGetTranscript),
+  beyondAtcGetAtis: () => ipcRenderer.invoke(IpcChannels.beyondAtcGetAtis),
   onBeyondAtcTranscript: (listener: (transcript: BeyondAtcTranscriptEntry[]) => void) => {
     const handler = (_event: Electron.IpcRendererEvent, transcript: BeyondAtcTranscriptEntry[]): void =>
       listener(transcript)

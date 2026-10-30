@@ -800,6 +800,14 @@
       "awaitingReply": "Warte auf die Antwort der Flugsicherung."
     },
     "noStatus": "Noch kein Status.",
+    "atis": {
+      "button": "ATIS…",
+      "title": "BeyondATC-ATIS",
+      "reading": "BeyondATC wird gefragt …",
+      "off": "BeyondATC ist nicht verbunden.",
+      "unavailable": "BeyondATC hat nicht geantwortet. Bitte erneut versuchen.",
+      "none": "BeyondATC hat kein ATIS für diesen Flug."
+    },
     "radios": "Funkgeräte",
     "frequencyUnknown": "—",
     "frequencyPlaceholder": "118.850",
@@ -1054,7 +1062,12 @@
       "runway": "Aktive Bahn (laut ATIS): {{runway}}",
       "runwayHint": "Aus dem ATIS-Text gelesen, nur ein Vorschlag. Mit dem Text abgleichen.",
       "none": "Kein {{network}}-ATIS",
-      "unavailable": "{{network}}-ATIS nicht verfügbar"
+      "unavailable": "{{network}}-ATIS nicht verfügbar",
+      "beyondatc": "BeyondATC-ATIS {{code}}",
+      "beyondatcDeparture": "Startbahn {{runways}}",
+      "beyondatcArrival": "Landebahn {{runways}}",
+      "beyondatcHint": "Die Bahnen, die BeyondATCs ATIS für Abflüge und Anflüge nennt. Mit dem Text abgleichen.",
+      "beyondatcUnavailable": "BeyondATCs ATIS konnte gerade nicht gelesen werden"
     }
   },
   "navdataCycle": {

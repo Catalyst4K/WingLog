@@ -825,6 +825,14 @@
       "awaitingReply": "Ожидание ответа диспетчера."
     },
     "noStatus": "Статус пока не известен.",
+    "atis": {
+      "button": "ATIS…",
+      "title": "ATIS BeyondATC",
+      "reading": "Запрос к BeyondATC…",
+      "off": "BeyondATC не подключён.",
+      "unavailable": "BeyondATC не ответил. Повторите попытку.",
+      "none": "У BeyondATC нет ATIS для этого полёта."
+    },
     "radios": "Радиостанции",
     "frequencyUnknown": "—",
     "frequencyPlaceholder": "118.850",
@@ -1081,7 +1089,12 @@
       "runway": "ВПП в использовании (по ATIS): {{runway}}",
       "runwayHint": "Прочитано из текста ATIS как подсказка. Проверьте по тексту.",
       "none": "Нет ATIS {{network}}",
-      "unavailable": "ATIS {{network}} недоступен"
+      "unavailable": "ATIS {{network}} недоступен",
+      "beyondatc": "ATIS BeyondATC {{code}}",
+      "beyondatcDeparture": "ВПП вылета {{runways}}",
+      "beyondatcArrival": "ВПП посадки {{runways}}",
+      "beyondatcHint": "ВПП, которые ATIS BeyondATC называет для вылета и посадки. Сверьтесь с текстом.",
+      "beyondatcUnavailable": "Не удалось прочитать ATIS BeyondATC"
     }
   },
   "navdataCycle": {

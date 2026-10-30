@@ -382,6 +382,38 @@ describe('MetarPanel: the live ATIS', () => {
     expect(screen.queryByText('VATSIM ATIS B')).not.toBeInTheDocument()
   })
 
+  it("shows BeyondATC's ATIS with its runway for the tab, with no network chosen, and asks again when Refresh is pressed", async () => {
+    const beyondAtc: WeatherAtis = {
+      callsign: 'BeyondATC',
+      code: 'R',
+      kind: 'single',
+      lines: ['EGLL ATIS R 2338Z ARR RWY 27 RIGHT DEP RWY 27 LEFT'],
+      runway: null,
+      source: 'beyondatc',
+      arrivalRunways: ['27R'],
+      departureRunways: ['27L']
+    }
+    const onlineAtisGet = vi
+      .fn()
+      .mockResolvedValue(
+        answer(
+          [
+            shown('WSSS', 'departure', [{ ...beyondAtc, departureRunways: ['20C'] }]),
+            shown('EGLL', 'destination', [beyondAtc])
+          ],
+          null
+        )
+      )
+    withWinglog({ onlineAtisGet, weatherGetMetars: vi.fn().mockResolvedValue([]) })
+    render(<MetarPanel depIcao="WSSS" arrIcao="EGLL" altnIcao={null} windSpeedUnit="kt" />)
+    expect(await screen.findByText('BeyondATC ATIS R · departure runway 20C')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('tab', { name: 'Dest' }))
+    expect(await screen.findByText('BeyondATC ATIS R · arrival runway 27R')).toBeInTheDocument()
+    expect(onlineAtisGet).toHaveBeenCalledTimes(1)
+    await userEvent.click(screen.getByRole('button', { name: /Refresh/ }))
+    await waitFor(() => expect(onlineAtisGet).toHaveBeenCalledTimes(2))
+  })
+
   it('carries on without an ATIS when the screen has no lookup for it', async () => {
     withWinglog({ weatherGetMetars: vi.fn().mockResolvedValue([report({ icao: 'EGLL' })]) })
     render(<MetarPanel depIcao="EGLL" arrIcao={null} altnIcao={null} windSpeedUnit="kt" />)

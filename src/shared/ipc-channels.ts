@@ -185,6 +185,7 @@ export const IpcChannels = {
   beyondAtcGetState: 'beyondatc:get-state',
   beyondAtcState: 'beyondatc:state',
   beyondAtcGetTranscript: 'beyondatc:get-transcript',
+  beyondAtcGetAtis: 'beyondatc:get-atis',
   beyondAtcTranscript: 'beyondatc:transcript',
   beyondAtcSetAction: 'beyondatc:set-action',
   beyondAtcSetFrequency: 'beyondatc:set-frequency',
