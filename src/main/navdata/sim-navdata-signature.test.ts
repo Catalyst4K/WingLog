@@ -1,4 +1,4 @@
-import { join } from 'node:path'
+import { join as nodeJoin, win32 } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
 import {
   createNavdataSignatureReader,
@@ -27,6 +27,8 @@ const CYCLE_2611 = JSON.stringify({
 })
 const INSTALLED_MS = Date.parse('2026-10-29T15:49:31.878Z')
 
+// Windows paths on every system: MSFS 2024 is Windows-only, and the module reads them as such.
+const join = win32.join
 const LOCAL = join('C:', 'Users', 'pilot', 'AppData', 'Local')
 const ROAMING = join('C:', 'Users', 'pilot', 'AppData', 'Roaming')
 const STORE_CFG = join(LOCAL, 'Packages', 'Microsoft.Limitless_8wekyb3d8bbwe', 'LocalCache', 'UserCfg.opt')
@@ -149,28 +151,28 @@ describe('createNavdataSignatureReader', () => {
 })
 
 describe('signatureFilesFor', () => {
-  const folder = join('C:', 'temp', 'fake-msfs')
+  const folder = nodeJoin('C:', 'temp', 'fake-msfs')
 
   it('points an unpackaged end-to-end run at a UserCfg.opt of its own, so it never reads this machine’s install', () => {
     const files = signatureFilesFor(false, { WINGLOG_E2E_MSFS_DIR: folder })
-    expect(files.userCfgPaths).toEqual([join(folder, 'UserCfg.opt')])
+    expect(files.userCfgPaths).toEqual([nodeJoin(folder, 'UserCfg.opt')])
   })
 
   it('ignores the override in an installed build', () => {
     const files = signatureFilesFor(true, { WINGLOG_E2E_MSFS_DIR: folder })
-    expect(files.userCfgPaths).not.toContain(join(folder, 'UserCfg.opt'))
+    expect(files.userCfgPaths).not.toContain(nodeJoin(folder, 'UserCfg.opt'))
   })
 
   it('reads the real disk, where a file that is not there is simply not there', () => {
     const files = signatureFilesFor(false, {})
-    const missing = join(folder, 'nothing-here.json')
+    const missing = nodeJoin(folder, 'nothing-here.json')
     expect(files.readText(missing, 100)).toBeNull()
     expect(files.modifiedMs(missing)).toBeNull()
   })
 
   it('reads a real file, and refuses one over the limit', () => {
     const files = signatureFilesFor(false, {})
-    const own = join(process.cwd(), 'package.json')
+    const own = nodeJoin(process.cwd(), 'package.json')
     expect(files.readText(own, 10_000_000)).toContain('"name"')
     expect(files.readText(own, 10)).toBeNull()
     expect(files.modifiedMs(own)).toBeGreaterThan(0)
