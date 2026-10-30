@@ -146,7 +146,7 @@ describe('a release file', () => {
     const { fetchImpl, requested } = fakeGithub({ assetBase: base })
     const { vatspy } = await latestReleases(REAL_AREA_SOURCE, fetchImpl, AGENT)
     await expect(vatspy.asset('VATSpy.dat')).rejects.toThrow(reason)
-    expect(requested.some((url) => !url.startsWith('https://api.github.com'))).toBe(false)
+    expect(requested.every((url) => new URL(url).origin === 'https://api.github.com')).toBe(true)
   })
 
   it('is refused when the address carries a name and password', async () => {

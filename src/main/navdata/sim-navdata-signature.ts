@@ -6,9 +6,10 @@
  * which states no cycle anywhere that was found, so it is "default" and the AIRAC calendar is all there is to go by. Everything read
  * here is a third party's file: size-limited, parsed as data, and a missing or odd file only ever means "default".
  */
-import { existsSync, readFileSync, statSync } from 'node:fs'
-import { isAbsolute, join } from 'node:path'
+import { statSync } from 'node:fs'
+import { join, win32 } from 'node:path'
 import { airacCycleNumber } from '@shared/airac'
+import { readTextUpTo } from '../files/read-text-up-to'
 import { thisMachinesMsfsUserCfgPaths } from '../platform/this-machine'
 import type { NavdataStatus } from '@shared/ipc'
 
@@ -47,7 +48,8 @@ const READ_TTL_MS = 30_000
  */
 export function parsePackagesPath(cfgText: string): string | null {
   const path = /^\s*InstalledPackagesPath\s+"([^"\r\n]+)"/m.exec(cfgText)?.[1]?.trim()
-  return path && isAbsolute(path) ? path : null
+  // MSFS 2024 is Windows-only, so the path is a Windows path whichever system reads it.
+  return path && win32.isAbsolute(path) ? path : null
 }
 
 /**
@@ -83,7 +85,7 @@ export function readNavdataSignature(files: SignatureFiles): NavdataSignature {
     const cfg = files.readText(cfgPath, CFG_MAX_BYTES)
     const packages = cfg === null ? null : parsePackagesPath(cfg)
     if (!packages) continue
-    const cycleFile = join(
+    const cycleFile = win32.join(
       packages,
       'Community',
       'navigraph-nav-base',
@@ -125,14 +127,7 @@ export function createNavdataSignatureReader(
 export function realSignatureFiles(): SignatureFiles {
   return {
     userCfgPaths: thisMachinesMsfsUserCfgPaths(),
-    readText: (path, maxBytes) => {
-      try {
-        if (!existsSync(path) || statSync(path).size > maxBytes) return null
-        return readFileSync(path, 'utf8')
-      } catch {
-        return null
-      }
-    },
+    readText: readTextUpTo,
     modifiedMs: (path) => {
       try {
         return statSync(path).mtimeMs

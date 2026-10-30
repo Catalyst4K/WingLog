@@ -3,12 +3,13 @@
  * Settings shows, the switch, and Check now. All three are queries (coding-standards.md §9): they read or write this device's own settings
  * and cache. The renderer is not a security boundary, so the switch is checked here.
  */
-import { existsSync, readFileSync, renameSync, statSync, writeFileSync } from 'node:fs'
+import { renameSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { IpcMain } from 'electron'
 import { IpcChannels } from '@shared/ipc'
 import type { WingLogDb } from '../db/client'
 import { getSetting, setSetting } from '../db/settings-repo'
+import { readTextUpTo } from '../files/read-text-up-to'
 import { logger } from '../logging/logger'
 import type { AreaData } from './atc-areas'
 import { AtcAreasUpdater } from './atc-areas-updater'
@@ -39,12 +40,7 @@ export interface AtcAreasHandlerDeps {
  * @returns Its text, or null when it is not there, is too big or cannot be read.
  */
 function readCopy(path: string): string | null {
-  try {
-    if (!existsSync(path) || statSync(path).size > MAX_COPY_BYTES) return null
-    return readFileSync(path, 'utf8')
-  } catch {
-    return null
-  }
+  return readTextUpTo(path, MAX_COPY_BYTES)
 }
 
 /**
