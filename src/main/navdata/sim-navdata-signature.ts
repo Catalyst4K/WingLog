@@ -7,7 +7,7 @@
  * here is a third party's file: size-limited, parsed as data, and a missing or odd file only ever means "default".
  */
 import { statSync } from 'node:fs'
-import { join, win32 } from 'node:path'
+import { join, posix, win32 } from 'node:path'
 import { airacCycleNumber } from '@shared/airac'
 import { readTextUpTo } from '../files/read-text-up-to'
 import { thisMachinesMsfsUserCfgPaths } from '../platform/this-machine'
@@ -48,8 +48,26 @@ const READ_TTL_MS = 30_000
  */
 export function parsePackagesPath(cfgText: string): string | null {
   const path = /^\s*InstalledPackagesPath\s+"([^"\r\n]+)"/m.exec(cfgText)?.[1]?.trim()
-  // MSFS 2024 is Windows-only, so the path is a Windows path whichever system reads it.
+  // MSFS 2024 is Windows-only, so the path is a Windows path whichever system reads it (win32 also accepts a path from the root, which is
+  // what the end-to-end tests' fake install folder is on Linux).
   return path && win32.isAbsolute(path) ? path : null
+}
+
+/**
+ * @param packages An `InstalledPackagesPath`, as `parsePackagesPath` gave it.
+ * @returns Where Navigraph's `cycle.json` is under it, written the way that path is: with backslashes for a Windows path, which is what
+ *   every real one is, and with slashes for the Linux path a test's fake install folder has.
+ */
+function navigraphCycleFile(packages: string): string {
+  const style = /^[A-Za-z]:|\\/.test(packages) ? win32 : posix
+  return style.join(
+    packages,
+    'Community',
+    'navigraph-nav-base',
+    'ContentInfo',
+    'navigraph-navdata',
+    'cycle.json'
+  )
 }
 
 /**
@@ -85,14 +103,7 @@ export function readNavdataSignature(files: SignatureFiles): NavdataSignature {
     const cfg = files.readText(cfgPath, CFG_MAX_BYTES)
     const packages = cfg === null ? null : parsePackagesPath(cfg)
     if (!packages) continue
-    const cycleFile = win32.join(
-      packages,
-      'Community',
-      'navigraph-nav-base',
-      'ContentInfo',
-      'navigraph-navdata',
-      'cycle.json'
-    )
+    const cycleFile = navigraphCycleFile(packages)
     const text = files.readText(cycleFile, CYCLE_MAX_BYTES)
     const installedAtMs = files.modifiedMs(cycleFile)
     const found = text === null || installedAtMs === null ? null : parseNavigraphCycle(text, installedAtMs)
