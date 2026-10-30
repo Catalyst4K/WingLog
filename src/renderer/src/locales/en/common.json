@@ -800,6 +800,14 @@
       "awaitingReply": "Awaiting ATC's reply."
     },
     "noStatus": "No status yet.",
+    "atis": {
+      "button": "ATIS…",
+      "title": "BeyondATC ATIS",
+      "reading": "Asking BeyondATC…",
+      "off": "BeyondATC is not connected.",
+      "unavailable": "BeyondATC did not answer. Try again.",
+      "none": "BeyondATC has no ATIS for this flight."
+    },
     "radios": "Radios",
     "frequencyUnknown": "—",
     "frequencyPlaceholder": "118.850",
@@ -1054,7 +1062,12 @@
       "runway": "Runway in use (from the ATIS): {{runway}}",
       "runwayHint": "Read from the ATIS text as a suggestion. Check it against the text.",
       "none": "No {{network}} ATIS",
-      "unavailable": "{{network}} ATIS unavailable"
+      "unavailable": "{{network}} ATIS unavailable",
+      "beyondatc": "BeyondATC ATIS {{code}}",
+      "beyondatcDeparture": "departure runway {{runways}}",
+      "beyondatcArrival": "arrival runway {{runways}}",
+      "beyondatcHint": "The runways BeyondATC's ATIS names for departures and arrivals. Check them against the text.",
+      "beyondatcUnavailable": "BeyondATC's ATIS could not be read just now"
     }
   },
   "navdataCycle": {

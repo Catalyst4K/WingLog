@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import { IpcChannels } from '@shared/ipc'
-import type { NetworkTraffic, SimTelemetry } from '@shared/ipc'
+import type { BeyondAtcAtisList, NetworkTraffic, SimTelemetry } from '@shared/ipc'
 import { createDb, type WingLogDb } from '../db/client'
 import { createAircraft } from '../db/aircraft-repo'
 import { createFlight, getFlight } from '../db/flight-repo'
@@ -32,6 +32,8 @@ describe('online network handlers', () => {
   let fetchMock: ReturnType<typeof vi.fn>
   let stop: (() => void) | undefined
 
+  let beyondAtcAtis: BeyondAtcAtisList
+
   function register(ipc = fakeIpc(), options: { isDevBuild?: boolean } = {}) {
     const registered = registerOnlineHandlers(ipc.ipcMain, {
       db,
@@ -41,6 +43,7 @@ describe('online network handlers', () => {
       appVersion: '1.6.0',
       isDevBuild: options.isDevBuild ?? false,
       atcAreas: bundledAtcAreas,
+      beyondAtcAtis: () => Promise.resolve(beyondAtcAtis),
       urls: { ...REAL_FEED_URLS, vatsimStatus: null, vatsimData: 'http://feed.test/vatsim' }
     })
     stop = registered.stop
@@ -48,6 +51,7 @@ describe('online network handlers', () => {
   }
 
   beforeEach(() => {
+    beyondAtcAtis = { state: 'off', airports: [] }
     db = createDb(':memory:').db
     migrate(db, { migrationsFolder: 'drizzle' })
     liveHub = new LiveHub()
@@ -381,6 +385,49 @@ describe('online network handlers', () => {
       )
       await expect(Promise.resolve().then(() => atisAt(bad))).rejects.toThrow('Invalid ATIS request')
       expect(fetchMock).not.toHaveBeenCalled()
+    })
+
+    const EGLL_ATIS = {
+      icao: 'EGLL',
+      code: 'R',
+      text: 'EGLL ATIS R 2338Z ARR RWY 27 RIGHT DEP RWY 27 LEFT',
+      arrivalRunways: ['27R'],
+      departureRunways: ['27L']
+    }
+
+    it("puts BeyondATC's ATIS first when it is connected, for the PC window and the second screen alike", async () => {
+      const { invoke, atisAt } = register()
+      choose('vatsim')
+      beyondAtcAtis = { state: 'shown', airports: [EGLL_ATIS] }
+      const asked = [{ icao: 'EGLL', slot: 'departure' }]
+      const answer = (await invoke(IpcChannels.onlineAtisGet, asked)) as {
+        airports: { atis: { callsign: string; source?: string }[] }[]
+      }
+      expect(answer.airports[0]?.atis.map((a) => a.callsign)).toEqual(['BeyondATC', 'EGLL_D_ATIS'])
+      expect(answer.airports[0]?.atis[0]?.source).toBe('beyondatc')
+      const phone = (await atisAt(asked)) as { airports: { atis: unknown[] }[] }
+      expect(phone.airports[0]?.atis).toHaveLength(2)
+    })
+
+    it("shows BeyondATC's ATIS with no network chosen, and reads no feed", async () => {
+      const { invoke } = register()
+      beyondAtcAtis = { state: 'shown', airports: [EGLL_ATIS] }
+      const answer = (await invoke(IpcChannels.onlineAtisGet, [{ icao: 'EGLL', slot: 'destination' }])) as {
+        network: null
+        airports: { state: string; atis: { code: string }[] }[]
+      }
+      expect(answer.network).toBeNull()
+      expect(answer.airports[0]).toMatchObject({ state: 'shown', atis: [{ code: 'R' }] })
+      expect(fetchMock).not.toHaveBeenCalled()
+    })
+
+    it('says BeyondATC could not be read when it is connected and did not answer', async () => {
+      const { invoke } = register()
+      beyondAtcAtis = { state: 'unavailable', airports: [] }
+      const answer = (await invoke(IpcChannels.onlineAtisGet, [{ icao: 'EGLL', slot: 'departure' }])) as {
+        airports: { beyondAtcUnavailable?: boolean }[]
+      }
+      expect(answer.airports[0]?.beyondAtcUnavailable).toBe(true)
     })
 
     it('shows nothing, and reads nothing, with no network chosen or IVAO without a VID', async () => {

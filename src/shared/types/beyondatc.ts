@@ -105,6 +105,23 @@ export interface BeyondAtcStepClimbStatus {
   } | null
 }
 
+/** One airport's D-ATIS as BeyondATC sent it (docs/beyondatc-notes.md, 2026-10-29): text only, never HTML. */
+export interface BeyondAtcAtis {
+  icao: string
+  /** The information letter, or null when none is given. */
+  code: string | null
+  text: string
+  /** The runways its text labels for arrivals and for departures ("27R"), empty when it names none cleanly. */
+  arrivalRunways: string[]
+  departureRunways: string[]
+}
+
+/** BeyondATC's ATIS read fresh: 'off' when BeyondATC is not connected, 'unavailable' when it did not answer in time. */
+export interface BeyondAtcAtisList {
+  state: 'off' | 'unavailable' | 'shown'
+  airports: BeyondAtcAtis[]
+}
+
 /** Combined live state BeyondAtcPanel needs — deliberately narrower than every key
  *  docs/beyondatc-notes.md catalogues (DATIS, CPDLC code, settings, … aren't surfaced here;
  *  nothing needed by this panel). Unrecognised/unparsed wire keys are simply never reflected

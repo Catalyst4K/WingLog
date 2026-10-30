@@ -277,7 +277,12 @@ function startUpdates(db: WingLogDb, window: BrowserWindow, isFlightActive: () =
  * @returns The traffic command table and the ATIS lookup, for the second screen to use.
  */
 function startOnlineNetwork(
-  deps: Pick<Parameters<typeof registerOnlineHandlers>[1], 'db' | 'liveHub' | 'sim' | 'trackingController'>
+  deps: Pick<
+    Parameters<typeof registerOnlineHandlers>[1],
+    'db' | 'liveHub' | 'sim' | 'trackingController'
+  > & {
+    beyondAtc: Pick<ReturnType<typeof registerBeyondAtcHandlers>, 'readAtis'>
+  }
 ): Pick<ReturnType<typeof registerOnlineHandlers>, 'commands' | 'atisAt'> {
   const areas = registerAtcAreas(ipcMain, {
     db: deps.db,
@@ -287,6 +292,7 @@ function startOnlineNetwork(
   })
   const online = registerOnlineHandlers(ipcMain, {
     ...deps,
+    beyondAtcAtis: deps.beyondAtc.readAtis,
     appVersion: app.getVersion(),
     isDevBuild: __WINGLOG_DEV_BUILD__,
     urls: resolveFeedUrls(app.isPackaged, process.env),
@@ -460,7 +466,7 @@ function startApp(): void {
     port: e2eBeyondAtcPort(process.env.WINGLOG_E2E_BEYONDATC_PORT)
   })
   app.on('before-quit', () => beyondAtc.stop())
-  const onlineNetwork = startOnlineNetwork({ db, liveHub, sim, trackingController })
+  const onlineNetwork = startOnlineNetwork({ db, liveHub, sim, trackingController, beyondAtc })
   startSecondScreen({
     db,
     liveHub,

@@ -792,6 +792,14 @@
       "awaitingReply": "等待管制员回复。"
     },
     "noStatus": "暂无状态。",
+    "atis": {
+      "button": "ATIS…",
+      "title": "BeyondATC ATIS",
+      "reading": "正在向 BeyondATC 查询…",
+      "off": "BeyondATC 未连接。",
+      "unavailable": "BeyondATC 没有响应。请重试。",
+      "none": "BeyondATC 没有此航班的 ATIS。"
+    },
     "radios": "无线电",
     "frequencyUnknown": "—",
     "frequencyPlaceholder": "118.850",
@@ -1045,7 +1053,12 @@
       "runway": "使用跑道（来自 ATIS）：{{runway}}",
       "runwayHint": "从 ATIS 文本读取，仅供参考。请对照文本核实。",
       "none": "没有 {{network}} ATIS",
-      "unavailable": "{{network}} ATIS 不可用"
+      "unavailable": "{{network}} ATIS 不可用",
+      "beyondatc": "BeyondATC ATIS {{code}}",
+      "beyondatcDeparture": "起飞跑道 {{runways}}",
+      "beyondatcArrival": "降落跑道 {{runways}}",
+      "beyondatcHint": "BeyondATC 的 ATIS 为起飞和降落指定的跑道。请与文本核对。",
+      "beyondatcUnavailable": "暂时无法读取 BeyondATC 的 ATIS"
     }
   },
   "navdataCycle": {

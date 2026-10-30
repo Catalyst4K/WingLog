@@ -12,8 +12,14 @@
  */
 import type { IpcMain } from 'electron'
 import { EMPTY_BEYONDATC_STATE } from '@shared/beyondatc-state'
-import { IpcChannels, type BeyondAtcSettings, type NavdataProcedureOption } from '@shared/ipc'
+import {
+  IpcChannels,
+  type BeyondAtcAtisList,
+  type BeyondAtcSettings,
+  type NavdataProcedureOption
+} from '@shared/ipc'
 import { ArrivalClearanceTracker } from '../beyondatc/arrival-clearance'
+import { readBeyondAtcAtis } from '../beyondatc/read-beyondatc-atis'
 import { BeyondAtcService } from '../beyondatc/BeyondAtcService'
 import { StepClimbController } from '../beyondatc/step-climb'
 import type { WingLogDb } from '../db/client'
@@ -55,7 +61,12 @@ export interface BeyondAtcHandlerDeps {
 export function registerBeyondAtcHandlers(
   ipcMain: IpcMain,
   deps: BeyondAtcHandlerDeps
-): { stop: () => void; commands: CommandTable<AtcCommand> } {
+): {
+  stop: () => void
+  commands: CommandTable<AtcCommand>
+  /** BeyondATC's ATIS read fresh, for the weather panel: 'off' while BeyondATC is not connected, or hidden because the pilot is online. */
+  readAtis: () => Promise<BeyondAtcAtisList>
+} {
   const { db, liveHub, trackingController, devDiagnostics, socketCtor, port } = deps
   let beyondAtcService: BeyondAtcService | undefined
   // ATC's arrival clearance for the BeyondATC tab's info card, until touchdown.
@@ -98,8 +109,15 @@ export function registerBeyondAtcHandlers(
   })
   registerSessionHandlers(ipcMain, () => beyondAtcService)
   const commands = registerStepClimb(ipcMain, deps, () => beyondAtcService)
+  // The BeyondATC page's own ATIS button is the pilot asking for it, so it is not held back by being online.
+  ipcMain.handle(IpcChannels.beyondAtcGetAtis, () => readBeyondAtcAtis(beyondAtcService, false))
 
-  return { stop: () => beyondAtcService?.stop(), commands }
+  return {
+    stop: () => beyondAtcService?.stop(),
+    commands,
+    readAtis: () =>
+      readBeyondAtcAtis(beyondAtcService, liveHub.snapshot().onlineStatus?.hidesBeyondAtc === true)
+  }
 }
 
 /**

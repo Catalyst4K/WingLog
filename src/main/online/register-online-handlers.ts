@@ -7,7 +7,7 @@
  * the settings are **queries**. Saving the settings restarts the feed service's decisions at once.
  */
 import type { IpcMain } from 'electron'
-import { IpcChannels, type AtisAnswer } from '@shared/ipc'
+import { IpcChannels, type AtisAnswer, type BeyondAtcAtisList } from '@shared/ipc'
 import type { LatLon } from '@shared/geo'
 import { getAirportCoords } from '../airports/airport-search'
 import type { AreaData } from './atc-areas'
@@ -23,6 +23,7 @@ import type { TrackingController } from '../tracking/TrackingController'
 import type { FeedUrls } from './feed-urls'
 import { parseAtisRequests } from './atis-request'
 import { NetworkFeedService } from './NetworkFeedService'
+import { withBeyondAtcAtis } from './with-beyondatc-atis'
 import { SimTrafficService } from './SimTrafficService'
 import { openSimTrafficLink } from './sim-traffic-link'
 import {
@@ -48,6 +49,8 @@ export interface OnlineHandlerDeps {
   urls: FeedUrls
   /** The ATC areas in use now: the bundled ones, or the newer copy the app made itself (`registerAtcAreas`). */
   atcAreas: () => AreaData | null
+  /** BeyondATC's ATIS, read fresh for each ask; 'off' while BeyondATC is not connected or hidden. */
+  beyondAtcAtis: () => Promise<BeyondAtcAtisList>
 }
 
 /**
@@ -144,7 +147,11 @@ export function registerOnlineHandlers(
   ipcMain.handle(IpcChannels.networkAtcGet, () => liveHub.snapshot().networkAtc)
   ipcMain.handle(IpcChannels.onlineStatusGet, () => liveHub.snapshot().onlineStatus)
   ipcMain.handle(IpcChannels.networkControllersGet, () => liveHub.snapshot().networkControllers)
-  const atisAt = (requests: unknown): Promise<AtisAnswer> => service.atisAt(parseAtisRequests(requests))
+  const atisAt = async (requests: unknown): Promise<AtisAnswer> => {
+    const asked = parseAtisRequests(requests)
+    const [answer, beyondAtc] = await Promise.all([service.atisAt(asked), deps.beyondAtcAtis()])
+    return withBeyondAtcAtis(answer, beyondAtc, asked)
+  }
   ipcMain.handle(IpcChannels.onlineAtisGet, (_event, requests: unknown) => atisAt(requests))
   ipcMain.handle(IpcChannels.onlineGetPretend, () => (deps.isDevBuild ? getPretendCallsign(db) : null))
   ipcMain.handle(IpcChannels.onlineSetPretend, (_event, callsign: unknown) => {
