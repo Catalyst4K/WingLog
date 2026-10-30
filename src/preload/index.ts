@@ -45,6 +45,17 @@ import {
   type WindSpeedUnit
 } from '@shared/ipc'
 import type { PlannedRoute, TaxiRoute } from '@shared/live'
+import type {
+  AtisRequest,
+  NetworkAtc,
+  NetworkControllers,
+  NetworkTraffic,
+  SimTraffic,
+  OnlineNetwork,
+  OnlineNetworkSettings,
+  OnlineStatus,
+  TrafficLayers
+} from '@shared/types/online'
 
 const api: WingLogApi = {
   aircraftList: () => ipcRenderer.invoke(IpcChannels.aircraftList),
@@ -154,6 +165,53 @@ const api: WingLogApi = {
     ipcRenderer.on(IpcChannels.plannedRoute, handler)
     return () => ipcRenderer.removeListener(IpcChannels.plannedRoute, handler)
   },
+  getNetworkTraffic: () => ipcRenderer.invoke(IpcChannels.networkTrafficGet),
+  onNetworkTraffic: (listener: (traffic: NetworkTraffic) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, traffic: NetworkTraffic): void => listener(traffic)
+    ipcRenderer.on(IpcChannels.networkTraffic, handler)
+    return () => ipcRenderer.removeListener(IpcChannels.networkTraffic, handler)
+  },
+  getSimTraffic: () => ipcRenderer.invoke(IpcChannels.simTrafficGet),
+  onSimTraffic: (listener: (traffic: SimTraffic) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, traffic: SimTraffic): void => listener(traffic)
+    ipcRenderer.on(IpcChannels.simTraffic, handler)
+    return () => ipcRenderer.removeListener(IpcChannels.simTraffic, handler)
+  },
+  onlineGetPretend: () => ipcRenderer.invoke(IpcChannels.onlineGetPretend),
+  onlineSetPretend: (callsign: string | null) => ipcRenderer.invoke(IpcChannels.onlineSetPretend, callsign),
+  onlineAtisGet: (requests: AtisRequest[]) => ipcRenderer.invoke(IpcChannels.onlineAtisGet, requests),
+  getNetworkAtc: () => ipcRenderer.invoke(IpcChannels.networkAtcGet),
+  onNetworkAtc: (listener: (atc: NetworkAtc) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, atc: NetworkAtc): void => listener(atc)
+    ipcRenderer.on(IpcChannels.networkAtc, handler)
+    return () => ipcRenderer.removeListener(IpcChannels.networkAtc, handler)
+  },
+  getNetworkControllers: () => ipcRenderer.invoke(IpcChannels.networkControllersGet),
+  onNetworkControllers: (listener: (controllers: NetworkControllers) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, controllers: NetworkControllers): void =>
+      listener(controllers)
+    ipcRenderer.on(IpcChannels.networkControllers, handler)
+    return () => ipcRenderer.removeListener(IpcChannels.networkControllers, handler)
+  },
+  getOnlineStatus: () => ipcRenderer.invoke(IpcChannels.onlineStatusGet),
+  onOnlineStatus: (listener: (status: OnlineStatus) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, status: OnlineStatus): void => listener(status)
+    ipcRenderer.on(IpcChannels.onlineStatus, handler)
+    return () => ipcRenderer.removeListener(IpcChannels.onlineStatus, handler)
+  },
+  getTrafficLayers: () => ipcRenderer.invoke(IpcChannels.trafficLayersGet),
+  onTrafficLayers: (listener: (layers: TrafficLayers) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, layers: TrafficLayers): void => listener(layers)
+    ipcRenderer.on(IpcChannels.trafficLayers, handler)
+    return () => ipcRenderer.removeListener(IpcChannels.trafficLayers, handler)
+  },
+  onlinePrefileFromOfp: (ofpJson: string, network: OnlineNetwork) =>
+    ipcRenderer.invoke(IpcChannels.onlinePrefileFromOfp, ofpJson, network),
+  onlinePrefileForFlight: (flightId: number, network: OnlineNetwork) =>
+    ipcRenderer.invoke(IpcChannels.onlinePrefileForFlight, flightId, network),
+  trafficSetNetworkOn: (on: boolean) => ipcRenderer.invoke(IpcChannels.trafficSetNetworkOn, on),
+  trafficSetSimOn: (on: boolean) => ipcRenderer.invoke(IpcChannels.trafficSetSimOn, on),
+  trafficSetAtcOn: (on: boolean) => ipcRenderer.invoke(IpcChannels.trafficSetAtcOn, on),
   logbookListCompletedFlights: () => ipcRenderer.invoke(IpcChannels.logbookListCompletedFlights),
   logbookGetFlight: (id: number) => ipcRenderer.invoke(IpcChannels.logbookGetFlight, id),
   logbookGetStats: () => ipcRenderer.invoke(IpcChannels.logbookGetStats),
@@ -210,6 +268,7 @@ const api: WingLogApi = {
   appOpenGithub: () => ipcRenderer.invoke(IpcChannels.appOpenGithub),
   appOpenManual: () => ipcRenderer.invoke(IpcChannels.appOpenManual),
   navdataRefreshAirport: (icao: string) => ipcRenderer.invoke(IpcChannels.navdataRefreshAirport, icao),
+  navdataGetStatus: () => ipcRenderer.invoke(IpcChannels.navdataGetStatus),
   navdataHasAirport: (icao: string) => ipcRenderer.invoke(IpcChannels.navdataHasAirport, icao),
   navdataListRunways: (icao: string) => ipcRenderer.invoke(IpcChannels.navdataListRunways, icao),
   navdataListSids: (icao: string, runway?: string | null) =>
@@ -294,6 +353,12 @@ const api: WingLogApi = {
     ipcRenderer.invoke(IpcChannels.gsxRemoteSubmitPrompt, gen, text),
   gsxRemoteCancelPrompt: (gen: number) => ipcRenderer.invoke(IpcChannels.gsxRemoteCancelPrompt, gen),
   gsxRemoteRunCommand: (id: GsxRemoteCommandId) => ipcRenderer.invoke(IpcChannels.gsxRemoteRunCommand, id),
+  atcAreasGetStatus: () => ipcRenderer.invoke(IpcChannels.atcAreasGetStatus),
+  atcAreasSetAuto: (on: boolean) => ipcRenderer.invoke(IpcChannels.atcAreasSetAuto, on),
+  atcAreasCheckNow: () => ipcRenderer.invoke(IpcChannels.atcAreasCheckNow),
+  settingsGetOnlineNetwork: () => ipcRenderer.invoke(IpcChannels.settingsGetOnlineNetwork),
+  settingsSetOnlineNetwork: (settings: OnlineNetworkSettings) =>
+    ipcRenderer.invoke(IpcChannels.settingsSetOnlineNetwork, settings),
   settingsGetBeyondAtc: () => ipcRenderer.invoke(IpcChannels.settingsGetBeyondAtc),
   settingsSetBeyondAtc: (settings: BeyondAtcSettings) =>
     ipcRenderer.invoke(IpcChannels.settingsSetBeyondAtc, settings),
@@ -311,6 +376,7 @@ const api: WingLogApi = {
     return () => ipcRenderer.removeListener(IpcChannels.beyondAtcState, handler)
   },
   beyondAtcGetTranscript: () => ipcRenderer.invoke(IpcChannels.beyondAtcGetTranscript),
+  beyondAtcGetAtis: () => ipcRenderer.invoke(IpcChannels.beyondAtcGetAtis),
   onBeyondAtcTranscript: (listener: (transcript: BeyondAtcTranscriptEntry[]) => void) => {
     const handler = (_event: Electron.IpcRendererEvent, transcript: BeyondAtcTranscriptEntry[]): void =>
       listener(transcript)

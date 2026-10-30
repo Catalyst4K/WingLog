@@ -29,6 +29,9 @@ export type GsxCommand = Extract<LiveCommand, `gsx.${string}`>
 /** The tracking commands a second screen may send. */
 export type TrackCommand = Extract<LiveCommand, `track.${string}`>
 
+/** The traffic-layer commands, from the window or a second screen. */
+export type TrafficCommand = Extract<LiveCommand, `traffic.${string}`>
+
 /**
  * The BeyondATC commands.
  *
@@ -131,6 +134,33 @@ export function trackCommands(selection: {
 }): CommandTable<TrackCommand> {
   return {
     'track.setProcedureSelection': (value) => selection.setProcedureSelection(parseProcedureSelection(value))
+  }
+}
+
+/**
+ * The traffic-layer commands: the three shared switches, for the network's traffic, the sim's own and the ATC areas, on every screen.
+ *
+ * @param feed Where a switch is sent.
+ * @returns The table. A value that is not a boolean is refused.
+ */
+export function trafficCommands(feed: {
+  setNetworkOn(on: boolean): void
+  setSimOn(on: boolean): void
+  setAtcOn(on: boolean): void
+}): CommandTable<TrafficCommand> {
+  return {
+    'traffic.setNetworkOn': (on) => {
+      if (typeof on !== 'boolean') throw new Error('Invalid traffic switch')
+      feed.setNetworkOn(on)
+    },
+    'traffic.setSimOn': (on) => {
+      if (typeof on !== 'boolean') throw new Error('Invalid traffic switch')
+      feed.setSimOn(on)
+    },
+    'traffic.setAtcOn': (on) => {
+      if (typeof on !== 'boolean') throw new Error('Invalid traffic switch')
+      feed.setAtcOn(on)
+    }
   }
 }
 

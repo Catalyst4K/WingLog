@@ -12,8 +12,14 @@
  */
 import type { IpcMain } from 'electron'
 import { EMPTY_BEYONDATC_STATE } from '@shared/beyondatc-state'
-import { IpcChannels, type BeyondAtcSettings, type NavdataProcedureOption } from '@shared/ipc'
+import {
+  IpcChannels,
+  type BeyondAtcAtisList,
+  type BeyondAtcSettings,
+  type NavdataProcedureOption
+} from '@shared/ipc'
 import { ArrivalClearanceTracker } from '../beyondatc/arrival-clearance'
+import { readBeyondAtcAtis } from '../beyondatc/read-beyondatc-atis'
 import { BeyondAtcService } from '../beyondatc/BeyondAtcService'
 import { StepClimbController } from '../beyondatc/step-climb'
 import type { WingLogDb } from '../db/client'
@@ -29,7 +35,7 @@ import type { TrackingController } from '../tracking/TrackingController'
 /** What BeyondATC needs. */
 export interface BeyondAtcHandlerDeps {
   db: WingLogDb
-  liveHub: Pick<LiveHub, 'publish'>
+  liveHub: Pick<LiveHub, 'publish' | 'snapshot'>
   /** The active flight (its arrival airport and OFP), and each point's phase. */
   trackingController: Pick<TrackingController, 'on' | 'getActive'>
   /** Telemetry, for step climb. */
@@ -55,7 +61,12 @@ export interface BeyondAtcHandlerDeps {
 export function registerBeyondAtcHandlers(
   ipcMain: IpcMain,
   deps: BeyondAtcHandlerDeps
-): { stop: () => void; commands: CommandTable<AtcCommand> } {
+): {
+  stop: () => void
+  commands: CommandTable<AtcCommand>
+  /** BeyondATC's ATIS read fresh, for the weather panel: 'off' while BeyondATC is not connected, or hidden because the pilot is online. */
+  readAtis: () => Promise<BeyondAtcAtisList>
+} {
   const { db, liveHub, trackingController, devDiagnostics, socketCtor, port } = deps
   let beyondAtcService: BeyondAtcService | undefined
   // ATC's arrival clearance for the BeyondATC tab's info card, until touchdown.
@@ -98,8 +109,15 @@ export function registerBeyondAtcHandlers(
   })
   registerSessionHandlers(ipcMain, () => beyondAtcService)
   const commands = registerStepClimb(ipcMain, deps, () => beyondAtcService)
+  // The BeyondATC page's own ATIS button is the pilot asking for it, so it is not held back by being online.
+  ipcMain.handle(IpcChannels.beyondAtcGetAtis, () => readBeyondAtcAtis(beyondAtcService, false))
 
-  return { stop: () => beyondAtcService?.stop(), commands }
+  return {
+    stop: () => beyondAtcService?.stop(),
+    commands,
+    readAtis: () =>
+      readBeyondAtcAtis(beyondAtcService, liveHub.snapshot().onlineStatus?.hidesBeyondAtc === true)
+  }
 }
 
 /**
@@ -129,13 +147,16 @@ function registerSessionHandlers(ipcMain: IpcMain, session: () => BeyondAtcServi
  */
 function registerStepClimb(
   ipcMain: IpcMain,
-  { db, liveHub, trackingController, sim }: BeyondAtcHandlerDeps,
+  deps: BeyondAtcHandlerDeps,
   session: () => BeyondAtcService | undefined
 ): CommandTable<AtcCommand> {
+  const { db, liveHub, trackingController, sim } = deps
   const stepClimb = new StepClimbController({
     getSession: session,
     getActive: () => trackingController.getActive(),
-    getOfpJson: (flightId) => getFlight(db, flightId)?.ofpJson ?? null
+    getOfpJson: (flightId) => getFlight(db, flightId)?.ofpJson ?? null,
+    // Online, the network's controllers decide the levels: no request is made while main says BeyondATC is to stay silent.
+    isSuppressed: () => liveHub.snapshot().onlineStatus?.hidesBeyondAtc === true
   })
   stepClimb.on('status', (status) => liveHub.publish('beyondAtcStepClimb', status))
   sim.on('telemetry', (telemetry) => stepClimb.onTelemetry(telemetry))

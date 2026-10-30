@@ -16,6 +16,12 @@ export class FakeBeyondAtcServer {
   private wss: WebSocketServer
   private sockets = new Set<WebSocket>()
   readonly receivedCommands: string[] = []
+  /** The `DATIS:` lines (without the key) the fake sends in answer to the `datis` command, as BeyondATC does: the real ones, from a live
+   *  Singapore to Heathrow flight (docs/beyondatc-notes.md, 2026-10-29). Tests may replace it to show BeyondATC's ATIS changing. */
+  datis: string[] = [
+    'WSSS|E|WSSS ATIS E 2338Z WIND CALM 9999 FEW018 BKN300 25/23 Q1013 ARR RWY 20 RIGHT DEP RWY 20 CENTER TRANSITION-LEVEL FL130',
+    'EGLL|R|EGLL ATIS R 2338Z 06003KT 9999 NCD 10/10 Q1029 ARR RWY 27 RIGHT DEP RWY 27 LEFT TRANSITION-LEVEL FL060'
+  ]
   private connectionWaiters: (() => void)[] = []
 
   /** Pass to launchApp's `env`, so the app connects to this fake. */
@@ -32,7 +38,11 @@ export class FakeBeyondAtcServer {
       for (const resolve of this.connectionWaiters.splice(0)) resolve()
       socket.on('close', () => this.sockets.delete(socket))
       socket.on('message', (raw: Buffer) => {
-        this.receivedCommands.push(raw.toString())
+        const command = raw.toString()
+        this.receivedCommands.push(command)
+        if (command === 'datis') {
+          socket.send([...this.datis.map((line) => `DATIS: ${line}`), 'DATIS_END:'].join('\n'))
+        }
       })
     })
   }

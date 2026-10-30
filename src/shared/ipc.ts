@@ -21,6 +21,7 @@ import type {
 import type { Airfield, AirportOption, MetarReport } from './types/airports'
 import type {
   BeyondAtcArrivalClearance,
+  BeyondAtcAtisList,
   BeyondAtcConnectionStatus,
   BeyondAtcSettings,
   BeyondAtcState,
@@ -61,6 +62,20 @@ import type {
 } from './types/gsx'
 import type { PlannedRoute, TaxiRoute } from './live'
 import type {
+  AtcAreasCheck,
+  AtcAreasStatus,
+  AtisAnswer,
+  AtisRequest,
+  NetworkAtc,
+  NetworkControllers,
+  NetworkTraffic,
+  SimTraffic,
+  OnlineNetwork,
+  OnlineNetworkSettings,
+  OnlineStatus,
+  TrafficLayers
+} from './types/online'
+import type {
   AircraftLanding,
   LandingListRow,
   LandingScoreSummary,
@@ -72,6 +87,7 @@ import type {
   NavdataProcedureOption,
   NavdataRunwayOption,
   NavdataStand,
+  NavdataStatus,
   NavdataTaxiSegment
 } from './types/navdata'
 import type {
@@ -102,6 +118,7 @@ export type * from './types/flight'
 export type * from './types/landing'
 export type * from './types/gsx'
 export type * from './types/beyondatc'
+export type * from './types/online'
 export type * from './types/lan'
 export type * from './types/settings'
 export type * from './types/storage'
@@ -271,6 +288,49 @@ export interface WingLogApi {
   getPlannedRoute: () => Promise<PlannedRoute | null>
   /** Pushed each time that route changes. */
   onPlannedRoute: (listener: (route: PlannedRoute | null) => void) => () => void
+  /** The chosen network's traffic near the aircraft, for a window that opens mid-flight. */
+  getNetworkTraffic: () => Promise<NetworkTraffic>
+  /** Pushed each time main has a new set of aircraft (or a new state). */
+  onNetworkTraffic: (listener: (traffic: NetworkTraffic) => void) => () => void
+  /** The aircraft the sim lists around the pilot, for a window that opens mid-flight. */
+  getSimTraffic: () => Promise<SimTraffic>
+  /** Pushed each time main has a new set of them. */
+  onSimTraffic: (listener: (traffic: SimTraffic) => void) => () => void
+  /** Dev build only: the callsign taken to be the pilot (null elsewhere). */
+  onlineGetPretend: () => Promise<string | null>
+  /** Dev build only: sets it; empty clears. Ignored in a release build. */
+  onlineSetPretend: (callsign: string | null) => Promise<void>
+  /**
+   * The live ATIS for the weather panel's airports (at most 8, each with the tab asking), in the same order. Read with the METAR; nothing
+   * is shown with no network chosen. Main checks the request.
+   */
+  onlineAtisGet: (requests: AtisRequest[]) => Promise<AtisAnswer>
+  /** The controllers and ATIS online at the flight's airports. */
+  getNetworkControllers: () => Promise<NetworkControllers>
+  /** Pushed when that changes. */
+  onNetworkControllers: (listener: (controllers: NetworkControllers) => void) => () => void
+  /** Where the chosen network's controllers are, for the map's ATC layer. */
+  getNetworkAtc: () => Promise<NetworkAtc>
+  /** Pushed when that changes. */
+  onNetworkAtc: (listener: (atc: NetworkAtc) => void) => () => void
+  /** Whether the pilot's own flight is on the chosen network. */
+  getOnlineStatus: () => Promise<OnlineStatus>
+  /** Pushed when that changes. */
+  onOnlineStatus: (listener: (status: OnlineStatus) => void) => () => void
+  /** The shared traffic switches and which layers draw. */
+  getTrafficLayers: () => Promise<TrafficLayers>
+  /** Pushed when a switch or a setting changes which layers draw. */
+  onTrafficLayers: (listener: (layers: TrafficLayers) => void) => () => void
+  /** Opens the chosen network's filing page from the link SimBrief put in this OFP (Dispatch holds the OFP before a flight exists). False when the OFP has no valid link for that network. */
+  onlinePrefileFromOfp: (ofpJson: string, network: OnlineNetwork) => Promise<boolean>
+  /** The same, from a saved flight's stored OFP (Track and the Logbook). */
+  onlinePrefileForFlight: (flightId: number, network: OnlineNetwork) => Promise<boolean>
+  /** Turns the network traffic layer on or off, for every screen (the switch is kept in main and remembered). */
+  trafficSetNetworkOn: (on: boolean) => Promise<void>
+  /** Turns the sim's own traffic layer on or off, for every screen. */
+  trafficSetSimOn: (on: boolean) => Promise<void>
+  /** Turns the ATC layer on or off, for every screen. It leaves the two traffic switches as they are. */
+  trafficSetAtcOn: (on: boolean) => Promise<void>
   /** Manually re-runs the resume-cleanup pass for one already-completed flight — the
    *  Logbook detail page's "Clean up track" button, alongside the automatic live/
    *  completion-time pass TrackingController already runs on its own. Useful for a flight
@@ -428,6 +488,8 @@ export interface WingLogApi {
    *  cache for it — the write path (call on OFP import, or a manual "Refresh from sim"
    *  control). Throws if the sim isn't reachable or the fetch fails/times out. */
   navdataRefreshAirport: (icao: string) => Promise<void>
+  /** What navigation data the sim has, against the AIRAC calendar. Read from disk, never from the sim. */
+  navdataGetStatus: () => Promise<NavdataStatus>
   /** True once navdataRefreshAirport has completed for this ICAO at least once — lets the
    *  caller offer "refresh from sim" instead of showing an empty list as if it were final. */
   navdataHasAirport: (icao: string) => Promise<boolean>
@@ -527,6 +589,15 @@ export interface WingLogApi {
   /** Runs one of the three command-bar commands (`command.run`) — GSX's own client requires
    *  a second confirming call for RESTART_COUATL (the UI enforces this, not this method). */
   gsxRemoteRunCommand: (id: GsxRemoteCommandId) => Promise<void>
+  /** The ATC areas in use, and whether the app keeps them up to date by itself. */
+  atcAreasGetStatus: () => Promise<AtcAreasStatus>
+  /** Turns the automatic look for newer ATC areas on or off. */
+  atcAreasSetAuto: (on: boolean) => Promise<AtcAreasStatus>
+  /** Asks GitHub now whether newer ATC areas are out, and uses them if so. Never throws: a failure is the outcome "failed". */
+  atcAreasCheckNow: () => Promise<AtcAreasCheck>
+  settingsGetOnlineNetwork: () => Promise<OnlineNetworkSettings>
+  /** Saving restarts the feed service. Refuses a member number that is not 1 to 10 digits. */
+  settingsSetOnlineNetwork: (settings: OnlineNetworkSettings) => Promise<void>
   settingsGetBeyondAtc: () => Promise<BeyondAtcSettings>
   /** Changing host/enabled restarts the live connection (or stops it, if disabled). Port is
    *  fixed (BeyondAtcService's own BEYONDATC_PORT), never sent from here. */
@@ -540,6 +611,8 @@ export interface WingLogApi {
   onBeyondAtcState: (listener: (state: BeyondAtcState) => void) => () => void
   /** The current transcript buffer (last 100 lines), for a renderer mounting mid-flight. */
   beyondAtcGetTranscript: () => Promise<BeyondAtcTranscriptEntry[]>
+  /** BeyondATC's ATIS for each airport it has one for, read fresh from BeyondATC (a query: it asks BeyondATC each time). */
+  beyondAtcGetAtis: () => Promise<BeyondAtcAtisList>
   onBeyondAtcTranscript: (listener: (transcript: BeyondAtcTranscriptEntry[]) => void) => () => void
   /** Fires the given entry from the live Actions list (`set_action`) — no-op if not
    *  connected. */

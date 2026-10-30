@@ -94,6 +94,21 @@ function createWinglog(overrides: Record<string, unknown> = {}): typeof window.w
     gsxRemoteGetStatus: vi.fn().mockResolvedValue(makeGsxRemoteStatus()),
     onGsxRemoteStatus: vi.fn().mockReturnValue(() => {}),
     settingsGetBeyondAtc: vi.fn().mockResolvedValue(makeBeyondAtc()),
+    navdataGetStatus: vi.fn().mockResolvedValue({
+      source: 'default',
+      cycle: null,
+      revision: null,
+      validTo: null,
+      calendarCycle: '2611',
+      state: 'default'
+    }),
+    settingsGetOnlineNetwork: vi.fn().mockResolvedValue({
+      network: null,
+      vatsimCid: null,
+      ivaoVid: null,
+      keepBeyondAtcOnline: false,
+      simTrafficButton: true
+    }),
     settingsSetBeyondAtc: vi.fn().mockResolvedValue(undefined),
     beyondAtcGetStatus: vi.fn().mockResolvedValue(makeBeyondAtcStatus()),
     onBeyondAtcStatus: vi.fn().mockReturnValue(() => {}),

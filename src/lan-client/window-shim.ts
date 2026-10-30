@@ -65,6 +65,7 @@ export function installWindowShim(link: Pick<LanConnection, 'query' | 'latest'>)
     // What BeyondATC shows now: the clearance prompt reads the route's arrival airport from it.
     beyondAtcGetState: () => Promise.resolve(link.latest('beyondAtcState')),
     weatherGetMetars: (codes: string[]) => link.query('weather.metars', codes),
+    onlineAtisGet: (requests: unknown) => link.query('online.atis', requests),
     onBeyondAtcTranscript: () => () => undefined
   }
   const shim = new Proxy(known, {

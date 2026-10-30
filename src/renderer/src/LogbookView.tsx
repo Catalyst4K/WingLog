@@ -2,6 +2,7 @@
 
 import { winglogApi } from './data/winglog-api'
 import { useEffect, useState } from 'react'
+import { Button } from '@/components/ui/button'
 import { useTranslation } from 'react-i18next'
 import type {
   Aircraft,
@@ -19,6 +20,7 @@ import { useSortable } from './hooks/use-sortable'
 import { asyncHandler, runAsync } from './report-error'
 import { FlightDetailLoader } from './logbook/FlightDetail'
 import { SORT_KEYS, compareFlights, type SortKey } from './logbook/sorting'
+import { filterByOnline, hasOnlineFlights, ONLINE_FILTERS, type OnlineFilter } from './logbook/online-filter'
 import { FlightsTable, LogbookStatsStrip } from './logbook/FlightsTable'
 import { LandingsTable } from './logbook/LandingsTable'
 
@@ -144,6 +146,9 @@ export function LogbookView(props: {
     handleSort
   } = useSortable<LogbookFlight, SortKey>(flights, comparators, 'date', 'desc')
 
+  const [onlineFilter, setOnlineFilter] = useState<OnlineFilter>('all')
+  const shownFlights = filterByOnline(sortedFlights, onlineFilter)
+
   if (view.kind === 'detail') {
     const flight = flights.find((f) => f.id === view.id)
     if (!flight) return <p className="text-sm text-muted-foreground">{t('logbookView.flightNotFound')}</p>
@@ -190,9 +195,33 @@ export function LogbookView(props: {
         </FolderTabsList>
 
         <FolderTabsContent value="flights" className="pt-4">
+          {hasOnlineFlights(flights) && (
+            <div
+              role="group"
+              aria-label={t('logbookView.onlineFilter.label')}
+              className="mb-3 flex flex-wrap gap-1.5"
+            >
+              {ONLINE_FILTERS.map((choice) => (
+                <Button
+                  key={choice}
+                  type="button"
+                  size="sm"
+                  variant={onlineFilter === choice ? 'default' : 'outline'}
+                  aria-pressed={onlineFilter === choice}
+                  onClick={() => setOnlineFilter(choice)}
+                >
+                  {choice === 'vatsim'
+                    ? 'VATSIM'
+                    : choice === 'ivao'
+                      ? 'IVAO'
+                      : t(`logbookView.onlineFilter.${choice}`)}
+                </Button>
+              ))}
+            </div>
+          )}
           <FlightsTable
             loading={loading}
-            flights={sortedFlights}
+            flights={shownFlights}
             sortKey={sortKey}
             sortDir={sortDir}
             onSort={handleSort}

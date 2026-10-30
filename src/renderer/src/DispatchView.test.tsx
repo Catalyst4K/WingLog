@@ -86,6 +86,8 @@ function makeFlight(overrides: Partial<Flight> = {}): Flight {
     selectedApproachIdent: null,
     selectedApproachTransition: null,
     selectedArrivalIcao: null,
+    onlineNetwork: null,
+    onlineCallsign: null,
     ...overrides
   }
 }
@@ -93,6 +95,7 @@ function makeFlight(overrides: Partial<Flight> = {}): Flight {
 function makeOfp(overrides: Partial<DispatchOfp> = {}): DispatchOfp {
   return {
     ofpId: 'ofp-1',
+    airac: null,
     aircraftIcaoType: 'A320',
     aircraftRegistration: 'G-ABCD',
     flightNumber: 'TA100',
@@ -133,9 +136,25 @@ function createWinglog(overrides: Record<string, unknown> = {}): typeof window.w
     aircraftUpdate: vi.fn().mockImplementation((a) => Promise.resolve(a)),
     trackingGetActive: vi.fn().mockResolvedValue(null),
     dispatchOpenOfpPdf: vi.fn().mockResolvedValue(true),
+    settingsGetOnlineNetwork: vi.fn().mockResolvedValue({
+      network: null,
+      vatsimCid: null,
+      ivaoVid: null,
+      keepBeyondAtcOnline: false,
+      simTrafficButton: true
+    }),
+    onlinePrefileFromOfp: vi.fn().mockResolvedValue(true),
     flightCreate: vi.fn().mockResolvedValue(makeFlight()),
     weatherGetMetars: vi.fn().mockResolvedValue([]),
     airportSearch: vi.fn().mockResolvedValue([]),
+    navdataGetStatus: vi.fn().mockResolvedValue({
+      source: 'default',
+      cycle: null,
+      revision: null,
+      validTo: null,
+      calendarCycle: '2611',
+      state: 'default'
+    }),
     navdataRefreshAirport: vi.fn().mockResolvedValue(undefined),
     navdataHasAirport: vi.fn().mockResolvedValue(false),
     navdataListRunways: vi.fn().mockResolvedValue([]),
@@ -736,6 +755,49 @@ describe('DispatchView', () => {
       expect(toast.error).not.toHaveBeenCalled()
     })
 
+    it('offers to file the plan on a network, passing the OFP it holds and the network chosen', async () => {
+      const onlinePrefileFromOfp = vi.fn().mockResolvedValue(true)
+      window.winglog = createWinglog({
+        dispatchFetchOfp: vi.fn().mockResolvedValue(makeOfp()),
+        settingsGetOnlineNetwork: vi.fn().mockResolvedValue({
+          network: 'ivao',
+          vatsimCid: null,
+          ivaoVid: '654321',
+          keepBeyondAtcOnline: false,
+          simTrafficButton: true
+        }),
+        onlinePrefileFromOfp
+      })
+      const user = userEvent.setup()
+      render(<Harness />)
+      await user.click(screen.getByRole('button', { name: 'Fetch latest OFP' }))
+      await screen.findByText('TA100: EGLL → EDDF (altn EDDL)')
+
+      await user.click(await screen.findByRole('button', { name: 'File on IVAO' }))
+
+      await waitFor(() => expect(onlinePrefileFromOfp).toHaveBeenCalledWith('{}', 'ivao'))
+    })
+
+    it('has no File button while no network is chosen', async () => {
+      const settingsGetOnlineNetwork = vi.fn().mockResolvedValue({
+        network: null,
+        vatsimCid: null,
+        ivaoVid: null,
+        keepBeyondAtcOnline: false,
+        simTrafficButton: true
+      })
+      window.winglog = createWinglog({
+        dispatchFetchOfp: vi.fn().mockResolvedValue(makeOfp()),
+        settingsGetOnlineNetwork
+      })
+      const user = userEvent.setup()
+      render(<Harness />)
+      await user.click(screen.getByRole('button', { name: 'Fetch latest OFP' }))
+      await screen.findByText('TA100: EGLL → EDDF (altn EDDL)')
+      await waitFor(() => expect(settingsGetOnlineNetwork).toHaveBeenCalled())
+      expect(screen.queryByRole('button', { name: /File on/ })).not.toBeInTheDocument()
+    })
+
     it('shows an error toast when no OFP PDF is available', async () => {
       window.winglog = createWinglog({
         dispatchFetchOfp: vi.fn().mockResolvedValue(makeOfp()),
@@ -956,6 +1018,38 @@ describe('DispatchView', () => {
     })
     render(<Harness initialOfp={makeOfp()} />)
     await waitFor(() => expect(selectTriggerNear('Approach')).toHaveTextContent('ILS 25R'))
+  })
+
+  it('warns in the Procedures card when the plan was made with a different AIRAC cycle from the sim’s', async () => {
+    window.winglog = createWinglog({
+      navdataGetStatus: vi.fn().mockResolvedValue({
+        source: 'navigraph',
+        cycle: '2611',
+        revision: '1',
+        validTo: '2026-11-25',
+        calendarCycle: '2611',
+        state: 'current'
+      })
+    })
+    render(<Harness initialOfp={makeOfp({ airac: '2610' })} />)
+    expect(
+      await screen.findByText(/This plan was made with AIRAC 2610, but your sim has 2611/)
+    ).toBeInTheDocument()
+  })
+
+  it('says nothing about the cycle when the plan and the sim agree', async () => {
+    const navdataGetStatus = vi.fn().mockResolvedValue({
+      source: 'navigraph',
+      cycle: '2611',
+      revision: '1',
+      validTo: '2026-11-25',
+      calendarCycle: '2611',
+      state: 'current'
+    })
+    window.winglog = createWinglog({ navdataGetStatus })
+    render(<Harness initialOfp={makeOfp({ airac: '2611' })} />)
+    await waitFor(() => expect(navdataGetStatus).toHaveBeenCalled())
+    expect(screen.queryByText(/This plan was made with AIRAC/)).not.toBeInTheDocument()
   })
 
   it('allows opening and setting an Advanced dispatch option, reflected in the button label', async () => {

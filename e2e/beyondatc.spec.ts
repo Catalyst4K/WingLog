@@ -26,8 +26,12 @@ test.describe('BeyondATC integration', () => {
 
       // Scoped to this card specifically — the GSX Remote Control card above it has its own,
       // identically-labelled "Off"/"On" toggle (same collision settings.spec.ts already
-      // works around for the file-based GSX card).
-      const beyondAtcCard = page.locator('[data-slot="card"]').filter({ hasText: 'BeyondATC' })
+      // works around for the file-based GSX card). The Online network card mentions BeyondATC
+      // too and has On/Off rows of its own, but no host.
+      const beyondAtcCard = page
+        .locator('[data-slot="card"]')
+        .filter({ hasText: 'BeyondATC' })
+        .filter({ has: page.getByLabel('Host') })
       await beyondAtcCard.getByLabel('Host').fill('127.0.0.1')
       await beyondAtcCard.getByRole('button', { name: 'On', exact: true }).click()
 
@@ -100,7 +104,10 @@ test.describe('BeyondATC integration', () => {
     try {
       await page.getByRole('tab', { name: 'Settings' }).click()
       await page.getByRole('tab', { name: '3rd party' }).click()
-      const beyondAtcCard = page.locator('[data-slot="card"]').filter({ hasText: 'BeyondATC' })
+      const beyondAtcCard = page
+        .locator('[data-slot="card"]')
+        .filter({ hasText: 'BeyondATC' })
+        .filter({ has: page.getByLabel('Host') })
       await beyondAtcCard.getByLabel('Host').fill('127.0.0.1')
       await beyondAtcCard.getByRole('button', { name: 'On', exact: true }).click()
       await server.waitForConnection()
@@ -117,6 +124,47 @@ test.describe('BeyondATC integration', () => {
       await expect(page.getByText('Singapore 830 Super')).toBeVisible()
       await expect(page.getByRole('button', { name: 'Request IFR Clearance' })).toBeVisible()
       await expect(page.getByRole('button', { name: 'Radio Check' })).toBeVisible()
+    } finally {
+      await cleanup()
+      await server.stop()
+    }
+  })
+
+  test("the BeyondATC page's ATIS button reads BeyondATC's ATIS fresh, with its labelled runways", async () => {
+    const server = await FakeBeyondAtcServer.start()
+    const { window: page, cleanup } = await launchApp({ env: server.env })
+    try {
+      await page.getByRole('tab', { name: 'Settings' }).click()
+      await page.getByRole('tab', { name: '3rd party' }).click()
+      const beyondAtcCard = page
+        .locator('[data-slot="card"]')
+        .filter({ hasText: 'BeyondATC' })
+        .filter({ has: page.getByLabel('Host') })
+      await beyondAtcCard.getByLabel('Host').fill('127.0.0.1')
+      await beyondAtcCard.getByRole('button', { name: 'On', exact: true }).click()
+      await server.waitForConnection()
+      server.sendLines(...RADIO_CHECK_SNAPSHOT)
+
+      await page.getByRole('tab', { name: 'BeyondATC' }).click()
+      await page.getByRole('button', { name: 'ATIS…' }).click()
+      const dialog = page.getByRole('dialog')
+      await expect(dialog.getByText('EGLL · BeyondATC ATIS R')).toBeVisible()
+      await expect(dialog.getByText('departure runway 27L')).toBeVisible()
+      await expect(dialog.getByText('arrival runway 27R')).toBeVisible()
+      await expect(dialog.getByText('WSSS · BeyondATC ATIS E')).toBeVisible()
+      await expect(dialog.getByText('arrival runway 20R')).toBeVisible()
+      expect(server.receivedCommands.filter((command) => command === 'datis')).toHaveLength(1)
+
+      // BeyondATC moves to the next letter: opening the pop-up again asks again and shows it.
+      server.datis = [
+        'EGLL|S|EGLL ATIS S 2408Z 07004KT 9999 NCD 10/10 Q1029 ARR RWY 09 LEFT DEP RWY 09 RIGHT TRANSITION-LEVEL FL060'
+      ]
+      await page.keyboard.press('Escape')
+      await page.getByRole('button', { name: 'ATIS…' }).click()
+      await expect(dialog.getByText('EGLL · BeyondATC ATIS S')).toBeVisible()
+      await expect(dialog.getByText('arrival runway 09L')).toBeVisible()
+      await expect(dialog.getByText('WSSS · BeyondATC ATIS E')).toHaveCount(0)
+      expect(server.receivedCommands.filter((command) => command === 'datis')).toHaveLength(2)
     } finally {
       await cleanup()
       await server.stop()

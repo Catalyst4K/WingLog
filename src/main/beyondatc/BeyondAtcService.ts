@@ -6,6 +6,7 @@
 import { EventEmitter } from 'node:events'
 import { NodeServiceSocket, type ServiceSocket, type ServiceSocketCtor } from '../net/service-socket'
 import type {
+  BeyondAtcAtis,
   BeyondAtcCallsign,
   BeyondAtcCom2,
   BeyondAtcInfoBox,
@@ -21,6 +22,7 @@ import { assignedGate, parseAtcTaxiFacts } from '@shared/atc-info-boxes'
 import { normaliseFrequency, runwaysFromStationName } from '@shared/beyondatc-frequencies'
 import { EMPTY_BEYONDATC_STATE } from '@shared/beyondatc-state'
 import { logger } from '../logging/logger'
+import { parseDatisLine } from './beyondatc-datis'
 
 /** `BeyondATC.exe`'s own local port (docs/beyondatc-notes.md): `0.0.0.0:41716`, LAN-reachable, a `websocket-sharp`
  *  server. Fixed and not user-configurable on BeyondATC's side (unlike GSX's variable Remote Client port), so this is the
@@ -46,6 +48,9 @@ export function e2eBeyondAtcPort(value: string | undefined): number | undefined 
  *  `ws` reassembles it correctly. Injected so tests don't need a real BeyondATC install (like GsxRemoteService's
  *  WebSocketCtor, which has the same import preventively). */
 export type WebSocketCtor = ServiceSocketCtor
+
+/** How long readAtis waits for BeyondATC's answer to `datis`; it answered in about 3 ms when read live (docs/beyondatc-notes.md). */
+const ATIS_WAIT_MS = 2_000
 
 // Reconnect behaviour is undesigned on BeyondATC's own side (winglog-backend's
 // beyondatc-integration.md, open question 3) — reused verbatim from GsxRemoteService rather
@@ -226,7 +231,7 @@ function parseFrequencies(rest: string): BeyondAtcFrequencyOption[] {
  * snapshot/patch messages, even though the rest of this class (constructor, start/stop, reconnect, event emitter) mirrors
  * GsxRemoteService. Surfaces the transcript, live facility/com2/callsign/commsState/progress, Actions, AutoTune/AutoRespond
  * and the Frequencies list, with the set_action, set_frequency, set_autotune and set_autorespond commands. Everything else in the
- * wire catalogue (DATIS, CPDLC code, settings, …) is deliberately never reflected in getState().
+ * wire catalogue (CPDLC code, settings, …) is deliberately never reflected in getState(). The D-ATIS is kept apart, read on demand by readAtis().
  */
 export class BeyondAtcService extends EventEmitter<BeyondAtcServiceEvents> {
   private ws: ServiceSocket | undefined
@@ -243,6 +248,9 @@ export class BeyondAtcService extends EventEmitter<BeyondAtcServiceEvents> {
   private listedFrequencies: BeyondAtcFrequencyOption[] = []
   private readonly learnedRunways = new Map<string, string>()
   private transcript: BeyondAtcTranscriptEntry[] = []
+  // BeyondATC's D-ATIS: a set is the `DATIS:` lines up to a `DATIS_END:`, handed to whoever asked whole, so an airport it drops goes too.
+  private datisPending: BeyondAtcAtis[] = []
+  private datisWaiters: ((set: BeyondAtcAtis[] | null) => void)[] = []
 
   constructor(
     private host: string,
@@ -300,6 +308,47 @@ export class BeyondAtcService extends EventEmitter<BeyondAtcServiceEvents> {
     if (typeof value === 'boolean') this.sendCommand(`set_autorespond: ${value}`)
   }
 
+  /**
+   * BeyondATC's ATIS, read fresh: asks BeyondATC for it and resolves with the set that answers, so what is shown is never an older one.
+   * Asks that overlap share one request.
+   *
+   * @param timeoutMs How long to wait for the answer.
+   * @returns The airports' ATIS, or null when BeyondATC is not connected or did not answer in time.
+   */
+  readAtis(timeoutMs = ATIS_WAIT_MS): Promise<BeyondAtcAtis[] | null> {
+    if (this.status.state !== 'connected' || !this.ws) return Promise.resolve(null)
+    return new Promise((resolve) => {
+      const timer = setTimeout(() => {
+        this.datisWaiters = this.datisWaiters.filter((w) => w !== waiter)
+        resolve(null)
+      }, timeoutMs)
+      const waiter = (set: BeyondAtcAtis[] | null): void => {
+        clearTimeout(timer)
+        resolve(set)
+      }
+      const first = this.datisWaiters.length === 0
+      this.datisWaiters.push(waiter)
+      if (first) this.sendCommand('datis')
+    })
+  }
+
+  /** The connection is gone or restarting: anyone waiting for the ATIS is told there is none. */
+  private dropAtis(): void {
+    this.datisPending = []
+    const waiters = this.datisWaiters
+    this.datisWaiters = []
+    for (const waiter of waiters) waiter(null)
+  }
+
+  /** A complete set arrived: it answers everyone waiting (BeyondATC also sends one on connect, which nobody waits for). */
+  private onDatisEnd(): void {
+    const set = this.datisPending
+    this.datisPending = []
+    const waiters = this.datisWaiters
+    this.datisWaiters = []
+    for (const waiter of waiters) waiter(set)
+  }
+
   start(): void {
     this.stopped = false
     this.connect()
@@ -310,6 +359,10 @@ export class BeyondAtcService extends EventEmitter<BeyondAtcServiceEvents> {
     if (this.reconnectTimer) clearTimeout(this.reconnectTimer)
     this.ws?.close()
     this.ws = undefined
+    this.dropAtis()
+    // The socket's own close is ignored once stopped, so the screens are told here that the link is gone (switching BeyondATC off in
+    // Settings otherwise left them showing it connected).
+    this.setStatus({ state: 'disconnected', lastError: null })
   }
 
   /** Restarts against a possibly-changed host — settings changed while connected. Port
@@ -321,6 +374,7 @@ export class BeyondAtcService extends EventEmitter<BeyondAtcServiceEvents> {
     this.host = host
     this.state = { ...EMPTY_BEYONDATC_STATE }
     this.transcript = []
+    this.dropAtis()
     if (!this.stopped) {
       this.ws?.close()
       this.connect()
@@ -390,6 +444,7 @@ export class BeyondAtcService extends EventEmitter<BeyondAtcServiceEvents> {
     socket.addEventListener('close', () => {
       if (this.ws !== socket) return // a stale socket's late close, already superseded
       this.ws = undefined
+      this.dropAtis()
       this.scheduleReconnect()
     })
 
@@ -402,8 +457,8 @@ export class BeyondAtcService extends EventEmitter<BeyondAtcServiceEvents> {
     })
   }
 
-  // What each line's key does with its value. Any other key BeyondATC sends (DATIS, CPDLCCode,
-  // RadioMute, LoadState, Settings, ToolbarVersion, QueuedAction, DATIS_END) is ignored.
+  // What each line's key does with its value. Any other key BeyondATC sends (CPDLCCode,
+  // RadioMute, LoadState, Settings, ToolbarVersion, QueuedAction) is ignored.
   private readonly lineHandlers = new Map<string, (rest: string) => void>([
     [
       'Facility',
@@ -429,6 +484,14 @@ export class BeyondAtcService extends EventEmitter<BeyondAtcServiceEvents> {
       }
     ],
     ['InfoBoxes', (rest) => this.onInfoBoxes(rest)],
+    [
+      'DATIS',
+      (rest) => {
+        const atis = parseDatisLine(rest)
+        if (atis) this.datisPending.push(atis)
+      }
+    ],
+    ['DATIS_END', () => this.onDatisEnd()],
     ['Player', (rest) => this.pushTranscript('player', rest)],
     ['ATC', (rest) => this.pushTranscript('atc', rest)],
     ['Traffic', (rest) => this.pushTranscript('traffic', rest)],

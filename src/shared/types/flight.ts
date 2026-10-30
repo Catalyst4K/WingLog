@@ -172,6 +172,10 @@ export interface Flight {
   /** The airport the selected STAR/approach are for — the alternate when the pilot switched the
    *  Procedures dialog to it; null = the filed destination. */
   selectedArrivalIcao: string | null
+  /** The online network this flight was flown on, or null when flown offline. */
+  onlineNetwork: 'vatsim' | 'ivao' | null
+  /** The callsign used on that network, or null when flown offline. */
+  onlineCallsign: string | null
 }
 
 /**

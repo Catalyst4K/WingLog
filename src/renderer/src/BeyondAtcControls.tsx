@@ -14,6 +14,9 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { AutoTuneOnlineWarning } from './online/AutoTuneOnlineWarning'
+import { BeyondAtcHiddenNote } from './online/BeyondAtcHiddenNote'
+import { useBeyondAtcHidden } from './live/use-online-status'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   groupFrequencies,
@@ -432,19 +435,28 @@ function StepClimbStatusLine(props: { status: BeyondAtcStepClimbStatus }): React
 }
 
 /**
- * COM1 and COM2, the frequency picker, and the auto tune, respond and step climb toggles.
+ * COM1 and COM2 with the frequency picker, or the note that the network's controllers give the frequencies while the pilot is online.
  *
- * @param props What is tuned, the frequencies on offer, the toggles and their handlers.
+ * @param props What is tuned and the frequencies on offer.
  * @returns The element.
  */
-export function BeyondAtcRadios(props: BeyondAtcRadiosProps): React.JSX.Element {
-  const { t } = useTranslation()
+function FrequencyRows(props: BeyondAtcRadiosProps): React.JSX.Element {
+  // Online, the network's controllers give the frequencies: BeyondATC's suggestions are not offered.
+  return useBeyondAtcHidden() ? <BeyondAtcHiddenNote /> : <FrequencyRowPair {...props} />
+}
+
+/**
+ * COM1 and COM2 with the frequency picker.
+ *
+ * @param props What is tuned and the frequencies on offer.
+ * @returns The element.
+ */
+function FrequencyRowPair(props: BeyondAtcRadiosProps): React.JSX.Element {
   const departureAirport = props.progress?.from ?? null
   const arrivalAirport = props.progress?.to ?? null
   const progressPct = props.progress?.pct ?? null
-
   return (
-    <div className="flex flex-col gap-3">
+    <>
       <div className="flex flex-col gap-2">
         <FrequencyRow
           label="COM1"
@@ -468,6 +480,24 @@ export function BeyondAtcRadios(props: BeyondAtcRadiosProps): React.JSX.Element 
           onSet={props.onSetFrequencyCom2}
         />
       </div>
+    </>
+  )
+}
+
+/**
+ * COM1 and COM2, the frequency picker, and the auto tune, respond and step climb toggles, with a warning above them while auto tune is on
+ * and the pilot is online.
+ *
+ * @param props What is tuned, the frequencies on offer, the toggles and their handlers.
+ * @returns The element.
+ */
+export function BeyondAtcRadios(props: BeyondAtcRadiosProps): React.JSX.Element {
+  const { t } = useTranslation()
+
+  return (
+    <div className="flex flex-col gap-3">
+      <FrequencyRows {...props} />
+      <AutoTuneOnlineWarning />
       <div className="flex flex-wrap gap-1.5">
         <AutoToggle
           label={t('beyondAtcPanel.settings.autoTune')}

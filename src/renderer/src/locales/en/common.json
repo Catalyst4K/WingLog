@@ -192,6 +192,32 @@
       "statusConnected": "Connected",
       "statusConnecting": "Connecting…",
       "statusDisconnected": "Disconnected"
+    },
+    "onlineNetwork": {
+      "cardTitle": "Online network",
+      "description": "Choose VATSIM or IVAO for its traffic on the Track map, a File button for your SimBrief plan, the controllers at your airports, and BeyondATC hidden while you are online. With None, none of it shows. WingLog only reads the network's public data feed; nothing is sent.",
+      "network": "Network",
+      "none": "None",
+      "cid": "CID",
+      "cidHint": "Your VATSIM member number (optional). It is used to leave your own aircraft out of the traffic.",
+      "vid": "VID",
+      "vidHint": "Your IVAO member number. IVAO shows other pilots only to its members, so traffic stays off until it is entered.",
+      "keepBeyondAtc": "Keep BeyondATC while online",
+      "keepBeyondAtcHint": "While you are online, BeyondATC's prompts, taxi line, frequencies and step climbs are hidden or silent, since the network's controllers are the only voice. Turn this on to keep them.",
+      "simTrafficButton": "Sim traffic button",
+      "simTrafficButtonHint": "The teal aircraft on Track's map: the sim's own traffic (BeyondATC's and other AI). Off removes the button from the map, on the PC and the phone.",
+      "atcAreas": "Keep ATC areas up to date",
+      "atcAreasHint": "About once a week WingLog asks GitHub for newer coverage areas from the community's VAT-Spy and SimAware TRACON projects. It sends nothing but WingLog's version.",
+      "atcAreasInUse": "In use: VAT-Spy {{vatspy}}, TRACON {{tracon}} ({{source}}).",
+      "atcAreasBundled": "bundled with WingLog",
+      "atcAreasDownloaded": "downloaded from GitHub",
+      "atcAreasChecked": "Last checked {{when}}.",
+      "atcAreasNeverChecked": "Not checked yet.",
+      "atcAreasCheckNow": "Check now",
+      "atcAreasChecking": "Checking…",
+      "atcAreasUpdated": "Updated to VAT-Spy {{vatspy}}, TRACON {{tracon}}.",
+      "atcAreasCurrent": "Already the newest.",
+      "atcAreasFailed": "Could not check. Try again later."
     }
   },
   "app": {
@@ -630,7 +656,19 @@
     "showTaxiChart": "Show taxi chart",
     "showTaxiChartTitle": "Show taxi chart — full taxiway network at the departure/arrival airport",
     "loadingTaxiChart": "Loading taxi chart for {{icao}}… this can take a few minutes at large airports",
-    "approximateRoute": "Approximate route — no flight plan on file for this flight"
+    "approximateRoute": "Approximate route — no flight plan on file for this flight",
+    "showNetworkTraffic": "Show {{network}} traffic",
+    "hideNetworkTraffic": "Hide {{network}} traffic",
+    "networkTrafficNeedsVid": "Enter your IVAO VID in Settings to see IVAO traffic",
+    "networkTrafficUnavailable": "{{network}} traffic unavailable",
+    "trafficOnGround": "On the ground",
+    "showSimTraffic": "Show sim traffic",
+    "hideSimTraffic": "Hide sim traffic",
+    "simTrafficUnavailable": "Sim traffic unavailable",
+    "showAtc": "Show {{network}} ATC",
+    "hideAtc": "Hide {{network}} ATC",
+    "atcNeedsVid": "Enter your IVAO VID in Settings to see IVAO ATC",
+    "atcUnavailable": "{{network}} ATC unavailable"
   },
   "logbookView": {
     "estimatedTrack": "The dashed line is about {{nm}} nm estimated from the flight plan. It was not recorded.",
@@ -676,7 +714,8 @@
       "blockTime": "Block time",
       "airTime": "Air time",
       "fuelBurn": "Fuel burn",
-      "fuelPlanned": "Fuel planned"
+      "fuelPlanned": "Fuel planned",
+      "online": "Online"
     },
     "altitude": "Altitude",
     "trueAltitude": "True altitude",
@@ -714,7 +753,12 @@
       "landings": "Landings"
     },
     "noCompletedFlights": "No completed flights yet — track one, or import a CSV logbook from Settings → Data.",
-    "flightNotFound": "Flight not found."
+    "flightNotFound": "Flight not found.",
+    "onlineFilter": {
+      "label": "Show",
+      "all": "All",
+      "online": "Online"
+    }
   },
   "gsxRemoteView": {
     "title": "Ground services"
@@ -756,6 +800,14 @@
       "awaitingReply": "Awaiting ATC's reply."
     },
     "noStatus": "No status yet.",
+    "atis": {
+      "button": "ATIS…",
+      "title": "BeyondATC ATIS",
+      "reading": "Asking BeyondATC…",
+      "off": "BeyondATC is not connected.",
+      "unavailable": "BeyondATC did not answer. Try again.",
+      "none": "BeyondATC has no ATIS for this flight."
+    },
     "radios": "Radios",
     "frequencyUnknown": "—",
     "frequencyPlaceholder": "118.850",
@@ -988,5 +1040,44 @@
       "qrLabel": "QR code for the second-screen address",
       "qrHintPairing": "Scan it with the phone to open the page and pair. The code changes every 5 minutes."
     }
+  },
+  "online": {
+    "fileOn": "File on {{network}}",
+    "noPrefileLink": "This plan has no {{network}} filing link.",
+    "beyondAtcHidden": "BeyondATC is hidden while you are online on {{network}}. The network's controllers are the only voice.",
+    "autoTuneWarning": "BeyondATC's auto-tune is on and can retune your radios away from {{network}}'s controllers. Turn Auto-tune off on the BeyondATC page while you are online.",
+    "badgeTitle": "Online on {{network}} as {{callsign}}.",
+    "badgeProbably": "Probably online on {{network}} as {{callsign}}: a pilot with your flight's departure and arrival is within 5 nm of you. Enter your CID in Settings to be sure.",
+    "atc": {
+      "title": "Online ATC at your airports ({{network}})",
+      "button": "{{network}} ATC ({{online}})…",
+      "nobody": "No controllers online",
+      "enrouteNote": "Enroute controllers are not listed."
+    },
+    "atis": {
+      "departure": "{{network}} departure ATIS {{code}}",
+      "arrival": "{{network}} arrival ATIS {{code}}",
+      "single": "{{network}} ATIS {{code}}",
+      "runwayShort": "runway {{runway}}",
+      "runway": "Runway in use (from the ATIS): {{runway}}",
+      "runwayHint": "Read from the ATIS text as a suggestion. Check it against the text.",
+      "none": "No {{network}} ATIS",
+      "unavailable": "{{network}} ATIS unavailable",
+      "beyondatc": "BeyondATC ATIS {{code}}",
+      "beyondatcDeparture": "departure runway {{runways}}",
+      "beyondatcArrival": "arrival runway {{runways}}",
+      "beyondatcHint": "The runways BeyondATC's ATIS names for departures and arrivals. Check them against the text.",
+      "beyondatcUnavailable": "BeyondATC's ATIS could not be read just now"
+    }
+  },
+  "navdataCycle": {
+    "behind": "Your sim's navigation data is Navigraph AIRAC {{cycle}}, but {{current}} is the current cycle. Update it in the Navigraph Hub.",
+    "planMismatch": "This plan was made with AIRAC {{plan}}, but your sim has {{sim}}. A route can fail to load in the sim when the two differ: update the sim's data or plan the flight again.",
+    "cardTitle": "Navigation data",
+    "cardDescription": "Which navigation data your sim has. WingLog keeps what it reads from the sim for each airport, and reads it again when the sim's data changes.",
+    "navigraph": "Navigraph AIRAC {{cycle}}, revision {{revision}}",
+    "navigraphValid": "Navigraph AIRAC {{cycle}}, revision {{revision}}, valid until {{validTo}}",
+    "simOwn": "The sim's own data. Its cycle cannot be read, so WingLog goes by the AIRAC calendar (current cycle {{current}}).",
+    "statusCurrent": "Up to date with the current cycle ({{current}})."
   }
 }

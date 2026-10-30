@@ -25,6 +25,15 @@ Settings has four sections down the left.
 - **GSX ground services**: on/off, receipts folder, display currency (see [GSX](08-gsx.md)).
 - **GSX Remote Control**: on/off, host and port.
 - **BeyondATC**: on/off and host (see [BeyondATC](07-beyondatc.md)).
+- **Online network**: VATSIM, IVAO or None (None hides every VATSIM and IVAO feature) and your member
+  number, keeping BeyondATC while online, whether the map offers the sim traffic button, and whether the
+  ATC areas keep themselves up to date from GitHub, with the releases in use and **Check now** (see
+  [Online networks](10-online-networks.md)).
+- **Navigation data**: which navigation data your sim has. With Navigraph it shows the AIRAC cycle,
+  its revision and how long it is valid, and warns when it is behind the current cycle. With the
+  sim's own data it says WingLog cannot read the cycle and goes by the AIRAC calendar. WingLog keeps
+  what it reads from the sim for each airport, and reads it again when you update the sim's data, so
+  install the new cycle in the Navigraph Hub first and then open your airports in WingLog.
 
 ## Data
 

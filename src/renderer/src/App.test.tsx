@@ -12,6 +12,7 @@ import type {
   FleetStats,
   GsxFirstLaunchResult,
   GsxRemoteMenuState,
+  OnlineStatus,
   SimConnectionStatus,
   SimTelemetry,
   SyncStatus,
@@ -189,6 +190,8 @@ function makeFlight(overrides: Partial<Flight> = {}): Flight {
     selectedApproachIdent: null,
     selectedApproachTransition: null,
     selectedArrivalIcao: null,
+    onlineNetwork: null,
+    onlineCallsign: null,
     ...overrides
   }
 }
@@ -208,6 +211,7 @@ function makeStats(overrides: Partial<FleetStats> = {}): FleetStats {
 function makeOfp(overrides: Partial<DispatchOfp> = {}): DispatchOfp {
   return {
     ofpId: 'ofp-1',
+    airac: null,
     aircraftIcaoType: 'A320',
     aircraftRegistration: 'G-ABCD',
     flightNumber: 'TA100',
@@ -329,6 +333,14 @@ function createWinglog(overrides: Partial<WingLogApi> = {}): WingLogApi {
     dispatchOpenOfpPdf: vi.fn().mockResolvedValue(true),
     flightCreate: vi.fn().mockResolvedValue(makeFlight()),
     weatherGetMetars: vi.fn().mockResolvedValue([]),
+    navdataGetStatus: vi.fn().mockResolvedValue({
+      source: 'default',
+      cycle: null,
+      revision: null,
+      validTo: null,
+      calendarCycle: '2611',
+      state: 'default'
+    }),
     navdataRefreshAirport: vi.fn().mockResolvedValue(undefined),
     navdataHasAirport: vi.fn().mockResolvedValue(false),
     navdataListRunways: vi.fn().mockResolvedValue([]),
@@ -406,6 +418,13 @@ function createWinglog(overrides: Partial<WingLogApi> = {}): WingLogApi {
     gsxRemoteCancelPrompt: vi.fn().mockResolvedValue(undefined),
     gsxRemoteRunCommand: vi.fn().mockResolvedValue(undefined),
     settingsGetBeyondAtc: vi.fn().mockResolvedValue({ enabled: false, host: 'localhost' }),
+    settingsGetOnlineNetwork: vi.fn().mockResolvedValue({
+      network: null,
+      vatsimCid: null,
+      ivaoVid: null,
+      keepBeyondAtcOnline: false,
+      simTrafficButton: true
+    }),
     settingsSetBeyondAtc: vi.fn().mockResolvedValue(undefined),
     beyondAtcGetStatus: vi.fn().mockResolvedValue({ state: 'disconnected', lastError: null }),
     onBeyondAtcStatus: vi.fn(() => () => {}),
@@ -603,6 +622,45 @@ describe('App', () => {
     await clickTab(user, 'Fleet')
     expect(await screen.findByText('Fleet', { selector: 'h1' }, lazyTimeout)).toBeInTheDocument()
   }, 15000)
+
+  it('shows the online badge in the header on every page while the pilot is online, and drops it when they go offline', async () => {
+    const listeners = new Set<(status: OnlineStatus) => void>()
+    setWinglog({
+      getOnlineStatus: vi.fn().mockResolvedValue({
+        network: 'vatsim',
+        state: 'online',
+        callsign: 'BAW1',
+        filedPlan: null,
+        hidesBeyondAtc: true
+      }),
+      // Every screen piece that reads the status subscribes: each one is told.
+      onOnlineStatus: vi.fn((listener) => {
+        listeners.add(listener)
+        return () => listeners.delete(listener)
+      })
+    })
+    const user = userEvent.setup()
+    render(<App />)
+    await screen.findByText('Fleet', { selector: 'h1' })
+    expect(await screen.findByText('VATSIM · BAW1')).toBeInTheDocument()
+
+    await clickTab(user, 'Logbook')
+    await screen.findByText('Logbook', { selector: 'h1' }, { timeout: 10000 })
+    expect(screen.getByText('VATSIM · BAW1')).toBeInTheDocument()
+
+    act(() => {
+      for (const listener of listeners) {
+        listener({
+          network: 'vatsim',
+          state: 'offline',
+          callsign: null,
+          filedPlan: null,
+          hidesBeyondAtc: false
+        })
+      }
+    })
+    expect(screen.queryByText('VATSIM · BAW1')).not.toBeInTheDocument()
+  })
 
   it('reflects a live SimConnect status push, and clears telemetry once disconnected', async () => {
     let statusListener: ((status: SimConnectionStatus) => void) | undefined

@@ -187,6 +187,32 @@
       "statusConnected": "已連線",
       "statusConnecting": "連線中…",
       "statusDisconnected": "未連線"
+    },
+    "onlineNetwork": {
+      "cardTitle": "線上網路",
+      "description": "選擇 VATSIM 或 IVAO，即可在 Track 地圖上看到其交通、提交 SimBrief 計畫的按鈕、你機場的管制員，並在你線上時隱藏 BeyondATC。選擇「無」則全部不顯示。WingLog 只讀取該網路的公開資料來源，不會傳送任何內容。",
+      "network": "網路",
+      "none": "無",
+      "cid": "CID",
+      "cidHint": "你的 VATSIM 會員編號（選填），用於在交通中排除你自己的飛機。",
+      "vid": "VID",
+      "vidHint": "你的 IVAO 會員編號。IVAO 只向其會員顯示其他飛行員，因此在輸入之前交通保持關閉。",
+      "keepBeyondAtc": "線上時保留 BeyondATC",
+      "keepBeyondAtcHint": "線上時，BeyondATC 的提示、滑行線、頻率和階梯爬升會被隱藏或靜音，因為網路的管制員是唯一的聲音。開啟此項可保留它們。",
+      "simTrafficButton": "模擬器交通按鈕",
+      "simTrafficButtonHint": "Track 地圖上的青色飛機：模擬器自己的交通（BeyondATC 的及其他 AI）。關閉後，PC 和手機的地圖上都不再顯示該按鈕。",
+      "atcAreas": "保持 ATC 區域為最新",
+      "atcAreasHint": "WingLog 大約每週向 GitHub 查詢一次社群專案 VAT-Spy 和 SimAware TRACON 的較新涵蓋區域，只傳送 WingLog 的版本號。",
+      "atcAreasInUse": "使用中：VAT-Spy {{vatspy}}，TRACON {{tracon}}（{{source}}）。",
+      "atcAreasBundled": "隨 WingLog 提供",
+      "atcAreasDownloaded": "從 GitHub 下載",
+      "atcAreasChecked": "上次檢查：{{when}}。",
+      "atcAreasNeverChecked": "尚未檢查。",
+      "atcAreasCheckNow": "立即檢查",
+      "atcAreasChecking": "正在檢查…",
+      "atcAreasUpdated": "已更新到 VAT-Spy {{vatspy}}，TRACON {{tracon}}。",
+      "atcAreasCurrent": "已是最新。",
+      "atcAreasFailed": "無法檢查，請稍後再試。"
     }
   },
   "app": {
@@ -624,7 +650,19 @@
     "showTaxiChart": "顯示滑行圖",
     "showTaxiChartTitle": "顯示滑行圖 — 出發/抵達機場的完整滑行道網路",
     "loadingTaxiChart": "正在載入 {{icao}} 的滑行圖……大型機場可能需要幾分鐘",
-    "approximateRoute": "近似航路 — 此航班沒有存檔的飛行計畫"
+    "approximateRoute": "近似航路 — 此航班沒有存檔的飛行計畫",
+    "showNetworkTraffic": "顯示 {{network}} 交通",
+    "hideNetworkTraffic": "隱藏 {{network}} 交通",
+    "networkTrafficNeedsVid": "請在設定中輸入你的 IVAO VID 以查看 IVAO 交通",
+    "networkTrafficUnavailable": "{{network}} 交通無法使用",
+    "trafficOnGround": "在地面",
+    "showSimTraffic": "顯示模擬器交通",
+    "hideSimTraffic": "隱藏模擬器交通",
+    "simTrafficUnavailable": "模擬器交通無法使用",
+    "showAtc": "顯示 {{network}} 管制",
+    "hideAtc": "隱藏 {{network}} 管制",
+    "atcNeedsVid": "請在設定中輸入你的 IVAO VID 以查看 IVAO 管制",
+    "atcUnavailable": "{{network}} 管制無法使用"
   },
   "logbookView": {
     "estimatedTrack": "虛線約 {{nm}} nm，是根據飛行計畫估算的，並非實際記錄。",
@@ -669,7 +707,8 @@
       "blockTime": "輪檔時間",
       "airTime": "空中時間",
       "fuelBurn": "燃油消耗",
-      "fuelPlanned": "計畫燃油"
+      "fuelPlanned": "計畫燃油",
+      "online": "線上"
     },
     "altitude": "高度",
     "trueAltitude": "真實高度",
@@ -707,7 +746,12 @@
       "landings": "落地"
     },
     "noCompletedFlights": "尚無已完成的航班 — 去追蹤一趟飛行，或從「設定 → 資料」匯入 CSV 飛行日誌。",
-    "flightNotFound": "找不到該航班。"
+    "flightNotFound": "找不到該航班。",
+    "onlineFilter": {
+      "label": "顯示",
+      "all": "全部",
+      "online": "線上"
+    }
   },
   "gsxRemoteView": {
     "title": "地面服務"
@@ -748,6 +792,14 @@
       "awaitingReply": "等待管制員回覆。"
     },
     "noStatus": "暫無狀態。",
+    "atis": {
+      "button": "ATIS…",
+      "title": "BeyondATC ATIS",
+      "reading": "正在向 BeyondATC 查詢…",
+      "off": "BeyondATC 未連線。",
+      "unavailable": "BeyondATC 沒有回應。請重試。",
+      "none": "BeyondATC 沒有此航班的 ATIS。"
+    },
     "radios": "無線電",
     "frequencyUnknown": "—",
     "frequencyPlaceholder": "118.850",
@@ -979,5 +1031,44 @@
       "qrLabel": "第二螢幕位址的 QR 碼",
       "qrHintPairing": "用手機掃描即可開啟頁面並配對。代碼每 5 分鐘更換一次。"
     }
+  },
+  "online": {
+    "fileOn": "在 {{network}} 提交",
+    "noPrefileLink": "此計畫沒有 {{network}} 的提交連結。",
+    "beyondAtcHidden": "你在 {{network}} 線上時，BeyondATC 已隱藏。網路的管制員是唯一的聲音。",
+    "autoTuneWarning": "BeyondATC 的自動調頻已開啟，可能會把你的無線電調離 {{network}} 管制員的頻率。線上時請在 BeyondATC 頁面關閉自動調頻。",
+    "badgeTitle": "在 {{network}} 線上，呼號 {{callsign}}。",
+    "badgeProbably": "可能在 {{network}} 線上，呼號 {{callsign}}：一名起飛和到達機場與你的航班相同的飛行員距你不到 5 海里。在設定中輸入你的 CID 即可確認。",
+    "atc": {
+      "title": "你的機場線上管制 ({{network}})",
+      "button": "{{network}} 管制 ({{online}})…",
+      "nobody": "沒有線上管制員",
+      "enrouteNote": "不列出航路管制員。"
+    },
+    "atis": {
+      "departure": "{{network}} 離場 ATIS {{code}}",
+      "arrival": "{{network}} 進場 ATIS {{code}}",
+      "single": "{{network}} ATIS {{code}}",
+      "runwayShort": "跑道 {{runway}}",
+      "runway": "使用跑道（來自 ATIS）：{{runway}}",
+      "runwayHint": "從 ATIS 文字讀取，僅供參考。請對照文字核實。",
+      "none": "沒有 {{network}} ATIS",
+      "unavailable": "{{network}} ATIS 無法使用",
+      "beyondatc": "BeyondATC ATIS {{code}}",
+      "beyondatcDeparture": "起飛跑道 {{runways}}",
+      "beyondatcArrival": "降落跑道 {{runways}}",
+      "beyondatcHint": "BeyondATC 的 ATIS 為起飛和降落指定的跑道。請與文字核對。",
+      "beyondatcUnavailable": "暫時無法讀取 BeyondATC 的 ATIS"
+    }
+  },
+  "navdataCycle": {
+    "behind": "你的模擬器導航資料是 Navigraph AIRAC {{cycle}}，但目前的週期是 {{current}}。請在 Navigraph Hub 中更新。",
+    "planMismatch": "此計畫使用 AIRAC {{plan}} 製作，而你的模擬器是 {{sim}}。兩者不同時，航路可能無法在模擬器中載入：請更新模擬器資料或重新規劃航班。",
+    "cardTitle": "導航資料",
+    "cardDescription": "你的模擬器使用的導航資料。WingLog 會儲存從模擬器讀取的每個機場的資料，並在模擬器資料變化時重新讀取。",
+    "navigraph": "Navigraph AIRAC {{cycle}}，修訂 {{revision}}",
+    "navigraphValid": "Navigraph AIRAC {{cycle}}，修訂 {{revision}}，有效至 {{validTo}}",
+    "simOwn": "模擬器自帶的資料。無法讀取其週期，因此 WingLog 以 AIRAC 日曆為準（目前週期 {{current}}）。",
+    "statusCurrent": "已是目前週期（{{current}}）。"
   }
 }

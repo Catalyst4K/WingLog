@@ -26,7 +26,11 @@ import { realIcao } from '../display-icao'
 import { flightLabel } from '../flight-label'
 import { FreeFlightAirport } from '../FreeFlightAirport'
 import { MetarPanel } from '../MetarPanel'
+import { OnlineAtcButton } from '../online/OnlineAtc'
+import { PrefileButtons } from '../online/PrefileButtons'
+import { winglogApi } from '../data/winglog-api'
 import type { ProcedureAirports } from '@shared/procedure-selection'
+import { NavdataCycleNote } from '../navdata/NavdataCycle'
 import { ProcedureSelector } from '../ProcedureSelector'
 import { asyncHandler } from '../report-error'
 import { formatDuration, formatElapsed, formatUtcTime, type TrackTimes } from '../track-times'
@@ -135,6 +139,9 @@ export function ActiveFlightCard(props: {
           <TimeReadouts times={props.times} />
         </div>
         <div className="flex gap-2">
+          {flight?.hasOfp && (
+            <PrefileButtons file={(network) => winglogApi().onlinePrefileForFlight(flight.id, network)} />
+          )}
           <Button
             type="button"
             variant="destructive"
@@ -261,7 +268,7 @@ export function NotTrackingCards(props: {
 }
 
 /**
- * The Weather and Procedures dialogs, and the procedures chosen so far.
+ * The Weather, online ATC and Procedures dialogs, and the procedures chosen so far.
  *
  * @param props The flight's airports, the procedure selection and its change handler, and the wind unit.
  * @returns The element.
@@ -296,6 +303,8 @@ export function FlightToolbar(props: {
           />
         </DialogContent>
       </Dialog>
+      {/* Who is online at the flight's airports, while a network is chosen and a flight is tracked. */}
+      <OnlineAtcButton />
       {airports && !(airports.depIcao === 'ZZZZ' && airports.arrIcao === 'ZZZZ') && (
         <>
           <Dialog>
@@ -308,6 +317,7 @@ export function FlightToolbar(props: {
               <DialogHeader>
                 <DialogTitle>{t('trackView.procedures')}</DialogTitle>
               </DialogHeader>
+              <NavdataCycleNote />
               <ProcedureSelector
                 airports={airports}
                 selection={selection}

@@ -12,6 +12,12 @@ const SUBSCRIBERS: Record<LiveTopic, keyof WingLogApi> = {
   procedureSelection: 'onProcedureSelection',
   taxiRoute: 'onTaxiRoute',
   plannedRoute: 'onPlannedRoute',
+  networkTraffic: 'onNetworkTraffic',
+  simTraffic: 'onSimTraffic',
+  trafficLayers: 'onTrafficLayers',
+  onlineStatus: 'onOnlineStatus',
+  networkControllers: 'onNetworkControllers',
+  networkAtc: 'onNetworkAtc',
   storageStatus: 'onStorageStatus',
   gsxRemoteStatus: 'onGsxRemoteStatus',
   gsxRemoteServices: 'onGsxRemoteServices',
@@ -53,7 +59,10 @@ const COMMANDS: { [C in LiveCommand]: [keyof WingLogApi, LiveCommands[C]] } = {
         arrivalIcao: null
       }
     ]
-  ]
+  ],
+  'traffic.setNetworkOn': ['trafficSetNetworkOn', [true]],
+  'traffic.setSimOn': ['trafficSetSimOn', [true]],
+  'traffic.setAtcOn': ['trafficSetAtcOn', [true]]
 }
 
 function mockWinglog(): Record<string, ReturnType<typeof vi.fn>> {
@@ -88,6 +97,27 @@ describe('electronLiveClient (live-data-seam.md, part C)', () => {
     expect(await electronLiveClient.get('beyondAtcStatus')).toEqual({ state: 'connected', lastError: null })
     expect(await electronLiveClient.get('simTelemetry')).toBeUndefined()
     expect(await electronLiveClient.get('trackingPoint')).toBeUndefined()
+  })
+
+  it('reads the traffic and the layers through their getters', async () => {
+    const api = mockWinglog()
+    const traffic = { network: 'vatsim', state: 'off', aircraft: [] }
+    const layers = {
+      networkOn: true,
+      simOn: false,
+      drawNetwork: true,
+      drawSim: false
+    }
+    api.getNetworkTraffic = vi.fn().mockResolvedValue(traffic)
+    api.getTrafficLayers = vi.fn().mockResolvedValue(layers)
+    expect(await electronLiveClient.get('networkTraffic')).toEqual(traffic)
+    expect(await electronLiveClient.get('trafficLayers')).toEqual(layers)
+    const sim = { state: 'shown', aircraft: [] }
+    api.getSimTraffic = vi.fn().mockResolvedValue(sim)
+    expect(await electronLiveClient.get('simTraffic')).toEqual(sim)
+    const atc = { network: 'vatsim', state: 'shown', areas: [], airports: [] }
+    api.getNetworkAtc = vi.fn().mockResolvedValue(atc)
+    expect(await electronLiveClient.get('networkAtc')).toEqual(atc)
   })
 })
 

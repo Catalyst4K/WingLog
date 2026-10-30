@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { airacCycleStart, predatesCurrentCycle } from './airac'
+import { airacCycleNumber, airacCycleStart, fetchedBefore, predatesCurrentCycle } from './airac'
 
 const day = (iso: string): Date => new Date(`${iso}T12:00:00Z`)
 
@@ -38,6 +38,50 @@ describe('airacCycleStart', () => {
   it('works before the reference date as well', () => {
     expect(airacCycleStart(day('2024-12-26')).toISOString()).toBe('2024-12-26T00:00:00.000Z')
     expect(airacCycleStart(day('2025-01-22')).toISOString()).toBe('2024-12-26T00:00:00.000Z')
+  })
+})
+
+describe('airacCycleNumber', () => {
+  it('numbers the 2026 cycles 2601 to 2613 as the providers do', () => {
+    const published = [
+      '01-22',
+      '02-19',
+      '03-19',
+      '04-16',
+      '05-14',
+      '06-11',
+      '07-09',
+      '08-06',
+      '09-03',
+      '10-01',
+      '10-29',
+      '11-26',
+      '12-24'
+    ]
+    published.forEach((md, index) => {
+      expect(airacCycleNumber(day(`2026-${md}`))).toBe(`26${String(index + 1).padStart(2, '0')}`)
+    })
+  })
+
+  it('changes at midnight UTC: 2611 takes effect on 29 October', () => {
+    expect(airacCycleNumber(new Date('2026-10-28T23:59:59Z'))).toBe('2610')
+    expect(airacCycleNumber(new Date('2026-10-29T00:00:00Z'))).toBe('2611')
+  })
+
+  it('knows the cycles around a new year: 2513 runs from 25 December 2025 to 21 January 2026', () => {
+    expect(airacCycleNumber(day('2025-12-25'))).toBe('2513')
+    expect(airacCycleNumber(day('2026-01-21'))).toBe('2513')
+    expect(airacCycleNumber(day('2025-01-23'))).toBe('2501')
+  })
+})
+
+describe('fetchedBefore', () => {
+  it('is true only for a fetch before the cutoff, and false for a time that does not parse', () => {
+    const cutoff = Date.parse('2026-10-29T15:49:31.878Z')
+    expect(fetchedBefore('2026-10-29T10:00:00.000Z', cutoff)).toBe(true)
+    expect(fetchedBefore('2026-10-29T15:49:31.878Z', cutoff)).toBe(false)
+    expect(fetchedBefore('2026-10-29T16:00:00.000Z', cutoff)).toBe(false)
+    expect(fetchedBefore('not a time', cutoff)).toBe(false)
   })
 })
 

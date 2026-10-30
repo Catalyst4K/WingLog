@@ -186,7 +186,12 @@ export const flight = sqliteTable(
     // when the flight completed (winglog-backend's docs/plans/stand-positions.md). Null for
     // flights before this existed, or when no stand was within reach of the final position.
     parkedStandIcao: text('parked_stand_icao'),
-    parkedStand: text('parked_stand')
+    parkedStand: text('parked_stand'),
+    // The online network the flight was flown on and the callsign used there, written when the flight
+    // completes if the pilot was seen online while airborne (winglog-backend docs/plans/vatsim-build.md,
+    // Step 2). Null for a flight flown offline, or before this existed.
+    onlineNetwork: text('online_network', { enum: ['vatsim', 'ivao'] }),
+    onlineCallsign: text('online_callsign')
   },
   (table) => [
     index('flight_aircraft_id_idx').on(table.aircraftId),

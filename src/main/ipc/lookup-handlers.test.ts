@@ -18,7 +18,8 @@ vi.mock('../simbrief/simbrief-generate', () => ({
 }))
 const fetchMetars = vi.fn()
 vi.mock('../weather/metar-client', () => ({
-  fetchMetars: (codes: unknown, agent: string) => fetchMetars(codes, agent)
+  fetchMetars: (codes: unknown, agent: string, url: string) => fetchMetars(codes, agent, url),
+  resolveMetarUrl: () => 'https://metar.test/api'
 }))
 const fetchExchangeRate = vi.fn()
 vi.mock('../fx/fx-client', () => ({ fetchExchangeRate: (c: string, d?: string) => fetchExchangeRate(c, d) }))
@@ -52,7 +53,7 @@ describe('lookup IPC handlers', () => {
     expect(createCustomAirframeFromShare).toHaveBeenCalledWith(
       'https://dispatch.simbrief.com/airframes/share/1'
     )
-    expect(fetchMetars).toHaveBeenCalledWith(['EGLL'], 'WingLog/1.4.1')
+    expect(fetchMetars).toHaveBeenCalledWith(['EGLL'], 'WingLog/1.4.1', 'https://metar.test/api')
     expect(fetchExchangeRate).toHaveBeenCalledWith('GBP', '2026-10-05')
   })
 })

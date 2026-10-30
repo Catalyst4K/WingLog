@@ -90,6 +90,53 @@ describe('useAtcClearancePrompt on a LiveClient', () => {
     expect(result.current.pending).toBeNull()
   })
 
+  describe('while the pilot is online', () => {
+    const online = {
+      network: 'vatsim',
+      state: 'online',
+      callsign: 'BAW1',
+      filedPlan: null,
+      hidesBeyondAtc: true
+    }
+    const offline = { ...online, state: 'offline', callsign: null, hidesBeyondAtc: false }
+
+    it('offers no clearance, and offers one again once the pilot is offline', async () => {
+      window.winglog = { appLogRendererError: vi.fn().mockResolvedValue(undefined) } as unknown as WingLogApi
+      const { client, push } = fakeClient()
+      const { result } = renderHook(() => useAtcClearancePrompt(selection, vi.fn()), {
+        wrapper: wrapper(client)
+      })
+      act(() => push('onlineStatus', online))
+      await act(async () => {
+        push('beyondAtcState', state('LOGA2H'))
+        await Promise.resolve()
+      })
+      expect(result.current.pending).toBeNull()
+
+      act(() => push('onlineStatus', offline))
+      await act(async () => {
+        push('beyondAtcState', state('LOGA2H'))
+        await Promise.resolve()
+      })
+      expect(result.current.pending?.fields).toEqual({ starIdent: 'LOGA2H' })
+    })
+
+    it('withdraws a clearance that was already on offer', async () => {
+      window.winglog = { appLogRendererError: vi.fn().mockResolvedValue(undefined) } as unknown as WingLogApi
+      const { client, push } = fakeClient()
+      const { result } = renderHook(() => useAtcClearancePrompt(selection, vi.fn()), {
+        wrapper: wrapper(client)
+      })
+      await act(async () => {
+        push('beyondAtcState', state('LOGA2H'))
+        await Promise.resolve()
+      })
+      expect(result.current.pending).not.toBeNull()
+      act(() => push('onlineStatus', online))
+      expect(result.current.pending).toBeNull()
+    })
+  })
+
   it('applies an accepted clearance over the current selection', async () => {
     window.winglog = { appLogRendererError: vi.fn().mockResolvedValue(undefined) } as unknown as WingLogApi
     const { client, push } = fakeClient()

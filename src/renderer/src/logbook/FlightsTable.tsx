@@ -120,6 +120,15 @@ export function FlightsTable(props: {
                 <TableCell>
                   <span className="inline-flex items-center gap-1.5">
                     {f.flightNumber ?? '—'}
+                    {f.onlineNetwork && (
+                      <Badge
+                        variant="outline"
+                        className="text-xs font-normal"
+                        title={f.onlineCallsign ?? undefined}
+                      >
+                        {f.onlineNetwork === 'ivao' ? 'IVAO' : 'VATSIM'}
+                      </Badge>
+                    )}
                     {isFreeFlight(f) && (
                       <Badge variant="outline" className="text-xs font-normal">
                         {t('logbookView.freeFlight')}

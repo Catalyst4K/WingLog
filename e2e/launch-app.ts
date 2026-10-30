@@ -106,6 +106,16 @@ export async function launchApp(options: LaunchAppOptions = {}): Promise<Launche
   // its own that nothing listens on, which a test's fake server (FakeBeyondAtcServer's env) or replay replaces.
   env.WINGLOG_E2E_SIMCONNECT_PORT = String(await unusedPort())
   env.WINGLOG_E2E_BEYONDATC_PORT = String(await unusedPort())
+  // Likewise the VATSIM and IVAO feeds: a closed port, replaced by network-feed-server.ts in a test about them.
+  env.WINGLOG_E2E_VATSIM_URL = `http://127.0.0.1:${await unusedPort()}/vatsim`
+  env.WINGLOG_E2E_IVAO_URL = `http://127.0.0.1:${await unusedPort()}/ivao`
+  // And the METARs the weather panel reads: a closed port, replaced by a test's own fake server.
+  env.WINGLOG_E2E_METAR_URL = `http://127.0.0.1:${await unusedPort()}/metar`
+  // And the community releases the ATC areas update themselves from (GitHub's): a closed port, replaced by atc-areas-release-server.ts.
+  env.WINGLOG_E2E_ATC_AREAS_URL = `http://127.0.0.1:${await unusedPort()}`
+  // And the sim's navigation data, read from disk: an empty folder instead of this machine's own Navigraph install, so a run is the same
+  // everywhere. navdata-cycle.spec.ts fills it.
+  env.WINGLOG_E2E_MSFS_DIR = join(userDataDir, 'fake-msfs')
   // The window is shown without taking the keyboard focus, on a second display when there is one, so a run doesn't interrupt other
   // work. Set WINGLOG_E2E_WINDOW=normal to watch a run like a normal launch, or hidden to show nothing; WINGLOG_E2E_DISPLAY picks a display.
   env.WINGLOG_E2E_WINDOW = process.env.WINGLOG_E2E_WINDOW ?? 'inactive'

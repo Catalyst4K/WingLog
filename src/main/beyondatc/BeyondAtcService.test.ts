@@ -635,6 +635,20 @@ describe('BeyondAtcService', () => {
     expect(instances).toHaveLength(1)
   })
 
+  it('tells listeners the link is gone when stopped, since the socket’s own close is ignored then', () => {
+    const { ctor, instances } = makeCtor()
+    const service = new BeyondAtcService('localhost', BEYONDATC_PORT, ctor)
+    const statuses: string[] = []
+    service.on('status', (status: { state: string }) => statuses.push(status.state))
+    service.start()
+    instances[0].simulateOpen()
+
+    service.stop()
+
+    expect(statuses).toEqual(['connecting', 'connected', 'disconnected'])
+    expect(service.getStatus()).toEqual({ state: 'disconnected', lastError: null })
+  })
+
   it('reconfigure() against a new host drops old state and reconnects, keeping the port fixed', () => {
     const { ctor, instances } = makeCtor()
     const service = new BeyondAtcService('localhost', BEYONDATC_PORT, ctor)
@@ -667,6 +681,117 @@ describe('BeyondAtcService raw messages (dev build capture)', () => {
       { direction: 'in', text: 'Actions: [Radio Check¬]\nCommsState: ready' },
       { direction: 'out', text: 'set_action: Radio Check' }
     ])
+    service.stop()
+  })
+})
+
+describe("BeyondAtcService's D-ATIS (docs/beyondatc-notes.md, 2026-10-29)", () => {
+  const EGLL =
+    'DATIS: EGLL|R|EGLL ATIS R 2338Z 06003KT 9999 NCD 10/10 Q1029 ARR RWY 27 RIGHT DEP RWY 27 LEFT TRANSITION-LEVEL FL060'
+  const WSSS = 'DATIS: WSSS|E|WSSS ATIS E 2338Z WIND CALM ARR RWY 20 RIGHT DEP RWY 20 CENTER'
+
+  beforeEach(() => {
+    vi.useFakeTimers()
+  })
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  function connected() {
+    const { ctor, instances } = makeCtor()
+    const service = new BeyondAtcService('localhost', BEYONDATC_PORT, ctor)
+    service.start()
+    instances[0].simulateOpen()
+    return { service, socket: instances[0] }
+  }
+
+  it('asks BeyondATC for its ATIS and answers with the set it sends back, runways read', async () => {
+    const { service, socket } = connected()
+    const read = service.readAtis()
+    expect(socket.sent).toEqual(['frequencies', 'datis'])
+    socket.simulateLine(`${EGLL}\n${WSSS}\nDATIS_END:`)
+    const set = await read
+    expect(set?.map((a) => [a.icao, a.code, a.arrivalRunways, a.departureRunways])).toEqual([
+      ['EGLL', 'R', ['27R'], ['27L']],
+      ['WSSS', 'E', ['20R'], ['20C']]
+    ])
+    service.stop()
+  })
+
+  it('shares one request between asks that overlap, and answers each with the same set', async () => {
+    const { service, socket } = connected()
+    const first = service.readAtis()
+    const second = service.readAtis()
+    expect(socket.sent.filter((text) => text === 'datis')).toHaveLength(1)
+    socket.simulateLine(`${EGLL}\nDATIS_END:`)
+    expect(await first).toEqual(await second)
+    service.stop()
+  })
+
+  it('answers with the new set when an airport has gone, never a mix with the one before', async () => {
+    const { service, socket } = connected()
+    const first = service.readAtis()
+    socket.simulateLine(`${EGLL}\n${WSSS}\nDATIS_END:`)
+    expect(await first).toHaveLength(2)
+    const second = service.readAtis()
+    socket.simulateLine(`${WSSS}\nDATIS_END:`)
+    expect((await second)?.map((a) => a.icao)).toEqual(['WSSS'])
+    service.stop()
+  })
+
+  it('drops a line that is not an airport, a letter and a text, keeping the rest of the set', async () => {
+    const { service, socket } = connected()
+    const read = service.readAtis()
+    socket.simulateLine(`DATIS: nonsense\n${EGLL}\nDATIS_END:`)
+    expect((await read)?.map((a) => a.icao)).toEqual(['EGLL'])
+    service.stop()
+  })
+
+  it('does not count the set BeyondATC sends on connect as an answer', async () => {
+    const { service, socket } = connected()
+    socket.simulateLine(`${EGLL}\nDATIS_END:`)
+    const read = service.readAtis()
+    let answered = false
+    void read.then(() => {
+      answered = true
+    })
+    await vi.advanceTimersByTimeAsync(1_999)
+    expect(answered).toBe(false)
+    socket.simulateLine(`${WSSS}\nDATIS_END:`)
+    expect((await read)?.map((a) => a.icao)).toEqual(['WSSS'])
+    service.stop()
+  })
+
+  it('gives up after two seconds with nothing, so an older ATIS is never passed off as current', async () => {
+    const { service } = connected()
+    const read = service.readAtis()
+    await vi.advanceTimersByTimeAsync(2_000)
+    expect(await read).toBeNull()
+    service.stop()
+  })
+
+  it('has none to give while not connected, and sends nothing', async () => {
+    const { ctor, instances } = makeCtor()
+    const service = new BeyondAtcService('localhost', BEYONDATC_PORT, ctor)
+    expect(await service.readAtis()).toBeNull()
+    service.start()
+    expect(await service.readAtis()).toBeNull()
+    expect(instances[0].sent).toEqual([])
+    service.stop()
+  })
+
+  it('tells anyone waiting there is none when the connection drops', async () => {
+    const { service, socket } = connected()
+    const read = service.readAtis()
+    socket.close()
+    expect(await read).toBeNull()
+    service.stop()
+  })
+
+  it('keeps the ATIS out of the state the screens get', () => {
+    const { service, socket } = connected()
+    socket.simulateLine(`${EGLL}\nDATIS_END:`)
+    expect(service.getState()).toEqual(EMPTY_BEYONDATC_STATE)
     service.stop()
   })
 })

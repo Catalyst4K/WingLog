@@ -208,6 +208,32 @@
       "statusConnected": "Подключено",
       "statusConnecting": "Подключение…",
       "statusDisconnected": "Отключено"
+    },
+    "onlineNetwork": {
+      "cardTitle": "Онлайн-сеть",
+      "description": "Выберите VATSIM или IVAO, чтобы видеть его трафик на карте Track, кнопку подачи плана SimBrief, диспетчеров в ваших аэропортах и скрывать BeyondATC, пока вы онлайн. С «Нет» ничего из этого не показывается. WingLog только читает открытый поток данных сети; ничего не отправляется.",
+      "network": "Сеть",
+      "none": "Нет",
+      "cid": "CID",
+      "cidHint": "Ваш номер участника VATSIM (необязательно). Нужен, чтобы не показывать ваш собственный самолёт среди трафика.",
+      "vid": "VID",
+      "vidHint": "Ваш номер участника IVAO. IVAO показывает других пилотов только своим участникам, поэтому трафик остаётся выключенным, пока номер не введён.",
+      "keepBeyondAtc": "Оставить BeyondATC онлайн",
+      "keepBeyondAtcHint": "Пока вы онлайн, подсказки, линия руления, частоты и ступенчатые набора высоты BeyondATC скрыты или молчат, так как единственный голос — диспетчеры сети. Включите, чтобы оставить их.",
+      "simTrafficButton": "Кнопка трафика симулятора",
+      "simTrafficButtonHint": "Бирюзовые самолёты на карте Track: собственный трафик симулятора (BeyondATC и другой ИИ). Если выключено, кнопки нет на карте ни на ПК, ни на телефоне.",
+      "atcAreas": "Поддерживать зоны ATC в актуальном состоянии",
+      "atcAreasHint": "Примерно раз в неделю WingLog запрашивает у GitHub более новые зоны покрытия из проектов сообщества VAT-Spy и SimAware TRACON. Отправляется только версия WingLog.",
+      "atcAreasInUse": "Используются: VAT-Spy {{vatspy}}, TRACON {{tracon}} ({{source}}).",
+      "atcAreasBundled": "входят в состав WingLog",
+      "atcAreasDownloaded": "загружены с GitHub",
+      "atcAreasChecked": "Последняя проверка: {{when}}.",
+      "atcAreasNeverChecked": "Ещё не проверялось.",
+      "atcAreasCheckNow": "Проверить сейчас",
+      "atcAreasChecking": "Проверка…",
+      "atcAreasUpdated": "Обновлено до VAT-Spy {{vatspy}}, TRACON {{tracon}}.",
+      "atcAreasCurrent": "Уже самая новая версия.",
+      "atcAreasFailed": "Не удалось проверить. Повторите позже."
     }
   },
   "app": {
@@ -651,7 +677,19 @@
     "showTaxiChart": "Показать карту руления",
     "showTaxiChartTitle": "Показать карту руления — полная сеть рулёжных дорожек аэропорта вылета/прилёта",
     "loadingTaxiChart": "Загрузка карты руления для {{icao}}… в крупных аэропортах это может занять несколько минут",
-    "approximateRoute": "Приблизительный маршрут — план полёта для этого рейса отсутствует"
+    "approximateRoute": "Приблизительный маршрут — план полёта для этого рейса отсутствует",
+    "showNetworkTraffic": "Показать трафик {{network}}",
+    "hideNetworkTraffic": "Скрыть трафик {{network}}",
+    "networkTrafficNeedsVid": "Введите свой IVAO VID в настройках, чтобы видеть трафик IVAO",
+    "networkTrafficUnavailable": "Трафик {{network}} недоступен",
+    "trafficOnGround": "На земле",
+    "showSimTraffic": "Показать трафик симулятора",
+    "hideSimTraffic": "Скрыть трафик симулятора",
+    "simTrafficUnavailable": "Трафик симулятора недоступен",
+    "showAtc": "Показать диспетчеров {{network}}",
+    "hideAtc": "Скрыть диспетчеров {{network}}",
+    "atcNeedsVid": "Введите свой IVAO VID в настройках, чтобы видеть диспетчеров IVAO",
+    "atcUnavailable": "Диспетчеры {{network}} недоступны"
   },
   "logbookView": {
     "estimatedTrack": "Пунктирная линия — около {{nm}} nm, оценённых по плану полёта. Они не были записаны.",
@@ -699,7 +737,8 @@
       "blockTime": "Блочное время",
       "airTime": "Полётное время",
       "fuelBurn": "Расход топлива",
-      "fuelPlanned": "Плановое топливо"
+      "fuelPlanned": "Плановое топливо",
+      "online": "Онлайн"
     },
     "altitude": "Высота",
     "trueAltitude": "Истинная высота",
@@ -737,7 +776,12 @@
       "landings": "Посадки"
     },
     "noCompletedFlights": "Пока нет завершённых рейсов — начните отслеживание или импортируйте CSV-логбук через Настройки → Данные.",
-    "flightNotFound": "Рейс не найден."
+    "flightNotFound": "Рейс не найден.",
+    "onlineFilter": {
+      "label": "Показать",
+      "all": "Все",
+      "online": "Онлайн"
+    }
   },
   "gsxRemoteView": {
     "title": "Наземное обслуживание"
@@ -781,6 +825,14 @@
       "awaitingReply": "Ожидание ответа диспетчера."
     },
     "noStatus": "Статус пока не известен.",
+    "atis": {
+      "button": "ATIS…",
+      "title": "ATIS BeyondATC",
+      "reading": "Запрос к BeyondATC…",
+      "off": "BeyondATC не подключён.",
+      "unavailable": "BeyondATC не ответил. Повторите попытку.",
+      "none": "У BeyondATC нет ATIS для этого полёта."
+    },
     "radios": "Радиостанции",
     "frequencyUnknown": "—",
     "frequencyPlaceholder": "118.850",
@@ -1015,5 +1067,44 @@
       "qrLabel": "QR-код адреса второго экрана",
       "qrHintPairing": "Отсканируйте его телефоном, чтобы открыть страницу и подключиться. Код меняется каждые 5 минут."
     }
+  },
+  "online": {
+    "fileOn": "Подать на {{network}}",
+    "noPrefileLink": "В этом плане нет ссылки для подачи на {{network}}.",
+    "beyondAtcHidden": "BeyondATC скрыт, пока вы онлайн в {{network}}. Единственный голос — диспетчеры сети.",
+    "autoTuneWarning": "Автонастройка BeyondATC включена и может перестроить ваши радиостанции с частот диспетчеров {{network}}. Выключите автонастройку на странице BeyondATC, пока вы онлайн.",
+    "badgeTitle": "Онлайн в {{network}} как {{callsign}}.",
+    "badgeProbably": "Вероятно, онлайн в {{network}} как {{callsign}}: пилот с теми же аэропортами вылета и прилёта, что и у вашего рейса, находится в пределах 5 NM от вас. Введите свой CID в настройках, чтобы знать наверняка.",
+    "atc": {
+      "title": "Диспетчеры онлайн в ваших аэропортах ({{network}})",
+      "button": "Диспетчеры {{network}} ({{online}})…",
+      "nobody": "Диспетчеров онлайн нет",
+      "enrouteNote": "Диспетчеры маршрута не показаны."
+    },
+    "atis": {
+      "departure": "ATIS вылета {{network}} {{code}}",
+      "arrival": "ATIS прилёта {{network}} {{code}}",
+      "single": "ATIS {{network}} {{code}}",
+      "runwayShort": "ВПП {{runway}}",
+      "runway": "ВПП в использовании (по ATIS): {{runway}}",
+      "runwayHint": "Прочитано из текста ATIS как подсказка. Проверьте по тексту.",
+      "none": "Нет ATIS {{network}}",
+      "unavailable": "ATIS {{network}} недоступен",
+      "beyondatc": "ATIS BeyondATC {{code}}",
+      "beyondatcDeparture": "ВПП вылета {{runways}}",
+      "beyondatcArrival": "ВПП посадки {{runways}}",
+      "beyondatcHint": "ВПП, которые ATIS BeyondATC называет для вылета и посадки. Сверьтесь с текстом.",
+      "beyondatcUnavailable": "Не удалось прочитать ATIS BeyondATC"
+    }
+  },
+  "navdataCycle": {
+    "behind": "Навигационные данные вашего симулятора — Navigraph AIRAC {{cycle}}, но текущий цикл — {{current}}. Обновите их в Navigraph Hub.",
+    "planMismatch": "Этот план составлен по AIRAC {{plan}}, а в вашем симуляторе {{sim}}. Если они отличаются, маршрут может не загрузиться в симуляторе: обновите данные симулятора или составьте план заново.",
+    "cardTitle": "Навигационные данные",
+    "cardDescription": "Какие навигационные данные в вашем симуляторе. WingLog хранит то, что читает из симулятора для каждого аэропорта, и читает заново, когда данные симулятора меняются.",
+    "navigraph": "Navigraph AIRAC {{cycle}}, ревизия {{revision}}",
+    "navigraphValid": "Navigraph AIRAC {{cycle}}, ревизия {{revision}}, действует до {{validTo}}",
+    "simOwn": "Собственные данные симулятора. Их цикл прочитать нельзя, поэтому WingLog ориентируется на календарь AIRAC (текущий цикл {{current}}).",
+    "statusCurrent": "Соответствует текущему циклу ({{current}})."
   }
 }

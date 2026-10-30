@@ -24,6 +24,8 @@ export const LAN_QUERY_KINDS: Record<string, LanQueryKind> = {
   'settings.beyondAtc': FAST,
   // Reaches the internet.
   'weather.metars': SLOW,
+  // Waits for a read of the network's feed when the PC's is too old.
+  'online.atis': SLOW,
   'taxi.has': FAST,
   // Does nothing now: the PC fetches the shown flight's chart itself (flight-navdata-fetcher.ts). Kept, and left in this lane,
   // for pages that still ask.

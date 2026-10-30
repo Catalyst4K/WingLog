@@ -194,6 +194,32 @@
       "statusConnected": "Connesso",
       "statusConnecting": "Connessione…",
       "statusDisconnected": "Disconnesso"
+    },
+    "onlineNetwork": {
+      "cardTitle": "Rete online",
+      "description": "Scegli VATSIM o IVAO per il suo traffico sulla mappa di Track, un pulsante per depositare il tuo piano SimBrief, i controllori dei tuoi aeroporti e BeyondATC nascosto mentre sei online. Con «Nessuna», non compare nulla di tutto ciò. WingLog legge solo il feed di dati pubblico della rete; non viene inviato nulla.",
+      "network": "Rete",
+      "none": "Nessuna",
+      "cid": "CID",
+      "cidHint": "Il tuo numero di membro VATSIM (facoltativo). Serve a escludere il tuo aereo dal traffico.",
+      "vid": "VID",
+      "vidHint": "Il tuo numero di membro IVAO. IVAO mostra gli altri piloti solo ai suoi membri, quindi il traffico resta spento finché non lo inserisci.",
+      "keepBeyondAtc": "Mantieni BeyondATC online",
+      "keepBeyondAtcHint": "Mentre sei online, i suggerimenti, la linea di rullaggio, le frequenze e le salite a gradini di BeyondATC sono nascosti o silenziosi, perché i controllori della rete sono l'unica voce. Attiva per mantenerli.",
+      "simTrafficButton": "Pulsante del traffico del sim",
+      "simTrafficButtonHint": "Gli aerei turchesi sulla mappa di Track: il traffico del sim stesso (quello di BeyondATC e altra IA). Spento, il pulsante sparisce dalla mappa, sul PC e sul telefono.",
+      "atcAreas": "Mantieni aggiornate le aree ATC",
+      "atcAreasHint": "Circa una volta a settimana WingLog chiede a GitHub aree di copertura più recenti dai progetti della community VAT-Spy e SimAware TRACON. Non invia altro che la versione di WingLog.",
+      "atcAreasInUse": "In uso: VAT-Spy {{vatspy}}, TRACON {{tracon}} ({{source}}).",
+      "atcAreasBundled": "incluse in WingLog",
+      "atcAreasDownloaded": "scaricate da GitHub",
+      "atcAreasChecked": "Ultimo controllo: {{when}}.",
+      "atcAreasNeverChecked": "Non ancora controllato.",
+      "atcAreasCheckNow": "Controlla ora",
+      "atcAreasChecking": "Controllo…",
+      "atcAreasUpdated": "Aggiornato a VAT-Spy {{vatspy}}, TRACON {{tracon}}.",
+      "atcAreasCurrent": "Già la più recente.",
+      "atcAreasFailed": "Impossibile controllare. Riprova più tardi."
     }
   },
   "app": {
@@ -632,7 +658,19 @@
     "showTaxiChart": "Mostra carta di rullaggio",
     "showTaxiChartTitle": "Mostra carta di rullaggio — rete completa delle vie di rullaggio dell'aeroporto di partenza/arrivo",
     "loadingTaxiChart": "Caricamento della carta di rullaggio per {{icao}}… può richiedere alcuni minuti per gli aeroporti grandi",
-    "approximateRoute": "Rotta approssimativa — nessun piano di volo registrato per questo volo"
+    "approximateRoute": "Rotta approssimativa — nessun piano di volo registrato per questo volo",
+    "showNetworkTraffic": "Mostra il traffico {{network}}",
+    "hideNetworkTraffic": "Nascondi il traffico {{network}}",
+    "networkTrafficNeedsVid": "Inserisci il tuo VID IVAO nelle impostazioni per vedere il traffico IVAO",
+    "networkTrafficUnavailable": "Traffico {{network}} non disponibile",
+    "trafficOnGround": "A terra",
+    "showSimTraffic": "Mostra il traffico del sim",
+    "hideSimTraffic": "Nascondi il traffico del sim",
+    "simTrafficUnavailable": "Traffico del sim non disponibile",
+    "showAtc": "Mostra l’ATC {{network}}",
+    "hideAtc": "Nascondi l’ATC {{network}}",
+    "atcNeedsVid": "Inserisci il tuo VID IVAO nelle impostazioni per vedere l’ATC IVAO",
+    "atcUnavailable": "ATC {{network}} non disponibile"
   },
   "logbookView": {
     "estimatedTrack": "La linea tratteggiata è di circa {{nm}} nm stimati dal piano di volo. Non sono stati registrati.",
@@ -678,7 +716,8 @@
       "blockTime": "Tempo blocco",
       "airTime": "Tempo di volo",
       "fuelBurn": "Carburante consumato",
-      "fuelPlanned": "Carburante pianificato"
+      "fuelPlanned": "Carburante pianificato",
+      "online": "Online"
     },
     "altitude": "Altitudine",
     "trueAltitude": "Altitudine vera",
@@ -716,7 +755,12 @@
       "landings": "Atterraggi"
     },
     "noCompletedFlights": "Ancora nessun volo completato — traccia un volo, oppure importa un CSV del libretto da Impostazioni → Dati.",
-    "flightNotFound": "Volo non trovato."
+    "flightNotFound": "Volo non trovato.",
+    "onlineFilter": {
+      "label": "Mostra",
+      "all": "Tutti",
+      "online": "Online"
+    }
   },
   "gsxRemoteView": {
     "title": "Servizi di terra"
@@ -758,6 +802,14 @@
       "awaitingReply": "In attesa della risposta dell'ATC."
     },
     "noStatus": "Ancora nessuno stato.",
+    "atis": {
+      "button": "ATIS…",
+      "title": "ATIS di BeyondATC",
+      "reading": "Richiesta a BeyondATC…",
+      "off": "BeyondATC non è connesso.",
+      "unavailable": "BeyondATC non ha risposto. Riprova.",
+      "none": "BeyondATC non ha un ATIS per questo volo."
+    },
     "radios": "Radio",
     "frequencyUnknown": "—",
     "frequencyPlaceholder": "118.850",
@@ -990,5 +1042,44 @@
       "qrLabel": "Codice QR dell’indirizzo del secondo schermo",
       "qrHintPairing": "Inquadralo con lo smartphone per aprire la pagina e associare. Il codice cambia ogni 5 minuti."
     }
+  },
+  "online": {
+    "fileOn": "Deposita su {{network}}",
+    "noPrefileLink": "Questo piano non ha un link di deposito {{network}}.",
+    "beyondAtcHidden": "BeyondATC è nascosto mentre sei online su {{network}}. I controllori della rete sono l'unica voce.",
+    "autoTuneWarning": "L'auto-sintonia di BeyondATC è attiva e può cambiare la frequenza delle tue radio, lontano dai controllori di {{network}}. Disattiva Auto-sintonia nella pagina BeyondATC mentre sei online.",
+    "badgeTitle": "Online su {{network}} come {{callsign}}.",
+    "badgeProbably": "Probabilmente online su {{network}} come {{callsign}}: un pilota con la partenza e l'arrivo del tuo volo è entro 5 NM da te. Inserisci il tuo CID nelle Impostazioni per esserne certo.",
+    "atc": {
+      "title": "ATC online ai tuoi aeroporti ({{network}})",
+      "button": "ATC {{network}} ({{online}})…",
+      "nobody": "Nessun controllore online",
+      "enrouteNote": "I controllori in rotta non sono elencati."
+    },
+    "atis": {
+      "departure": "ATIS partenze {{network}} {{code}}",
+      "arrival": "ATIS arrivi {{network}} {{code}}",
+      "single": "ATIS {{network}} {{code}}",
+      "runwayShort": "pista {{runway}}",
+      "runway": "Pista in uso (dall’ATIS): {{runway}}",
+      "runwayHint": "Letta dal testo dell’ATIS come suggerimento. Controllala sul testo.",
+      "none": "Nessun ATIS {{network}}",
+      "unavailable": "ATIS {{network}} non disponibile",
+      "beyondatc": "ATIS di BeyondATC {{code}}",
+      "beyondatcDeparture": "pista di partenza {{runways}}",
+      "beyondatcArrival": "pista di arrivo {{runways}}",
+      "beyondatcHint": "Le piste che l’ATIS di BeyondATC indica per partenze e arrivi. Controllale nel testo.",
+      "beyondatcUnavailable": "Non è stato possibile leggere l’ATIS di BeyondATC in questo momento"
+    }
+  },
+  "navdataCycle": {
+    "behind": "I dati di navigazione del tuo simulatore sono Navigraph AIRAC {{cycle}}, ma il ciclo attuale è {{current}}. Aggiornali nel Navigraph Hub.",
+    "planMismatch": "Questo piano è stato creato con AIRAC {{plan}}, ma il tuo simulatore ha {{sim}}. Una rotta può non caricarsi nel simulatore quando i due differiscono: aggiorna i dati del simulatore o pianifica di nuovo il volo.",
+    "cardTitle": "Dati di navigazione",
+    "cardDescription": "Quali dati di navigazione ha il tuo simulatore. WingLog conserva ciò che legge dal simulatore per ogni aeroporto e lo rilegge quando i dati del simulatore cambiano.",
+    "navigraph": "Navigraph AIRAC {{cycle}}, revisione {{revision}}",
+    "navigraphValid": "Navigraph AIRAC {{cycle}}, revisione {{revision}}, valido fino al {{validTo}}",
+    "simOwn": "I dati propri del simulatore. Il suo ciclo non è leggibile, quindi WingLog si affida al calendario AIRAC (ciclo attuale {{current}}).",
+    "statusCurrent": "Aggiornato al ciclo attuale ({{current}})."
   }
 }

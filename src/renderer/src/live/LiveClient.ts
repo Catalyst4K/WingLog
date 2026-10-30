@@ -25,12 +25,24 @@ type Commands = { [C in LiveCommand]: (...args: LiveCommands[C]) => Promise<void
 /** Over Electron's preload. Looks `window.winglog` up on every call rather than capturing
  *  it once, so renderer tests that swap the mock between tests keep working. */
 export const electronLiveClient: LiveClient = {
+  /**
+   * Reads one live topic's current value through the matching preload getter.
+   *
+   * @param topic The topic.
+   * @returns Its current value, or undefined for a topic with no getter.
+   */
   get(topic) {
     const w = window.winglog
     const getters: Getters = {
       simConnectionStatus: w.getSimConnectionStatus,
       taxiRoute: w.getTaxiRoute,
       plannedRoute: w.getPlannedRoute,
+      networkTraffic: w.getNetworkTraffic,
+      simTraffic: w.getSimTraffic,
+      trafficLayers: w.getTrafficLayers,
+      onlineStatus: w.getOnlineStatus,
+      networkControllers: w.getNetworkControllers,
+      networkAtc: w.getNetworkAtc,
       procedureSelection: w.trackingGetProcedureSelection,
       storageStatus: w.getStorageStatus,
       gsxRemoteStatus: w.gsxRemoteGetStatus,
@@ -76,10 +88,23 @@ export const electronLiveClient: LiveClient = {
       beyondAtcTranscript: w.onBeyondAtcTranscript,
       beyondAtcStepClimb: w.onBeyondAtcStepClimb,
       beyondAtcArrival: w.onBeyondAtcArrival,
-      plannedRoute: w.onPlannedRoute
+      plannedRoute: w.onPlannedRoute,
+      networkTraffic: w.onNetworkTraffic,
+      simTraffic: w.onSimTraffic,
+      trafficLayers: w.onTrafficLayers,
+      onlineStatus: w.onOnlineStatus,
+      networkControllers: w.onNetworkControllers,
+      networkAtc: w.onNetworkAtc
     }
     return subscribers[topic](listener)
   },
+  /**
+   * Sends one live command through the matching preload call.
+   *
+   * @param name The command.
+   * @param args Its arguments.
+   * @returns Resolves once the main process has taken it.
+   */
   command(name, ...args) {
     const w = window.winglog
     const commands: Commands = {
@@ -95,7 +120,10 @@ export const electronLiveClient: LiveClient = {
       'gsx.submitPrompt': (gen, text) => w.gsxRemoteSubmitPrompt(gen, text),
       'gsx.cancelPrompt': (gen) => w.gsxRemoteCancelPrompt(gen),
       'gsx.runCommand': (id) => w.gsxRemoteRunCommand(id),
-      'track.setProcedureSelection': (selection) => w.trackingSetProcedureSelection(selection)
+      'track.setProcedureSelection': (selection) => w.trackingSetProcedureSelection(selection),
+      'traffic.setNetworkOn': (on) => w.trafficSetNetworkOn(on),
+      'traffic.setSimOn': (on) => w.trafficSetSimOn(on),
+      'traffic.setAtcOn': (on) => w.trafficSetAtcOn(on)
     }
     return (commands[name] as (...a: LiveCommands[typeof name]) => Promise<void>)(...args)
   }

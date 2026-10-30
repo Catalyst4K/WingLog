@@ -98,6 +98,12 @@ function FlightSummaryCard(props: {
             label={t('logbookView.fields.fuelPlanned')}
             value={formatWeight(flight.fuelPlannedKg, weightUnit)}
           />
+          {flight.onlineNetwork && (
+            <DetailField
+              label={t('logbookView.fields.online')}
+              value={`${flight.onlineNetwork === 'ivao' ? 'IVAO' : 'VATSIM'} · ${flight.onlineCallsign ?? '—'}`}
+            />
+          )}
         </dl>
       </CardContent>
     </Card>

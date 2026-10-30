@@ -35,7 +35,9 @@ aircraft**.
 ## Weather
 
 METARs for the departure, destination and alternate are shown alongside the plan, with their flight
-category (VFR, MVFR, IFR, LIFR).
+category (VFR, MVFR, IFR, LIFR). With VATSIM or IVAO chosen in Settings, each tab also has the airport's
+live ATIS under its METAR (see [Online networks](10-online-networks.md)), read when the card opens and
+again when you press Refresh, so you can look before you file.
 
 ## Procedures
 
@@ -46,6 +48,13 @@ change them right up until you land, on the Track page too.
 
 With BeyondATC turned on, WingLog reads your clearance and offers to fill these in for you (see
 [BeyondATC](07-beyondatc.md)).
+
+If your sim uses Navigraph's navigation data, the card tells you when it is out of step. It warns you
+when the data in your sim is an older AIRAC cycle than the current one (update it in the Navigraph
+Hub), and when your SimBrief plan was made with a different cycle from your sim's, because a route can
+fail to load in the sim when the two differ. If you use the sim's own data, which states no cycle,
+there is nothing to compare and the card says nothing. **Settings** shows which data WingLog sees (see
+[Settings](12-settings.md)).
 
 ## Starting the flight
 

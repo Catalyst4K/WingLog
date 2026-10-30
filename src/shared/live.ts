@@ -15,6 +15,12 @@ import type {
   GsxRemotePromptState,
   ProcedureSelection,
   GsxRemoteServiceStatus,
+  NetworkAtc,
+  NetworkControllers,
+  NetworkTraffic,
+  SimTraffic,
+  OnlineStatus,
+  TrafficLayers,
   SimConnectionStatus,
   SimTelemetry,
   StorageStatus,
@@ -74,6 +80,18 @@ export interface LiveTopics {
   procedureSelection: ProcedureSelection | null
   /** The planned route with that choice spliced in, from the PC, for the screens that don't build it themselves. */
   plannedRoute: PlannedRoute | null
+  /** The chosen network's traffic near the aircraft, parsed in main (online networks, vatsim-build.md Step 1). */
+  networkTraffic: NetworkTraffic
+  /** The aircraft the sim lists around the pilot, read over a connection of its own while the layer draws. */
+  simTraffic: SimTraffic
+  /** The controllers and ATIS online at the flight's airports, from the chosen network's feed. */
+  networkControllers: NetworkControllers
+  /** Where the chosen network's controllers are, for the map's ATC layer: the staffed areas and airports of the whole network. */
+  networkAtc: NetworkAtc
+  /** Whether the pilot's own flight is on the chosen network, found in its feed (VATSIM or IVAO). */
+  onlineStatus: OnlineStatus
+  /** The shared traffic switches and which layers draw, decided in main in one function. */
+  trafficLayers: TrafficLayers
   /** The taxi line of the latest clearance, traced on the PC; null with no clearance, or once the flight has left the ground. */
   taxiRoute: TaxiRoute | null
   /** The disk's free space and whether saving is failing, for the low-disk warning on every screen. */
@@ -116,6 +134,9 @@ export interface LiveCommands {
   'gsx.cancelPrompt': [gen: number]
   'gsx.runCommand': [id: GsxRemoteCommandId]
   'track.setProcedureSelection': [selection: ProcedureSelection]
+  'traffic.setNetworkOn': [on: boolean]
+  'traffic.setSimOn': [on: boolean]
+  'traffic.setAtcOn': [on: boolean]
 }
 
 export type LiveCommand = keyof LiveCommands

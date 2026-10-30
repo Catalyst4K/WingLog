@@ -29,6 +29,18 @@ const NOT_QUERIES = {
     'taxiRouteGet',
     'plannedRoute',
     'plannedRouteGet',
+    'networkTraffic',
+    'networkTrafficGet',
+    'simTraffic',
+    'simTrafficGet',
+    'trafficLayers',
+    'onlineStatus',
+    'onlineStatusGet',
+    'networkControllers',
+    'networkControllersGet',
+    'networkAtc',
+    'networkAtcGet',
+    'trafficLayersGet',
     'storageStatus',
     'storageGetStatus',
     'trackingGetActive',
@@ -62,6 +74,9 @@ const NOT_QUERIES = {
     'trackingStop',
     'trackingFinish',
     'trackingSetProcedureSelection',
+    'trafficSetNetworkOn',
+    'trafficSetSimOn',
+    'trafficSetAtcOn',
     'trackingSetDestination',
     'trackingSetDeparture',
     'trackingResumeOrphaned',
@@ -107,7 +122,9 @@ const NOT_QUERIES = {
     'lanSetSettings',
     'lanStartPairing',
     'lanStopPairing',
-    'lanRevokeDevice'
+    'lanRevokeDevice',
+    'onlinePrefileFromOfp',
+    'onlinePrefileForFlight'
   ]
 } as const satisfies Record<Exclude<ChannelKind, 'query'>, readonly (keyof typeof IpcChannels)[]>
 

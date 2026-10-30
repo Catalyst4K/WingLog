@@ -166,6 +166,33 @@
   filter: invert(1);
   background-color: var(--muted);
 }
+/*
+ * The traffic aircraft's popup: MapLibre paints the box and its pointer white, while the text inherits the app's light
+ * dark-mode colour, which left white on white. The tip's colour is set on all four borders because only the one
+ * facing the box is drawn; the extra class beats MapLibre's per-anchor rules whatever order the CSS loads in.
+ */
+.dark .maplibregl-popup .maplibregl-popup-content {
+  background: var(--popover);
+  color: var(--popover-foreground);
+}
+.dark .maplibregl-popup .maplibregl-popup-tip {
+  border-top-color: var(--popover);
+  border-bottom-color: var(--popover);
+  border-left-color: var(--popover);
+  border-right-color: var(--popover);
+}
+.dark .maplibregl-popup .maplibregl-popup-close-button {
+  color: var(--popover-foreground);
+}
+/* MapLibre leaves the cross a bare button, so its size followed the browser's button font and its click area was a few pixels. A fixed box. */
+.maplibregl-popup .maplibregl-popup-close-button {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  font-size: 18px;
+  line-height: 24px;
+  text-align: center;
+}
 /* MapLibre's blue focus ring on the (i) stays after a click or tap, and the inversion above turns it orange. The map has no use for it. */
 .maplibregl-ctrl-attrib .maplibregl-ctrl-attrib-button:focus,
 .maplibregl-ctrl-attrib .maplibregl-ctrl-attrib-button:focus-visible {

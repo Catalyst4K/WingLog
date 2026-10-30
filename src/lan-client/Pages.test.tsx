@@ -128,6 +128,7 @@ function open(options: { flight?: unknown; gsx?: boolean; atc?: boolean; weightU
 function stubWinglog(overrides: Record<string, unknown> = {}): void {
   window.winglog = {
     weatherGetMetars: vi.fn().mockResolvedValue([]),
+    onlineAtisGet: vi.fn().mockResolvedValue({ network: null, airports: [] }),
     settingsGetGsxRemote: vi.fn().mockResolvedValue({ enabled: true, host: '', port: 1 }),
     settingsGetBeyondAtc: vi.fn().mockResolvedValue({ enabled: true, host: '' }),
     navdataGetStands: vi.fn().mockResolvedValue([]),
@@ -169,6 +170,38 @@ describe('the pages bar', () => {
     for (const button of screen.getByRole('navigation').querySelectorAll('button')) {
       expect(button.className).toContain('min-h-14')
     }
+  })
+})
+
+describe('the Track page while the pilot is online', () => {
+  it("shows the online badge in the flight banner, no BeyondATC note, and warns while BeyondATC's auto-tune is on", async () => {
+    stubWinglog()
+    const { socket } = open()
+    act(() => {
+      socket.say({
+        t: 'topic',
+        name: 'onlineStatus',
+        payload: {
+          network: 'vatsim',
+          state: 'online',
+          callsign: 'TSTPIL1',
+          filedPlan: null,
+          hidesBeyondAtc: true
+        }
+      })
+      socket.say({ t: 'topic', name: 'beyondAtcStatus', payload: { state: 'connected', lastError: null } })
+      socket.say({
+        t: 'topic',
+        name: 'beyondAtcState',
+        payload: { ...EMPTY_BEYONDATC_STATE, autoTune: true }
+      })
+    })
+    expect(await screen.findByText('VATSIM · TSTPIL1')).toHaveAttribute(
+      'title',
+      'Online on VATSIM as TSTPIL1.'
+    )
+    expect(screen.queryByText(/BeyondATC is hidden/)).not.toBeInTheDocument()
+    expect(screen.getByRole('alert')).toHaveTextContent("BeyondATC's auto-tune is on")
   })
 })
 
@@ -219,6 +252,42 @@ describe('the weather on the Dispatch page', () => {
     expect(screen.queryByRole('heading', { name: 'Weather' })).not.toBeInTheDocument()
     await waitFor(() =>
       expect(window.winglog.weatherGetMetars).toHaveBeenCalledWith(['EGLL', 'VHHH', 'VMMC'])
+    )
+  })
+})
+
+describe('the weather panel on the Dispatch page', () => {
+  it('shows the live ATIS under the METAR, asked for with the flight’s airports and the tab each is for', async () => {
+    stubWinglog({
+      onlineAtisGet: vi.fn().mockResolvedValue({
+        network: 'vatsim',
+        airports: [
+          {
+            icao: 'EGLL',
+            slot: 'departure',
+            state: 'shown',
+            atis: [
+              {
+                callsign: 'EGLL_D_ATIS',
+                code: 'L',
+                kind: 'departure',
+                lines: ['DEPARTURE INFORMATION LIMA'],
+                runway: '27R'
+              }
+            ]
+          }
+        ]
+      })
+    })
+    open()
+    await userEvent.click(screen.getByRole('button', { name: 'Dispatch' }))
+    expect(await screen.findByText('VATSIM departure ATIS L · runway 27R')).toBeInTheDocument()
+    await waitFor(() =>
+      expect(window.winglog.onlineAtisGet).toHaveBeenCalledWith([
+        { icao: 'EGLL', slot: 'departure' },
+        { icao: 'VHHH', slot: 'destination' },
+        { icao: 'VMMC', slot: 'alternate' }
+      ])
     )
   })
 })

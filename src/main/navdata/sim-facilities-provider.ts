@@ -4,7 +4,7 @@
  * database, and answers every lookup from that cache.
  */
 import { Protocol } from 'node-simconnect'
-import { airacCycleStart, predatesCurrentCycle } from '@shared/airac'
+import { airacCycleStart, fetchedBefore } from '@shared/airac'
 import { correctLandingsForDisplacedThresholds } from '../db/landing-displacement'
 import { openSimConnect as defaultOpen } from '../sim/open-simconnect'
 import type { WingLogDb } from '../db/client'
@@ -33,6 +33,7 @@ import type {
 } from './navdata-provider'
 import type { NavdataStand } from '@shared/ipc'
 import { fetchAirportNavdata, fetchTaxiNetwork, type FetchedStand } from './sim-facilities-fetch'
+import { staleBeforeMs, type NavdataSignature } from './sim-navdata-signature'
 
 const APP_NAME = 'WingLog navdata'
 
@@ -52,8 +53,8 @@ export type OpenSimConnect = typeof defaultOpen
  * the fetch took, when the two shared one connection).
  */
 export class SimFacilitiesProvider implements NavdataProvider {
-  /** When each airport was last checked for a new AIRAC cycle, and when to try it again (Infinity once it is up to date). */
-  private readonly cycleChecks = new Map<string, { cycleStartMs: number; retryAtMs: number }>()
+  /** When each airport was last checked against the sim's data, which cutoff that was, and when to try it again (Infinity once it is up to date). */
+  private readonly cycleChecks = new Map<string, { cutoffMs: number; retryAtMs: number }>()
   /** Background refreshes run one at a time, each on its own short-lived connection. */
   private background: Promise<void> = Promise.resolve()
 
@@ -61,47 +62,53 @@ export class SimFacilitiesProvider implements NavdataProvider {
    * @param db The database.
    * @param openSimConnect Opens a SimConnect connection; injected so tests don't need a live sim.
    * @param now The clock; injected so tests can step across an AIRAC cycle change.
+   * @param signature What the sim's navigation data is. The default says nothing is known (the calendar alone), so a test never reads
+   *   the machine's own Community folder; the app passes the real reader.
    */
   constructor(
     private readonly db: WingLogDb,
     private readonly openSimConnect: OpenSimConnect = defaultOpen,
-    private readonly now: () => Date = () => new Date()
+    private readonly now: () => Date = () => new Date(),
+    private readonly signature: () => NavdataSignature = () => ({ source: 'default' })
   ) {}
 
   /**
    * Navigation data changes on the AIRAC schedule (every 28 days), so cached data fetched before the current cycle began is out
-   * of date, for Navigraph users above all, whose sim data moves on with each cycle. The first time an airport is used in a
-   * cycle, any of its cached parts that predate the cycle are re-fetched in the background. What is cached keeps being served
-   * meanwhile, and keeps being served if the sim isn't running: a failed attempt just tries again after REFRESH_RETRY_MS.
+   * of date, for Navigraph users above all, whose sim data moves on with each cycle. For them the cutoff is the moment the
+   * package was installed, not the calendar's cycle start: a re-fetch before they update the sim only reads the old cycle again,
+   * and must not stamp it fresh (the 2026-10-29 case, plans/navdata-cycle-check.md). Anyone else has the calendar. The first time
+   * an airport is used with a new cutoff, any of its cached parts fetched before it are re-fetched in the background. What is
+   * cached keeps being served meanwhile, and keeps being served if the sim isn't running: a failed attempt just tries again after
+   * REFRESH_RETRY_MS.
    *
    * @param icao The airport just used.
    */
   private refreshIfStale(icao: string): void {
     const at = this.now()
     const nowMs = at.getTime()
-    const cycleStartMs = airacCycleStart(at).getTime()
+    const cutoffMs = staleBeforeMs(this.signature(), airacCycleStart(at).getTime())
     const seen = this.cycleChecks.get(icao)
-    if (seen && seen.cycleStartMs === cycleStartMs && nowMs < seen.retryAtMs) return
+    if (seen && seen.cutoffMs === cutoffMs && nowMs < seen.retryAtMs) return
     const times = navdataFetchTimes(this.db, icao)
     const stale = {
       // Runways cached before the sim's displaced thresholds were read are fetched again whatever the cycle.
       airport:
         times.airport !== null &&
-        (predatesCurrentCycle(times.airport, at) || runwaysLackDisplacedThresholds(this.db, icao)),
-      taxi: times.taxi !== null && predatesCurrentCycle(times.taxi, at),
-      stands: times.stands !== null && predatesCurrentCycle(times.stands, at)
+        (fetchedBefore(times.airport, cutoffMs) || runwaysLackDisplacedThresholds(this.db, icao)),
+      taxi: times.taxi !== null && fetchedBefore(times.taxi, cutoffMs),
+      stands: times.stands !== null && fetchedBefore(times.stands, cutoffMs)
     }
     if (!stale.airport && !stale.taxi && !stale.stands) {
-      this.cycleChecks.set(icao, { cycleStartMs, retryAtMs: Infinity })
+      this.cycleChecks.set(icao, { cutoffMs, retryAtMs: Infinity })
       return
     }
-    this.cycleChecks.set(icao, { cycleStartMs, retryAtMs: nowMs + REFRESH_RETRY_MS })
+    this.cycleChecks.set(icao, { cutoffMs, retryAtMs: nowMs + REFRESH_RETRY_MS })
     this.background = this.background.then(async () => {
       try {
         if (stale.airport) await this.refreshAirport(icao)
         // One request brings the taxi network and the stands.
         if (stale.taxi || stale.stands) await this.refreshTaxiNetwork(icao)
-        this.cycleChecks.set(icao, { cycleStartMs, retryAtMs: Infinity })
+        this.cycleChecks.set(icao, { cutoffMs, retryAtMs: Infinity })
         logger.info(`[navdata] ${icao} refreshed for the new AIRAC cycle`)
       } catch (error) {
         logger.info(`[navdata] ${icao} not refreshed for the new AIRAC cycle yet: ${String(error)}`)

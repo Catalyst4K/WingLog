@@ -14,7 +14,7 @@ import { TrayController } from './window/TrayController'
 import { createElectronTray } from './window/electron-tray'
 import { trayIconPath } from './window/tray-icon-path'
 import { E2E_DISPLAY_ENV, E2E_WINDOW_ENV, chooseDisplay, windowShow } from './e2e-window'
-import { app, BrowserWindow, dialog, ipcMain, Menu, screen } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, Menu, screen, shell } from 'electron'
 import { IpcChannels } from '@shared/ipc'
 import { initLogger, logger } from './logging/logger'
 import { installProcessGuards } from './logging/process-guards'
@@ -47,12 +47,19 @@ import { registerAppHandlers } from './ipc/app-handlers'
 import { registerSettingsHandlers } from './ipc/settings-handlers'
 import { registerDispatchHandlers } from './ipc/dispatch-handlers'
 import { registerNavdataHandlers } from './ipc/navdata-handlers'
+import { createNavdataSignatureReader, signatureFilesFor } from './navdata/sim-navdata-signature'
 import { registerFlightHandlers, registerTrackingHandlers } from './ipc/tracking-handlers'
 import { registerGsxHandlers } from './ipc/gsx-handlers'
 import { registerGsxRemoteHandlers } from './ipc/gsx-remote-handlers'
 import { registerBeyondAtcHandlers } from './ipc/beyondatc-handlers'
 import { registerLanHandlers } from './ipc/lan-handlers'
 import { createLan } from './lan/create-lan'
+import { resolveFeedUrls } from './online/feed-urls'
+import { registerAtcAreas } from './online/atc-areas-handlers'
+import { resolveAreaSource } from './online/atc-areas-download'
+import { registerOnlineHandlers } from './online/register-online-handlers'
+import { resolveMetarUrl } from './weather/metar-client'
+import { registerPrefileHandlers } from './online/register-prefile-handlers'
 import { registerDiagnosticsHandlers, registerSimHandlers } from './ipc/sim-handlers'
 import { createBackgroundSync, registerSyncHandlers, startPeriodicSync } from './ipc/sync-handlers'
 import { e2eBeyondAtcPort } from './beyondatc/BeyondAtcService'
@@ -264,6 +271,42 @@ function startUpdates(db: WingLogDb, window: BrowserWindow, isFlightActive: () =
 }
 
 /**
+ * The online network's traffic (VATSIM or IVAO): off until a network is chosen and its switch turned on.
+ *
+ * @param deps The database, the live hub, the sim and tracking.
+ * @returns The traffic command table and the ATIS lookup, for the second screen to use.
+ */
+function startOnlineNetwork(
+  deps: Pick<
+    Parameters<typeof registerOnlineHandlers>[1],
+    'db' | 'liveHub' | 'sim' | 'trackingController'
+  > & {
+    beyondAtc: Pick<ReturnType<typeof registerBeyondAtcHandlers>, 'readAtis'>
+  }
+): Pick<ReturnType<typeof registerOnlineHandlers>, 'commands' | 'atisAt'> {
+  const areas = registerAtcAreas(ipcMain, {
+    db: deps.db,
+    userDataDir: app.getPath('userData'),
+    appVersion: app.getVersion(),
+    source: resolveAreaSource(app.isPackaged, process.env)
+  })
+  const online = registerOnlineHandlers(ipcMain, {
+    ...deps,
+    beyondAtcAtis: deps.beyondAtc.readAtis,
+    appVersion: app.getVersion(),
+    isDevBuild: __WINGLOG_DEV_BUILD__,
+    urls: resolveFeedUrls(app.isPackaged, process.env),
+    atcAreas: areas.current
+  })
+  app.on('before-quit', () => {
+    online.stop()
+    areas.stop()
+  })
+  registerPrefileHandlers(ipcMain, { db: deps.db, openExternal: (url) => shell.openExternal(url) })
+  return { commands: online.commands, atisAt: online.atisAt }
+}
+
+/**
  * The second screen (a phone or tablet in a browser): off until the pilot turns it on in Settings.
  *
  * @param deps The database, the live hub, tracking, navdata and the add-on commands a second screen may send.
@@ -271,12 +314,13 @@ function startUpdates(db: WingLogDb, window: BrowserWindow, isFlightActive: () =
 function startSecondScreen(
   deps: Pick<
     Parameters<typeof createLan>[0],
-    'db' | 'liveHub' | 'trackingController' | 'selection' | 'navdata' | 'addOnCommands'
+    'db' | 'liveHub' | 'trackingController' | 'selection' | 'navdata' | 'addOnCommands' | 'atis'
   >
 ): void {
   const lan = createLan({
     ...deps,
     userAgent: `WingLog/${app.getVersion()}`,
+    metarUrl: resolveMetarUrl(app.isPackaged, process.env),
     systemLocale: () => app.getLocale(),
     pageFolder: join(__dirname, '../lan'),
     testAddress: app.isPackaged ? undefined : process.env.WINGLOG_E2E_LAN_ADDRESS
@@ -373,7 +417,8 @@ function startApp(): void {
 
   // Navdata: its own short-lived SimConnect connection per refresh, separate from the live one (docs/navdata-notes.md). The services that
   // follow the flight shown (its navdata, taxi line and procedure choice) run here, whichever screen is open.
-  const navdataProvider = new SimFacilitiesProvider(db)
+  const readNavdataSignature = createNavdataSignatureReader(signatureFilesFor(app.isPackaged, process.env))
+  const navdataProvider = new SimFacilitiesProvider(db, undefined, undefined, readNavdataSignature)
   const flightServices = startFlightServices(ipcMain, {
     db,
     sim,
@@ -421,14 +466,15 @@ function startApp(): void {
     port: e2eBeyondAtcPort(process.env.WINGLOG_E2E_BEYONDATC_PORT)
   })
   app.on('before-quit', () => beyondAtc.stop())
-
+  const onlineNetwork = startOnlineNetwork({ db, liveHub, sim, trackingController, beyondAtc })
   startSecondScreen({
     db,
     liveHub,
     trackingController,
     selection: flightServices.selection,
     navdata: navdataProvider,
-    addOnCommands: { ...beyondAtc.commands, ...gsxRemote.commands }
+    addOnCommands: { ...beyondAtc.commands, ...gsxRemote.commands, ...onlineNetwork.commands },
+    atis: onlineNetwork.atisAt
   })
 
   registerSyncHandlers(ipcMain, { cloudSync, enabled: __WINGLOG_CLOUD_SYNC_ENABLED__ })
@@ -441,15 +487,13 @@ function startApp(): void {
   registerSettingsHandlers(ipcMain, { db, trackingController, trayController })
   registerAppHandlers(ipcMain, { updateService })
 
-  registerNavdataHandlers(ipcMain, { navdataProvider })
+  registerNavdataHandlers(ipcMain, { navdataProvider, readSignature: readNavdataSignature })
   recordParkedStandOnCompletion(db, sim, trackingController, navdataProvider)
 
   // CI packaging check (see .github/workflows/package.yml): proves the built
   // binary launches, migrates the DB and renders a first frame, then exits
   // clean — without needing a person at the keyboard on every platform.
-  if (process.env['WINGLOG_SMOKE_TEST']) {
-    window.on('ready-to-show', () => setTimeout(() => app.exit(0), 1000))
-  }
+  if (process.env['WINGLOG_SMOKE_TEST']) window.on('ready-to-show', () => setTimeout(() => app.exit(0), 1000))
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
