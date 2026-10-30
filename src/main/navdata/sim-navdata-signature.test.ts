@@ -100,6 +100,17 @@ describe('parseNavigraphCycle', () => {
   })
 })
 
+describe('a path from the root without a drive (the end-to-end tests’ fake install on Linux)', () => {
+  const packages = '/tmp/fake-msfs/Packages'
+
+  it('is read as a packages path, and the cycle file is found under it with slashes', () => {
+    expect(parsePackagesPath(cfgWith(packages))).toBe(packages)
+    const cycleFile = `${packages}/Community/navigraph-nav-base/ContentInfo/navigraph-navdata/cycle.json`
+    const files = disk({ [STORE_CFG]: cfgWith(packages), [cycleFile]: CYCLE_2611 })
+    expect(readNavdataSignature(files)).toMatchObject({ source: 'navigraph', cycle: '2611' })
+  })
+})
+
 describe('readNavdataSignature', () => {
   it('finds Navigraph through the Store build’s UserCfg.opt', () => {
     const files = disk({ [STORE_CFG]: cfgWith(PACKAGES), [cycleFileIn(PACKAGES)]: CYCLE_2611 })
