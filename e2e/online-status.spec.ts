@@ -39,6 +39,40 @@ function replayEnv(feed: { vatsimUrl: string; ivaoUrl: string }): Record<string,
 }
 
 /**
+ * Starts listening for the replayed flight's landing, before tracking starts. The replay flies at 200 times real speed and is over in a few
+ * seconds, so a test that clicks through pop-ups first and only then starts listening can miss the landing on a slow machine and wait for
+ * ever (the release PR's CI timed out on exactly that). `flightLanded` waits for what this saw.
+ *
+ * @param window The app's window.
+ */
+async function watchForLanding(window: Page): Promise<void> {
+  await window.evaluate(() => {
+    const page = globalThis as unknown as {
+      winglog: { onSimTelemetry: (l: (t: { onGround: boolean }) => void) => () => void }
+      __landed?: Promise<void>
+    }
+    page.__landed = new Promise<void>((resolve) => {
+      let airborne = false
+      const off = page.winglog.onSimTelemetry((t) => {
+        if (!t.onGround) airborne = true
+        else if (airborne) {
+          off()
+          resolve()
+        }
+      })
+    })
+  })
+}
+
+/**
+ * @param window The app's window.
+ * @returns Resolves once the replayed flight has been airborne and is on the ground again, whenever that happened since `watchForLanding`.
+ */
+async function flightLanded(window: Page): Promise<void> {
+  await window.evaluate(() => (globalThis as unknown as { __landed: Promise<void> }).__landed)
+}
+
+/**
  * Chooses VATSIM with the pilot's CID, starts tracking a free flight on Track, and waits until WingLog has found the pilot in the feed.
  *
  * @param window The app's window.
@@ -71,6 +105,7 @@ test('a flight flown while online is recorded with its network and callsign, and
   const { window, cleanup } = await launchApp({ env: replayEnv(feed) })
   try {
     // Found in the feed by CID: the header says so, and Track has no BeyondATC note (Callum, 2026-10-29).
+    await watchForLanding(window)
     await startOnlineFlight(window)
     await expect(window.getByTitle('Online on VATSIM as TSTPIL1.')).toHaveText('VATSIM · TSTPIL1')
     await expect(window.getByText(/BeyondATC is hidden/)).toHaveCount(0)
@@ -100,25 +135,8 @@ test('a flight flown while online is recorded with its network and callsign, and
     await window.keyboard.press('Escape')
     await expect(weather).toBeHidden()
 
-    // Fly it, finish it, and find it in the Logbook with its network and callsign.
-    await window.evaluate(
-      () =>
-        new Promise<void>((resolve) => {
-          const api = (
-            globalThis as unknown as {
-              winglog: { onSimTelemetry: (l: (t: { onGround: boolean }) => void) => () => void }
-            }
-          ).winglog
-          let airborne = false
-          const off = api.onSimTelemetry((t) => {
-            if (!t.onGround) airborne = true
-            else if (airborne) {
-              off()
-              resolve()
-            }
-          })
-        })
-    )
+    // Finish it (once it has landed) and find it in the Logbook with its network and callsign.
+    await flightLanded(window)
     await window.getByRole('button', { name: 'Finish & save' }).click()
     const confirmDialog = window.getByRole('alertdialog')
     await confirmDialog.getByRole('button', { name: 'Finish & save' }).click()
