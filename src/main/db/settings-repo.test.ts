@@ -13,6 +13,7 @@ import {
   getMinimizeToTray,
   setMinimizeToTray,
   getGsxRemoteSettings,
+  getGsxRoutines,
   getGsxSettings,
   getTrackingSettings,
   getLandingDistanceUnit,
@@ -33,6 +34,7 @@ import {
   setUpdateSettings,
   setCheckedGsxFirstLaunch,
   setGsxRemoteSettings,
+  setGsxRoutines,
   setGsxSettings,
   setTrackingSettings,
   setLandingDistanceUnit,
@@ -45,6 +47,14 @@ import {
   setMapLanguage,
   setWindSpeedUnit
 } from './settings-repo'
+
+const MY_ROUTINE = {
+  id: 'my-routine',
+  name: 'My routine',
+  stages: [{ services: ['Cleaning' as const], startsWhen: [] }],
+  answerGsxChoice: false,
+  fuel: 'ask' as const
+}
 
 describe('settings repo', () => {
   let db: WingLogDb
@@ -306,6 +316,38 @@ describe('settings repo', () => {
       rememberAircraftForTitle(db, 'FenixA320 IAE SL', 7)
       rememberAircraftForTitle(db, 'FenixA320 IAE SL', 12)
       expect(getAircraftIdForTitle(db, 'FenixA320 IAE SL')).toBe(12)
+    })
+  })
+
+  describe('GSX routines', () => {
+    it('has none until the pilot saves one', () => {
+      expect(getGsxRoutines(db)).toEqual({ routines: [], problem: null })
+    })
+
+    it('keeps what was saved', () => {
+      setGsxRoutines(db, [MY_ROUTINE])
+      expect(getGsxRoutines(db)).toEqual({ routines: [MY_ROUTINE], problem: null })
+    })
+
+    it('reads a hand-edited row that is not JSON as no routines, with the reason', () => {
+      setSetting(db, 'gsxRoutines', '{broken')
+      const read = getGsxRoutines(db)
+      expect(read.routines).toEqual([])
+      expect(read.problem).toMatch(/not valid JSON/)
+    })
+
+    it('drops a stored routine that names a service WingLog does not have, and keeps the others', () => {
+      setSetting(
+        db,
+        'gsxRoutines',
+        JSON.stringify([
+          MY_ROUTINE,
+          { ...MY_ROUTINE, id: 'x', stages: [{ services: ['Departure'], startsWhen: [] }] }
+        ])
+      )
+      const read = getGsxRoutines(db)
+      expect(read.routines).toEqual([MY_ROUTINE])
+      expect(read.problem).toMatch(/dropped 1/)
     })
   })
 })
