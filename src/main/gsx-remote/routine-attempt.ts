@@ -143,7 +143,28 @@ function waitForGsxToTakeIt(
 export function stepAttempt(run: RoutineRun, input: RunnerInput, actions: RunnerAction[]): void {
   const attempt = run.attempt
   if (!attempt) return
-  run.note = { code: 'asking', service: attempt.service }
+  stepAttemptOnce(run, attempt, input, actions)
+  // The status line follows the step the attempt is in now: the menu is still opening until a pick has been made.
+  if (run.attempt) {
+    run.note =
+      run.attempt.step === 'open'
+        ? { code: 'opening-menu', service: run.attempt.service }
+        : { code: 'asking', service: run.attempt.service }
+  }
+}
+
+/**
+ * @param run The run, changed in place.
+ * @param attempt The attempt in progress.
+ * @param input The step's input.
+ * @param actions Where menu actions are added.
+ */
+function stepAttemptOnce(
+  run: RoutineRun,
+  attempt: Attempt,
+  input: RunnerInput,
+  actions: RunnerAction[]
+): void {
   if (attempt.step === 'sent') {
     waitForGsxToTakeIt(run, attempt, input, actions)
   } else if (attempt.step === 'submenu') {
@@ -156,7 +177,6 @@ export function stepAttempt(run: RoutineRun, input: RunnerInput, actions: Runner
     actions.push({ kind: 'openMenu' })
     attempt.hasOpened = true
     attempt.sinceMs = input.nowMs
-    run.note = { code: 'opening-menu', service: attempt.service }
   } else if (input.nowMs - attempt.sinceMs >= MENU_OPEN_TIMEOUT_MS) {
     retryOnceOrStop(run, attempt, input, actions)
   }

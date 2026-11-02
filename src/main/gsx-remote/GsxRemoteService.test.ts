@@ -611,6 +611,75 @@ describe('GsxRemoteService', () => {
     service.stop()
   })
 
+  describe('the checked menu actions a routine uses', () => {
+    const ROUTINE_MENU = {
+      title: 'Activate Services at EGLL/London Heathrow',
+      header: '',
+      subtitle: '',
+      entries: ['Request Deboarding', 'Request Catering service'],
+      icons: [],
+      disabled: [],
+      layout: ''
+    }
+
+    function connected(menuShown: boolean): { service: GsxRemoteService; socket: FakeWebSocket } {
+      const { ctor, instances } = makeCtor()
+      const service = new GsxRemoteService('localhost', 8744, ctor)
+      service.start()
+      instances[0].simulateOpen()
+      instances[0].simulateMessage({
+        v: 1,
+        type: 'snapshot',
+        ts: 1,
+        services: [],
+        menu: ROUTINE_MENU,
+        menuShown
+      })
+      instances[0].sent = []
+      return { service, socket: instances[0] }
+    }
+
+    it('openMenuIfClosed sends menu.toggle only when the menu is closed', () => {
+      const closed = connected(false)
+      expect(closed.service.openMenuIfClosed()).toBe(true)
+      expect(closed.socket.sent).toEqual([{ type: 'command', verb: 'menu.toggle' }])
+      const open = connected(true)
+      expect(open.service.openMenuIfClosed()).toBe(false)
+      expect(open.socket.sent).toEqual([])
+    })
+
+    it('closeMenuIfOpen sends menu.close only when the menu is open', () => {
+      const open = connected(true)
+      expect(open.service.closeMenuIfOpen()).toBe(true)
+      expect(open.socket.sent).toEqual([{ type: 'command', verb: 'menu.close' }])
+      const closed = connected(false)
+      expect(closed.service.closeMenuIfOpen()).toBe(false)
+      expect(closed.socket.sent).toEqual([])
+    })
+
+    it('pickMenuChecked picks when the title and the label are still what the caller read', () => {
+      const { service, socket } = connected(true)
+      expect(service.pickMenuChecked(1, ROUTINE_MENU.title, 'Request Catering service')).toBe(true)
+      expect(socket.sent).toEqual([{ type: 'command', verb: 'menu.pick', args: { index: 1 } }])
+    })
+
+    it.each([
+      ['another menu has opened', 1, 'Select refueling level', 'Request Catering service'],
+      ['the entry moved', 0, 'Activate Services at EGLL/London Heathrow', 'Request Catering service'],
+      ['the entry is gone', 5, 'Activate Services at EGLL/London Heathrow', 'Request Catering service']
+    ])('pickMenuChecked sends nothing when %s', (_label, index, title, label) => {
+      const { service, socket } = connected(true)
+      expect(service.pickMenuChecked(index, title, label)).toBe(false)
+      expect(socket.sent).toEqual([])
+    })
+
+    it('pickMenuChecked sends nothing when the menu has closed', () => {
+      const { service, socket } = connected(false)
+      expect(service.pickMenuChecked(1, ROUTINE_MENU.title, 'Request Catering service')).toBe(false)
+      expect(socket.sent).toEqual([])
+    })
+  })
+
   // Real wire shapes, confirmed live (docs/gsx-notes.md) by reading GSX's own
   // shipped menu.js source directly — STATIC_COMMANDS' ids/labels, and a real
   // commandIcons/commandIconsSvg/simbrief capture from a live VHHH session.
