@@ -772,6 +772,98 @@
     "ok": "確定",
     "cancel": "取消"
   },
+  "gsxRoutines": {
+    "title": "流程",
+    "new": "新增流程",
+    "newName": "我的流程",
+    "edit": "編輯 {{name}}",
+    "cancel": "取消",
+    "stageOf": "第 {{stage}} 階段，共 {{count}} 階段",
+    "services": {
+      "Deboarding": "下客",
+      "Cleaning": "清潔",
+      "Lavatory": "廁所服務",
+      "Water": "加水",
+      "Catering": "配餐",
+      "Refueling": "加油",
+      "Boarding": "登機",
+      "GPU": "地面電源",
+      "OperateJetways": "空橋"
+    },
+    "state": {
+      "waiting": "等待中",
+      "asking": "請求中",
+      "running": "進行中",
+      "done": "完成",
+      "skipped": "已略過"
+    },
+    "builtIn": {
+      "fenixDeparture": "Fenix 式離場",
+      "arrival": "抵達",
+      "turnaroundClean": "過站清潔"
+    },
+    "note": {
+      "starting": "正在啟動…",
+      "openingMenu": "正在開啟 GSX 選單以請求{{service}}…",
+      "asking": "正在向 GSX 請求{{service}}…",
+      "waitingForStage": "正在等待：{{services}}。",
+      "waitingForPilot": "等待你操作：{{menu}}",
+      "waitingForFuelEntry": "登機前，正在等待燃油資料輸入完成。",
+      "waitingForFuelEntryGap": "正在等待燃油：與目標相差 {{kg}} kg。",
+      "waitingForPayloadEntry": "加油前，正在等待載重資料輸入完成。",
+      "entryTimedOut": "有一項資料輸入耗時過長，流程已略過並繼續執行。",
+      "following": "正在等待：{{services}}。",
+      "stalled": "30 分鐘後仍在等待：{{services}}。",
+      "skipped": {
+        "notOffered": "已略過{{service}}：GSX 在此處不提供。",
+        "dropped": "已略過{{service}}：GSX 兩次捨棄了該請求。",
+        "bypassed": "已略過{{service}}：GSX 已將其繞過。"
+      },
+      "finished": "流程已完成。",
+      "stopped": {
+        "cancelled": "流程已取消。",
+        "gsxDisconnected": "流程已停止：GSX 已中斷連線。",
+        "aircraftMoved": "流程已停止：飛機已移動。",
+        "departure": "流程已停止：已請求推出。",
+        "menuFailed": "流程已停止：GSX 選單未能開啟。",
+        "gsxHasNoPlan": "流程已停止：GSX 沒有 SimBrief 計畫。請使用「Reload SimBrief」。",
+        "noPlannedWeight": "流程已停止：WingLog 沒有此航班的計畫重量。"
+      }
+    },
+    "editor": {
+      "titleNew": "新增流程",
+      "titleEdit": "流程",
+      "description": "勾選此流程要向 GSX 請求的服務。WingLog 會依安全的順序排列，你也可以調整。",
+      "builtInNote": "此流程隨 WingLog 提供，無法修改。可複製後建立你自己的版本。",
+      "name": "名稱",
+      "servicesHeading": "服務",
+      "groupMain": "GSX 主選單",
+      "groupAdditional": "附加服務",
+      "stagesHeading": "順序",
+      "stage": "第 {{n}} 階段",
+      "startsAtOnce": "立即開始",
+      "startsLabel": "第 {{n}} 階段等待的內容",
+      "startsWhenDone": "在{{service}}完成後開始",
+      "moveLabel": "將{{service}}移到",
+      "newStage": "新階段",
+      "relayNote": "勾選或取消勾選服務時，會重新排列各階段。",
+      "answerGsxChoice": "替我採用 GSX 的預設選擇",
+      "answerGsxChoiceNote": "當 GSX 詢問要使用哪個地勤或配餐業者時，選擇 GSX 標記為其建議的那個。其他問題一律由你決定。",
+      "yes": "是",
+      "no": "否",
+      "fuel": "加油量",
+      "fuelAsk": "詢問我",
+      "fuelBlock": "SimBrief 計畫燃油",
+      "save": "儲存",
+      "close": "關閉",
+      "duplicate": "複製",
+      "delete": "刪除",
+      "confirmDelete": "確定刪除？",
+      "saveFailed": "無法儲存：{{reason}}",
+      "copyOf": "{{name}} 副本",
+      "noServices": "請至少勾選一項服務。"
+    }
+  },
   "beyondAtcView": {
     "title": "BeyondATC"
   },

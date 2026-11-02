@@ -122,7 +122,7 @@ export function stageRoutine(services: readonly GsxRoutineService[]): GsxRoutine
  * @param routine The routine.
  * @returns Its services in the order its stages list them.
  */
-export function routineServices(routine: Pick<GsxRoutine, 'stages'>): GsxRoutineService[] {
+export function routineServices(routine: { stages: readonly GsxRoutineStage[] }): GsxRoutineService[] {
   return routine.stages.flatMap((stage) => stage.services)
 }
 

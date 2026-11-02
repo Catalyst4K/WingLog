@@ -782,6 +782,98 @@
     "ok": "Aceptar",
     "cancel": "Cancelar"
   },
+  "gsxRoutines": {
+    "title": "Rutinas",
+    "new": "Nueva rutina",
+    "newName": "Mi rutina",
+    "edit": "Editar {{name}}",
+    "cancel": "Cancelar",
+    "stageOf": "Etapa {{stage}} de {{count}}",
+    "services": {
+      "Deboarding": "Desembarque",
+      "Cleaning": "Limpieza",
+      "Lavatory": "Aseos",
+      "Water": "Agua",
+      "Catering": "Catering",
+      "Refueling": "Repostaje",
+      "Boarding": "Embarque",
+      "GPU": "GPU",
+      "OperateJetways": "Pasarela"
+    },
+    "state": {
+      "waiting": "en espera",
+      "asking": "solicitando",
+      "running": "en curso",
+      "done": "hecho",
+      "skipped": "omitido"
+    },
+    "builtIn": {
+      "fenixDeparture": "Salida estilo Fenix",
+      "arrival": "Llegada",
+      "turnaroundClean": "Limpieza de escala"
+    },
+    "note": {
+      "starting": "Iniciando…",
+      "openingMenu": "Abriendo el menú de GSX para solicitar {{service}}…",
+      "asking": "Solicitando {{service}} a GSX…",
+      "waitingForStage": "Esperando a: {{services}}.",
+      "waitingForPilot": "Esperando por ti: {{menu}}",
+      "waitingForFuelEntry": "Esperando a que se introduzca el combustible antes del embarque.",
+      "waitingForFuelEntryGap": "Esperando el combustible: a {{kg}} kg del objetivo.",
+      "waitingForPayloadEntry": "Esperando a que se introduzca la carga de pago antes del repostaje.",
+      "entryTimedOut": "Una introducción de datos tardó demasiado y la rutina siguió sin ella.",
+      "following": "Esperando a: {{services}}.",
+      "stalled": "Sigue esperando a: {{services}} tras 30 minutos.",
+      "skipped": {
+        "notOffered": "{{service}} omitido: GSX no lo ofrece aquí.",
+        "dropped": "{{service}} omitido: GSX descartó la solicitud dos veces.",
+        "bypassed": "{{service}} omitido: GSX lo ha omitido."
+      },
+      "finished": "Rutina terminada.",
+      "stopped": {
+        "cancelled": "Rutina cancelada.",
+        "gsxDisconnected": "Rutina detenida: GSX se desconectó.",
+        "aircraftMoved": "Rutina detenida: el avión se movió.",
+        "departure": "Rutina detenida: se solicitó el pushback.",
+        "menuFailed": "Rutina detenida: el menú de GSX no se abrió.",
+        "gsxHasNoPlan": "Rutina detenida: GSX no tiene plan de SimBrief. Usa «Reload SimBrief».",
+        "noPlannedWeight": "Rutina detenida: WingLog no tiene peso planificado para este vuelo."
+      }
+    },
+    "editor": {
+      "titleNew": "Nueva rutina",
+      "titleEdit": "Rutina",
+      "description": "Marca los servicios que esta rutina solicita a GSX. WingLog los ordena de forma segura y puedes cambiarlo.",
+      "builtInNote": "Esta rutina viene con WingLog y no se puede modificar. Duplícala para crear la tuya.",
+      "name": "Nombre",
+      "servicesHeading": "Servicios",
+      "groupMain": "Menú principal de GSX",
+      "groupAdditional": "Servicios adicionales",
+      "stagesHeading": "Orden",
+      "stage": "Etapa {{n}}",
+      "startsAtOnce": "Empieza de inmediato",
+      "startsLabel": "Qué espera la etapa {{n}}",
+      "startsWhenDone": "Empieza cuando {{service}} termine",
+      "moveLabel": "Mover {{service}} a",
+      "newStage": "Nueva etapa",
+      "relayNote": "Al marcar o desmarcar un servicio, las etapas se ordenan de nuevo.",
+      "answerGsxChoice": "Responder con la opción predeterminada de GSX",
+      "answerGsxChoiceNote": "Cuando GSX pregunta qué operador de handling o de catering usar, elige el que marca como su elección. Las demás preguntas siempre son tuyas.",
+      "yes": "Sí",
+      "no": "No",
+      "fuel": "Nivel de repostaje",
+      "fuelAsk": "Preguntarme",
+      "fuelBlock": "Combustible de bloque de SimBrief",
+      "save": "Guardar",
+      "close": "Cerrar",
+      "duplicate": "Duplicar",
+      "delete": "Eliminar",
+      "confirmDelete": "¿Eliminar definitivamente?",
+      "saveFailed": "No se pudo guardar: {{reason}}",
+      "copyOf": "Copia de {{name}}",
+      "noServices": "Marca al menos un servicio."
+    }
+  },
   "beyondAtcView": {
     "title": "BeyondATC"
   },

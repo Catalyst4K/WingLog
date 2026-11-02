@@ -780,6 +780,98 @@
     "ok": "OK",
     "cancel": "Abbrechen"
   },
+  "gsxRoutines": {
+    "title": "Routinen",
+    "new": "Neue Routine",
+    "newName": "Meine Routine",
+    "edit": "{{name}} bearbeiten",
+    "cancel": "Abbrechen",
+    "stageOf": "Stufe {{stage}} von {{count}}",
+    "services": {
+      "Deboarding": "Aussteigen",
+      "Cleaning": "Reinigung",
+      "Lavatory": "Toiletten",
+      "Water": "Wasser",
+      "Catering": "Catering",
+      "Refueling": "Betankung",
+      "Boarding": "Boarding",
+      "GPU": "GPU",
+      "OperateJetways": "Fluggastbrücke"
+    },
+    "state": {
+      "waiting": "wartet",
+      "asking": "fragt an",
+      "running": "läuft",
+      "done": "fertig",
+      "skipped": "übersprungen"
+    },
+    "builtIn": {
+      "fenixDeparture": "Abflug im Fenix-Stil",
+      "arrival": "Ankunft",
+      "turnaroundClean": "Turnaround-Reinigung"
+    },
+    "note": {
+      "starting": "Wird gestartet…",
+      "openingMenu": "GSX-Menü wird geöffnet, um {{service}} anzufordern…",
+      "asking": "{{service}} wird bei GSX angefordert…",
+      "waitingForStage": "Wartet auf: {{services}}.",
+      "waitingForPilot": "Wartet auf dich: {{menu}}",
+      "waitingForFuelEntry": "Wartet auf die Kraftstoffeingabe vor dem Boarding.",
+      "waitingForFuelEntryGap": "Wartet auf den Kraftstoff: {{kg}} kg vom Ziel entfernt.",
+      "waitingForPayloadEntry": "Wartet auf die Zuladungseingabe vor dem Betanken.",
+      "entryTimedOut": "Eine Dateneingabe dauerte zu lange, die Routine macht ohne sie weiter.",
+      "following": "Wartet auf: {{services}}.",
+      "stalled": "Wartet nach 30 Minuten immer noch auf: {{services}}.",
+      "skipped": {
+        "notOffered": "{{service}} übersprungen: GSX bietet es hier nicht an.",
+        "dropped": "{{service}} übersprungen: GSX hat die Anforderung zweimal verworfen.",
+        "bypassed": "{{service}} übersprungen: GSX hat es umgangen."
+      },
+      "finished": "Routine abgeschlossen.",
+      "stopped": {
+        "cancelled": "Routine abgebrochen.",
+        "gsxDisconnected": "Routine gestoppt: GSX ist nicht mehr verbunden.",
+        "aircraftMoved": "Routine gestoppt: Das Flugzeug hat sich bewegt.",
+        "departure": "Routine gestoppt: Pushback wurde angefordert.",
+        "menuFailed": "Routine gestoppt: Das GSX-Menü hat sich nicht geöffnet.",
+        "gsxHasNoPlan": "Routine gestoppt: GSX hat keinen SimBrief-Plan. Nutze „Reload SimBrief“.",
+        "noPlannedWeight": "Routine gestoppt: WingLog hat kein geplantes Gewicht für diesen Flug."
+      }
+    },
+    "editor": {
+      "titleNew": "Neue Routine",
+      "titleEdit": "Routine",
+      "description": "Hake die Services an, die diese Routine bei GSX anfordert. WingLog ordnet sie in einer sicheren Reihenfolge an, die du ändern kannst.",
+      "builtInNote": "Diese Routine gehört zu WingLog und kann nicht geändert werden. Dupliziere sie, um eine eigene zu erstellen.",
+      "name": "Name",
+      "servicesHeading": "Services",
+      "groupMain": "GSX-Hauptmenü",
+      "groupAdditional": "Zusätzliche Services",
+      "stagesHeading": "Reihenfolge",
+      "stage": "Stufe {{n}}",
+      "startsAtOnce": "Startet sofort",
+      "startsLabel": "Worauf Stufe {{n}} wartet",
+      "startsWhenDone": "Startet, wenn {{service}} fertig ist",
+      "moveLabel": "{{service}} verschieben nach",
+      "newStage": "Neue Stufe",
+      "relayNote": "Beim An- oder Abhaken eines Services werden die Stufen neu angeordnet.",
+      "answerGsxChoice": "GSX-Vorschlag für mich übernehmen",
+      "answerGsxChoiceNote": "Wenn GSX fragt, welcher Bodenabfertiger oder Caterer genutzt werden soll, wird der von GSX markierte gewählt. Alle anderen Fragen bleiben bei dir.",
+      "yes": "Ja",
+      "no": "Nein",
+      "fuel": "Tankmenge",
+      "fuelAsk": "Mich fragen",
+      "fuelBlock": "SimBrief-Blockkraftstoff",
+      "save": "Speichern",
+      "close": "Schließen",
+      "duplicate": "Duplizieren",
+      "delete": "Löschen",
+      "confirmDelete": "Wirklich löschen?",
+      "saveFailed": "Speichern fehlgeschlagen: {{reason}}",
+      "copyOf": "{{name}} (Kopie)",
+      "noServices": "Hake mindestens einen Service an."
+    }
+  },
   "beyondAtcView": {
     "title": "BeyondATC"
   },

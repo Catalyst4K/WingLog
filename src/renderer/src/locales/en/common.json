@@ -780,6 +780,98 @@
     "ok": "OK",
     "cancel": "Cancel"
   },
+  "gsxRoutines": {
+    "title": "Routines",
+    "new": "New routine",
+    "newName": "My routine",
+    "edit": "Edit {{name}}",
+    "cancel": "Cancel",
+    "stageOf": "Stage {{stage}} of {{count}}",
+    "services": {
+      "Deboarding": "Deboarding",
+      "Cleaning": "Cleaning",
+      "Lavatory": "Lavatory",
+      "Water": "Water",
+      "Catering": "Catering",
+      "Refueling": "Refueling",
+      "Boarding": "Boarding",
+      "GPU": "GPU",
+      "OperateJetways": "Jetway"
+    },
+    "state": {
+      "waiting": "waiting",
+      "asking": "asking",
+      "running": "under way",
+      "done": "done",
+      "skipped": "skipped"
+    },
+    "builtIn": {
+      "fenixDeparture": "Fenix-style departure",
+      "arrival": "Arrival",
+      "turnaroundClean": "Turnaround clean"
+    },
+    "note": {
+      "starting": "Starting…",
+      "openingMenu": "Opening GSX's menu to ask for {{service}}…",
+      "asking": "Asking GSX for {{service}}…",
+      "waitingForStage": "Waiting for: {{services}}.",
+      "waitingForPilot": "Waiting for you: {{menu}}",
+      "waitingForFuelEntry": "Waiting for the fuel to be entered before boarding.",
+      "waitingForFuelEntryGap": "Waiting for the fuel: {{kg}} kg off the target.",
+      "waitingForPayloadEntry": "Waiting for the payload to be entered before refueling.",
+      "entryTimedOut": "A data entry took too long, so the routine went on without it.",
+      "following": "Waiting for: {{services}}.",
+      "stalled": "Still waiting for: {{services}} after 30 minutes.",
+      "skipped": {
+        "notOffered": "Skipped {{service}}: GSX doesn't offer it here.",
+        "dropped": "Skipped {{service}}: GSX dropped the request twice.",
+        "bypassed": "Skipped {{service}}: GSX bypassed it."
+      },
+      "finished": "Routine finished.",
+      "stopped": {
+        "cancelled": "Routine cancelled.",
+        "gsxDisconnected": "Routine stopped: GSX disconnected.",
+        "aircraftMoved": "Routine stopped: the aircraft moved.",
+        "departure": "Routine stopped: pushback was requested.",
+        "menuFailed": "Routine stopped: GSX's menu didn't open.",
+        "gsxHasNoPlan": "Routine stopped: GSX has no SimBrief plan. Use Reload SimBrief.",
+        "noPlannedWeight": "Routine stopped: WingLog has no planned weight for this flight."
+      }
+    },
+    "editor": {
+      "titleNew": "New routine",
+      "titleEdit": "Routine",
+      "description": "Tick the services this routine asks GSX for. WingLog lays them out in a safe order, which you can change.",
+      "builtInNote": "This routine comes with WingLog and can't be changed. Duplicate it to make your own.",
+      "name": "Name",
+      "servicesHeading": "Services",
+      "groupMain": "GSX main menu",
+      "groupAdditional": "Additional services",
+      "stagesHeading": "Order",
+      "stage": "Stage {{n}}",
+      "startsAtOnce": "Starts at once",
+      "startsLabel": "What stage {{n}} waits for",
+      "startsWhenDone": "Starts when {{service}} is done",
+      "moveLabel": "Move {{service}} to",
+      "newStage": "New stage",
+      "relayNote": "Ticking or unticking a service lays the stages out again.",
+      "answerGsxChoice": "Answer GSX's own default for me",
+      "answerGsxChoiceNote": "When GSX asks which handling or catering operator to use, pick the one it marks as its choice. Other questions are always yours.",
+      "yes": "Yes",
+      "no": "No",
+      "fuel": "Refueling level",
+      "fuelAsk": "Ask me",
+      "fuelBlock": "SimBrief block fuel",
+      "save": "Save",
+      "close": "Close",
+      "duplicate": "Duplicate",
+      "delete": "Delete",
+      "confirmDelete": "Delete for good?",
+      "saveFailed": "Couldn't save: {{reason}}",
+      "copyOf": "{{name}} copy",
+      "noServices": "Tick at least one service."
+    }
+  },
   "beyondAtcView": {
     "title": "BeyondATC"
   },

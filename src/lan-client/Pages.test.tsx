@@ -131,6 +131,7 @@ function stubWinglog(overrides: Record<string, unknown> = {}): void {
     onlineAtisGet: vi.fn().mockResolvedValue({ network: null, airports: [] }),
     settingsGetGsxRemote: vi.fn().mockResolvedValue({ enabled: true, host: '', port: 1 }),
     settingsGetBeyondAtc: vi.fn().mockResolvedValue({ enabled: true, host: '' }),
+    gsxRoutinesList: vi.fn().mockResolvedValue([]),
     navdataGetStands: vi.fn().mockResolvedValue([]),
     appLogRendererError: vi.fn().mockResolvedValue(undefined),
     ...overrides

@@ -1,6 +1,7 @@
 /** Builds the second-screen server and its controller from the app's real parts. */
 
 import { networkInterfaces } from 'node:os'
+import { allRoutines } from '@shared/gsx-routines'
 import type { WingLogDb } from '../db/client'
 import {
   addLanDevice,
@@ -14,6 +15,7 @@ import {
   getAppLanguage,
   getBeyondAtcSettings,
   getGsxRemoteSettings,
+  getGsxRoutines,
   getLanSettings,
   getMapLanguage,
   getTheme,
@@ -106,6 +108,8 @@ export interface LanLocalData {
   display(): unknown
   /** Whether GSX Remote and BeyondATC are switched on at the PC (their pages only show then). */
   addOns(): { gsxRemote: boolean; beyondAtc: boolean }
+  /** The GSX routines a device may start: the built-ins, then the pilot's own. Read only; editing stays on the PC. */
+  routines(): unknown
   /** Current METARs for airport codes. */
   metars(codes: unknown): Promise<unknown>
   /** The live ATIS for the weather panel's airports. Checks the request. */
@@ -130,6 +134,7 @@ export function lanQueries(
     // Only whether they are on: the host and port stay on the PC.
     'settings.gsxRemote': () => ({ enabled: local.addOns().gsxRemote, host: '', port: 1 }),
     'settings.beyondAtc': () => ({ enabled: local.addOns().beyondAtc, host: '' }),
+    'gsx.routines': () => local.routines(),
     'weather.metars': (codes) => {
       if (!Array.isArray(codes) || codes.length > MAX_METAR_CODES) throw new Error('Invalid airports')
       return local.metars(codes)
@@ -225,6 +230,7 @@ export function createLan({
         gsxRemote: getGsxRemoteSettings(db).enabled,
         beyondAtc: getBeyondAtcSettings(db).enabled
       }),
+      routines: () => allRoutines(getGsxRoutines(db).routines),
       metars: (codes) => fetchMetars(codes, userAgent, metarUrl),
       atis: (requests) => atis(requests)
     }),
