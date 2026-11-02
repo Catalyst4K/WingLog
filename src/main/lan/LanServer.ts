@@ -39,6 +39,7 @@ export const LAN_TOPICS: readonly LiveTopic[] = [
   'gsxRemoteMenu',
   'gsxRemotePrompt',
   'gsxRemoteCommandBar',
+  'gsxRoutine',
   'beyondAtcStatus',
   'beyondAtcState',
   'beyondAtcTranscript',

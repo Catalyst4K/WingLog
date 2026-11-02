@@ -5,18 +5,35 @@
  * WebSocket, and the renderer only ever gets typed IPC. Off by default, opt-in per user-entered
  * host and port: GSX's Remote Client port is genuinely user-configurable, never assumed.
  *
- * Channel kinds (coding-standards.md §9): the service's state is **live** (published to LiveHub,
- * with a getter here for the first render), the menu, search, prompt and command channels are
- * **commands**, and the settings are **queries**.
+ * GSX routines (docs/plans/gsx-service-presets.md) run here too, on the same connection: the driver steps the routine
+ * runner, and its progress goes out as one more live topic.
+ *
+ * Channel kinds (coding-standards.md §9): the service's state and the routine's progress are **live** (published to
+ * LiveHub, with a getter here for the first render), the menu, search, prompt, command and routine start/cancel channels are
+ * **commands**, and the settings and the routines list, save and delete are **queries**.
  */
 import type { IpcMain } from 'electron'
-import { IpcChannels, type GsxRemoteSettings } from '@shared/ipc'
+import { IpcChannels, type GsxRemoteSettings, type GsxRoutinesResult, type SimTelemetry } from '@shared/ipc'
+import { GSX_ROUTINES_MAX, allRoutines, checkRoutine, type GsxRoutine } from '@shared/gsx-routines'
 import type { WingLogDb } from '../db/client'
-import { getGsxRemoteSettings, setGsxRemoteSettings } from '../db/settings-repo'
+import {
+  getGsxRemoteSettings,
+  getGsxRoutines,
+  setGsxRemoteSettings,
+  setGsxRoutines
+} from '../db/settings-repo'
 import type { DevDiagnostics } from '../diagnostics/dev-diagnostics'
 import { EMPTY_COMMAND_BAR, EMPTY_MENU, GsxRemoteService } from '../gsx-remote/GsxRemoteService'
-import { dispatchCommand, gsxCommands, type CommandTable, type GsxCommand } from '../live/commands'
+import { RoutineDriver, type RoutineGsx } from '../gsx-remote/routine-driver'
+import {
+  dispatchCommand,
+  gsxCommands,
+  type CommandTable,
+  type GsxCommand,
+  type RoutineControl
+} from '../live/commands'
 import type { LiveHub } from '../live/LiveHub'
+import { logger } from '../logging/logger'
 import type { ServiceSocketCtor } from '../net/service-socket'
 
 /** What GSX Remote needs. */
@@ -27,6 +44,73 @@ export interface GsxRemoteHandlerDeps {
   devDiagnostics?: Pick<DevDiagnostics, 'attachGsx'>
   /** A replayed capture's socket in e2e; the live WebSocket otherwise. */
   socketCtor?: ServiceSocketCtor
+  /** The sim's latest telemetry, for a routine's guard and for stopping it when the aircraft moves. */
+  telemetry?: () => SimTelemetry | undefined
+  /** The shown flight's planned zero fuel weight in kg, or null when it has none. */
+  plannedZfwKg?: () => number | null
+}
+
+/**
+ * @param service GSX Remote.
+ * @returns It as the routine driver sees it: what it shows, three menu actions, and a way to hear that anything changed.
+ */
+function routineGsxOf(service: GsxRemoteService): RoutineGsx {
+  return {
+    getStatus: () => service.getStatus(),
+    getMenu: () => service.getMenu(),
+    getServices: () => service.getServices(),
+    getCommandBar: () => service.getCommandBar(),
+    openMenuIfClosed: () => service.openMenuIfClosed(),
+    closeMenuIfOpen: () => service.closeMenuIfOpen(),
+    pickMenuChecked: (index, title, label) => service.pickMenuChecked(index, title, label),
+    subscribe: (listener) => {
+      const events = ['status', 'services', 'menu', 'commandBar'] as const
+      for (const event of events) service.on(event, listener)
+      return () => {
+        for (const event of events) service.off(event, listener)
+      }
+    }
+  }
+}
+
+/**
+ * The pilot's own routines, with a line in the log when a stored one had to be dropped.
+ *
+ * @param db The database.
+ * @returns The valid routines.
+ */
+function readOwnRoutines(db: WingLogDb): GsxRoutine[] {
+  const stored = getGsxRoutines(db)
+  if (stored.problem) logger.warn(`GSX routines: ${stored.problem}`)
+  return stored.routines
+}
+
+/**
+ * The routines queries: list, save and delete. Main checks a saved routine again whatever the renderer checked.
+ *
+ * @param ipcMain Electron's IPC.
+ * @param db The database.
+ */
+function registerRoutineQueries(ipcMain: IpcMain, db: WingLogDb): void {
+  ipcMain.handle(IpcChannels.gsxRoutinesList, () => allRoutines(readOwnRoutines(db)))
+  ipcMain.handle(IpcChannels.gsxRoutinesSave, (_event, routine: unknown): GsxRoutinesResult => {
+    const checked = checkRoutine(routine)
+    if (!checked.ok) return { ok: false, reason: checked.reason }
+    const own = readOwnRoutines(db)
+    const index = own.findIndex((r) => r.id === checked.routine.id)
+    if (index < 0 && own.length >= GSX_ROUTINES_MAX) {
+      return { ok: false, reason: `at most ${GSX_ROUTINES_MAX} routines` }
+    }
+    const next =
+      index < 0 ? [...own, checked.routine] : own.map((r, i) => (i === index ? checked.routine : r))
+    setGsxRoutines(db, next)
+    return { ok: true, routines: allRoutines(next) }
+  })
+  ipcMain.handle(IpcChannels.gsxRoutinesDelete, (_event, id: unknown): GsxRoutine[] => {
+    const next = readOwnRoutines(db).filter((r) => r.id !== id)
+    setGsxRoutines(db, next)
+    return allRoutines(next)
+  })
 }
 
 /**
@@ -43,7 +127,10 @@ export function registerGsxRemoteHandlers(
 ): { stop: () => void; commands: CommandTable<GsxCommand> } {
   const { db, liveHub, devDiagnostics, socketCtor } = deps
   let gsxRemoteService: GsxRemoteService | undefined
+  let routineDriver: RoutineDriver | undefined
   const startGsxRemoteIfConfigured = (): void => {
+    routineDriver?.dispose()
+    routineDriver = undefined
     gsxRemoteService?.stop()
     gsxRemoteService = undefined
     const settings = getGsxRemoteSettings(db)
@@ -56,6 +143,13 @@ export function registerGsxRemoteHandlers(
     gsxRemoteService.on('menu', (menu) => liveHub.publish('gsxRemoteMenu', menu))
     gsxRemoteService.on('prompt', (prompt) => liveHub.publish('gsxRemotePrompt', prompt))
     gsxRemoteService.on('commandBar', (commandBar) => liveHub.publish('gsxRemoteCommandBar', commandBar))
+    routineDriver = new RoutineDriver({
+      gsx: routineGsxOf(gsxRemoteService),
+      telemetry: deps.telemetry ?? (() => undefined),
+      plannedZfwKg: deps.plannedZfwKg ?? (() => null),
+      publish: (progress) => liveHub.publish('gsxRoutine', progress),
+      logger
+    })
     gsxRemoteService.start()
   }
   startGsxRemoteIfConfigured()
@@ -77,7 +171,19 @@ export function registerGsxRemoteHandlers(
     IpcChannels.gsxRemoteGetCommandBar,
     () => gsxRemoteService?.getCommandBar() ?? EMPTY_COMMAND_BAR
   )
-  const commands = gsxCommands(() => gsxRemoteService)
+  ipcMain.handle(IpcChannels.gsxRoutineGet, () => routineDriver?.getProgress() ?? null)
+  registerRoutineQueries(ipcMain, db)
+  const routineControl: RoutineControl = {
+    start: (id) => {
+      const routine = allRoutines(readOwnRoutines(db)).find((r) => r.id === id)
+      if (routine) routineDriver?.start(routine)
+    },
+    cancel: () => routineDriver?.cancel()
+  }
+  const commands = gsxCommands(
+    () => gsxRemoteService,
+    () => routineControl
+  )
   const command =
     (name: GsxCommand) =>
     (_event: unknown, ...args: unknown[]) =>
@@ -88,6 +194,14 @@ export function registerGsxRemoteHandlers(
   ipcMain.handle(IpcChannels.gsxRemoteSubmitPrompt, command('gsx.submitPrompt'))
   ipcMain.handle(IpcChannels.gsxRemoteCancelPrompt, command('gsx.cancelPrompt'))
   ipcMain.handle(IpcChannels.gsxRemoteRunCommand, command('gsx.runCommand'))
+  ipcMain.handle(IpcChannels.gsxRoutineStart, command('gsx.startRoutine'))
+  ipcMain.handle(IpcChannels.gsxRoutineCancel, command('gsx.cancelRoutine'))
 
-  return { stop: () => gsxRemoteService?.stop(), commands }
+  return {
+    stop: () => {
+      routineDriver?.dispose()
+      gsxRemoteService?.stop()
+    },
+    commands
+  }
 }
