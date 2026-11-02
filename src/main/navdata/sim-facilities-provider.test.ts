@@ -7,8 +7,9 @@ import {
   listCachedRunways,
   listCachedTaxiSegments
 } from '../db/navdata-repo'
+import type { ParsedLeg } from '../sim/facility-fields'
 import type { FetchedAirportNavdata, FetchedTaxiNetwork } from './sim-facilities-fetch'
-import { SimFacilitiesProvider, type OpenSimConnect } from './sim-facilities-provider'
+import { SimFacilitiesProvider, unplacedFixes, type OpenSimConnect } from './sim-facilities-provider'
 
 vi.mock('./sim-facilities-fetch', () => ({
   fetchAirportNavdata: vi.fn(),
@@ -111,6 +112,71 @@ describe('SimFacilitiesProvider', () => {
 
     expect(provider.hasAirport('EGLL')).toBe(true)
     expect(provider.listRunways('EGLL')).toHaveLength(2)
+  })
+
+  describe('a fetch that names a fix without a position (flight 259: EGCC fetched while the sim was loading)', () => {
+    const leg = (fixIdent: string | null, fixLatitude: number, fixLongitude: number): ParsedLeg => ({
+      type: 4,
+      fixIdent,
+      fixType: fixIdent === null ? null : 'W',
+      fixLatitude,
+      fixLongitude,
+      turnDirection: 0,
+      courseDeg: 51,
+      altitude1: 914.4,
+      altitude2: 0,
+      speedLimit: -1,
+      routeDistanceM: 0
+    })
+    const ils05r = (cf05r: ParsedLeg): FetchedAirportNavdata['approaches'][number] => ({
+      identifier: 'ILS 05R',
+      runwayIdent: '05R',
+      transitions: [],
+      finalLegs: [
+        cf05r,
+        leg('FF05R', 53.24077505618334, -2.4983610212802887),
+        leg('RW05R', 53.3412666991353, -2.291453182697296)
+      ],
+      expected: { transitions: 0, finalApproachLegs: 3, missedApproachLegs: 0 }
+    })
+    const placed = leg('CF05R', 53.21977235376835, -2.5413917005062103)
+    const unplaced = leg('CF05R', 0, 0)
+
+    it('names every such fix, in SIDs, STARs and approaches, and nothing for a leg with no fix', () => {
+      const tiln2m = {
+        name: 'TILN2M',
+        runwayTransitions: [],
+        enrouteTransitions: [{ name: 'TILNI', legs: [leg('TILNI', 0, 0)] }],
+        commonLegs: [leg(null, 0, 0), leg('ROSUN', 53.66891395300627, -2.349238693714142)],
+        expected: { runwayTransitions: 0, enrouteTransitions: 1, approachLegs: 2 }
+      }
+      expect(unplacedFixes({ ...FETCHED, approaches: [ils05r(placed)] })).toEqual([])
+      expect(unplacedFixes({ ...FETCHED, arrivals: [tiln2m], approaches: [ils05r(unplaced)] })).toEqual([
+        'TILN2M TILNI',
+        'ILS 05R CF05R'
+      ])
+    })
+
+    it('is refused: the airport keeps what it had cached, the listeners hear nothing, and the error names the fix', async () => {
+      const { fetchAirportNavdata } = await import('./sim-facilities-fetch')
+      const provider = new SimFacilitiesProvider(db, openSimConnect)
+      vi.mocked(fetchAirportNavdata).mockResolvedValueOnce({ ...FETCHED, approaches: [ils05r(placed)] })
+      await provider.refreshAirport('EGLL')
+      const heard: string[] = []
+      provider.onAirportRefreshed((icao) => heard.push(icao))
+
+      vi.mocked(fetchAirportNavdata).mockResolvedValueOnce({ ...FETCHED, approaches: [ils05r(unplaced)] })
+      await expect(provider.refreshAirport('EGLL')).rejects.toThrow(
+        "the sim gave 1 fix(es) no position (ILS 05R CF05R), so its data isn't ready yet"
+      )
+      expect(heard).toEqual([])
+      expect(close).toHaveBeenCalledTimes(2)
+      expect(provider.getProcedureWaypoints('EGLL', 'approach', 'ILS 05R')[0]).toMatchObject({
+        fixIdent: 'CF05R',
+        fixLatitude: placed.fixLatitude,
+        fixLongitude: placed.fixLongitude
+      })
+    })
   })
 
   describe('stands (stand-positions.md)', () => {

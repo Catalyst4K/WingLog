@@ -356,6 +356,21 @@ describe('applyProcedureSelection', () => {
     expect(applyProcedureSelection(baseWaypoints, null, null, null)).toEqual(baseWaypoints)
   })
 
+  // Flight 259: an ILS 05R fix fetched while the sim was loading came with no position, and was drawn off West Africa.
+  it('leaves out a fix with no position instead of drawing it at 0,0', () => {
+    const ils: ProcedureLegs = {
+      identifier: 'ILS 05R',
+      legs: [
+        leg('CF05R', 914, { type: 15, fixLatitude: 0, fixLongitude: 0 }),
+        leg('FF05R', 914, { fixLatitude: 53.24077505618334, fixLongitude: -2.4983610212802887 }),
+        leg('RW05R', 72, { fixType: 'R', fixLatitude: 53.3412666991353, fixLongitude: -2.291453182697296 })
+      ]
+    }
+    const result = applyProcedureSelection(baseWaypoints, null, null, ils)
+    expect(result.filter((w) => w.segment === 'approach').map((w) => w.ident)).toEqual(['FF05R', 'RW05R'])
+    expect(result.some((w) => w.lat === 0 && w.lon === 0)).toBe(false)
+  })
+
   it('plots an FC leg as its navaid plus the computed distance endpoint, labelled like the FMC (LAM → LAM/11)', () => {
     // EGLL ILS 27R, LAM transition — real values confirmed live.
     const lam = leg('LAM', 0, {

@@ -81,6 +81,16 @@ describe('navdata IPC handlers', () => {
     info.mockRestore()
   })
 
+  it('notes a refresh that worked too, since it replaces the cached data the route is built from', async () => {
+    const info = vi.spyOn(logger, 'info').mockImplementation(() => undefined)
+    provider.refreshAirport.mockResolvedValueOnce(undefined)
+    await invoke(IpcChannels.navdataRefreshAirport, 'EGCC')
+    expect(info).toHaveBeenCalledWith(
+      expect.stringMatching(/^\[navdata\] EGCC runways and procedures refreshed in \d+\.\d s$/)
+    )
+    info.mockRestore()
+  })
+
   it('looks stands up only for a well-formed airport code, upper-cased', () => {
     expect(invoke(IpcChannels.navdataGetStands, 'zjsy')).toEqual([{ name: '12' }])
     expect(provider.getStands).toHaveBeenCalledWith('ZJSY')
