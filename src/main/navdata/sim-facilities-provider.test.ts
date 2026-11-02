@@ -142,7 +142,14 @@ describe('SimFacilitiesProvider', () => {
     const placed = leg('CF05R', 53.21977235376835, -2.5413917005062103)
     const unplaced = leg('CF05R', 0, 0)
 
-    it('names every such fix, in SIDs, STARs and approaches, and nothing for a leg with no fix', () => {
+    it('names every such fix, in every part of SIDs, STARs and approaches, and nothing for a leg with no fix', () => {
+      const epot3d = {
+        name: 'EPOT3D',
+        runwayTransitions: [{ runwayIdent: '35', legs: [leg('EPOTU', 0, 0)] }],
+        enrouteTransitions: [],
+        commonLegs: [],
+        expected: { runwayTransitions: 1, enrouteTransitions: 0, approachLegs: 0 }
+      }
       const tiln2m = {
         name: 'TILN2M',
         runwayTransitions: [],
@@ -150,11 +157,14 @@ describe('SimFacilitiesProvider', () => {
         commonLegs: [leg(null, 0, 0), leg('ROSUN', 53.66891395300627, -2.349238693714142)],
         expected: { runwayTransitions: 0, enrouteTransitions: 1, approachLegs: 2 }
       }
+      const withTransition = {
+        ...ils05r(unplaced),
+        transitions: [{ name: 'ROSUN', legs: [leg('ROSUN', 0, 0)] }]
+      }
       expect(unplacedFixes({ ...FETCHED, approaches: [ils05r(placed)] })).toEqual([])
-      expect(unplacedFixes({ ...FETCHED, arrivals: [tiln2m], approaches: [ils05r(unplaced)] })).toEqual([
-        'TILN2M TILNI',
-        'ILS 05R CF05R'
-      ])
+      expect(
+        unplacedFixes({ ...FETCHED, departures: [epot3d], arrivals: [tiln2m], approaches: [withTransition] })
+      ).toEqual(['EPOT3D EPOTU', 'TILN2M TILNI', 'ILS 05R CF05R', 'ILS 05R ROSUN'])
     })
 
     it('is refused: the airport keeps what it had cached, the listeners hear nothing, and the error names the fix', async () => {
