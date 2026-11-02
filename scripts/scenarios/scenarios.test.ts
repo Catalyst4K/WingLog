@@ -20,7 +20,7 @@ import {
   wsssLanding,
   zjsyArrival
 } from './bases'
-import { runScenario, type ScenarioResult } from './harness'
+import { runScenario, trackingEndedAtMs, type ScenarioResult } from './harness'
 import {
   arrivalCardPrompt,
   arrivalCardUntilTouchdown,
@@ -35,9 +35,11 @@ import {
   changeClearedRunway,
   dropAtcLine,
   duplicateAtcLine,
+  parkingBrakeNotSeen,
   renameTaxiway,
   speedUpTaxi,
   stallFieldUpdates,
+  taxiInOnEngine2,
   type Transform
 } from './transforms'
 
@@ -100,6 +102,44 @@ describe('scenario: fast taxi on a parallel taxiway (flight 230, VHHH)', () => {
           e.data.groundSpeedMs > 18
       )
       expect(fastOffRunway.length).toBeGreaterThan(5)
+    },
+    SCENARIO_TIMEOUT_MS
+  )
+})
+
+describe('scenario: the parking brake the sim never sees (flights 253 and 259, Fenix A320)', () => {
+  it(
+    'still finishes the flight at the stand, at the same moment and on-blocks time as with the brake',
+    async () => {
+      const base = await egllFlight([])
+      const noBrake = await egllFlight([parkingBrakeNotSeen()])
+      expect(base.flight?.status).toBe('completed')
+      expect(noBrake.flight?.status).toBe('completed')
+      expect(trackingEndedAtMs(base.samples)).toBe(4_095_390)
+      expect(trackingEndedAtMs(noBrake.samples)).toBe(4_095_390)
+      expect(noBrake.flight?.actualInUtc).toBe(base.flight?.actualInUtc)
+    },
+    SCENARIO_TIMEOUT_MS
+  )
+})
+
+describe('scenario: taxiing in on one engine', () => {
+  it(
+    'keeps tracking through a stop with the brake set while engine 2 runs, and finishes when it stops',
+    async () => {
+      const { samples, flight } = await egllFlight([taxiInOnEngine2(60_000)])
+      // The real taxi-in's stop with the brake set: with engine 1 alone read, this tick finished the flight.
+      const hold = samples.find(
+        (s) =>
+          s.event === 'telemetry' &&
+          s.telemetry.engineCombustion2 === true &&
+          s.telemetry.parkingBrakeOn &&
+          s.telemetry.groundSpeedMs < 0.5
+      )
+      expect(hold?.tOffsetMs).toBe(3_979_353)
+      expect(hold?.phase).toBe('taxi')
+      expect(trackingEndedAtMs(samples)).toBe(4_095_390)
+      expect(flight?.status).toBe('completed')
     },
     SCENARIO_TIMEOUT_MS
   )

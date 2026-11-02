@@ -142,6 +142,48 @@ export function bounceOnRollout(count: number, afterTicks = 1): Transform {
 }
 
 /**
+ * The sim reads the parking brake as off from `fromMs`, whatever the lever says. Covers the Fenix A320, whose flights then
+ * never finished by themselves (flights 253 and 259).
+ */
+export function parkingBrakeNotSeen(fromMs = 0): Transform {
+  return (capture) => ({
+    ...capture,
+    events: capture.events.map((e) =>
+      e.type === 'telemetry' && e.tOffsetMs >= fromMs
+        ? { ...e, data: { ...e.data, parkingBrakeOn: false } }
+        : e
+    )
+  })
+}
+
+/**
+ * The aircraft taxis in on engine 2 alone: from `afterTouchdownMs` after the first touchdown, engine 1 reads off and engine 2
+ * on, until the capture's own shutdown (its next tick with engine 1 off), from which both are off. Covers a flight finished at
+ * a stop on the taxi-in while an engine still ran (decisions 2026-11-02).
+ */
+export function taxiInOnEngine2(afterTouchdownMs: number): Transform {
+  return (capture) => {
+    const touchdown = capture.events[touchdownIndex(capture.events)]
+    if (!touchdown) throw new Error('taxiInOnEngine2: the capture has no touchdown')
+    const fromMs = touchdown.tOffsetMs + afterTouchdownMs
+    const shutdownMs =
+      capture.events.find((e) => e.type === 'telemetry' && e.tOffsetMs >= fromMs && !e.data.engineCombustion1)
+        ?.tOffsetMs ?? Infinity
+    return {
+      ...capture,
+      events: capture.events.map((e) =>
+        e.type === 'telemetry' && e.tOffsetMs >= fromMs
+          ? {
+              ...e,
+              data: { ...e.data, engineCombustion1: false, engineCombustion2: e.tOffsetMs < shutdownMs }
+            }
+          : e
+      )
+    }
+  }
+}
+
+/**
  * ATC clears a different runway: `from` becomes `to` wherever BeyondATC names a runway (the
  * InfoBoxes and the spoken lines). Covers the STAR clearance's runway being ignored (#109).
  * Matches whole runway idents only: "08" never touches "08L" or "1,080m".

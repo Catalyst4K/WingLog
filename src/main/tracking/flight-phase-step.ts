@@ -324,8 +324,10 @@ function fromDescent(s: PhaseState, t: SimTelemetry): void {
 }
 
 /**
- * Taxiing after landing, stopped with the parking brake set and the engines off: shutdown. Only from the post-landing 'taxi'
- * phase: the same state in 'preflight' drives pushback instead, so "not yet started" and "shut down" can't be confused.
+ * Taxiing after landing, stopped with every engine off: shutdown. The parking brake isn't asked: an aircraft can stop passing it
+ * to the sim (the Fenix A320, decisions 2026-11-02), and with every engine off the aircraft isn't taxiing anyway. Only once the
+ * flight has landed, so a stop with the engines off before departure (at the gate, or after a pushback fast enough to read as
+ * taxi) is never taken for the end of the flight.
  *
  * @param s The draft state.
  * @param t This tick.
@@ -335,12 +337,28 @@ function shutDownIfParked(s: PhaseState, t: SimTelemetry, settings: PhaseSetting
   if (
     settings.autoShutdown &&
     s.phase === 'taxi' &&
+    s.hasLanded &&
     t.groundSpeedMs < MOVING_MS &&
-    t.parkingBrakeOn &&
-    !t.engineCombustion1
+    !isAnyEngineRunning(t)
   ) {
     s.phase = 'shutdown'
   }
+}
+
+/**
+ * Whether any engine is running. An engine the telemetry doesn't carry (a capture recorded before engines 2 to 4 were read)
+ * counts as off.
+ *
+ * @param t This tick.
+ * @returns True while at least one engine has combustion.
+ */
+function isAnyEngineRunning(t: SimTelemetry): boolean {
+  return (
+    t.engineCombustion1 ||
+    t.engineCombustion2 === true ||
+    t.engineCombustion3 === true ||
+    t.engineCombustion4 === true
+  )
 }
 
 /**

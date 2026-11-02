@@ -21,6 +21,8 @@ describe('phase machine rules', () => {
       'bounce',
       'goAround',
       'touchdown',
+      'fastPushback',
+      'oneEngineTaxiIn',
       'park',
       'rolloutBlip'
     ])
@@ -77,5 +79,16 @@ describe('phase machine rules', () => {
       ticks: run.ticks.map((t) => ({ ...t, t: { ...t.t, onGround: true } }))
     }
     expect(RULES.neverClimbOrCruiseOnTheGround!(stuck, recipe).length).toBeGreaterThan(0)
+  })
+
+  it('catch a flight finished away from the stand: a shutdown on the taxi-in breaks the rule', () => {
+    const recipe: Recipe = ['parked', 'pushback', 'taxi', 'oneEngineTaxiIn', 'park']
+    const run = runRecipe(recipe, 5)
+    expect(RULES.shutdownOnlyAtTheStand!(run, recipe)).toEqual([])
+    const early = run.pieceOf.indexOf(3)
+    const forged = { ...run, phases: run.phases.map((p, i) => (i === early ? ('shutdown' as const) : p)) }
+    expect(RULES.shutdownOnlyAtTheStand!(forged, recipe)).toEqual([
+      `shutdown at tick ${early}, in oneEngineTaxiIn`
+    ])
   })
 })

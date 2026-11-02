@@ -56,6 +56,16 @@ export interface ScenarioResult {
   flightId: number
 }
 
+/**
+ * When tracking ended: the event that finished the flight, the first sample with no phase.
+ *
+ * @param samples The scenario's timeline.
+ * @returns ms into the capture, or null if tracking never ended.
+ */
+export function trackingEndedAtMs(samples: Sample[]): number | null {
+  return samples.find((s) => s.phase === null)?.tOffsetMs ?? null
+}
+
 function nextTurn(): Promise<void> {
   return new Promise((resolve) => setImmediate(resolve))
 }

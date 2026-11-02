@@ -38,6 +38,7 @@ const TAXIWAY_LAT = 51.4735
 export type PieceKind =
   | 'parked'
   | 'pushback'
+  | 'fastPushback'
   | 'taxi'
   | 'fastTaxi'
   | 'lineUpRoll'
@@ -50,6 +51,7 @@ export type PieceKind =
   | 'rollout'
   | 'rolloutBlip'
   | 'taxiIn'
+  | 'oneEngineTaxiIn'
   | 'park'
   | 'rejectedTakeoff'
   | 'goAround'
@@ -127,6 +129,14 @@ export function pieceTicks(kind: PieceKind, rand: () => number): Tick[] {
       return Array.from({ length: n(3, 20) }, () => ground(0, { engineCombustion1: false }))
     case 'pushback':
       return Array.from({ length: n(10, 60) }, () => ground(between(rand, 0.6, 2.2)))
+    case 'fastPushback':
+      // Pushed faster than taxi speed with the engines still off, then stopped with the brake set: not the end of a flight.
+      return [
+        ...Array.from({ length: n(10, 40) }, () => ground(between(rand, 3, 4), { engineCombustion1: false })),
+        ...Array.from({ length: n(3, 20) }, () =>
+          ground(0, { engineCombustion1: false, parkingBrakeOn: true })
+        )
+      ]
     case 'taxi':
       return Array.from({ length: n(30, 200) }, () => ground(between(rand, 3, 14)))
     case 'fastTaxi':
@@ -172,13 +182,25 @@ export function pieceTicks(kind: PieceKind, rand: () => number): Tick[] {
     }
     case 'taxiIn':
       return Array.from({ length: n(30, 200) }, () => ground(between(rand, 3, 14)))
-    case 'park':
+    case 'oneEngineTaxiIn': {
+      // On engine 2 alone, with a stop where the brake is set: engine 1 is off, but the flight hasn't finished.
+      const engine2Only = { engineCombustion1: false, engineCombustion2: true }
+      return [
+        ...Array.from({ length: n(10, 60) }, () => ground(between(rand, 3, 10), engine2Only)),
+        ...Array.from({ length: n(3, 30) }, () => ground(0, { ...engine2Only, parkingBrakeOn: true })),
+        ...Array.from({ length: n(10, 60) }, () => ground(between(rand, 3, 10), engine2Only))
+      ]
+    }
+    case 'park': {
+      // The brake as the sim reports it, which can be off with the lever set (the Fenix A320, decisions 2026-11-02).
+      const brakeSeen = rand() < 0.5
       return [
         ...Array.from({ length: n(2, 6) }, () => ground(between(rand, 0, 0.2))),
         ...Array.from({ length: n(2, 10) }, () =>
-          ground(0, { parkingBrakeOn: true, engineCombustion1: false })
+          ground(0, { parkingBrakeOn: brakeSeen, engineCombustion1: false })
         )
       ]
+    }
     case 'rejectedTakeoff': {
       const up = n(10, 20)
       const down = n(10, 25)
@@ -199,7 +221,9 @@ export function pieceTicks(kind: PieceKind, rand: () => number): Tick[] {
  * @returns The pieces, in order.
  */
 export function randomRecipe(rand: () => number): Recipe {
-  const r: Recipe = ['parked', 'pushback', 'taxi']
+  const r: Recipe = ['parked', 'pushback']
+  if (rand() < 0.2) r.push('fastPushback')
+  r.push('taxi')
   if (rand() < 0.3) r.push('fastTaxi', 'taxi')
   if (rand() < 0.3) r.push('lineUpRoll', 'rejectedTakeoff', 'taxi')
   r.push('lineUpRoll', 'rotate', 'climb', 'level')
@@ -212,7 +236,9 @@ export function randomRecipe(rand: () => number): Recipe {
   if (rand() < 0.3) r.push('bounce')
   r.push('rollout')
   if (rand() < 0.4) r.push('rolloutBlip')
-  r.push('taxiIn', 'park')
+  r.push('taxiIn')
+  if (rand() < 0.3) r.push('oneEngineTaxiIn')
+  r.push('park')
   return r
 }
 
@@ -293,6 +319,13 @@ export const RULES: Record<string, Rule> = {
       ? []
       : [`ended in ${run.phases.at(-1)} after landing at tick ${landing}`]
   },
+
+  /** Shutdown only at the stand: a stop while taxiing in on one engine, brake set, is not one. */
+  shutdownOnlyAtTheStand: (run, recipe) =>
+    entries(run, 'shutdown').flatMap((i) => {
+      const piece = recipe[run.pieceOf[i] ?? -1]
+      return piece === 'park' ? [] : [`shutdown at tick ${i}, in ${piece ?? 'no piece'}`]
+    }),
 
   /** A rejected takeoff ends in taxi: it never climbs, and it is not stuck in takeoff. */
   rejectedTakeoffEndsInTaxi: (run, recipe) => {

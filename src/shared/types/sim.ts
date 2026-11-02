@@ -32,8 +32,14 @@ export interface SimTelemetry {
   windSpeedMs: number
   windDirectionDeg: number
   engineCombustion1: boolean
+  /** Engines 2 to 4 (ENG COMBUSTION:2 to :4). Optional: flights captured before they were read
+   *  (replay fixtures) don't carry them. */
+  engineCombustion2?: boolean
+  engineCombustion3?: boolean
+  engineCombustion4?: boolean
   gearHandlePosition: number
   flapsHandleIndex: number
+  /** Recorded only: nothing decides on it (see simvars.ts). */
   parkingBrakeOn: boolean
   /** Autopilot selected altitude (AUTOPILOT ALTITUDE LOCK VAR). Optional: flights captured
    *  before it existed (replay fixtures) don't carry it. */
