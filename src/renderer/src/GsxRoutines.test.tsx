@@ -56,6 +56,12 @@ function withWinglog(
   return { api, push: (progress) => act(() => listener(progress)) }
 }
 
+/** Turns the Edit toggle on, then opens the named routine in the editor. */
+async function editRoutine(name: string): Promise<void> {
+  await userEvent.click(await screen.findByRole('button', { name: 'Edit', pressed: false }))
+  await userEvent.click(await screen.findByRole('button', { name: `Edit ${name}` }))
+}
+
 describe('GsxRoutines', () => {
   describe('the routine buttons', () => {
     it('offers the three built-in routines by name', async () => {
@@ -91,8 +97,30 @@ describe('GsxRoutines', () => {
       withWinglog()
       render(<GsxRoutines canEdit={false} />)
       await screen.findByRole('button', { name: 'Arrival' })
-      expect(screen.queryByRole('button', { name: /^Edit / })).toBeNull()
+      expect(screen.queryByRole('button', { name: /^Edit/ })).toBeNull()
       expect(screen.queryByRole('button', { name: 'New routine' })).toBeNull()
+    })
+
+    it('turns the routine buttons into edit buttons while Edit is on, and back off', async () => {
+      const { api } = withWinglog()
+      render(<GsxRoutines canEdit />)
+      const toggle = await screen.findByRole('button', { name: 'Edit', pressed: false })
+      await userEvent.click(toggle)
+      expect(toggle).toHaveAttribute('aria-pressed', 'true')
+      expect(screen.getByRole('button', { name: 'Edit Arrival' })).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Arrival' })).toBeNull()
+      await userEvent.click(toggle)
+      await userEvent.click(await screen.findByRole('button', { name: 'Arrival' }))
+      expect(api.gsxRoutineStart).toHaveBeenCalledWith('builtin-arrival')
+      expect(screen.queryByRole('button', { name: 'Edit Arrival' })).toBeNull()
+    })
+
+    it('lets a routine be edited while another runs, though it cannot be started', async () => {
+      withWinglog({ progress: RUNNING })
+      render(<GsxRoutines canEdit />)
+      await screen.findByTestId('gsx-routine-progress')
+      await userEvent.click(screen.getByRole('button', { name: 'Edit', pressed: false }))
+      expect(screen.getByRole('button', { name: 'Edit Arrival' })).toBeEnabled()
     })
   })
 
@@ -157,7 +185,7 @@ describe('GsxRoutines', () => {
     it('shows a built-in as it is, and only lets it be duplicated', async () => {
       withWinglog()
       render(<GsxRoutines canEdit />)
-      await userEvent.click(await screen.findByRole('button', { name: 'Edit Arrival' }))
+      await editRoutine('Arrival')
       const dialog = await screen.findByRole('dialog')
       expect(within(dialog).getByText(/can't be changed/)).toBeInTheDocument()
       expect(within(dialog).queryByRole('button', { name: 'Save' })).toBeNull()
@@ -168,7 +196,7 @@ describe('GsxRoutines', () => {
     it('makes an editable copy of a built-in, named after it', async () => {
       withWinglog()
       render(<GsxRoutines canEdit />)
-      await userEvent.click(await screen.findByRole('button', { name: 'Edit Arrival' }))
+      await editRoutine('Arrival')
       const dialog = await screen.findByRole('dialog')
       await userEvent.click(within(dialog).getByRole('button', { name: 'Duplicate' }))
       expect(within(dialog).getByLabelText('Name')).toHaveValue('Arrival copy')
@@ -207,7 +235,7 @@ describe('GsxRoutines', () => {
     it('moves a service to another stage and changes what a stage waits for', async () => {
       const { api } = withWinglog({ routines: [OWN] })
       render(<GsxRoutines canEdit />)
-      await userEvent.click(await screen.findByRole('button', { name: 'Edit A320 turnaround' }))
+      await editRoutine('A320 turnaround')
       const dialog = await screen.findByRole('dialog')
       await userEvent.selectOptions(within(dialog).getByLabelText('Move Refueling to'), 'Stage 1')
       expect(within(dialog).getByLabelText('Move Refueling to')).toHaveValue('0')
@@ -222,7 +250,7 @@ describe('GsxRoutines', () => {
     it('saves the two options', async () => {
       const { api } = withWinglog({ routines: [OWN] })
       render(<GsxRoutines canEdit />)
-      await userEvent.click(await screen.findByRole('button', { name: 'Edit A320 turnaround' }))
+      await editRoutine('A320 turnaround')
       const dialog = await screen.findByRole('dialog')
       await userEvent.click(
         within(within(dialog).getByRole('group', { name: "Answer GSX's own default for me" })).getByRole(
@@ -244,7 +272,7 @@ describe('GsxRoutines', () => {
     it('shows why a save was refused, and keeps the dialog open', async () => {
       withWinglog({ routines: [OWN], save: { ok: false, reason: 'the name must be 1 to 40 characters' } })
       render(<GsxRoutines canEdit />)
-      await userEvent.click(await screen.findByRole('button', { name: 'Edit A320 turnaround' }))
+      await editRoutine('A320 turnaround')
       const dialog = await screen.findByRole('dialog')
       await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
       expect(await within(dialog).findByRole('alert')).toHaveTextContent(
@@ -256,7 +284,7 @@ describe('GsxRoutines', () => {
     it('deletes one of the pilot’s own routines after asking once more', async () => {
       const { api } = withWinglog({ routines: [OWN] })
       render(<GsxRoutines canEdit />)
-      await userEvent.click(await screen.findByRole('button', { name: 'Edit A320 turnaround' }))
+      await editRoutine('A320 turnaround')
       const dialog = await screen.findByRole('dialog')
       await userEvent.click(within(dialog).getByRole('button', { name: 'Delete' }))
       expect(api.gsxRoutinesDelete).not.toHaveBeenCalled()
@@ -269,7 +297,7 @@ describe('GsxRoutines', () => {
     it('closes without saving', async () => {
       const { api } = withWinglog({ routines: [OWN] })
       render(<GsxRoutines canEdit />)
-      await userEvent.click(await screen.findByRole('button', { name: 'Edit A320 turnaround' }))
+      await editRoutine('A320 turnaround')
       const dialog = await screen.findByRole('dialog')
       await userEvent.click(within(dialog).getAllByRole('button', { name: 'Close' })[0])
       await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())

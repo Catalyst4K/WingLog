@@ -1,4 +1,7 @@
-/** The Routines row of the GSX page: one button per routine, the progress of the one running, and (on the PC) the editor. */
+/**
+ * The Routines row of the GSX page: one button per routine, the progress of the one running, and (on the PC) New routine, an Edit
+ * toggle that turns the routine buttons into edit buttons, and the editor.
+ */
 
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -85,6 +88,7 @@ export function GsxRoutines(props: { canEdit: boolean }): React.JSX.Element {
   const [routines, setRoutines] = useState(NO_ROUTINES)
   const [editing, setEditing] = useState<{ routine: GsxRoutine; isStored: boolean } | null>(null)
   const isRunning = progress?.state === 'running'
+  const [isEditMode, setIsEditMode] = useState(false)
 
   useEffect(() => {
     runAsync('GsxRoutines gsxRoutinesList', winglogApi().gsxRoutinesList().then(setRoutines))
@@ -99,54 +103,59 @@ export function GsxRoutines(props: { canEdit: boolean }): React.JSX.Element {
           onCancel={asyncHandler('GsxRoutines gsx.cancelRoutine', () => live.command('gsx.cancelRoutine'))}
         />
       )}
-      <ul className="flex flex-col gap-1.5" aria-label={t('gsxRoutines.title')}>
+      <ul className="flex flex-wrap items-center gap-1.5" aria-label={t('gsxRoutines.title')}>
         {routines.map((routine) => (
-          <li key={routine.id} className="flex gap-1.5">
+          <li key={routine.id}>
             <Button
               type="button"
               variant="outline"
               size="sm"
-              disabled={isRunning}
-              className="h-auto flex-1 justify-start py-1.5 text-xs"
-              onClick={asyncHandler('GsxRoutines gsx.startRoutine', () =>
-                live.command('gsx.startRoutine', routine.id)
-              )}
+              disabled={isRunning && !isEditMode}
+              aria-label={isEditMode ? t('gsxRoutines.edit', { name: routineName(t, routine) }) : undefined}
+              onClick={
+                isEditMode
+                  ? () => setEditing({ routine, isStored: routine.builtIn === undefined })
+                  : asyncHandler('GsxRoutines gsx.startRoutine', () =>
+                      live.command('gsx.startRoutine', routine.id)
+                    )
+              }
             >
+              {isEditMode && <Pencil aria-hidden="true" className="size-3.5" />}
               {routineName(t, routine)}
             </Button>
-            {props.canEdit && (
+          </li>
+        ))}
+        {props.canEdit && (
+          <>
+            <li className="ml-auto">
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
-                className="h-auto gap-1.5 py-1.5 text-xs"
-                aria-label={t('gsxRoutines.edit', { name: routineName(t, routine) })}
-                onClick={() => setEditing({ routine, isStored: routine.builtIn === undefined })}
+                onClick={() =>
+                  setEditing({
+                    routine: blankRoutine(newRoutineId(), t('gsxRoutines.newName')),
+                    isStored: false
+                  })
+                }
               >
-                <Pencil aria-hidden="true" className="size-4" />
+                <Plus aria-hidden="true" className="size-3.5" />
+                {t('gsxRoutines.new')}
+              </Button>
+            </li>
+            <li>
+              <Button
+                type="button"
+                variant={isEditMode ? 'default' : 'outline'}
+                size="sm"
+                aria-pressed={isEditMode}
+                onClick={() => setIsEditMode(!isEditMode)}
+              >
+                <Pencil aria-hidden="true" className="size-3.5" />
                 {t('gsxRoutines.editButton')}
               </Button>
-            )}
-          </li>
-        ))}
-        {props.canEdit && (
-          <li>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="h-auto gap-1.5 py-1.5 text-xs"
-              onClick={() =>
-                setEditing({
-                  routine: blankRoutine(newRoutineId(), t('gsxRoutines.newName')),
-                  isStored: false
-                })
-              }
-            >
-              <Plus aria-hidden="true" className="size-4" />
-              {t('gsxRoutines.new')}
-            </Button>
-          </li>
+            </li>
+          </>
         )}
       </ul>
       {editing && (
