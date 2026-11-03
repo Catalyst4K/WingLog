@@ -835,7 +835,6 @@
       "titleNew": "新增流程",
       "titleEdit": "流程",
       "description": "勾選此流程要向 GSX 請求的服務。WingLog 會依安全的順序排列，你也可以調整。",
-      "builtInNote": "此流程隨 WingLog 提供，無法修改。可複製後建立你自己的版本，也可以刪除它。",
       "name": "名稱",
       "servicesHeading": "服務",
       "groupMain": "GSX 主選單",

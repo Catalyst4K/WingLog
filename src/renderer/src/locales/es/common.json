@@ -845,7 +845,6 @@
       "titleNew": "Nueva rutina",
       "titleEdit": "Rutina",
       "description": "Marca los servicios que esta rutina solicita a GSX. WingLog los ordena de forma segura y puedes cambiarlo.",
-      "builtInNote": "Esta rutina viene con WingLog y no se puede modificar. Duplícala para crear la tuya, o elimínala.",
       "name": "Nombre",
       "servicesHeading": "Servicios",
       "groupMain": "Menú principal de GSX",

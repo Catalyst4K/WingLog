@@ -124,6 +124,18 @@ describe('the built-in routines', () => {
     ])
   })
 
+  it('show the pilot’s version of an example in the example’s place, and not a second time', () => {
+    const mine = checkRoutine(own({ id: 'builtin-arrival', name: 'My arrival' }))
+    const other = checkRoutine(own())
+    if (!mine.ok || !other.ok) throw new Error('fixtures')
+    expect(allRoutines([other.routine, mine.routine]).map((r) => [r.id, r.name])).toEqual([
+      ['builtin-fenix-departure', 'Departure'],
+      ['builtin-arrival', 'My arrival'],
+      ['builtin-turnaround-clean', 'Turnaround clean'],
+      ['my-turnaround', 'A320 turnaround']
+    ])
+  })
+
   it('leave out the ones the pilot deleted', () => {
     expect(allRoutines([], ['builtin-arrival']).map((r) => r.id)).toEqual([
       'builtin-fenix-departure',
@@ -210,7 +222,6 @@ describe('checkRoutine', () => {
     ['a missing id', { id: undefined }],
     ['an id with a slash', { id: '../x' }],
     ['an id that is too long', { id: 'a'.repeat(65) }],
-    ['a built-in id', { id: 'builtin-arrival' }],
     ['a blank name', { name: '   ' }],
     ['a name over the limit', { name: 'x'.repeat(GSX_ROUTINE_NAME_MAX + 1) }],
     ['a fuel choice that is a percentage', { fuel: '80%' }],
@@ -219,6 +230,11 @@ describe('checkRoutine', () => {
     ['ten stages', { stages: Array.from({ length: 10 }, () => ({ services: ['GPU'], startsWhen: [] })) }]
   ])('refuses %s', (_label, overrides) => {
     expect(checkRoutine(own(overrides)).ok).toBe(false)
+  })
+
+  it('accepts the id of an example: that is the pilot’s own version of it', () => {
+    const checked = checkRoutine(own({ id: 'builtin-arrival', name: 'My arrival' }))
+    expect(checked.ok && checked.routine.id).toBe('builtin-arrival')
   })
 
   it('accepts a name of exactly the limit', () => {

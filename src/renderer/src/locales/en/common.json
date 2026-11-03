@@ -843,7 +843,6 @@
       "titleNew": "New routine",
       "titleEdit": "Routine",
       "description": "Tick the services this routine asks GSX for. WingLog lays them out in a safe order, which you can change.",
-      "builtInNote": "This routine comes with WingLog and can't be changed. Duplicate it to make your own, or delete it.",
       "name": "Name",
       "servicesHeading": "Services",
       "groupMain": "GSX main menu",

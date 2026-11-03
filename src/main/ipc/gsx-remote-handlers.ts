@@ -126,12 +126,11 @@ function registerRoutineQueries(ipcMain: IpcMain, db: WingLogDb): void {
     return { ok: true, routines: listRoutines(db, next) }
   })
   ipcMain.handle(IpcChannels.gsxRoutinesDelete, (_event, id: unknown): GsxRoutine[] => {
-    if (BUILT_IN_ROUTINES.some((r) => r.id === id)) {
-      setHiddenBuiltInRoutines(db, [...new Set([...getHiddenBuiltInRoutines(db), id as string])])
-      return listRoutines(db)
-    }
     const next = readOwnRoutines(db).filter((r) => r.id !== id)
     setGsxRoutines(db, next)
+    if (BUILT_IN_ROUTINES.some((r) => r.id === id)) {
+      setHiddenBuiltInRoutines(db, [...new Set([...getHiddenBuiltInRoutines(db), id as string])])
+    }
     return listRoutines(db, next)
   })
 }

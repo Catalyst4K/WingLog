@@ -12,7 +12,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { winglogApi } from './data/winglog-api'
 import { GsxRoutineEditor } from './GsxRoutineEditor'
-import { blankRoutine, newRoutineId } from './gsx-routine-edit'
+import { blankRoutine, copyRoutine, newRoutineId } from './gsx-routine-edit'
 import { describeNote, routineName, serviceLabel } from './gsx-routine-text'
 import { useLiveClient, useLiveTopic } from './live/LiveClient'
 import { asyncHandler, runAsync } from './report-error'
@@ -114,7 +114,11 @@ export function GsxRoutines(props: { canEdit: boolean }): React.JSX.Element {
               aria-label={isEditMode ? t('gsxRoutines.edit', { name: routineName(t, routine) }) : undefined}
               onClick={
                 isEditMode
-                  ? () => setEditing({ routine, isStored: routine.builtIn === undefined })
+                  ? () =>
+                      setEditing({
+                        routine: copyRoutine(routine, routine.id, routineName(t, routine)),
+                        isStored: true
+                      })
                   : asyncHandler('GsxRoutines gsx.startRoutine', () =>
                       live.command('gsx.startRoutine', routine.id)
                     )

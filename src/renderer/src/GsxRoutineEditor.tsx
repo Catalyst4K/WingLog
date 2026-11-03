@@ -46,7 +46,6 @@ const SELECT_CLASS =
  */
 function ServicePicker(props: {
   ticked: readonly GsxRoutineService[]
-  readOnly: boolean
   onToggle: (service: GsxRoutineService) => void
 }): React.JSX.Element {
   const { t } = useTranslation()
@@ -78,7 +77,6 @@ function ServicePicker(props: {
                 size="sm"
                 variant={props.ticked.includes(service) ? 'default' : 'outline'}
                 aria-pressed={props.ticked.includes(service)}
-                disabled={props.readOnly}
                 onClick={() => props.onToggle(service)}
               >
                 {serviceLabel(t, service)}
@@ -99,7 +97,6 @@ function ServicePicker(props: {
  */
 function StageEditor(props: {
   routine: GsxRoutine
-  readOnly: boolean
   onChange: (routine: GsxRoutine) => void
 }): React.JSX.Element | null {
   const { t } = useTranslation()
@@ -129,7 +126,6 @@ function StageEditor(props: {
                   <select
                     className={SELECT_CLASS}
                     aria-label={t('gsxRoutines.editor.startsLabel', { n: index + 1 })}
-                    disabled={props.readOnly}
                     value={stage.startsWhen[0]?.service ?? ''}
                     onChange={(e) =>
                       change(
@@ -153,7 +149,6 @@ function StageEditor(props: {
                     <select
                       className={SELECT_CLASS}
                       aria-label={t('gsxRoutines.editor.moveLabel', { service: serviceLabel(t, service) })}
-                      disabled={props.readOnly}
                       value={index}
                       onChange={(e) => change(moveService(stages, service, Number(e.target.value)))}
                     >
@@ -171,9 +166,7 @@ function StageEditor(props: {
           )
         })}
       </ol>
-      {!props.readOnly && (
-        <p className="text-xs text-muted-foreground">{t('gsxRoutines.editor.relayNote')}</p>
-      )}
+      <p className="text-xs text-muted-foreground">{t('gsxRoutines.editor.relayNote')}</p>
     </div>
   )
 }
@@ -186,12 +179,10 @@ function StageEditor(props: {
  */
 function OptionRows(props: {
   routine: GsxRoutine
-  readOnly: boolean
   onChange: (routine: GsxRoutine) => void
 }): React.JSX.Element {
   const { t } = useTranslation()
   const { routine } = props
-  const noop = (): void => undefined
   return (
     <div className="flex flex-col gap-2">
       <SegmentedRow
@@ -201,9 +192,7 @@ function OptionRows(props: {
           { value: 'off', label: t('gsxRoutines.editor.no') },
           { value: 'on', label: t('gsxRoutines.editor.yes') }
         ]}
-        onChange={
-          props.readOnly ? noop : (value) => props.onChange({ ...routine, answerGsxChoice: value === 'on' })
-        }
+        onChange={(value) => props.onChange({ ...routine, answerGsxChoice: value === 'on' })}
         note={t('gsxRoutines.editor.answerGsxChoiceNote')}
       />
       <SegmentedRow
@@ -213,7 +202,7 @@ function OptionRows(props: {
           { value: 'ask', label: t('gsxRoutines.editor.fuelAsk') },
           { value: 'simbrief-block', label: t('gsxRoutines.editor.fuelBlock') }
         ]}
-        onChange={props.readOnly ? noop : (value) => props.onChange({ ...routine, fuel: value })}
+        onChange={(value) => props.onChange({ ...routine, fuel: value })}
       />
     </div>
   )
@@ -264,15 +253,14 @@ function DeleteConfirmation(props: {
 }
 
 /**
- * The buttons at the foot of the editor. Every stored routine and every built-in can be deleted (a built-in only leaves the list); a
- * built-in cannot be saved over, so it offers Duplicate and Delete; a routine of the pilot's own also Save. Delete asks first.
+ * The buttons at the foot of the editor: Duplicate, Delete (for a routine that exists, an example or the pilot's own; it asks first),
+ * Close and Save.
  *
  * @param props What the buttons need to know, and do.
  * @returns The element.
  */
 function EditorButtons(props: {
   name: string
-  readOnly: boolean
   canSave: boolean
   isStored: boolean
   busy: boolean
@@ -299,7 +287,7 @@ function EditorButtons(props: {
         <Button type="button" variant="outline" size="sm" onClick={props.onDuplicate}>
           {t('gsxRoutines.editor.duplicate')}
         </Button>
-        {(props.isStored || props.readOnly) && (
+        {props.isStored && (
           <Button type="button" variant="outline" size="sm" onClick={() => setConfirmingDelete(true)}>
             {t('gsxRoutines.editor.delete')}
           </Button>
@@ -309,19 +297,17 @@ function EditorButtons(props: {
         <Button type="button" variant="outline" size="sm" onClick={props.onClose}>
           {t('gsxRoutines.editor.close')}
         </Button>
-        {!props.readOnly && (
-          <Button type="button" size="sm" disabled={!props.canSave || props.busy} onClick={props.onSave}>
-            {t('gsxRoutines.editor.save')}
-          </Button>
-        )}
+        <Button type="button" size="sm" disabled={!props.canSave || props.busy} onClick={props.onSave}>
+          {t('gsxRoutines.editor.save')}
+        </Button>
       </div>
     </DialogFooter>
   )
 }
 
 /**
- * The dialog for one routine. A built-in is shown as it is and can be duplicated or deleted; Duplicate on any routine opens an
- * editable copy. Saving goes to the main process, which checks the routine again.
+ * The dialog for one routine, new or existing; an example is edited as the pilot's own version of it. Duplicate opens a copy under a
+ * new id. Saving goes to the main process, which checks the routine again.
  *
  * @param props The routine, whether it is already stored, and what to do when the dialog closes or the list changes.
  * @returns The dialog.
@@ -337,7 +323,6 @@ export function GsxRoutineEditor(props: {
   const [isStored, setIsStored] = useState(props.isStored)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
-  const readOnly = draft.builtIn !== undefined
   const problem = routineProblem(draft)
 
   const save = async (): Promise<void> => {
@@ -375,9 +360,7 @@ export function GsxRoutineEditor(props: {
           <DialogTitle>
             {t(isStored ? 'gsxRoutines.editor.titleEdit' : 'gsxRoutines.editor.titleNew')}
           </DialogTitle>
-          <DialogDescription>
-            {readOnly ? t('gsxRoutines.editor.builtInNote') : t('gsxRoutines.editor.description')}
-          </DialogDescription>
+          <DialogDescription>{t('gsxRoutines.editor.description')}</DialogDescription>
         </DialogHeader>
         <div className="flex flex-col gap-4">
           <Label className="flex flex-col items-start gap-1.5">
@@ -385,18 +368,16 @@ export function GsxRoutineEditor(props: {
             <Input
               value={routineName(t, draft)}
               maxLength={GSX_ROUTINE_NAME_MAX}
-              readOnly={readOnly}
               onChange={(e) => setDraft({ ...draft, name: e.target.value })}
             />
           </Label>
           <ServicePicker
             ticked={routineServices(draft)}
-            readOnly={readOnly}
             onToggle={(service) => setDraft({ ...draft, stages: toggleService(draft.stages, service) })}
           />
-          <StageEditor routine={draft} readOnly={readOnly} onChange={setDraft} />
-          <OptionRows routine={draft} readOnly={readOnly} onChange={setDraft} />
-          {!readOnly && problem === 'services' && (
+          <StageEditor routine={draft} onChange={setDraft} />
+          <OptionRows routine={draft} onChange={setDraft} />
+          {problem === 'services' && (
             <p className="text-xs text-muted-foreground">{t('gsxRoutines.editor.noServices')}</p>
           )}
           {error && (
@@ -407,7 +388,6 @@ export function GsxRoutineEditor(props: {
         </div>
         <EditorButtons
           name={routineName(t, draft)}
-          readOnly={readOnly}
           canSave={problem === null}
           isStored={isStored}
           busy={busy}

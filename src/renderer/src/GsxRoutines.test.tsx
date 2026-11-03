@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { GsxRoutinesResult, WingLogApi } from '@shared/ipc'
-import { allRoutines, stageRoutine, type GsxRoutine } from '@shared/gsx-routines'
+import { allRoutines, routineServices, stageRoutine, type GsxRoutine } from '@shared/gsx-routines'
 import type { GsxRoutineProgress } from '@shared/gsx-routine-progress'
 import { GsxRoutines } from './GsxRoutines'
 
@@ -182,18 +182,40 @@ describe('GsxRoutines', () => {
   })
 
   describe('the editor', () => {
-    it('shows a built-in as it is, and lets it be duplicated or deleted', async () => {
+    it('opens an example for editing like any routine, with Save and Delete', async () => {
       withWinglog()
       render(<GsxRoutines canEdit />)
       await editRoutine('Arrival')
       const dialog = await screen.findByRole('dialog')
-      expect(within(dialog).getByText(/can't be changed/)).toBeInTheDocument()
-      expect(within(dialog).queryByRole('button', { name: 'Save' })).toBeNull()
+      expect(within(dialog).getByLabelText('Name')).toHaveValue('Arrival')
+      expect(within(dialog).getByRole('button', { name: 'Save' })).toBeEnabled()
       expect(within(dialog).getByRole('button', { name: 'Delete' })).toBeInTheDocument()
-      expect(within(dialog).getByRole('button', { name: 'Jetway' })).toBeDisabled()
+      expect(within(dialog).getByRole('button', { name: 'Jetway' })).toBeEnabled()
     })
 
-    it('makes an editable copy of a built-in, named after it', async () => {
+    it('saves a change to an example under its own id, and the row shows the new name', async () => {
+      const { api } = withWinglog()
+      api.gsxRoutinesSave.mockResolvedValue({
+        ok: true,
+        routines: allRoutines([{ ...OWN, id: 'builtin-arrival', name: 'My arrival' }])
+      })
+      render(<GsxRoutines canEdit />)
+      await editRoutine('Arrival')
+      const dialog = await screen.findByRole('dialog')
+      await userEvent.clear(within(dialog).getByLabelText('Name'))
+      await userEvent.type(within(dialog).getByLabelText('Name'), 'My arrival')
+      await userEvent.click(within(dialog).getByRole('button', { name: 'GPU' }))
+      await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
+      await waitFor(() => expect(api.gsxRoutinesSave).toHaveBeenCalledTimes(1))
+      const saved = api.gsxRoutinesSave.mock.calls[0][0] as GsxRoutine
+      expect(saved).toMatchObject({ id: 'builtin-arrival', name: 'My arrival' })
+      expect(saved.builtIn).toBeUndefined()
+      expect(routineServices(saved)).toEqual(['OperateJetways', 'Deboarding'])
+      await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+      expect(screen.getByRole('button', { name: 'Edit My arrival' })).toBeInTheDocument()
+    })
+
+    it('makes a copy of an example under a new id, named after it', async () => {
       withWinglog()
       render(<GsxRoutines canEdit />)
       await editRoutine('Arrival')
@@ -201,7 +223,7 @@ describe('GsxRoutines', () => {
       await userEvent.click(within(dialog).getByRole('button', { name: 'Duplicate' }))
       expect(within(dialog).getByLabelText('Name')).toHaveValue('Arrival copy')
       expect(within(dialog).getByRole('button', { name: 'Save' })).toBeEnabled()
-      expect(within(dialog).queryByText(/can't be changed/)).toBeNull()
+      expect(within(dialog).queryByRole('button', { name: 'Delete' })).toBeNull()
     })
 
     it('makes a new routine: name it, tick services, see the stages, save', async () => {

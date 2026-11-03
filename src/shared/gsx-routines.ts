@@ -215,7 +215,8 @@ function checkStages(value: unknown): { stages: GsxRoutineStage[] } | { reason: 
 }
 
 /**
- * Reads a routine's id and name: an id that is safe to key on and that no built-in uses, and a name of 1 to 40 characters.
+ * Reads a routine's id and name: an id that is safe to key on, and a name of 1 to 40 characters. A built-in's id is allowed: that is
+ * the pilot's own version of the example.
  *
  * @param record The routine as stored or sent.
  * @returns The id and the trimmed name, or the reason they are refused.
@@ -223,7 +224,6 @@ function checkStages(value: unknown): { stages: GsxRoutineStage[] } | { reason: 
 function checkIdentity(record: Record<string, unknown>): { id: string; name: string } | { reason: string } {
   const { id } = record
   if (typeof id !== 'string' || !GSX_ROUTINE_ID_PATTERN.test(id)) return { reason: 'bad id' }
-  if (BUILT_IN_ROUTINES.some((r) => r.id === id)) return { reason: 'the id belongs to a built-in routine' }
   const name = typeof record.name === 'string' ? record.name.trim() : ''
   if (name.length === 0 || name.length > GSX_ROUTINE_NAME_MAX) {
     return { reason: `the name must be 1 to ${GSX_ROUTINE_NAME_MAX} characters` }
@@ -233,7 +233,7 @@ function checkIdentity(record: Record<string, unknown>): { id: string; name: str
 
 /**
  * Checks a routine read from storage or sent by the renderer: external input, so nothing is trusted and nothing throws. A
- * stored routine can never be a built-in (those are code), so `builtIn` is dropped.
+ * stored routine is never marked `builtIn` (that mark is code's), so it is dropped; the pilot's version of an example keeps its id.
  *
  * @param value The routine as stored or sent.
  * @returns The routine as WingLog will keep it, or the reason it is refused.
@@ -308,9 +308,10 @@ export function parseHiddenBuiltIns(stored: string | undefined): string[] {
 }
 
 /**
- * Every routine the pilot can start: the built-ins they have not deleted, then their own.
+ * Every routine the pilot can start: the examples they have not deleted, then their own. A saved version of an example (same id) takes
+ * the example's place.
  *
- * @param own The pilot's own routines.
+ * @param own The pilot's own routines, and their versions of the examples.
  * @param hiddenBuiltIns The ids of the built-ins the pilot deleted.
  * @returns The list shown on the GSX page and the phone.
  */
@@ -318,5 +319,8 @@ export function allRoutines(
   own: readonly GsxRoutine[],
   hiddenBuiltIns: readonly string[] = []
 ): GsxRoutine[] {
-  return [...BUILT_IN_ROUTINES.filter((r) => !hiddenBuiltIns.includes(r.id)), ...own]
+  const examples = BUILT_IN_ROUTINES.filter((r) => !hiddenBuiltIns.includes(r.id)).map(
+    (example) => own.find((r) => r.id === example.id) ?? example
+  )
+  return [...examples, ...own.filter((r) => !BUILT_IN_ROUTINES.some((example) => example.id === r.id))]
 }

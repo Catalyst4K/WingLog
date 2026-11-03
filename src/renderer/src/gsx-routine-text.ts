@@ -4,7 +4,7 @@
  */
 import type { TFunction } from 'i18next'
 import type { GsxRoutineNote, GsxRoutineSkipReason, GsxRoutineStopReason } from '@shared/gsx-routine-progress'
-import type { GsxRoutineBuiltIn, GsxRoutineService } from '@shared/gsx-routines'
+import { BUILT_IN_ROUTINES, type GsxRoutineBuiltIn, type GsxRoutineService } from '@shared/gsx-routines'
 
 /**
  * @param t The translator.
@@ -31,7 +31,8 @@ const BUILT_IN_KEY: Record<GsxRoutineBuiltIn, string> = {
 }
 
 /**
- * A routine's name as the pilot reads it: the three built-ins are worded in their language, the pilot's own are as they typed.
+ * A routine's name as the pilot reads it: an example that still has its own name is worded in their language; a name they typed (a new
+ * routine, or an example they renamed) is shown as typed.
  *
  * @param t The translator.
  * @param routine The routine, or the id and name of one that is running.
@@ -41,10 +42,14 @@ export function routineName(
   t: TFunction,
   routine: { id: string; name: string; builtIn?: GsxRoutineBuiltIn }
 ): string {
-  const builtIn =
-    routine.builtIn ??
-    (Object.keys(BUILT_IN_KEY) as GsxRoutineBuiltIn[]).find((key) => routine.id === `builtin-${key}`)
-  return builtIn ? t(`gsxRoutines.builtIn.${BUILT_IN_KEY[builtIn]}`) : routine.name
+  const example = BUILT_IN_ROUTINES.find(
+    (r) => r.builtIn !== undefined && (routine.builtIn === r.builtIn || routine.id === r.id)
+  )
+  const isUnrenamed =
+    example !== undefined && (routine.builtIn !== undefined || routine.name === example.name)
+  return isUnrenamed && example.builtIn
+    ? t(`gsxRoutines.builtIn.${BUILT_IN_KEY[example.builtIn]}`)
+    : routine.name
 }
 
 const STOP_KEY: Record<GsxRoutineStopReason, string> = {

@@ -164,7 +164,6 @@ describe('GSX routines IPC', () => {
 
     it.each([
       ['a blank name', { ...MY_ROUTINE, name: '  ' }],
-      ['a built-in id', { ...MY_ROUTINE, id: 'builtin-arrival' }],
       [
         'a service that is not offered',
         { ...MY_ROUTINE, stages: [{ services: ['Departure'], startsWhen: [] }] }
@@ -213,6 +212,24 @@ describe('GSX routines IPC', () => {
         'builtin-turnaround-clean',
         'my-routine'
       ])
+    })
+
+    it('keeps the pilot’s version of an example in the example’s place, and deleting the example drops that version too', () => {
+      const invoke = register()
+      const saved = invoke(IpcChannels.gsxRoutinesSave, {
+        ...MY_ROUTINE,
+        id: 'builtin-arrival',
+        name: 'My arrival'
+      }) as { routines: { id: string; name: string }[] }
+      expect(saved.routines.map((r) => [r.id, r.name])).toEqual([
+        ['builtin-fenix-departure', 'Departure'],
+        ['builtin-arrival', 'My arrival'],
+        ['builtin-turnaround-clean', 'Turnaround clean']
+      ])
+      expect(getSetting(db, 'gsxRoutines')).toContain('My arrival')
+      const after = invoke(IpcChannels.gsxRoutinesDelete, 'builtin-arrival') as { id: string }[]
+      expect(after.map((r) => r.id)).toEqual(['builtin-fenix-departure', 'builtin-turnaround-clean'])
+      expect(getSetting(db, 'gsxRoutines')).toBe('[]')
     })
 
     it('deleting the same built-in twice, or an id it does not know, changes nothing more', () => {

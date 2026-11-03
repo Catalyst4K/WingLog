@@ -69,10 +69,9 @@ picking the service by its name, so it still works if GSX's menu changes while a
 **New routine** makes your own: name it, tick the services, and WingLog lays them out in a sensible
 order, which you can change by moving a service to another stage or choosing what a stage waits for.
 Press **Edit** and the routine buttons open their editor instead of starting the routine; press it
-again to go back. The three that come with WingLog can't be changed, but **Duplicate** makes a copy
-you can, and any routine, those three included, can be deleted (WingLog asks first, and a deleted
-routine is gone for good). Pushback and de-icing aren't part
-of routines. On a phone or tablet you can start and cancel a routine but not
+again to go back. The three that come with WingLog are examples: change them like any other
+routine, make a copy with **Duplicate**, or delete them (WingLog asks first, and a deleted routine is
+gone for good). Pushback and de-icing aren't part of routines. On a phone or tablet you can start and cancel a routine but not
 edit one.
 
 ### Finding your arrival gate

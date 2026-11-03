@@ -122,7 +122,7 @@ export function blankRoutine(id: string, name: string): GsxRoutine {
  * @param routine The routine to copy.
  * @param id The copy's id.
  * @param name The copy's name, cut to the limit.
- * @returns The copy, without the built-in mark.
+ * @returns The copy, without the built-in mark (so an example opens as the pilot's own version of it when the id is kept).
  */
 export function copyRoutine(routine: GsxRoutine, id: string, name: string): GsxRoutine {
   return {

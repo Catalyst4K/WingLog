@@ -77,8 +77,14 @@ describe('routineName', () => {
     expect(routineName(t, { id: 'builtin-fenix-departure', name: 'x', builtIn: 'fenix-departure' })).toBe(
       'Departure'
     )
-    expect(routineName(t, { id: 'builtin-arrival', name: 'whatever the main process said' })).toBe('Arrival')
-    expect(routineName(t, { id: 'builtin-turnaround-clean', name: 'x' })).toBe('Turnaround clean')
+    expect(routineName(t, { id: 'builtin-arrival', name: 'Arrival' })).toBe('Arrival')
+    expect(routineName(t, { id: 'builtin-turnaround-clean', name: 'Turnaround clean' })).toBe(
+      'Turnaround clean'
+    )
+  })
+
+  it('shows a name the pilot gave an example as they typed it', () => {
+    expect(routineName(t, { id: 'builtin-arrival', name: 'My arrival' })).toBe('My arrival')
   })
 
   it('leaves a routine of the pilot’s own as they typed it', () => {

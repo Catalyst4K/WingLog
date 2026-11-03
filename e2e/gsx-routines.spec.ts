@@ -91,11 +91,23 @@ test.describe('GSX routines', () => {
       await expect(dialog).toHaveCount(0)
       await expect(page.getByRole('button', { name: 'Cabin turn', exact: true })).toBeVisible()
 
-      // A routine that comes with WingLog is deleted the same way as one of your own.
+      // A routine that comes with WingLog is edited and deleted the same way as one of your own.
       await page.getByRole('button', { name: 'Edit', exact: true }).click()
       await page.getByRole('button', { name: 'Edit Arrival' }).click()
+      await dialog.getByLabel('Name').fill('Gate arrival')
+      await dialog.getByRole('button', { name: 'GPU', exact: true }).click()
+      await dialog.getByRole('button', { name: 'Save' }).click()
+      await expect(dialog).toHaveCount(0)
+      await expect(page.getByRole('button', { name: 'Edit Arrival' })).toHaveCount(0)
+      await page.getByRole('button', { name: 'Edit Gate arrival' }).click()
+      await expect(dialog.getByRole('button', { name: 'GPU', exact: true })).toHaveAttribute(
+        'aria-pressed',
+        'false'
+      )
       await dialog.getByRole('button', { name: 'Delete', exact: true }).click()
-      await expect(dialog.getByTestId('gsx-routine-delete-confirmation')).toContainText('Delete “Arrival”?')
+      await expect(dialog.getByTestId('gsx-routine-delete-confirmation')).toContainText(
+        'Delete “Gate arrival”?'
+      )
       await page.screenshot({
         path: 'release/sim/gsx-routines/pc-delete-confirmation.png',
         animations: 'disabled'
@@ -105,7 +117,7 @@ test.describe('GSX routines', () => {
         .getByRole('button', { name: 'Delete' })
         .click()
       await expect(dialog).toHaveCount(0)
-      await expect(page.getByRole('button', { name: 'Edit Arrival' })).toHaveCount(0)
+      await expect(page.getByRole('button', { name: 'Edit Gate arrival' })).toHaveCount(0)
       await expect(page.getByRole('button', { name: 'Edit Turnaround clean' })).toBeVisible()
     } finally {
       await cleanup()

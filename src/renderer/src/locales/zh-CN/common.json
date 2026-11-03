@@ -835,7 +835,6 @@
       "titleNew": "新建例程",
       "titleEdit": "例程",
       "description": "勾选此例程要向 GSX 请求的服务。WingLog 会按安全的顺序排列，你也可以调整。",
-      "builtInNote": "此例程随 WingLog 提供，无法修改。可复制后创建你自己的版本，也可以删除它。",
       "name": "名称",
       "servicesHeading": "服务",
       "groupMain": "GSX 主菜单",
