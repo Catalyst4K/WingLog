@@ -182,7 +182,7 @@ describe('GsxRoutines', () => {
   })
 
   describe('the editor', () => {
-    it('shows a built-in as it is, and only lets it be duplicated', async () => {
+    it('shows a built-in as it is, and lets it be duplicated or deleted', async () => {
       withWinglog()
       render(<GsxRoutines canEdit />)
       await editRoutine('Arrival')
@@ -296,16 +296,14 @@ describe('GsxRoutines', () => {
       expect(screen.queryByRole('button', { name: 'A320 turnaround' })).toBeNull()
     })
 
-    it('says a deleted built-in can be brought back from Settings, and it leaves the row', async () => {
+    it('deletes a routine that comes with WingLog the same way, and it leaves the row', async () => {
       const { api } = withWinglog()
       render(<GsxRoutines canEdit />)
       await editRoutine('Arrival')
       const dialog = await screen.findByRole('dialog')
       await userEvent.click(within(dialog).getByRole('button', { name: 'Delete' }))
       const confirmation = within(dialog).getByTestId('gsx-routine-delete-confirmation')
-      expect(confirmation).toHaveTextContent(
-        'Delete “Arrival”? You can bring it back from Settings, under GSX Remote Control.'
-      )
+      expect(confirmation).toHaveTextContent('Delete “Arrival”? This can’t be undone.')
       await userEvent.click(within(confirmation).getByRole('button', { name: 'Delete' }))
       await waitFor(() => expect(api.gsxRoutinesDelete).toHaveBeenCalledWith('builtin-arrival'))
       await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
@@ -327,13 +325,6 @@ describe('GsxRoutines', () => {
       expect(api.gsxRoutinesDelete).not.toHaveBeenCalled()
       expect(within(dialog).queryByTestId('gsx-routine-delete-confirmation')).toBeNull()
       expect(within(dialog).getByRole('button', { name: 'Save' })).toBeInTheDocument()
-    })
-
-    it('has no Restore on the Routines row; that is in Settings', async () => {
-      withWinglog()
-      render(<GsxRoutines canEdit />)
-      await userEvent.click(await screen.findByRole('button', { name: 'Edit', pressed: false }))
-      expect(screen.queryByRole('button', { name: /Restore/ })).toBeNull()
     })
 
     it('closes without saving', async () => {

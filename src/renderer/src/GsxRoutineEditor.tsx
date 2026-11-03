@@ -222,12 +222,11 @@ function OptionRows(props: {
 /**
  * The bar that asks "are you sure?" before a routine is deleted, in place of the buttons at the foot of the editor.
  *
- * @param props The routine's name, whether it is a built-in, and what to do.
+ * @param props The routine's name, and what to do.
  * @returns The element.
  */
 function DeleteConfirmation(props: {
   name: string
-  isBuiltIn: boolean
   busy: boolean
   onConfirm: () => void
   onCancel: () => void
@@ -244,14 +243,7 @@ function DeleteConfirmation(props: {
       className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-destructive/40 bg-destructive/10 p-3"
       data-testid="gsx-routine-delete-confirmation"
     >
-      <p className="text-sm text-foreground">
-        {t(
-          props.isBuiltIn ? 'gsxRoutines.editor.confirmDeleteBuiltIn' : 'gsxRoutines.editor.confirmDeleteOwn',
-          {
-            name: props.name
-          }
-        )}
-      </p>
+      <p className="text-sm text-foreground">{t('gsxRoutines.editor.confirmDelete', { name: props.name })}</p>
       <div className="flex gap-2">
         <Button type="button" variant="outline" size="sm" onClick={props.onCancel}>
           {t('gsxRoutines.editor.cancelDelete')}
@@ -295,7 +287,6 @@ function EditorButtons(props: {
     return (
       <DeleteConfirmation
         name={props.name}
-        isBuiltIn={props.readOnly}
         busy={props.busy}
         onConfirm={props.onDelete}
         onCancel={() => setConfirmingDelete(false)}

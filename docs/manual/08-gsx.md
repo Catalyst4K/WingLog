@@ -70,8 +70,8 @@ picking the service by its name, so it still works if GSX's menu changes while a
 order, which you can change by moving a service to another stage or choosing what a stage waits for.
 Press **Edit** and the routine buttons open their editor instead of starting the routine; press it
 again to go back. The three that come with WingLog can't be changed, but **Duplicate** makes a copy
-you can, and any routine, those three included, can be deleted (WingLog asks first). If you delete
-one of the three, **Restore** on the **GSX Remote Control** card in Settings brings it back. Pushback and de-icing aren't part
+you can, and any routine, those three included, can be deleted (WingLog asks first, and a deleted
+routine is gone for good). Pushback and de-icing aren't part
 of routines. On a phone or tablet you can start and cancel a routine but not
 edit one.
 

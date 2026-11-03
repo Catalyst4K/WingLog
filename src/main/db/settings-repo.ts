@@ -378,7 +378,7 @@ export function setGsxRoutines(db: WingLogDb, routines: readonly GsxRoutine[]): 
 }
 
 /**
- * The built-in GSX routines the pilot has deleted. They stay in the app, only out of the list, so Restore can bring them back.
+ * The built-in GSX routines the pilot has deleted. They stay in the app, only out of the list.
  *
  * @param db The database.
  * @returns The ids of the built-ins to leave out.
@@ -391,7 +391,7 @@ export function getHiddenBuiltInRoutines(db: WingLogDb): string[] {
  * Stores which built-in GSX routines the pilot has deleted.
  *
  * @param db The database.
- * @param ids The ids of the built-ins to leave out; empty restores them all.
+ * @param ids The ids of the built-ins to leave out.
  */
 export function setHiddenBuiltInRoutines(db: WingLogDb, ids: readonly string[]): void {
   setSetting(db, GSX_HIDDEN_BUILT_INS_KEY, JSON.stringify(ids))

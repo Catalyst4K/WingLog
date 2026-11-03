@@ -356,7 +356,7 @@ describe('settings repo', () => {
       expect(getHiddenBuiltInRoutines(db)).toEqual([])
     })
 
-    it('keeps which built-ins were deleted, and an empty list restores them', () => {
+    it('keeps which built-ins were deleted', () => {
       setHiddenBuiltInRoutines(db, ['builtin-arrival'])
       expect(getHiddenBuiltInRoutines(db)).toEqual(['builtin-arrival'])
       setHiddenBuiltInRoutines(db, [])

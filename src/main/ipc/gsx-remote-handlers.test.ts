@@ -224,20 +224,6 @@ describe('GSX routines IPC', () => {
       expect(JSON.parse(getSetting(db, 'gsxRoutinesHidden') ?? '[]')).toEqual(['builtin-arrival'])
     })
 
-    it('restores every deleted built-in, in their own place, and leaves the pilot’s own alone', () => {
-      const invoke = register()
-      invoke(IpcChannels.gsxRoutinesSave, MY_ROUTINE)
-      invoke(IpcChannels.gsxRoutinesDelete, 'builtin-arrival')
-      invoke(IpcChannels.gsxRoutinesDelete, 'builtin-fenix-departure')
-      const restored = invoke(IpcChannels.gsxRoutinesRestore) as { id: string }[]
-      expect(restored.map((r) => r.id)).toEqual([
-        'builtin-fenix-departure',
-        'builtin-arrival',
-        'builtin-turnaround-clean',
-        'my-routine'
-      ])
-    })
-
     it('still leaves a deleted built-in out when a routine is saved afterwards', () => {
       const invoke = register()
       invoke(IpcChannels.gsxRoutinesDelete, 'builtin-arrival')

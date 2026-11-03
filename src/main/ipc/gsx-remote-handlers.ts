@@ -105,7 +105,7 @@ export function listRoutines(db: WingLogDb, own: GsxRoutine[] = readOwnRoutines(
 }
 
 /**
- * The routines queries: list, save, delete and restore. Main checks a saved routine again whatever the renderer checked.
+ * The routines queries: list, save and delete. Main checks a saved routine again whatever the renderer checked.
  *
  * @param ipcMain Electron's IPC.
  * @param db The database.
@@ -133,10 +133,6 @@ function registerRoutineQueries(ipcMain: IpcMain, db: WingLogDb): void {
     const next = readOwnRoutines(db).filter((r) => r.id !== id)
     setGsxRoutines(db, next)
     return listRoutines(db, next)
-  })
-  ipcMain.handle(IpcChannels.gsxRoutinesRestore, (): GsxRoutine[] => {
-    setHiddenBuiltInRoutines(db, [])
-    return listRoutines(db)
   })
 }
 

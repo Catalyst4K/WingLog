@@ -91,7 +91,7 @@ test.describe('GSX routines', () => {
       await expect(dialog).toHaveCount(0)
       await expect(page.getByRole('button', { name: 'Cabin turn', exact: true })).toBeVisible()
 
-      // A routine that comes with WingLog can be deleted too, and Restore brings it back.
+      // A routine that comes with WingLog is deleted the same way as one of your own.
       await page.getByRole('button', { name: 'Edit', exact: true }).click()
       await page.getByRole('button', { name: 'Edit Arrival' }).click()
       await dialog.getByRole('button', { name: 'Delete', exact: true }).click()
@@ -107,14 +107,6 @@ test.describe('GSX routines', () => {
       await expect(dialog).toHaveCount(0)
       await expect(page.getByRole('button', { name: 'Edit Arrival' })).toHaveCount(0)
       await expect(page.getByRole('button', { name: 'Edit Turnaround clean' })).toBeVisible()
-
-      // Settings brings it back.
-      await page.getByRole('tab', { name: 'Settings' }).click()
-      await page.getByRole('tab', { name: '3rd party' }).click()
-      await page.getByRole('button', { name: 'Restore', exact: true }).click()
-      await expect(page.getByText('Restored.', { exact: false })).toBeVisible()
-      await page.getByRole('tab', { name: 'Ground services' }).click()
-      await expect(page.getByRole('button', { name: 'Arrival', exact: true })).toBeVisible()
     } finally {
       await cleanup()
       await server.stop()
