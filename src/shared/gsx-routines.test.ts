@@ -8,6 +8,7 @@ import {
   allRoutines,
   checkRoutine,
   isGsxRoutineService,
+  parseHiddenBuiltIns,
   parseStoredRoutines,
   routineServices,
   stageRoutine,
@@ -90,7 +91,7 @@ describe('the built-in routines', () => {
     expect(BUILT_IN_ROUTINES.every((r) => r.fuel === 'ask')).toBe(true)
   })
 
-  it('Fenix-style departure is Catering and Refueling, then Boarding once Catering has completed', () => {
+  it('the Departure routine is Catering and Refueling, then Boarding once Catering has completed', () => {
     const fenix = BUILT_IN_ROUTINES[0]
     expect(fenix.stages).toEqual([
       { services: ['Catering', 'Refueling'], startsWhen: [] },
@@ -121,6 +122,31 @@ describe('the built-in routines', () => {
       'builtin-turnaround-clean',
       'my-turnaround'
     ])
+  })
+
+  it('leave out the ones the pilot deleted', () => {
+    expect(allRoutines([], ['builtin-arrival']).map((r) => r.id)).toEqual([
+      'builtin-fenix-departure',
+      'builtin-turnaround-clean'
+    ])
+  })
+
+  describe('the stored list of deleted built-ins', () => {
+    it('is empty until something is deleted', () => {
+      expect(parseHiddenBuiltIns(undefined)).toEqual([])
+      expect(parseHiddenBuiltIns('')).toEqual([])
+    })
+
+    it('keeps the ids of built-ins, in the built-in order', () => {
+      expect(parseHiddenBuiltIns('["builtin-turnaround-clean","builtin-arrival"]')).toEqual([
+        'builtin-arrival',
+        'builtin-turnaround-clean'
+      ])
+    })
+
+    it.each([['{broken'], ['{"a":1}'], ['["not-a-routine", 7, null]']])('reads %s as none', (stored) => {
+      expect(parseHiddenBuiltIns(stored)).toEqual([])
+    })
   })
 })
 

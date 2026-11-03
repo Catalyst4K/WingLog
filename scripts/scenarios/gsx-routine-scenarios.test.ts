@@ -89,7 +89,7 @@ describe('GSX routines against flight 256 (PMDG 777-300ER, VHHH)', () => {
     expect(result.pickedAtS).toEqual({})
   })
 
-  it('under Fenix-style departure, asks for Boarding when Catering completes, long after the fuel step', () => {
+  it('under the Departure routine, asks for Boarding when Catering completes, long after the fuel step', () => {
     const result = replayRoutine(fixture, {
       routine: FENIX_DEPARTURE,
       startAtS: 24,

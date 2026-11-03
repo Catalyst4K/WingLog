@@ -14,13 +14,21 @@
  */
 import type { IpcMain } from 'electron'
 import { IpcChannels, type GsxRemoteSettings, type GsxRoutinesResult, type SimTelemetry } from '@shared/ipc'
-import { GSX_ROUTINES_MAX, allRoutines, checkRoutine, type GsxRoutine } from '@shared/gsx-routines'
+import {
+  BUILT_IN_ROUTINES,
+  GSX_ROUTINES_MAX,
+  allRoutines,
+  checkRoutine,
+  type GsxRoutine
+} from '@shared/gsx-routines'
 import type { WingLogDb } from '../db/client'
 import {
   getGsxRemoteSettings,
   getGsxRoutines,
+  getHiddenBuiltInRoutines,
   setGsxRemoteSettings,
-  setGsxRoutines
+  setGsxRoutines,
+  setHiddenBuiltInRoutines
 } from '../db/settings-repo'
 import type { DevDiagnostics } from '../diagnostics/dev-diagnostics'
 import { EMPTY_COMMAND_BAR, EMPTY_MENU, GsxRemoteService } from '../gsx-remote/GsxRemoteService'
@@ -86,13 +94,24 @@ function readOwnRoutines(db: WingLogDb): GsxRoutine[] {
 }
 
 /**
- * The routines queries: list, save and delete. Main checks a saved routine again whatever the renderer checked.
+ * Every routine on offer: the built-ins the pilot has not deleted, then their own.
+ *
+ * @param db The database.
+ * @param own The pilot's own routines, when the caller has just changed them.
+ * @returns The list.
+ */
+export function listRoutines(db: WingLogDb, own: GsxRoutine[] = readOwnRoutines(db)): GsxRoutine[] {
+  return allRoutines(own, getHiddenBuiltInRoutines(db))
+}
+
+/**
+ * The routines queries: list, save, delete and restore. Main checks a saved routine again whatever the renderer checked.
  *
  * @param ipcMain Electron's IPC.
  * @param db The database.
  */
 function registerRoutineQueries(ipcMain: IpcMain, db: WingLogDb): void {
-  ipcMain.handle(IpcChannels.gsxRoutinesList, () => allRoutines(readOwnRoutines(db)))
+  ipcMain.handle(IpcChannels.gsxRoutinesList, () => listRoutines(db))
   ipcMain.handle(IpcChannels.gsxRoutinesSave, (_event, routine: unknown): GsxRoutinesResult => {
     const checked = checkRoutine(routine)
     if (!checked.ok) return { ok: false, reason: checked.reason }
@@ -104,12 +123,20 @@ function registerRoutineQueries(ipcMain: IpcMain, db: WingLogDb): void {
     const next =
       index < 0 ? [...own, checked.routine] : own.map((r, i) => (i === index ? checked.routine : r))
     setGsxRoutines(db, next)
-    return { ok: true, routines: allRoutines(next) }
+    return { ok: true, routines: listRoutines(db, next) }
   })
   ipcMain.handle(IpcChannels.gsxRoutinesDelete, (_event, id: unknown): GsxRoutine[] => {
+    if (BUILT_IN_ROUTINES.some((r) => r.id === id)) {
+      setHiddenBuiltInRoutines(db, [...new Set([...getHiddenBuiltInRoutines(db), id as string])])
+      return listRoutines(db)
+    }
     const next = readOwnRoutines(db).filter((r) => r.id !== id)
     setGsxRoutines(db, next)
-    return allRoutines(next)
+    return listRoutines(db, next)
+  })
+  ipcMain.handle(IpcChannels.gsxRoutinesRestore, (): GsxRoutine[] => {
+    setHiddenBuiltInRoutines(db, [])
+    return listRoutines(db)
   })
 }
 
@@ -175,7 +202,7 @@ export function registerGsxRemoteHandlers(
   registerRoutineQueries(ipcMain, db)
   const routineControl: RoutineControl = {
     start: (id) => {
-      const routine = allRoutines(readOwnRoutines(db)).find((r) => r.id === id)
+      const routine = listRoutines(db).find((r) => r.id === id)
       if (routine) routineDriver?.start(routine)
     },
     cancel: () => routineDriver?.cancel()

@@ -778,6 +778,7 @@
     "newName": "我的流程",
     "edit": "編輯 {{name}}",
     "editButton": "編輯",
+    "restore": "還原內建流程",
     "cancel": "取消",
     "stageOf": "第 {{stage}} 階段，共 {{count}} 階段",
     "services": {
@@ -799,7 +800,7 @@
       "skipped": "已略過"
     },
     "builtIn": {
-      "fenixDeparture": "Fenix 式離場",
+      "departure": "離場",
       "arrival": "抵達",
       "turnaroundClean": "過站清潔"
     },
@@ -835,7 +836,7 @@
       "titleNew": "新增流程",
       "titleEdit": "流程",
       "description": "勾選此流程要向 GSX 請求的服務。WingLog 會依安全的順序排列，你也可以調整。",
-      "builtInNote": "此流程隨 WingLog 提供，無法修改。可複製後建立你自己的版本。",
+      "builtInNote": "此流程隨 WingLog 提供，無法修改。可複製後建立你自己的版本，也可以刪除它。「還原」會找回內建流程。",
       "name": "名稱",
       "servicesHeading": "服務",
       "groupMain": "GSX 主選單",

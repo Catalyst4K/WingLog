@@ -75,7 +75,7 @@ describe('describeNote', () => {
 describe('routineName', () => {
   it('words the three built-ins in the pilot’s language, by mark or by id', () => {
     expect(routineName(t, { id: 'builtin-fenix-departure', name: 'x', builtIn: 'fenix-departure' })).toBe(
-      'Fenix-style departure'
+      'Departure'
     )
     expect(routineName(t, { id: 'builtin-arrival', name: 'whatever the main process said' })).toBe('Arrival')
     expect(routineName(t, { id: 'builtin-turnaround-clean', name: 'x' })).toBe('Turnaround clean')

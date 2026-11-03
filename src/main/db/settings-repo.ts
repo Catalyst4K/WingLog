@@ -5,7 +5,12 @@
  */
 import { eq } from 'drizzle-orm'
 import { APP_LANGUAGE_OPTIONS } from '@shared/app-language'
-import { parseStoredRoutines, type GsxRoutine, type StoredRoutines } from '@shared/gsx-routines'
+import {
+  parseHiddenBuiltIns,
+  parseStoredRoutines,
+  type GsxRoutine,
+  type StoredRoutines
+} from '@shared/gsx-routines'
 import type {
   AltitudeUnit,
   AppLanguage,
@@ -50,6 +55,7 @@ const GSX_REMOTE_HOST_KEY = 'gsxRemoteHost'
 const GSX_REMOTE_PORT_KEY = 'gsxRemotePort'
 // The pilot's own GSX routines (docs/plans/gsx-service-presets.md), one JSON list. The built-ins are code, not stored.
 const GSX_ROUTINES_KEY = 'gsxRoutines'
+const GSX_HIDDEN_BUILT_INS_KEY = 'gsxRoutinesHidden'
 const BEYONDATC_ENABLED_KEY = 'beyondAtcEnabled'
 const BEYONDATC_HOST_KEY = 'beyondAtcHost'
 const UPDATE_CHECK_ENABLED_KEY = 'updateCheckEnabled'
@@ -369,6 +375,26 @@ export function getGsxRoutines(db: WingLogDb): StoredRoutines {
  */
 export function setGsxRoutines(db: WingLogDb, routines: readonly GsxRoutine[]): void {
   setSetting(db, GSX_ROUTINES_KEY, JSON.stringify(routines))
+}
+
+/**
+ * The built-in GSX routines the pilot has deleted. They stay in the app, only out of the list, so Restore can bring them back.
+ *
+ * @param db The database.
+ * @returns The ids of the built-ins to leave out.
+ */
+export function getHiddenBuiltInRoutines(db: WingLogDb): string[] {
+  return parseHiddenBuiltIns(getSetting(db, GSX_HIDDEN_BUILT_INS_KEY))
+}
+
+/**
+ * Stores which built-in GSX routines the pilot has deleted.
+ *
+ * @param db The database.
+ * @param ids The ids of the built-ins to leave out; empty restores them all.
+ */
+export function setHiddenBuiltInRoutines(db: WingLogDb, ids: readonly string[]): void {
+  setSetting(db, GSX_HIDDEN_BUILT_INS_KEY, JSON.stringify(ids))
 }
 
 /** Default off, localhost — unlike GSX's Remote Client, BeyondATC's own local WebSocket

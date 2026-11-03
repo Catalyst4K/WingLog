@@ -43,7 +43,7 @@ settings.
 A routine asks GSX for several services with one button. On the **Ground services** page, above GSX's
 menu, tap a routine's name to start it. Three come with WingLog:
 
-- **Fenix-style departure**: Refueling and Catering together, then Boarding once Catering has
+- **Departure**: Refueling and Catering together, then Boarding once Catering has
   finished, the way the Fenix A320's own EFB does it.
 - **Arrival**: the jetway and GPU, then Deboarding.
 - **Turnaround clean**: Deboarding, then Cleaning, Lavatory and Water.
@@ -68,8 +68,11 @@ picking the service by its name, so it still works if GSX's menu changes while a
 
 **New routine** makes your own: name it, tick the services, and WingLog lays them out in a sensible
 order, which you can change by moving a service to another stage or choosing what a stage waits for.
-The three that come with WingLog can't be changed; **Duplicate** makes a copy you can. Pushback and
-de-icing aren't part of routines. On a phone or tablet you can start and cancel a routine but not
+Press **Edit** and the routine buttons open their editor instead of starting the routine; press it
+again to go back. The three that come with WingLog can't be changed, but **Duplicate** makes a copy
+you can, and any routine, those three included, can be deleted. **Restore built-in routines** (it
+appears under **Edit** once you've deleted one) brings them back. Pushback and de-icing aren't part
+of routines. On a phone or tablet you can start and cancel a routine but not
 edit one.
 
 ### Finding your arrival gate

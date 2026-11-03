@@ -16,7 +16,7 @@ const OWN: GsxRoutine = {
 
 const RUNNING: GsxRoutineProgress = {
   routineId: 'builtin-fenix-departure',
-  routineName: 'Fenix-style departure',
+  routineName: 'Departure',
   state: 'running',
   stage: 1,
   stageCount: 2,
@@ -50,7 +50,8 @@ function withWinglog(
     gsxRoutineCancel: vi.fn().mockResolvedValue(undefined),
     gsxRoutinesList: vi.fn().mockResolvedValue(allRoutines(options.routines ?? [])),
     gsxRoutinesSave: vi.fn().mockResolvedValue(options.save ?? { ok: true, routines: allRoutines([OWN]) }),
-    gsxRoutinesDelete: vi.fn().mockResolvedValue(allRoutines([]))
+    gsxRoutinesDelete: vi.fn().mockResolvedValue(allRoutines([], ['builtin-arrival'])),
+    gsxRoutinesRestore: vi.fn().mockResolvedValue(allRoutines([]))
   }
   window.winglog = api as unknown as WingLogApi
   return { api, push: (progress) => act(() => listener(progress)) }
@@ -67,7 +68,7 @@ describe('GsxRoutines', () => {
     it('offers the three built-in routines by name', async () => {
       withWinglog()
       render(<GsxRoutines canEdit />)
-      for (const name of ['Fenix-style departure', 'Arrival', 'Turnaround clean']) {
+      for (const name of ['Departure', 'Arrival', 'Turnaround clean']) {
         expect(await screen.findByRole('button', { name })).toBeInTheDocument()
       }
     })
@@ -75,9 +76,9 @@ describe('GsxRoutines', () => {
     it('lists the pilot’s own routines after them', async () => {
       withWinglog({ routines: [OWN] })
       render(<GsxRoutines canEdit />)
-      const buttons = await screen.findAllByRole('button', { name: /^(Fenix|Arrival|Turnaround|A320)/ })
+      const buttons = await screen.findAllByRole('button', { name: /^(Departure|Arrival|Turnaround|A320)/ })
       expect(buttons.map((b) => b.textContent)).toEqual([
-        'Fenix-style departure',
+        'Departure',
         'Arrival',
         'Turnaround clean',
         'A320 turnaround'
@@ -129,7 +130,7 @@ describe('GsxRoutines', () => {
       withWinglog({ progress: RUNNING })
       render(<GsxRoutines canEdit />)
       const panel = await screen.findByTestId('gsx-routine-progress')
-      expect(within(panel).getByText('Fenix-style departure')).toBeInTheDocument()
+      expect(within(panel).getByText('Departure')).toBeInTheDocument()
       expect(within(panel).getByText('Stage 1 of 2')).toBeInTheDocument()
       expect(within(panel).getByText('Catering')).toBeInTheDocument()
       expect(within(panel).getByText('under way')).toBeInTheDocument()
@@ -189,7 +190,7 @@ describe('GsxRoutines', () => {
       const dialog = await screen.findByRole('dialog')
       expect(within(dialog).getByText(/can't be changed/)).toBeInTheDocument()
       expect(within(dialog).queryByRole('button', { name: 'Save' })).toBeNull()
-      expect(within(dialog).queryByRole('button', { name: 'Delete' })).toBeNull()
+      expect(within(dialog).getByRole('button', { name: 'Delete' })).toBeInTheDocument()
       expect(within(dialog).getByRole('button', { name: 'Jetway' })).toBeDisabled()
     })
 
@@ -292,6 +293,40 @@ describe('GsxRoutines', () => {
       await waitFor(() => expect(api.gsxRoutinesDelete).toHaveBeenCalledWith('my-turnaround'))
       await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
       expect(screen.queryByRole('button', { name: 'A320 turnaround' })).toBeNull()
+    })
+
+    it('deletes a built-in routine after asking once more, and it leaves the row', async () => {
+      const { api } = withWinglog()
+      render(<GsxRoutines canEdit />)
+      await editRoutine('Arrival')
+      const dialog = await screen.findByRole('dialog')
+      await userEvent.click(within(dialog).getByRole('button', { name: 'Delete' }))
+      expect(api.gsxRoutinesDelete).not.toHaveBeenCalled()
+      await userEvent.click(within(dialog).getByRole('button', { name: 'Delete for good?' }))
+      await waitFor(() => expect(api.gsxRoutinesDelete).toHaveBeenCalledWith('builtin-arrival'))
+      await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+      expect(screen.queryByRole('button', { name: 'Edit Arrival' })).toBeNull()
+      expect(screen.getByRole('button', { name: 'Edit Turnaround clean' })).toBeInTheDocument()
+    })
+
+    it('offers Restore only while Edit is on and a built-in is missing, and brings them back', async () => {
+      const { api } = withWinglog()
+      api.gsxRoutinesList.mockResolvedValue(allRoutines([], ['builtin-arrival']))
+      render(<GsxRoutines canEdit />)
+      await screen.findByRole('button', { name: 'Turnaround clean' })
+      expect(screen.queryByRole('button', { name: 'Restore built-in routines' })).toBeNull()
+      await userEvent.click(screen.getByRole('button', { name: 'Edit', pressed: false }))
+      await userEvent.click(screen.getByRole('button', { name: 'Restore built-in routines' }))
+      expect(api.gsxRoutinesRestore).toHaveBeenCalledTimes(1)
+      expect(await screen.findByRole('button', { name: 'Edit Arrival' })).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Restore built-in routines' })).toBeNull()
+    })
+
+    it('has no Restore when every built-in is there', async () => {
+      withWinglog()
+      render(<GsxRoutines canEdit />)
+      await userEvent.click(await screen.findByRole('button', { name: 'Edit', pressed: false }))
+      expect(screen.queryByRole('button', { name: 'Restore built-in routines' })).toBeNull()
     })
 
     it('closes without saving', async () => {

@@ -607,8 +607,10 @@ export interface WingLogApi {
   gsxRoutinesList: () => Promise<GsxRoutine[]>
   /** Saves one of the pilot's own routines, new or changed. Main checks it again; the answer is the whole list, or why it was refused. */
   gsxRoutinesSave: (routine: GsxRoutine) => Promise<GsxRoutinesResult>
-  /** Deletes one of the pilot's own routines; a built-in cannot be deleted. Answers with the whole list. */
+  /** Deletes a routine, one of the pilot's own or a built-in (which only leaves the list; Restore brings it back). Answers with the whole list. */
   gsxRoutinesDelete: (id: string) => Promise<GsxRoutine[]>
+  /** Brings back every built-in routine the pilot deleted. Answers with the whole list. */
+  gsxRoutinesRestore: () => Promise<GsxRoutine[]>
   /** The ATC areas in use, and whether the app keeps them up to date by itself. */
   atcAreasGetStatus: () => Promise<AtcAreasStatus>
   /** Turns the automatic look for newer ATC areas on or off. */

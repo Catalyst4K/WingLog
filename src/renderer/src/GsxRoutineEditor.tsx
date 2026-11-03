@@ -220,7 +220,8 @@ function OptionRows(props: {
 }
 
 /**
- * The buttons at the foot of the editor. A built-in offers Duplicate only; a routine of the pilot's own also Save and Delete.
+ * The buttons at the foot of the editor. Every stored routine and every built-in can be deleted (a built-in only leaves the list); a
+ * built-in cannot be saved over, so it offers Duplicate and Delete; a routine of the pilot's own also Save.
  *
  * @param props What the buttons need to know, and do.
  * @returns The element.
@@ -243,8 +244,7 @@ function EditorButtons(props: {
         <Button type="button" variant="outline" size="sm" onClick={props.onDuplicate}>
           {t('gsxRoutines.editor.duplicate')}
         </Button>
-        {props.isStored &&
-          !props.readOnly &&
+        {(props.isStored || props.readOnly) &&
           (confirmingDelete ? (
             <Button
               type="button"
@@ -276,7 +276,7 @@ function EditorButtons(props: {
 }
 
 /**
- * The dialog for one routine. A built-in is shown as it is and can only be duplicated; Duplicate on any routine opens an
+ * The dialog for one routine. A built-in is shown as it is and can be duplicated or deleted; Duplicate on any routine opens an
  * editable copy. Saving goes to the main process, which checks the routine again.
  *
  * @param props The routine, whether it is already stored, and what to do when the dialog closes or the list changes.

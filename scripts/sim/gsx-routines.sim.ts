@@ -182,7 +182,7 @@ function screenshotsSection(): ReportSection | null {
   const shots = [
     [
       'pc-waiting-for-catering.png',
-      'The PC window while Fenix-style departure waits for Catering to complete'
+      'The PC window while the Departure routine waits for Catering to complete'
     ],
     ['pc-editor.png', 'The editor, with a routine of your own: Cleaning and Water, then Catering'],
     ['phone-running.png', 'A phone: the same routine row, with Cancel and no editor']
@@ -207,7 +207,7 @@ it('replays GSX routines over recorded turnarounds and writes the report', () =>
   const f242 = gsxRoutineFixture(242)
   const scenarios: Scenario[] = [
     {
-      title: 'Flight 256, PMDG 777-300ER: Fenix-style departure',
+      title: 'Flight 256, PMDG 777-300ER: Departure routine',
       meta: 'Catering and Refueling, then Boarding once Catering has completed. The pilot asked for all three within a minute; here the routine does. The weights are the recording’s and are not moved with the services, so the payload bar stays open to the end: that is the replay, not the guard.',
       routine: BUILT_IN_ROUTINES[0],
       fixture: f256,
@@ -258,7 +258,7 @@ it('replays GSX routines over recorded turnarounds and writes the report', () =>
       ]
     },
     {
-      title: 'Flight 242, Fenix A320: Fenix-style departure',
+      title: 'Flight 242, Fenix A320: Departure routine',
       meta: 'The Fenix’s own EFB asks for Refueling and Catering together and Boarding 6 s after Catering completes. The routine is meant to do the same. The Fenix’s total weight does not move as passengers board, so its payload entry stays open until Boarding finishes; Refueling is asked for first, so nothing waits on it.',
       routine: BUILT_IN_ROUTINES[0],
       fixture: f242,
@@ -287,7 +287,7 @@ it('replays GSX routines over recorded turnarounds and writes the report', () =>
     intro:
       'The routine runner and the data-entry guard that ship in WingLog, run over two recorded turnarounds. A fake GSX answers the runner’s menu actions and moves each service along its recorded lifecycle from the moment the routine asks for it. Grey is what the pilot did by hand in the recording, blue is when the routine asked.',
     lookFor: [
-      'Fenix-style departure on the 777: Boarding is asked for as soon as Catering completes, and the guard has nothing to hold.',
+      'The Departure routine on the 777: Boarding is asked for as soon as Catering completes, and the guard has nothing to hold.',
       'Refueling then Boarding on the 777: the orange bar is the guard holding Boarding until the fuel has arrived, minutes after the pilot overlapped the two by hand.',
       'The Fenix: the routine asks for Boarding within a few seconds of Catering completing, as the EFB does.',
       'The screenshots at the foot: the routine row, its progress and Cancel, the editor, and the same row on a phone.'

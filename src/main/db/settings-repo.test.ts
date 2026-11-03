@@ -14,6 +14,7 @@ import {
   setMinimizeToTray,
   getGsxRemoteSettings,
   getGsxRoutines,
+  getHiddenBuiltInRoutines,
   getGsxSettings,
   getTrackingSettings,
   getLandingDistanceUnit,
@@ -35,6 +36,7 @@ import {
   setCheckedGsxFirstLaunch,
   setGsxRemoteSettings,
   setGsxRoutines,
+  setHiddenBuiltInRoutines,
   setGsxSettings,
   setTrackingSettings,
   setLandingDistanceUnit,
@@ -348,6 +350,17 @@ describe('settings repo', () => {
       const read = getGsxRoutines(db)
       expect(read.routines).toEqual([MY_ROUTINE])
       expect(read.problem).toMatch(/dropped 1/)
+    })
+
+    it('has deleted no built-in routines until the pilot deletes one', () => {
+      expect(getHiddenBuiltInRoutines(db)).toEqual([])
+    })
+
+    it('keeps which built-ins were deleted, and an empty list restores them', () => {
+      setHiddenBuiltInRoutines(db, ['builtin-arrival'])
+      expect(getHiddenBuiltInRoutines(db)).toEqual(['builtin-arrival'])
+      setHiddenBuiltInRoutines(db, [])
+      expect(getHiddenBuiltInRoutines(db)).toEqual([])
     })
   })
 })

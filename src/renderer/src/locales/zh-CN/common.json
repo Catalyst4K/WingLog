@@ -778,6 +778,7 @@
     "newName": "我的例程",
     "edit": "编辑 {{name}}",
     "editButton": "编辑",
+    "restore": "恢复内置例程",
     "cancel": "取消",
     "stageOf": "第 {{stage}} 阶段，共 {{count}} 阶段",
     "services": {
@@ -799,7 +800,7 @@
       "skipped": "已跳过"
     },
     "builtIn": {
-      "fenixDeparture": "Fenix 式出港",
+      "departure": "出港",
       "arrival": "到港",
       "turnaroundClean": "过站清洁"
     },
@@ -835,7 +836,7 @@
       "titleNew": "新建例程",
       "titleEdit": "例程",
       "description": "勾选此例程要向 GSX 请求的服务。WingLog 会按安全的顺序排列，你也可以调整。",
-      "builtInNote": "此例程随 WingLog 提供，无法修改。可复制后创建你自己的版本。",
+      "builtInNote": "此例程随 WingLog 提供，无法修改。可复制后创建你自己的版本，也可以删除它。“恢复”会找回内置例程。",
       "name": "名称",
       "servicesHeading": "服务",
       "groupMain": "GSX 主菜单",

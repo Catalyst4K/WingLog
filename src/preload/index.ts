@@ -367,6 +367,7 @@ const api: WingLogApi = {
   gsxRoutinesList: () => ipcRenderer.invoke(IpcChannels.gsxRoutinesList),
   gsxRoutinesSave: (routine: GsxRoutine) => ipcRenderer.invoke(IpcChannels.gsxRoutinesSave, routine),
   gsxRoutinesDelete: (id: string) => ipcRenderer.invoke(IpcChannels.gsxRoutinesDelete, id),
+  gsxRoutinesRestore: () => ipcRenderer.invoke(IpcChannels.gsxRoutinesRestore),
   atcAreasGetStatus: () => ipcRenderer.invoke(IpcChannels.atcAreasGetStatus),
   atcAreasSetAuto: (on: boolean) => ipcRenderer.invoke(IpcChannels.atcAreasSetAuto, on),
   atcAreasCheckNow: () => ipcRenderer.invoke(IpcChannels.atcAreasCheckNow),

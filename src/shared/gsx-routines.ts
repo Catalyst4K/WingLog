@@ -145,7 +145,7 @@ function builtIn(
 /** The three routines that ship (Callum, 2026-10-05). The turnaround reading is plan question 4's recommended one:
  *  Deboarding, then Cleaning, Lavatory and Water. */
 export const BUILT_IN_ROUTINES: readonly GsxRoutine[] = [
-  builtIn('fenix-departure', 'Fenix-style departure', ['Catering', 'Refueling', 'Boarding'], false),
+  builtIn('fenix-departure', 'Departure', ['Catering', 'Refueling', 'Boarding'], false),
   builtIn('arrival', 'Arrival', ['OperateJetways', 'GPU', 'Deboarding'], false),
   builtIn('turnaround-clean', 'Turnaround clean', ['Deboarding', 'Cleaning', 'Lavatory', 'Water'], false)
 ]
@@ -290,11 +290,33 @@ export function parseStoredRoutines(stored: string | undefined): StoredRoutines 
 }
 
 /**
- * Every routine the pilot can start: the built-ins, then their own.
+ * Reads the stored list of built-in routines the pilot has deleted. Anything that is not the id of a built-in is ignored.
+ *
+ * @param stored The setting's text, or undefined when never saved.
+ * @returns The ids of the built-ins to leave out.
+ */
+export function parseHiddenBuiltIns(stored: string | undefined): string[] {
+  if (stored === undefined || stored === '') return []
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(stored)
+  } catch {
+    return []
+  }
+  if (!Array.isArray(parsed)) return []
+  return BUILT_IN_ROUTINES.map((r) => r.id).filter((id) => parsed.includes(id))
+}
+
+/**
+ * Every routine the pilot can start: the built-ins they have not deleted, then their own.
  *
  * @param own The pilot's own routines.
+ * @param hiddenBuiltIns The ids of the built-ins the pilot deleted.
  * @returns The list shown on the GSX page and the phone.
  */
-export function allRoutines(own: readonly GsxRoutine[]): GsxRoutine[] {
-  return [...BUILT_IN_ROUTINES, ...own]
+export function allRoutines(
+  own: readonly GsxRoutine[],
+  hiddenBuiltIns: readonly string[] = []
+): GsxRoutine[] {
+  return [...BUILT_IN_ROUTINES.filter((r) => !hiddenBuiltIns.includes(r.id)), ...own]
 }

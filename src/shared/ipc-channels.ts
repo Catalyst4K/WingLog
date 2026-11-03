@@ -185,6 +185,7 @@ export const IpcChannels = {
   gsxRoutinesList: 'gsx-routine:list',
   gsxRoutinesSave: 'gsx-routine:save',
   gsxRoutinesDelete: 'gsx-routine:delete',
+  gsxRoutinesRestore: 'gsx-routine:restore',
   settingsGetBeyondAtc: 'settings:get-beyondatc',
   settingsSetBeyondAtc: 'settings:set-beyondatc',
   beyondAtcGetStatus: 'beyondatc:get-status',

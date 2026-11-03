@@ -16,6 +16,7 @@ import {
   getBeyondAtcSettings,
   getGsxRemoteSettings,
   getGsxRoutines,
+  getHiddenBuiltInRoutines,
   getLanSettings,
   getMapLanguage,
   getTheme,
@@ -230,7 +231,7 @@ export function createLan({
         gsxRemote: getGsxRemoteSettings(db).enabled,
         beyondAtc: getBeyondAtcSettings(db).enabled
       }),
-      routines: () => allRoutines(getGsxRoutines(db).routines),
+      routines: () => allRoutines(getGsxRoutines(db).routines, getHiddenBuiltInRoutines(db)),
       metars: (codes) => fetchMetars(codes, userAgent, metarUrl),
       atis: (requests) => atis(requests)
     }),

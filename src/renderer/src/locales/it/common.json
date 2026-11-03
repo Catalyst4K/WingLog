@@ -788,6 +788,7 @@
     "newName": "La mia routine",
     "edit": "Modifica {{name}}",
     "editButton": "Modifica",
+    "restore": "Ripristina routine incluse",
     "cancel": "Annulla",
     "stageOf": "Fase {{stage}} di {{count}}",
     "services": {
@@ -809,7 +810,7 @@
       "skipped": "saltato"
     },
     "builtIn": {
-      "fenixDeparture": "Partenza in stile Fenix",
+      "departure": "Partenza",
       "arrival": "Arrivo",
       "turnaroundClean": "Pulizia di rotazione"
     },
@@ -845,7 +846,7 @@
       "titleNew": "Nuova routine",
       "titleEdit": "Routine",
       "description": "Seleziona i servizi che questa routine richiede a GSX. WingLog li dispone in un ordine sicuro, che puoi cambiare.",
-      "builtInNote": "Questa routine è fornita con WingLog e non può essere modificata. Duplicala per crearne una tua.",
+      "builtInNote": "Questa routine è fornita con WingLog e non può essere modificata. Duplicala per crearne una tua, oppure eliminala. «Ripristina» riporta le routine incluse.",
       "name": "Nome",
       "servicesHeading": "Servizi",
       "groupMain": "Menu principale di GSX",

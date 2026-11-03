@@ -482,7 +482,7 @@ describe('when a service counts as completed', () => {
   })
 })
 
-describe('Fenix-style departure', () => {
+describe('the Departure routine', () => {
   it('asks for Catering and Refueling, then Boarding six seconds after Catering completes', () => {
     const session = new Session(BUILT_IN_ROUTINES[0])
     request(session, 'Catering')

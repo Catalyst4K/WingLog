@@ -786,6 +786,7 @@
     "newName": "Meine Routine",
     "edit": "{{name}} bearbeiten",
     "editButton": "Bearbeiten",
+    "restore": "Mitgelieferte Routinen wiederherstellen",
     "cancel": "Abbrechen",
     "stageOf": "Stufe {{stage}} von {{count}}",
     "services": {
@@ -807,7 +808,7 @@
       "skipped": "übersprungen"
     },
     "builtIn": {
-      "fenixDeparture": "Abflug im Fenix-Stil",
+      "departure": "Abflug",
       "arrival": "Ankunft",
       "turnaroundClean": "Turnaround-Reinigung"
     },
@@ -843,7 +844,7 @@
       "titleNew": "Neue Routine",
       "titleEdit": "Routine",
       "description": "Hake die Services an, die diese Routine bei GSX anfordert. WingLog ordnet sie in einer sicheren Reihenfolge an, die du ändern kannst.",
-      "builtInNote": "Diese Routine gehört zu WingLog und kann nicht geändert werden. Dupliziere sie, um eine eigene zu erstellen.",
+      "builtInNote": "Diese Routine gehört zu WingLog und kann nicht geändert werden. Dupliziere sie, um eine eigene zu erstellen, oder lösche sie. „Wiederherstellen“ bringt die mitgelieferten Routinen zurück.",
       "name": "Name",
       "servicesHeading": "Services",
       "groupMain": "GSX-Hauptmenü",

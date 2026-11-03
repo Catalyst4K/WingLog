@@ -6,11 +6,11 @@ import { launchApp } from './launch-app'
 
 /**
  * GSX routines (winglog-backend's docs/plans/gsx-service-presets.md): the real app against a scripted GSX that answers the way the
- * recorded GSX does. Fenix-style departure is run through to Boarding requested, on the PC window and from a phone, and a routine
+ * recorded GSX does. The Departure routine is run through to Boarding requested, on the PC window and from a phone, and a routine
  * of the pilot's own is made in the editor and saved.
  */
 
-/** The pick order GSX should see for Fenix-style departure: Catering and Refueling together, Boarding after Catering completes. */
+/** The pick order GSX should see for the Departure routine: Catering and Refueling together, Boarding after Catering completes. */
 const FENIX_PICKS = ['Request Catering service', 'Request Refueling', 'Request Boarding']
 
 /**
@@ -32,7 +32,7 @@ async function setUp(page: Page, gsxPort: number): Promise<void> {
 }
 
 test.describe('GSX routines', () => {
-  test('Fenix-style departure runs on the PC window through to Boarding, and a routine of your own can be made', async () => {
+  test('the Departure routine runs on the PC window through to Boarding, and a routine of your own can be made', async () => {
     const server = await FakeGsxRemoteServer.start()
     const gsx = new ScriptedGsx(server)
     const { window: page, cleanup } = await launchApp()
@@ -43,12 +43,12 @@ test.describe('GSX routines', () => {
       await page.getByRole('tab', { name: 'Ground services' }).click()
 
       // The three built-ins, and a way to make another.
-      for (const name of ['Fenix-style departure', 'Arrival', 'Turnaround clean']) {
+      for (const name of ['Departure', 'Arrival', 'Turnaround clean']) {
         await expect(page.getByRole('button', { name, exact: true })).toBeEnabled()
       }
       await expect(page.getByRole('button', { name: 'New routine' })).toBeVisible()
 
-      await page.getByRole('button', { name: 'Fenix-style departure', exact: true }).click()
+      await page.getByRole('button', { name: 'Departure', exact: true }).click()
       const progress = page.getByTestId('gsx-routine-progress')
       await expect(progress.getByText('Stage 1 of 2')).toBeVisible()
 
@@ -90,6 +90,18 @@ test.describe('GSX routines', () => {
       await dialog.getByRole('button', { name: 'Save' }).click()
       await expect(dialog).toHaveCount(0)
       await expect(page.getByRole('button', { name: 'Cabin turn', exact: true })).toBeVisible()
+
+      // A routine that comes with WingLog can be deleted too, and Restore brings it back.
+      await page.getByRole('button', { name: 'Edit', exact: true }).click()
+      await page.getByRole('button', { name: 'Edit Arrival' }).click()
+      await dialog.getByRole('button', { name: 'Delete', exact: true }).click()
+      await dialog.getByRole('button', { name: 'Delete for good?' }).click()
+      await expect(dialog).toHaveCount(0)
+      await expect(page.getByRole('button', { name: 'Edit Arrival' })).toHaveCount(0)
+      await expect(page.getByRole('button', { name: 'Edit Turnaround clean' })).toBeVisible()
+      await page.getByRole('button', { name: 'Restore built-in routines' }).click()
+      await expect(page.getByRole('button', { name: 'Edit Arrival' })).toBeVisible()
+      await expect(page.getByRole('button', { name: 'Restore built-in routines' })).toHaveCount(0)
     } finally {
       await cleanup()
       await server.stop()
@@ -153,11 +165,11 @@ test.describe('GSX routines', () => {
 
       gsx.sendBootSnapshot()
       await phone.getByRole('navigation').getByRole('button', { name: 'Ground services' }).click()
-      await expect(phone.getByRole('button', { name: 'Fenix-style departure', exact: true })).toBeEnabled()
+      await expect(phone.getByRole('button', { name: 'Departure', exact: true })).toBeEnabled()
       await expect(phone.getByRole('button', { name: 'New routine' })).toHaveCount(0)
       await expect(phone.getByRole('button', { name: /^Edit / })).toHaveCount(0)
 
-      await phone.getByRole('button', { name: 'Fenix-style departure', exact: true }).click()
+      await phone.getByRole('button', { name: 'Departure', exact: true }).click()
       const progress = phone.getByTestId('gsx-routine-progress')
       await expect(progress.getByText('Stage 1 of 2')).toBeVisible()
       await expect.poll(() => gsx.picks).toEqual(['Request Catering service', 'Request Refueling'])

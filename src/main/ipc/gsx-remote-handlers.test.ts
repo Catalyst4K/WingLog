@@ -190,14 +190,63 @@ describe('GSX routines IPC', () => {
       expect(changed.ok).toBe(true)
     })
 
-    it('deletes one of the pilot’s own routines, and never a built-in', () => {
+    it('deletes one of the pilot’s own routines', () => {
       const invoke = register()
       invoke(IpcChannels.gsxRoutinesSave, MY_ROUTINE)
-      const afterBuiltIn = invoke(IpcChannels.gsxRoutinesDelete, 'builtin-arrival') as { id: string }[]
-      expect(afterBuiltIn.map((r) => r.id)).toContain('builtin-arrival')
       const afterOwn = invoke(IpcChannels.gsxRoutinesDelete, 'my-routine') as { id: string }[]
       expect(afterOwn.map((r) => r.id)).not.toContain('my-routine')
       expect(afterOwn).toHaveLength(3)
+    })
+
+    it('deletes a built-in routine from the list, keeps the pilot’s own, and remembers it across a restart', () => {
+      const invoke = register()
+      invoke(IpcChannels.gsxRoutinesSave, MY_ROUTINE)
+      const after = invoke(IpcChannels.gsxRoutinesDelete, 'builtin-arrival') as { id: string }[]
+      expect(after.map((r) => r.id)).toEqual([
+        'builtin-fenix-departure',
+        'builtin-turnaround-clean',
+        'my-routine'
+      ])
+      const again = register()(IpcChannels.gsxRoutinesList) as { id: string }[]
+      expect(again.map((r) => r.id)).toEqual([
+        'builtin-fenix-departure',
+        'builtin-turnaround-clean',
+        'my-routine'
+      ])
+    })
+
+    it('deleting the same built-in twice, or an id it does not know, changes nothing more', () => {
+      const invoke = register()
+      invoke(IpcChannels.gsxRoutinesDelete, 'builtin-arrival')
+      invoke(IpcChannels.gsxRoutinesDelete, 'builtin-arrival')
+      const after = invoke(IpcChannels.gsxRoutinesDelete, 'no-such-routine') as { id: string }[]
+      expect(after).toHaveLength(2)
+      expect(JSON.parse(getSetting(db, 'gsxRoutinesHidden') ?? '[]')).toEqual(['builtin-arrival'])
+    })
+
+    it('restores every deleted built-in, in their own place, and leaves the pilot’s own alone', () => {
+      const invoke = register()
+      invoke(IpcChannels.gsxRoutinesSave, MY_ROUTINE)
+      invoke(IpcChannels.gsxRoutinesDelete, 'builtin-arrival')
+      invoke(IpcChannels.gsxRoutinesDelete, 'builtin-fenix-departure')
+      const restored = invoke(IpcChannels.gsxRoutinesRestore) as { id: string }[]
+      expect(restored.map((r) => r.id)).toEqual([
+        'builtin-fenix-departure',
+        'builtin-arrival',
+        'builtin-turnaround-clean',
+        'my-routine'
+      ])
+    })
+
+    it('still leaves a deleted built-in out when a routine is saved afterwards', () => {
+      const invoke = register()
+      invoke(IpcChannels.gsxRoutinesDelete, 'builtin-arrival')
+      const saved = invoke(IpcChannels.gsxRoutinesSave, MY_ROUTINE) as { routines: { id: string }[] }
+      expect(saved.routines.map((r) => r.id)).toEqual([
+        'builtin-fenix-departure',
+        'builtin-turnaround-clean',
+        'my-routine'
+      ])
     })
 
     it('lists the built-ins when the stored routines are damaged', () => {
@@ -257,7 +306,7 @@ describe('GSX routines IPC', () => {
         'gsxRoutine',
         expect.objectContaining({ routineId: 'builtin-fenix-departure', state: 'running' })
       )
-      expect(invoke(IpcChannels.gsxRoutineGet)).toMatchObject({ routineName: 'Fenix-style departure' })
+      expect(invoke(IpcChannels.gsxRoutineGet)).toMatchObject({ routineName: 'Departure' })
       stop()
     })
 
@@ -266,6 +315,14 @@ describe('GSX routines IPC', () => {
       invoke(IpcChannels.gsxRoutinesSave, { ...MY_ROUTINE, stages: stageRoutine(['GPU']) })
       invoke(IpcChannels.gsxRoutineStart, 'my-routine')
       expect(invoke(IpcChannels.gsxRoutineGet)).toMatchObject({ routineName: 'My routine' })
+      stop()
+    })
+
+    it('does not start a built-in the pilot has deleted', () => {
+      const { invoke, stop } = connected()
+      invoke(IpcChannels.gsxRoutinesDelete, 'builtin-fenix-departure')
+      invoke(IpcChannels.gsxRoutineStart, 'builtin-fenix-departure')
+      expect(invoke(IpcChannels.gsxRoutineGet)).toBeNull()
       stop()
     })
 

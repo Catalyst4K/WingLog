@@ -25,7 +25,7 @@ function serviceList(t: TFunction, services: readonly GsxRoutineService[]): stri
 }
 
 const BUILT_IN_KEY: Record<GsxRoutineBuiltIn, string> = {
-  'fenix-departure': 'fenixDeparture',
+  'fenix-departure': 'departure',
   arrival: 'arrival',
   'turnaround-clean': 'turnaroundClean'
 }
