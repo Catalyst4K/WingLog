@@ -26,7 +26,7 @@ has none, WingLog uses the photo from airport-data.com instead, which is often o
 ## Photos for aircraft you added earlier
 
 Aircraft you looked up in an earlier version have only a small, often old photo. The first time WingLog starts after updating, it quietly
-fetches the newer photos for each of them, one aircraft every few seconds, so there is nothing to press. If you are offline at that moment it
+fetches the newer photos for each of them, about one aircraft a second, so there is nothing to press. If you are offline at that moment it
 tries again the next time you start WingLog.
 
 ## Your own photo

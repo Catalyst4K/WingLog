@@ -1,5 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { PLANESPOTTERS_URL, fetchPlanespottersPhoto } from './planespotters-client'
+import {
+  PLANESPOTTERS_URL,
+  WINGLOG_CONTACT_URL,
+  fetchPlanespottersPhoto,
+  planespottersUserAgent
+} from './planespotters-client'
 
 // Captured live from https://api.planespotters.net/pub/photos/reg/G-EZTK.
 const REAL_REPLY = {
@@ -21,7 +26,11 @@ const REAL_REPLY = {
 }
 
 function reply(body: unknown, status = 200): ReturnType<typeof vi.fn> {
-  return vi.fn(async () => ({ ok: status >= 200 && status < 300, status, json: async () => body }))
+  return vi.fn(async () => ({
+    ok: status >= 200 && status < 300,
+    status,
+    text: async () => (typeof body === 'string' ? body : (JSON.stringify(body) ?? ''))
+  }))
 }
 
 describe('fetchPlanespottersPhoto', () => {
@@ -38,7 +47,7 @@ describe('fetchPlanespottersPhoto', () => {
     })
   })
 
-  it('names WingLog in the User-Agent, as its terms ask, and encodes the registration', async () => {
+  it('sends the User-Agent it is given, and encodes the registration', async () => {
     const fetchMock = reply({ photos: [] })
     vi.stubGlobal('fetch', fetchMock)
     await fetchPlanespottersPhoto('G-A/B C', 'WingLog/1.7.0')
@@ -77,7 +86,7 @@ describe('fetchPlanespottersPhoto', () => {
   })
 
   it.each([
-    ['a rate-limit refusal', 403, { error: 'blocked' }],
+    ['a refusal', 403, { error: 'Server User-Agent strings must include a contact URL' }],
     ['a server error', 503, undefined],
     ['a reply that is not the expected shape', 200, { unexpected: true }]
   ])('throws on %s, so a pass can tell it from "no photo"', async (_label, status, body) => {
@@ -85,17 +94,33 @@ describe('fetchPlanespottersPhoto', () => {
     await expect(fetchPlanespottersPhoto('G-EZTK', 'WingLog')).rejects.toThrow(/Planespotters lookup failed/)
   })
 
-  it('throws when the reply is not JSON', async () => {
+  it('puts the start of a refusal in the error, so the log says why', async () => {
     vi.stubGlobal(
       'fetch',
-      vi.fn(async () => ({
-        ok: true,
-        status: 200,
-        json: async () => {
-          throw new SyntaxError('Unexpected token <')
-        }
-      }))
+      reply({ error: 'Server User-Agent strings must include a contact URL or email' }, 403)
     )
+    await expect(fetchPlanespottersPhoto('G-EZTK', 'WingLog')).rejects.toThrow(
+      'HTTP 403) for registration "G-EZTK": {"error":"Server User-Agent strings must include a contact URL or email"}'
+    )
+  })
+
+  it('cuts a long reply short in the error', async () => {
+    vi.stubGlobal('fetch', reply('x'.repeat(5000), 500))
+    const error = await fetchPlanespottersPhoto('G-EZTK', 'WingLog').catch((e: Error) => e)
+    expect((error as Error).message.length).toBeLessThan(300)
+  })
+
+  it('throws when the reply is not JSON', async () => {
+    vi.stubGlobal('fetch', reply('<html>Just a moment...</html>'))
     await expect(fetchPlanespottersPhoto('G-EZTK', 'WingLog')).rejects.toThrow(/Planespotters lookup failed/)
+  })
+})
+
+describe('planespottersUserAgent', () => {
+  it('names WingLog, its version and a contact URL, which Planespotters requires', () => {
+    const agent = planespottersUserAgent('1.7.0')
+    expect(agent).toBe('WingLog/1.7.0 (+https://github.com/Catalyst4K/WingLog)')
+    expect(agent).toContain(WINGLOG_CONTACT_URL)
+    expect(WINGLOG_CONTACT_URL.startsWith('https://')).toBe(true)
   })
 })

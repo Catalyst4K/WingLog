@@ -6,6 +6,7 @@
  */
 import { runLogged } from './logging/run-logged'
 import { backfillAircraftPhotos } from './aircraft-lookup/photo-backfill'
+import { planespottersUserAgent } from './aircraft-lookup/planespotters-client'
 import { join } from 'node:path'
 import { canShowTray, currentPlatform, quitsWhenAllWindowsClose } from './platform/platform'
 import { CloseGuard } from './window/CloseGuard'
@@ -383,7 +384,7 @@ function startFleetAndLookups(
     'aircraft photo backfill',
     backfillAircraftPhotos(db, {
       onChanged: scheduleBackgroundSync,
-      userAgent: `WingLog/${app.getVersion()}`
+      userAgent: planespottersUserAgent(app.getVersion())
     })
   )
 }

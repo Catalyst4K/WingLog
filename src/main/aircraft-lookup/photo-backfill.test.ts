@@ -5,6 +5,7 @@ import { createAircraft, listAircraft } from '../db/aircraft-repo'
 import { createDb, type WingLogDb } from '../db/client'
 import { getSetting } from '../db/settings-repo'
 import type { AdsbdbResult } from './adsbdb-client'
+import { planespottersUserAgent } from './planespotters-client'
 import { PHOTO_BACKFILL_DONE_KEY, PHOTO_BACKFILL_PAUSE_MS, backfillAircraftPhotos } from './photo-backfill'
 
 vi.mock('../logging/logger', () => ({ logger: { warn: vi.fn() } }))
@@ -133,23 +134,29 @@ describe('backfillAircraftPhotos', () => {
     await backfillAircraftPhotos(db, both)
     expect(pause).toHaveBeenCalledTimes(2)
     expect(pause).toHaveBeenCalledWith(PHOTO_BACKFILL_PAUSE_MS)
-    expect(PHOTO_BACKFILL_PAUSE_MS).toBeGreaterThanOrEqual(2000)
+    expect(PHOTO_BACKFILL_PAUSE_MS).toBeGreaterThanOrEqual(1000)
   })
 
   it('really waits when no clock is given, and names WingLog to Planespotters when no lookup is given', async () => {
     vi.useFakeTimers()
     createAircraft(db, { registration: 'G-AAAA', icaoType: 'A320', photoUrl: FULL })
     createAircraft(db, { registration: 'G-BBBB', icaoType: 'A320', photoUrl: FULL })
-    const fetchMock = vi.fn(async () => ({ ok: true, status: 200, json: async () => ({ photos: [] }) }))
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      text: async () => JSON.stringify({ photos: [] })
+    }))
     vi.stubGlobal('fetch', fetchMock)
-    const done = backfillAircraftPhotos(db, { userAgent: 'WingLog/1.7.0' })
+    const done = backfillAircraftPhotos(db, { userAgent: planespottersUserAgent('1.7.0') })
     await vi.advanceTimersByTimeAsync(0)
     expect(fetchMock).toHaveBeenCalledTimes(1)
     await vi.advanceTimersByTimeAsync(PHOTO_BACKFILL_PAUSE_MS)
     expect(await done).toBe(0)
     expect(fetchMock).toHaveBeenCalledTimes(2)
     const init = (fetchMock.mock.calls[0] as unknown as [string, RequestInit])[1]
-    expect(init.headers).toMatchObject({ 'User-Agent': 'WingLog/1.7.0' })
+    expect(init.headers).toMatchObject({
+      'User-Agent': 'WingLog/1.7.0 (+https://github.com/Catalyst4K/WingLog)'
+    })
     vi.unstubAllGlobals()
   })
 

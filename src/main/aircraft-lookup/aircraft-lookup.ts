@@ -8,11 +8,11 @@ import { fetchAircraftByRegistration } from './adsbdb-client'
 import { fetchPlanespottersPhoto } from './planespotters-client'
 
 /**
- * Looks a registration up. Planespotters' photo is a bonus: if it fails (rate limit, offline) the lookup still answers, without it, and
+ * Looks a registration up. Planespotters' photo is a bonus: if it fails (refused, offline) the lookup still answers, without it, and
  * says why in the log.
  *
  * @param registration The registration.
- * @param userAgent The User-Agent Planespotters is sent, naming WingLog.
+ * @param userAgent The User-Agent Planespotters is sent (see planespottersUserAgent).
  * @returns The aircraft, or null when adsbdb doesn't know the registration.
  * @throws When adsbdb fails.
  */

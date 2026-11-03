@@ -6,6 +6,7 @@
 import { app, type IpcMain } from 'electron'
 import { IpcChannels } from '@shared/ipc'
 import { lookupAircraft } from '../aircraft-lookup/aircraft-lookup'
+import { planespottersUserAgent } from '../aircraft-lookup/planespotters-client'
 import { searchAircraftTypes } from '../aircraft-lookup/icao-types'
 import { fetchAirframesForType } from '../simbrief/simbrief-airframes'
 import { createCustomAirframeFromShare } from '../simbrief/simbrief-generate'
@@ -22,7 +23,7 @@ import { fetchExchangeRate } from '../fx/fx-client'
  */
 export function registerLookupHandlers(ipcMain: IpcMain): void {
   ipcMain.handle(IpcChannels.aircraftLookupByRegistration, (_event, registration: string) =>
-    lookupAircraft(registration, `WingLog/${app.getVersion()}`)
+    lookupAircraft(registration, planespottersUserAgent(app.getVersion()))
   )
 
   ipcMain.handle(IpcChannels.aircraftTypeSearch, (_event, query: string) => searchAircraftTypes(query))

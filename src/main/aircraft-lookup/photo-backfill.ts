@@ -10,13 +10,13 @@ import type { WingLogDb } from '../db/client'
 import { getSetting, setSetting } from '../db/settings-repo'
 import { logger } from '../logging/logger'
 import { fetchAircraftByRegistration, type AdsbdbResult } from './adsbdb-client'
-import { fetchPlanespottersPhoto } from './planespotters-client'
+import { fetchPlanespottersPhoto, planespottersUserAgent } from './planespotters-client'
 
 /** The setting that records the pass finished, so it never repeats. (An earlier pass that only asked adsbdb used another key.) */
 export const PHOTO_BACKFILL_DONE_KEY = 'aircraftPhotosBackfillDone'
 
-/** The wait between two aircraft, in milliseconds: Planespotters refuses requests closer than about a second, and both are free services. */
-export const PHOTO_BACKFILL_PAUSE_MS = 3000
+/** The wait between two aircraft, in milliseconds: adsbdb and Planespotters are free services run by others, so the pass is a polite caller. */
+export const PHOTO_BACKFILL_PAUSE_MS = 1000
 
 /** What the pass needs from outside, so a test can stand in for the network and the clock. */
 export interface PhotoBackfillDeps {
@@ -28,7 +28,7 @@ export interface PhotoBackfillDeps {
   pause?: (ms: number) => Promise<void>
   /** Called once when at least one aircraft gained a photo, e.g. to push the change to the cloud copy. */
   onChanged?: () => void
-  /** The User-Agent Planespotters is sent, naming WingLog. */
+  /** The User-Agent Planespotters is sent (see planespottersUserAgent). */
   userAgent?: string
 }
 
@@ -94,7 +94,7 @@ async function photosFor(
 
 /**
  * Fills in the photos aircraft are missing, then records the pass as done. An aircraft a service doesn't know is left as it is (a
- * fictional registration has no photo). If any lookup failed (offline, rate-limited) the pass is not recorded, so the next launch tries
+ * fictional registration has no photo). If any lookup failed (offline, refused) the pass is not recorded, so the next launch tries
  * again; photos already filled stay filled and are not asked for twice.
  *
  * @param db The database.
@@ -104,7 +104,7 @@ async function photosFor(
 export async function backfillAircraftPhotos(db: WingLogDb, deps: PhotoBackfillDeps = {}): Promise<number> {
   if (getSetting(db, PHOTO_BACKFILL_DONE_KEY) !== undefined) return 0
   const fetchAircraft = deps.fetchAircraft ?? fetchAircraftByRegistration
-  const userAgent = deps.userAgent ?? 'WingLog'
+  const userAgent = deps.userAgent ?? planespottersUserAgent('unknown')
   const fetchPlanespotters =
     deps.fetchPlanespotters ?? ((registration: string) => fetchPlanespottersPhoto(registration, userAgent))
   const pause = deps.pause ?? ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)))
