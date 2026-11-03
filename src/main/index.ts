@@ -5,6 +5,7 @@
  * modules and the services, not here.
  */
 import { runLogged } from './logging/run-logged'
+import { backfillAircraftPhotos } from './aircraft-lookup/photo-backfill'
 import { join } from 'node:path'
 import { canShowTray, currentPlatform, quitsWhenAllWindowsClose } from './platform/platform'
 import { CloseGuard } from './window/CloseGuard'
@@ -358,6 +359,18 @@ function recordParkedStandOnCompletion(
   })
 }
 
+/**
+ * Registers the lookup channels, and starts the one-time pass that gives aircraft looked up before full-size photos were stored their
+ * photo (docs/plans/aircraft-photos.md), in the background.
+ *
+ * @param db The database.
+ * @param scheduleBackgroundSync Pushes a change to the cloud copy, when signed in.
+ */
+function startLookups(db: WingLogDb, scheduleBackgroundSync: () => void): void {
+  registerLookupHandlers(ipcMain)
+  runLogged('aircraft photo backfill', backfillAircraftPhotos(db, { onChanged: scheduleBackgroundSync }))
+}
+
 /** Opens the database and the window, starts the services, and registers every IPC area. */
 function startApp(): void {
   const { db, sqlite, dbPath, backedUp } = openDatabase(app.getPath('userData'))
@@ -396,7 +409,7 @@ function startApp(): void {
 
   registerFleetHandlers(ipcMain, { db, window, scheduleBackgroundSync })
   registerLogbookHandlers(ipcMain, { db, window, scheduleBackgroundSync })
-  registerLookupHandlers(ipcMain)
+  startLookups(db, scheduleBackgroundSync)
   registerDispatchHandlers(ipcMain, { db })
 
   const { sim, replayStreams } = connectSim()

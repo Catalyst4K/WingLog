@@ -17,6 +17,12 @@ tabs.
 
 The **Location** column shows where each aircraft is, updated when a flight ends there.
 
+## Photos for aircraft you added earlier
+
+Aircraft you looked up in an earlier version only have a small photo. The first time WingLog starts after updating, it quietly fetches the
+large one for each of them from the same registration database, so there is nothing to press. If you are offline at that moment it tries
+again the next time you start WingLog.
+
 ## Your own photo
 
 The photo from **Look up** can be old, and some aircraft have none. To use your own, edit the aircraft and press **Choose your own photo…**,
