@@ -81,7 +81,7 @@ export interface NewAircraft {
  * photo to its page, and for the links to be used as given.
  */
 export interface PlanespottersPhoto {
-  /** The image, 420 px wide, on Planespotters' own image host. */
+  /** The image, 280 px high and usually 420 wide, on Planespotters' own image host. */
   photoUrl: string
   /** Who took it. */
   photographer: string

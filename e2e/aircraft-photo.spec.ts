@@ -49,22 +49,24 @@ function chunk(type: string, data: Buffer): Buffer {
 }
 
 /**
- * A real PNG, sky-blue above and grass-green below, the size of a camera photo.
+ * A real PNG, sky-blue above and grass-green below, the size of a camera photo unless given another.
  *
+ * @param widthPx Its width in pixels.
+ * @param heightPx Its height in pixels.
  * @returns The file's bytes.
  */
-function samplePng(): Buffer {
+function samplePng(widthPx = WIDTH_PX, heightPx = HEIGHT_PX): Buffer {
   const header = Buffer.alloc(13)
-  header.writeUInt32BE(WIDTH_PX, 0)
-  header.writeUInt32BE(HEIGHT_PX, 4)
+  header.writeUInt32BE(widthPx, 0)
+  header.writeUInt32BE(heightPx, 4)
   header.set([8, 2, 0, 0, 0], 8) // 8 bits, RGB, no interlace
   const sky = [90, 160, 230]
   const grass = [70, 150, 70]
-  const rows = Buffer.alloc((WIDTH_PX * 3 + 1) * HEIGHT_PX)
-  for (let y = 0; y < HEIGHT_PX; y++) {
-    const colour = y < HEIGHT_PX * 0.65 ? sky : grass
-    const start = y * (WIDTH_PX * 3 + 1)
-    for (let x = 0; x < WIDTH_PX; x++) rows.set(colour, start + 1 + x * 3)
+  const rows = Buffer.alloc((widthPx * 3 + 1) * heightPx)
+  for (let y = 0; y < heightPx; y++) {
+    const colour = y < heightPx * 0.65 ? sky : grass
+    const start = y * (widthPx * 3 + 1)
+    for (let x = 0; x < widthPx; x++) rows.set(colour, start + 1 + x * 3)
   }
   return Buffer.concat([
     Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
@@ -237,3 +239,47 @@ test('a Planespotters photo is shown with its photographer and links to its page
     await cleanup()
   }
 })
+
+/**
+ * A photo that is not 3:2 fills the card with its own shape and is never cropped (B-LJE's Planespotters photo is 16:9 and lost its nose
+ * and tail to a fixed 3:2 box). The box takes the picture's shape between 6:5 and 3:1; beyond that the whole picture is shown on a band.
+ */
+for (const shape of [
+  { name: 'wide 16:9', width: 1600, height: 900, boxRatio: 16 / 9 },
+  { name: 'panoramic 3:1', width: 2400, height: 800, boxRatio: 3 },
+  { name: 'tall 2:3', width: 1000, height: 1500, boxRatio: 6 / 5 }
+]) {
+  test(`a ${shape.name} photo is shown whole, not cropped`, async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'winglog-photo-e2e-'))
+    const file = join(dir, 'shape.png')
+    writeFileSync(file, samplePng(shape.width, shape.height))
+    const { app, window, cleanup } = await launchApp()
+    try {
+      await addAircraftAndEdit(window, 'G-SHAP')
+      await chooseFileInDialog(app, file)
+      await window.getByRole('button', { name: 'Choose your own photo…' }).click()
+      await expect(window.locator('form img')).toHaveAttribute('src', /^data:image\/jpeg;base64,/)
+      await window.getByRole('button', { name: 'Save' }).click()
+
+      const photo = window.getByRole('img', { name: 'G-SHAP A320' })
+      await expect(photo).toBeVisible()
+      await expect(photo).toHaveCSS('object-fit', 'contain')
+      // The box takes the picture's own shape (so it fills the card edge to edge, uncropped), within 6:5 to 3:1.
+      await expect
+        .poll(async () => {
+          const box = await photo.boundingBox()
+          return box ? box.width / box.height : 0
+        })
+        .toBeCloseTo(shape.boxRatio, 1)
+      const box = await photo.boundingBox()
+      const card = await window.locator('figure').first().boundingBox()
+      expect(box!.width).toBeCloseTo(card!.width, 0)
+      mkdirSync(SCREENSHOT_DIR, { recursive: true })
+      await window.getByRole('button', { name: 'Back to fleet' }).scrollIntoViewIfNeeded()
+      await window.screenshot({ path: join(SCREENSHOT_DIR, `shape-${shape.width}x${shape.height}.png`) })
+    } finally {
+      await cleanup()
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+}

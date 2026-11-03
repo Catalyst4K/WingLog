@@ -3,12 +3,16 @@ import {
   CUSTOM_PHOTO_MAX_CHARS,
   CUSTOM_PHOTO_PREFIX,
   PHOTOGRAPHER_MAX_CHARS,
+  PHOTO_BOX_DEFAULT_RATIO,
+  PHOTO_BOX_MAX_RATIO,
+  PHOTO_BOX_MIN_RATIO,
   PHOTO_URL_MAX_CHARS,
   isCustomPhoto,
   isPhotographer,
   isPhotoUrl,
   isPlanespottersImage,
   isPlanespottersPage,
+  photoBoxRatio,
   photoSourcesOf
 } from './aircraft-photo'
 
@@ -149,4 +153,34 @@ describe('photoSourcesOf', () => {
       expect(photoSourcesOf({ ...all, [missing]: null }).planespotters).toBeNull()
     }
   )
+})
+
+describe('photoBoxRatio', () => {
+  it.each([
+    ['a camera’s 3:2', 3 / 2],
+    ['B-LJE’s Planespotters photo, 498 × 280', 498 / 280],
+    ['16:9', 16 / 9],
+    ['4:3', 4 / 3],
+    ['airport-data’s 1621 × 1000', 1621 / 1000]
+  ])('gives %s the picture’s own shape, so nothing is cropped', (_label, ratio) => {
+    expect(photoBoxRatio(ratio)).toBe(ratio)
+  })
+
+  it('stops a very tall picture making the card taller than 6:5', () => {
+    expect(photoBoxRatio(2 / 3)).toBe(PHOTO_BOX_MIN_RATIO)
+    expect(photoBoxRatio(1)).toBe(PHOTO_BOX_MIN_RATIO)
+  })
+
+  it('stops a very wide picture making the card flatter than 3:1', () => {
+    expect(photoBoxRatio(5)).toBe(PHOTO_BOX_MAX_RATIO)
+  })
+
+  it('keeps the box shape before the picture has loaded inside its own limits', () => {
+    expect(photoBoxRatio(PHOTO_BOX_DEFAULT_RATIO)).toBe(PHOTO_BOX_DEFAULT_RATIO)
+  })
+
+  it('accepts exactly the limits', () => {
+    expect(photoBoxRatio(PHOTO_BOX_MIN_RATIO)).toBe(PHOTO_BOX_MIN_RATIO)
+    expect(photoBoxRatio(PHOTO_BOX_MAX_RATIO)).toBe(PHOTO_BOX_MAX_RATIO)
+  })
 })

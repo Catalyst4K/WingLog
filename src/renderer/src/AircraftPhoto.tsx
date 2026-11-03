@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import type { AircraftPhotoSources } from '@shared/aircraft-photo'
+import { PHOTO_BOX_DEFAULT_RATIO, photoBoxRatio, type AircraftPhotoSources } from '@shared/aircraft-photo'
 import { winglogApi } from './data/winglog-api'
 import { runAsync } from './report-error'
 
@@ -38,7 +38,9 @@ function PhotoPageLink(props: {
  * A photo that fails to load (removed or replaced since the lookup, or a fictional or GA registration with none) is skipped; with
  * nothing left the whole figure is hidden rather than showing a broken-image icon. Each looked-up photo is credited as its source asks:
  * Planespotters by photographer and a link to the photo's page (the image links there too), airport-data by name only, as adsbdb names
- * no photographer. The pilot's own picture has no credit. Large is edge to edge across the top of a Card (docs/plans/aircraft-photos.md).
+ * no photographer. The pilot's own picture has no credit. Large is the full width of a Card, edge to edge across its top, and takes the
+ * picture's own shape (clamped, see photoBoxRatio), so a normal photo fills it exactly with nothing cropped and no empty bands; only a
+ * very tall or very wide one is shown whole on a neutral band (docs/plans/aircraft-photos.md).
  *
  * @param props The sources, what the picture is of (alt text; empty for a purely decorative one), and whether it is large.
  * @returns The element, or null when there is nothing to show.
@@ -50,6 +52,8 @@ export function AircraftPhoto(props: {
 }): React.JSX.Element | null {
   // The URLs that failed, not a flag, so switching to a different aircraft's URLs naturally starts afresh without an effect.
   const [failedUrls, setFailedUrls] = useState<string[]>([])
+  // The shape of the picture being shown, once it has loaded, so the large box can take it; keyed by URL like failedUrls.
+  const [shape, setShape] = useState<{ url: string; ratio: number } | null>(null)
   const { t } = useTranslation()
   const { customPhoto, planespotters, photoUrl, thumbnailUrl } = props.sources
 
@@ -75,8 +79,21 @@ export function AircraftPhoto(props: {
       t('aircraftPhoto.credit')
     )
   const onError = (): void => setFailedUrls((urls) => [...urls, shown])
-  const image = (className: string): React.JSX.Element => {
-    const img = <img src={shown} alt={props.alt ?? ''} className={className} onError={onError} />
+  const onLoad = (event: React.SyntheticEvent<HTMLImageElement>): void => {
+    const { naturalWidth, naturalHeight } = event.currentTarget
+    if (naturalWidth > 0 && naturalHeight > 0) setShape({ url: shown, ratio: naturalWidth / naturalHeight })
+  }
+  const image = (className: string, style?: React.CSSProperties): React.JSX.Element => {
+    const img = (
+      <img
+        src={shown}
+        alt={props.alt ?? ''}
+        className={className}
+        style={style}
+        onError={onError}
+        onLoad={onLoad}
+      />
+    )
     return fromPlanespotters ? (
       <PhotoPageLink pageUrl={fromPlanespotters.pageUrl} className="block">
         {img}
@@ -96,7 +113,9 @@ export function AircraftPhoto(props: {
   }
   return (
     <figure className="-mt-(--card-spacing) flex flex-col gap-1.5">
-      {image('aspect-[3/2] w-full object-cover')}
+      {image('w-full bg-muted object-contain', {
+        aspectRatio: shape?.url === shown ? photoBoxRatio(shape.ratio) : PHOTO_BOX_DEFAULT_RATIO
+      })}
       {credit && (
         <figcaption className="px-(--card-spacing) text-xs text-muted-foreground">{credit}</figcaption>
       )}

@@ -19,6 +19,26 @@ export const CUSTOM_PHOTO_MAX_CHARS = 1_500_000
 /** The longest photo link kept for a looked-up photo, in characters. */
 export const PHOTO_URL_MAX_CHARS = 2048
 
+/** The shape (width over height) of the large photo's box until the picture has loaded and its own shape is known: 3:2, a camera's. */
+export const PHOTO_BOX_DEFAULT_RATIO = 3 / 2
+
+/** The tallest shape the large photo's box takes (width over height): 6:5. A taller picture is shown whole on a neutral band. */
+export const PHOTO_BOX_MIN_RATIO = 6 / 5
+
+/** The widest shape the large photo's box takes (width over height): 3:1. A wider picture is shown whole on a neutral band. */
+export const PHOTO_BOX_MAX_RATIO = 3
+
+/**
+ * The shape the large photo's box takes for a picture: the picture's own, so that it fills the box exactly with nothing cropped,
+ * unless that is more extreme than a card can sensibly hold.
+ *
+ * @param pictureRatio The picture's width over its height.
+ * @returns The box's width over its height, between PHOTO_BOX_MIN_RATIO and PHOTO_BOX_MAX_RATIO.
+ */
+export function photoBoxRatio(pictureRatio: number): number {
+  return Math.min(PHOTO_BOX_MAX_RATIO, Math.max(PHOTO_BOX_MIN_RATIO, pictureRatio))
+}
+
 /** Where Planespotters' images are served from, and where its photo pages are. A stored link on any other host is refused. */
 export const PLANESPOTTERS_IMAGE_HOST = 't.plnspttrs.net'
 export const PLANESPOTTERS_PAGE_HOST = 'www.planespotters.net'

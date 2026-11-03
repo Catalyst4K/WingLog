@@ -153,13 +153,66 @@ describe('AircraftPhoto', () => {
     expect(container.querySelector('img')).toHaveAttribute('src', otherUrl)
   })
 
-  it('is large and edge to edge on the detail page, and small in the form', () => {
-    const { container, rerender } = render(
-      <AircraftPhoto sources={{ ...NONE, photoUrl: FULL }} alt="G-EZTK A320" />
-    )
-    expect(container.querySelector('img')).toHaveClass('aspect-[3/2]', 'w-full')
-    expect(container.querySelector('img')).toHaveAttribute('alt', 'G-EZTK A320')
-    rerender(<AircraftPhoto sources={{ ...NONE, photoUrl: FULL }} variant="preview" />)
+  describe('the large photo’s shape', () => {
+    /** The box's shape as set on the image: the browser writes aspect-ratio as "1.5 / 1". */
+    function ratioOf(img: HTMLImageElement): number {
+      const [width, height = '1'] = img.style.aspectRatio.split('/')
+      return Number(width) / Number(height)
+    }
+
+    /** Loads the shown image as the browser would, with the picture's pixel size. */
+    function loadWithSize(img: HTMLImageElement, width: number, height: number): void {
+      Object.defineProperty(img, 'naturalWidth', { value: width, configurable: true })
+      Object.defineProperty(img, 'naturalHeight', { value: height, configurable: true })
+      fireEvent.load(img)
+    }
+
+    it('is the full width of the card and never cropped, 3:2 until the picture says otherwise', () => {
+      const { container } = render(<AircraftPhoto sources={{ ...NONE, photoUrl: FULL }} alt="G-EZTK A320" />)
+      const img = container.querySelector('img')!
+      expect(img).toHaveClass('w-full', 'object-contain')
+      expect(img).not.toHaveClass('object-cover')
+      expect(img).toHaveAttribute('alt', 'G-EZTK A320')
+      expect(ratioOf(img)).toBeCloseTo(3 / 2, 5)
+    })
+
+    it('takes the picture’s own shape once loaded, so a 16:9 photo fills the box with no bands', () => {
+      const { container } = render(<AircraftPhoto sources={{ ...NONE, photoUrl: FULL }} />)
+      const img = container.querySelector('img')!
+      loadWithSize(img, 498, 280)
+      expect(ratioOf(img)).toBeCloseTo(498 / 280, 5)
+    })
+
+    it('limits how tall or how flat the box gets, still showing the whole picture', () => {
+      const { container } = render(<AircraftPhoto sources={{ ...NONE, photoUrl: FULL }} />)
+      const img = container.querySelector('img')!
+      loadWithSize(img, 1000, 1500)
+      expect(ratioOf(img)).toBeCloseTo(6 / 5, 5)
+      expect(img).toHaveClass('object-contain')
+      loadWithSize(img, 4000, 500)
+      expect(ratioOf(img)).toBeCloseTo(3, 5)
+    })
+
+    it('does not keep the last picture’s shape when the next source loads', () => {
+      const { container } = render(
+        <AircraftPhoto sources={{ ...NONE, photoUrl: FULL, thumbnailUrl: THUMB }} />
+      )
+      loadWithSize(container.querySelector('img')!, 498, 280)
+      fireEvent.error(container.querySelector('img')!)
+      expect(container.querySelector('img')).toHaveAttribute('src', THUMB)
+      expect(ratioOf(container.querySelector('img')!)).toBeCloseTo(3 / 2, 5)
+    })
+
+    it('ignores a load event that reports no size', () => {
+      const { container } = render(<AircraftPhoto sources={{ ...NONE, photoUrl: FULL }} />)
+      const img = container.querySelector('img')!
+      loadWithSize(img, 0, 0)
+      expect(ratioOf(img)).toBeCloseTo(3 / 2, 5)
+    })
+  })
+
+  it('is small in the form', () => {
+    const { container } = render(<AircraftPhoto sources={{ ...NONE, photoUrl: FULL }} variant="preview" />)
     expect(container.querySelector('img')).toHaveClass('max-h-40')
   })
 })

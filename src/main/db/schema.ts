@@ -85,7 +85,7 @@ export const aircraft = sqliteTable('aircraft', {
   customPhoto: text('custom_photo'),
   // The photo of this aircraft from Planespotters.net's photo API (docs/plans/aircraft-photos.md): newer than airport-data's and
   // shown ahead of it. Its terms require the photographer's name beside the photo and a link to the photo's page, so all three
-  // travel together: the image (420 px wide), who took it, and its page on planespotters.net. Null when it has none for this aircraft.
+  // travel together: the image (280 px high, usually 420 wide), who took it, and its page on planespotters.net. Null when it has none for this aircraft.
   planespottersPhotoUrl: text('planespotters_photo_url'),
   planespottersPhotographer: text('planespotters_photographer'),
   planespottersPageUrl: text('planespotters_page_url'),
