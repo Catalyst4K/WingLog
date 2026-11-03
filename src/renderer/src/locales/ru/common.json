@@ -810,6 +810,7 @@
     "new": "Новый сценарий",
     "newName": "Мой сценарий",
     "edit": "Изменить «{{name}}»",
+    "editButton": "Изменить",
     "cancel": "Отмена",
     "stageOf": "Этап {{stage}} из {{count}}",
     "services": {

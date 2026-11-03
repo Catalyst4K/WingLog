@@ -60,7 +60,7 @@ describe('GsxRoutines', () => {
   describe('the routine buttons', () => {
     it('offers the three built-in routines by name', async () => {
       withWinglog()
-      render(<GsxRoutines connected canEdit />)
+      render(<GsxRoutines canEdit />)
       for (const name of ['Fenix-style departure', 'Arrival', 'Turnaround clean']) {
         expect(await screen.findByRole('button', { name })).toBeInTheDocument()
       }
@@ -68,7 +68,7 @@ describe('GsxRoutines', () => {
 
     it('lists the pilot’s own routines after them', async () => {
       withWinglog({ routines: [OWN] })
-      render(<GsxRoutines connected canEdit />)
+      render(<GsxRoutines canEdit />)
       const buttons = await screen.findAllByRole('button', { name: /^(Fenix|Arrival|Turnaround|A320)/ })
       expect(buttons.map((b) => b.textContent)).toEqual([
         'Fenix-style departure',
@@ -80,22 +80,16 @@ describe('GsxRoutines', () => {
 
     it('starts a routine by its id', async () => {
       const { api } = withWinglog({ routines: [OWN] })
-      render(<GsxRoutines connected canEdit />)
+      render(<GsxRoutines canEdit />)
       await userEvent.click(await screen.findByRole('button', { name: 'A320 turnaround' }))
       expect(api.gsxRoutineStart).toHaveBeenCalledWith('my-turnaround')
       await userEvent.click(screen.getByRole('button', { name: 'Arrival' }))
       expect(api.gsxRoutineStart).toHaveBeenCalledWith('builtin-arrival')
     })
 
-    it('cannot start one while GSX is not connected', async () => {
-      withWinglog()
-      render(<GsxRoutines connected={false} canEdit />)
-      expect(await screen.findByRole('button', { name: 'Arrival' })).toBeDisabled()
-    })
-
     it('has no editing on a phone', async () => {
       withWinglog()
-      render(<GsxRoutines connected canEdit={false} />)
+      render(<GsxRoutines canEdit={false} />)
       await screen.findByRole('button', { name: 'Arrival' })
       expect(screen.queryByRole('button', { name: /^Edit / })).toBeNull()
       expect(screen.queryByRole('button', { name: 'New routine' })).toBeNull()
@@ -105,7 +99,7 @@ describe('GsxRoutines', () => {
   describe('the progress of a running routine', () => {
     it('shows the stage, each service, the status line and Cancel', async () => {
       withWinglog({ progress: RUNNING })
-      render(<GsxRoutines connected canEdit />)
+      render(<GsxRoutines canEdit />)
       const panel = await screen.findByTestId('gsx-routine-progress')
       expect(within(panel).getByText('Fenix-style departure')).toBeInTheDocument()
       expect(within(panel).getByText('Stage 1 of 2')).toBeInTheDocument()
@@ -118,7 +112,7 @@ describe('GsxRoutines', () => {
 
     it('cancels through the live command, and holds the other buttons while it runs', async () => {
       const { api } = withWinglog({ progress: RUNNING })
-      render(<GsxRoutines connected canEdit />)
+      render(<GsxRoutines canEdit />)
       await screen.findByTestId('gsx-routine-progress')
       expect(screen.getByRole('button', { name: 'Arrival' })).toBeDisabled()
       await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))
@@ -127,7 +121,7 @@ describe('GsxRoutines', () => {
 
     it('follows the topic as the routine goes on, and goes when it is cleared', async () => {
       const { push } = withWinglog()
-      render(<GsxRoutines connected canEdit />)
+      render(<GsxRoutines canEdit />)
       await screen.findByRole('button', { name: 'Arrival' })
       expect(screen.queryByTestId('gsx-routine-progress')).toBeNull()
       push(RUNNING)
@@ -142,7 +136,7 @@ describe('GsxRoutines', () => {
       withWinglog({
         progress: { ...RUNNING, state: 'stopped', note: { code: 'stopped', reason: 'gsx-has-no-plan' } }
       })
-      render(<GsxRoutines connected canEdit />)
+      render(<GsxRoutines canEdit />)
       expect(await screen.findByRole('status')).toHaveTextContent(
         'Routine stopped: GSX has no SimBrief plan. Use Reload SimBrief.'
       )
@@ -152,7 +146,7 @@ describe('GsxRoutines', () => {
 
     it('words the data-entry hold with how far the fuel is from its target', async () => {
       withWinglog({ progress: { ...RUNNING, note: { code: 'waiting-for-fuel-entry', gapKg: 8_200 } } })
-      render(<GsxRoutines connected canEdit />)
+      render(<GsxRoutines canEdit />)
       expect(await screen.findByRole('status')).toHaveTextContent(
         'Waiting for the fuel: 8200 kg off the target.'
       )
@@ -162,7 +156,7 @@ describe('GsxRoutines', () => {
   describe('the editor', () => {
     it('shows a built-in as it is, and only lets it be duplicated', async () => {
       withWinglog()
-      render(<GsxRoutines connected canEdit />)
+      render(<GsxRoutines canEdit />)
       await userEvent.click(await screen.findByRole('button', { name: 'Edit Arrival' }))
       const dialog = await screen.findByRole('dialog')
       expect(within(dialog).getByText(/can't be changed/)).toBeInTheDocument()
@@ -173,7 +167,7 @@ describe('GsxRoutines', () => {
 
     it('makes an editable copy of a built-in, named after it', async () => {
       withWinglog()
-      render(<GsxRoutines connected canEdit />)
+      render(<GsxRoutines canEdit />)
       await userEvent.click(await screen.findByRole('button', { name: 'Edit Arrival' }))
       const dialog = await screen.findByRole('dialog')
       await userEvent.click(within(dialog).getByRole('button', { name: 'Duplicate' }))
@@ -184,7 +178,7 @@ describe('GsxRoutines', () => {
 
     it('makes a new routine: name it, tick services, see the stages, save', async () => {
       const { api } = withWinglog()
-      render(<GsxRoutines connected canEdit />)
+      render(<GsxRoutines canEdit />)
       await userEvent.click(await screen.findByRole('button', { name: 'New routine' }))
       const dialog = await screen.findByRole('dialog')
       expect(within(dialog).getByRole('button', { name: 'Save' })).toBeDisabled()
@@ -212,7 +206,7 @@ describe('GsxRoutines', () => {
 
     it('moves a service to another stage and changes what a stage waits for', async () => {
       const { api } = withWinglog({ routines: [OWN] })
-      render(<GsxRoutines connected canEdit />)
+      render(<GsxRoutines canEdit />)
       await userEvent.click(await screen.findByRole('button', { name: 'Edit A320 turnaround' }))
       const dialog = await screen.findByRole('dialog')
       await userEvent.selectOptions(within(dialog).getByLabelText('Move Refueling to'), 'Stage 1')
@@ -227,7 +221,7 @@ describe('GsxRoutines', () => {
 
     it('saves the two options', async () => {
       const { api } = withWinglog({ routines: [OWN] })
-      render(<GsxRoutines connected canEdit />)
+      render(<GsxRoutines canEdit />)
       await userEvent.click(await screen.findByRole('button', { name: 'Edit A320 turnaround' }))
       const dialog = await screen.findByRole('dialog')
       await userEvent.click(
@@ -249,7 +243,7 @@ describe('GsxRoutines', () => {
 
     it('shows why a save was refused, and keeps the dialog open', async () => {
       withWinglog({ routines: [OWN], save: { ok: false, reason: 'the name must be 1 to 40 characters' } })
-      render(<GsxRoutines connected canEdit />)
+      render(<GsxRoutines canEdit />)
       await userEvent.click(await screen.findByRole('button', { name: 'Edit A320 turnaround' }))
       const dialog = await screen.findByRole('dialog')
       await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
@@ -261,7 +255,7 @@ describe('GsxRoutines', () => {
 
     it('deletes one of the pilot’s own routines after asking once more', async () => {
       const { api } = withWinglog({ routines: [OWN] })
-      render(<GsxRoutines connected canEdit />)
+      render(<GsxRoutines canEdit />)
       await userEvent.click(await screen.findByRole('button', { name: 'Edit A320 turnaround' }))
       const dialog = await screen.findByRole('dialog')
       await userEvent.click(within(dialog).getByRole('button', { name: 'Delete' }))
@@ -274,7 +268,7 @@ describe('GsxRoutines', () => {
 
     it('closes without saving', async () => {
       const { api } = withWinglog({ routines: [OWN] })
-      render(<GsxRoutines connected canEdit />)
+      render(<GsxRoutines canEdit />)
       await userEvent.click(await screen.findByRole('button', { name: 'Edit A320 turnaround' }))
       const dialog = await screen.findByRole('dialog')
       await userEvent.click(within(dialog).getAllByRole('button', { name: 'Close' })[0])

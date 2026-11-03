@@ -75,10 +75,10 @@ function RoutineProgress(props: { progress: GsxRoutineProgress; onCancel: () => 
  * The Routines row. The buttons start a routine through the live command, so a phone starts one the same way; the editor is
  * only on the PC (`canEdit`).
  *
- * @param props Whether GSX is connected, and whether this screen may edit routines.
+ * @param props Whether this screen may edit routines.
  * @returns The element.
  */
-export function GsxRoutines(props: { connected: boolean; canEdit: boolean }): React.JSX.Element {
+export function GsxRoutines(props: { canEdit: boolean }): React.JSX.Element {
   const { t } = useTranslation()
   const live = useLiveClient()
   const progress = useLiveTopic('gsxRoutine', null)
@@ -99,15 +99,15 @@ export function GsxRoutines(props: { connected: boolean; canEdit: boolean }): Re
           onCancel={asyncHandler('GsxRoutines gsx.cancelRoutine', () => live.command('gsx.cancelRoutine'))}
         />
       )}
-      <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label={t('gsxRoutines.title')}>
+      <ul className="flex flex-col gap-1.5" aria-label={t('gsxRoutines.title')}>
         {routines.map((routine) => (
-          <div key={routine.id} className="flex items-center">
+          <li key={routine.id} className="flex gap-1.5">
             <Button
               type="button"
               variant="outline"
               size="sm"
-              className={props.canEdit ? 'rounded-r-none' : undefined}
-              disabled={!props.connected || isRunning}
+              disabled={isRunning}
+              className="h-auto flex-1 justify-start py-1.5 text-xs"
               onClick={asyncHandler('GsxRoutines gsx.startRoutine', () =>
                 live.command('gsx.startRoutine', routine.id)
               )}
@@ -119,29 +119,36 @@ export function GsxRoutines(props: { connected: boolean; canEdit: boolean }): Re
                 type="button"
                 variant="outline"
                 size="sm"
-                className="rounded-l-none border-l-0 px-2"
+                className="h-auto gap-1.5 py-1.5 text-xs"
                 aria-label={t('gsxRoutines.edit', { name: routineName(t, routine) })}
                 onClick={() => setEditing({ routine, isStored: routine.builtIn === undefined })}
               >
-                <Pencil aria-hidden="true" className="size-3.5" />
+                <Pencil aria-hidden="true" className="size-4" />
+                {t('gsxRoutines.editButton')}
               </Button>
             )}
-          </div>
+          </li>
         ))}
         {props.canEdit && (
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() =>
-              setEditing({ routine: blankRoutine(newRoutineId(), t('gsxRoutines.newName')), isStored: false })
-            }
-          >
-            <Plus aria-hidden="true" className="size-3.5" />
-            {t('gsxRoutines.new')}
-          </Button>
+          <li>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-auto gap-1.5 py-1.5 text-xs"
+              onClick={() =>
+                setEditing({
+                  routine: blankRoutine(newRoutineId(), t('gsxRoutines.newName')),
+                  isStored: false
+                })
+              }
+            >
+              <Plus aria-hidden="true" className="size-4" />
+              {t('gsxRoutines.new')}
+            </Button>
+          </li>
         )}
-      </div>
+      </ul>
       {editing && (
         <GsxRoutineEditor
           routine={editing.routine}

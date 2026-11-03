@@ -787,6 +787,7 @@
     "new": "Nouvelle routine",
     "newName": "Ma routine",
     "edit": "Modifier {{name}}",
+    "editButton": "Modifier",
     "cancel": "Annuler",
     "stageOf": "Étape {{stage}} sur {{count}}",
     "services": {

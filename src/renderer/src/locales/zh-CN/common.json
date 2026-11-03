@@ -777,6 +777,7 @@
     "new": "新建例程",
     "newName": "我的例程",
     "edit": "编辑 {{name}}",
+    "editButton": "编辑",
     "cancel": "取消",
     "stageOf": "第 {{stage}} 阶段，共 {{count}} 阶段",
     "services": {

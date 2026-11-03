@@ -545,7 +545,7 @@ export function GsxRemotePanel(props: { canEditRoutines?: boolean }): React.JSX.
         commandBar={commandBar}
         onRun={asyncHandler('GsxRemotePanel gsx.runCommand', (id) => live.command('gsx.runCommand', id))}
       />
-      <GsxRoutines connected={status.state === 'connected'} canEdit={props.canEditRoutines ?? true} />
+      <GsxRoutines canEdit={props.canEditRoutines ?? true} />
       <MenuHeader
         menu={menu}
         onToggle={asyncHandler('GsxRemotePanel gsx.toggleMenu', () => live.command('gsx.toggleMenu'))}
