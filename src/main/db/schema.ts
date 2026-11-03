@@ -83,6 +83,12 @@ export const aircraft = sqliteTable('aircraft', {
   // The pilot's own picture of this aircraft, as a JPEG data URL (docs/plans/aircraft-photos.md): shown in place of the
   // lookup's photos, which it leaves in place so removing it brings them back. Shrunk to 1280 px before it is stored.
   customPhoto: text('custom_photo'),
+  // The photo of this aircraft from Planespotters.net's photo API (docs/plans/aircraft-photos.md): newer than airport-data's and
+  // shown ahead of it. Its terms require the photographer's name beside the photo and a link to the photo's page, so all three
+  // travel together: the image (420 px wide), who took it, and its page on planespotters.net. Null when it has none for this aircraft.
+  planespottersPhotoUrl: text('planespotters_photo_url'),
+  planespottersPhotographer: text('planespotters_photographer'),
+  planespottersPageUrl: text('planespotters_page_url'),
   // Soft-delete tombstone (winglog-backend/docs/plans/cloud-sync-v2.md #3a) — a hard
   // DELETE is indistinguishable from "never created" once it reaches the sync protocol, so
   // a pull would resurrect it on every other device. Null (the default) means live; set

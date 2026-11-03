@@ -90,6 +90,15 @@ describe('parseAircraftInput', () => {
       })
     })
 
+    it('carries a Planespotters photo with its photographer and page', () => {
+      const photo = {
+        planespottersPhotoUrl: 'https://t.plnspttrs.net/00978/1947470_54b1bd86b7_280.jpg',
+        planespottersPhotographer: 'John Robert Murdoch',
+        planespottersPageUrl: 'https://www.planespotters.net/photo/1947470/g-eztk'
+      }
+      expect(parseAircraftInput({ ...base, ...photo })).toEqual({ data: { ...base, ...photo } })
+    })
+
     it('clears the pilot’s own picture when it is sent as null', () => {
       expect(parseAircraftInput({ ...base, customPhoto: null })).toEqual({
         data: { ...base, customPhoto: null }
@@ -104,7 +113,15 @@ describe('parseAircraftInput', () => {
       ['a picture that is not a JPEG', 'customPhoto', 'data:image/svg+xml;base64,PHN2Zz48L3N2Zz4='],
       ['a data URL that is not base64', 'customPhoto', 'data:image/jpeg;base64,not base64!'],
       ['a plain link in place of a picture', 'customPhoto', 'https://example.com/me.jpg'],
-      ['a picture over the size limit', 'customPhoto', 'data:image/jpeg;base64,' + 'A'.repeat(1_500_000)]
+      ['a picture over the size limit', 'customPhoto', 'data:image/jpeg;base64,' + 'A'.repeat(1_500_000)],
+      ['a Planespotters photo on another host', 'planespottersPhotoUrl', 'https://evil.example/a.jpg'],
+      ['a Planespotters page on another host', 'planespottersPageUrl', 'https://evil.example/photo/1'],
+      [
+        'a Planespotters page that is not https',
+        'planespottersPageUrl',
+        'http://www.planespotters.net/photo/1'
+      ],
+      ['a photographer with a control character', 'planespottersPhotographer', 'Eve\u0007']
     ])('rejects %s', (_label, field, value) => {
       expect(parseAircraftInput({ ...base, [field]: value })).toEqual({
         error: `"${field}" is not a picture or link WingLog can keep`

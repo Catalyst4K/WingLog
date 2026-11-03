@@ -35,7 +35,10 @@ function toAircraft(row: typeof aircraft.$inferSelect): Aircraft {
     retiredAt: row.retiredAt,
     photoThumbnailUrl: row.photoThumbnailUrl,
     photoUrl: row.photoUrl,
-    customPhoto: row.customPhoto
+    customPhoto: row.customPhoto,
+    planespottersPhotoUrl: row.planespottersPhotoUrl,
+    planespottersPhotographer: row.planespottersPhotographer,
+    planespottersPageUrl: row.planespottersPageUrl
   }
 }
 

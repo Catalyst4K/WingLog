@@ -28,7 +28,8 @@
     "ariaLabel": "Схема приземления для ВПП {{ident}}"
   },
   "aircraftPhoto": {
-    "credit": "Фото с сайта airport-data.com"
+    "credit": "Фото с сайта airport-data.com",
+    "creditPhotographer": "Фото: {{photographer}}"
   },
   "settingsView": {
     "title": "Настройки",
@@ -380,7 +381,7 @@
     "unknownOperator": "неизвестный эксплуатант",
     "icaoType": "Тип ICAO",
     "icaoTypePlaceholder": "например, A350, Boeing, B77W, или введите код ICAO",
-    "icaoTypeHint": "Поиск по регистрации и данные о типе воздушного судна через adsbdb.com (PlaneBase). Фото воздушных судов через airport-data.com.",
+    "icaoTypeHint": "Поиск по регистрации и данные о типе воздушного судна через adsbdb.com (PlaneBase). Фотографии самолётов — Planespotters.net и airport-data.com.",
     "airline": "Авиакомпания",
     "airlinePlaceholder": "например, British Airways, BAW, или введите название",
     "profile": "Профиль",

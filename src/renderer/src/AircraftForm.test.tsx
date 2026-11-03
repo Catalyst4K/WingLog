@@ -39,7 +39,10 @@ const FULL_AIRCRAFT: Aircraft = {
   retiredAt: null,
   photoThumbnailUrl: 'https://airport-data.com/images/aircraft/thumbnails/001/685/001685661.jpg',
   photoUrl: 'https://image.airport-data.com/aircraft/001685661.jpg',
-  customPhoto: null
+  customPhoto: null,
+  planespottersPhotoUrl: null,
+  planespottersPhotographer: null,
+  planespottersPageUrl: null
 }
 
 const MINIMAL_AIRCRAFT: Aircraft = {
@@ -60,7 +63,10 @@ const MINIMAL_AIRCRAFT: Aircraft = {
   retiredAt: null,
   photoThumbnailUrl: null,
   photoUrl: null,
-  customPhoto: null
+  customPhoto: null,
+  planespottersPhotoUrl: null,
+  planespottersPhotographer: null,
+  planespottersPageUrl: null
 }
 
 function buildWinglog(overrides: Partial<WingLogApi> = {}): WingLogApi {
@@ -665,6 +671,9 @@ describe('AircraftForm', () => {
         photoThumbnailUrl: null,
         photoUrl: null,
         customPhoto: null,
+        planespottersPhotoUrl: null,
+        planespottersPhotographer: null,
+        planespottersPageUrl: null,
         simbriefAirframeDeveloper: null,
         simbriefAirframeEngines: null,
         simbriefAirframeRegistration: null
@@ -754,6 +763,59 @@ describe('AircraftForm', () => {
         expect(screen.getByRole('button', { name: 'Choose your own photo…' })).toBeEnabled()
       )
       expect(container.querySelector('img')).toHaveAttribute('src', FULL_AIRCRAFT.photoUrl)
+    })
+
+    it('shows and saves the Planespotters photo a lookup finds, with its photographer and page, and leaves one already there', async () => {
+      const found = {
+        photoUrl: 'https://t.plnspttrs.net/00978/1947470_54b1bd86b7_280.jpg',
+        photographer: 'John Robert Murdoch',
+        pageUrl: 'https://www.planespotters.net/photo/1947470/g-eztk'
+      }
+      const lookup = vi.fn().mockResolvedValue({
+        icaoType: 'A35K',
+        operator: null,
+        operatorIcao: null,
+        photoThumbnailUrl: null,
+        photoUrl: null,
+        planespotters: found
+      })
+      setWinglog({ aircraftLookupByRegistration: lookup })
+      const user = userEvent.setup()
+      const onSubmit = vi.fn().mockResolvedValue(undefined)
+      const { container } = render(
+        <AircraftForm initial={FULL_AIRCRAFT} onSubmit={onSubmit} onCancel={vi.fn()} />
+      )
+      expect(container.querySelector('img')).toHaveAttribute('src', FULL_AIRCRAFT.photoUrl)
+      await user.click(screen.getByText('Look up'))
+      await waitFor(() => expect(container.querySelector('img')).toHaveAttribute('src', found.photoUrl))
+      expect(screen.getByText(/Photo: John Robert Murdoch/)).toBeInTheDocument()
+      await user.click(screen.getByText('Save'))
+      await waitFor(() =>
+        expect(onSubmit).toHaveBeenCalledWith(
+          expect.objectContaining({
+            planespottersPhotoUrl: found.photoUrl,
+            planespottersPhotographer: found.photographer,
+            planespottersPageUrl: found.pageUrl
+          })
+        )
+      )
+
+      // A second lookup does not replace the photo that is already there.
+      lookup.mockResolvedValue({
+        icaoType: 'A35K',
+        operator: null,
+        operatorIcao: null,
+        photoThumbnailUrl: null,
+        photoUrl: null,
+        planespotters: {
+          ...found,
+          photoUrl: 'https://t.plnspttrs.net/other_280.jpg',
+          photographer: 'Someone Else'
+        }
+      })
+      await user.click(screen.getByText('Look up'))
+      await waitFor(() => expect(lookup).toHaveBeenCalledTimes(2))
+      expect(container.querySelector('img')).toHaveAttribute('src', found.photoUrl)
     })
 
     it('keeps the full-size link from a lookup for an aircraft that had only the old thumbnail', async () => {

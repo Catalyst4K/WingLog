@@ -6,6 +6,7 @@ import { isRetired } from '@shared/aircraft'
 import type { Aircraft, AircraftLastParked, FleetStats } from '@shared/ipc'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { photoSourcesOf } from '@shared/aircraft-photo'
 import { AircraftPhoto } from '../AircraftPhoto'
 import {
   AircraftFlightsCard,
@@ -160,12 +161,7 @@ export function AircraftDetail(props: {
       <div className="flex flex-wrap gap-4">
         <div className="flex min-w-72 flex-1 flex-col gap-4">
           <Card>
-            <AircraftPhoto
-              customPhoto={a.customPhoto}
-              photoUrl={a.photoUrl}
-              thumbnailUrl={a.photoThumbnailUrl}
-              alt={`${a.registration} ${a.icaoType}`}
-            />
+            <AircraftPhoto sources={photoSourcesOf(a)} alt={`${a.registration} ${a.icaoType}`} />
             <CardHeader>
               <CardTitle className="text-xl">
                 {a.registration} — {a.icaoType}

@@ -128,7 +128,10 @@ const AIRCRAFT: Aircraft = {
   retiredAt: null,
   photoThumbnailUrl: null,
   photoUrl: null,
-  customPhoto: null
+  customPhoto: null,
+  planespottersPhotoUrl: null,
+  planespottersPhotographer: null,
+  planespottersPageUrl: null
 }
 
 function fullFlight(overrides: Partial<Flight> = {}): Flight {

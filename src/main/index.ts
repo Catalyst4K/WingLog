@@ -360,15 +360,32 @@ function recordParkedStandOnCompletion(
 }
 
 /**
- * Registers the lookup channels, and starts the one-time pass that gives aircraft looked up before full-size photos were stored their
- * photo (docs/plans/aircraft-photos.md), in the background.
+ * Registers the fleet and lookup channels, and starts the one-time pass that gives the aircraft already in the fleet their newer photos
+ * (docs/plans/aircraft-photos.md), in the background.
  *
  * @param db The database.
+ * @param window The window file dialogs open over.
  * @param scheduleBackgroundSync Pushes a change to the cloud copy, when signed in.
  */
-function startLookups(db: WingLogDb, scheduleBackgroundSync: () => void): void {
+function startFleetAndLookups(
+  db: WingLogDb,
+  window: BrowserWindow,
+  scheduleBackgroundSync: () => void
+): void {
+  registerFleetHandlers(ipcMain, {
+    db,
+    window,
+    scheduleBackgroundSync,
+    openExternal: (url) => shell.openExternal(url)
+  })
   registerLookupHandlers(ipcMain)
-  runLogged('aircraft photo backfill', backfillAircraftPhotos(db, { onChanged: scheduleBackgroundSync }))
+  runLogged(
+    'aircraft photo backfill',
+    backfillAircraftPhotos(db, {
+      onChanged: scheduleBackgroundSync,
+      userAgent: `WingLog/${app.getVersion()}`
+    })
+  )
 }
 
 /** Opens the database and the window, starts the services, and registers every IPC area. */
@@ -407,9 +424,8 @@ function startApp(): void {
   const scheduleBackgroundSync = createBackgroundSync(cloudSync)
   startPeriodicSync(cloudSync)
 
-  registerFleetHandlers(ipcMain, { db, window, scheduleBackgroundSync })
   registerLogbookHandlers(ipcMain, { db, window, scheduleBackgroundSync })
-  startLookups(db, scheduleBackgroundSync)
+  startFleetAndLookups(db, window, scheduleBackgroundSync)
   registerDispatchHandlers(ipcMain, { db })
 
   const { sim, replayStreams } = connectSim()

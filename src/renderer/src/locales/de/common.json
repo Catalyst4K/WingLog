@@ -24,7 +24,8 @@
     "ariaLabel": "Aufsetzdiagramm für Landebahn {{ident}}"
   },
   "aircraftPhoto": {
-    "credit": "Foto via airport-data.com"
+    "credit": "Foto via airport-data.com",
+    "creditPhotographer": "Foto: {{photographer}}"
   },
   "settingsView": {
     "title": "Einstellungen",
@@ -362,7 +363,7 @@
     "unknownOperator": "unbekannte Fluggesellschaft",
     "icaoType": "ICAO-Typ",
     "icaoTypePlaceholder": "z. B. A350, Boeing, B77W, oder einen ICAO-Code eingeben",
-    "icaoTypeHint": "Kennzeichen-Abfrage und Flugzeugtyp-Daten über adsbdb.com (PlaneBase). Flugzeugfotos über airport-data.com.",
+    "icaoTypeHint": "Kennzeichen-Abfrage und Flugzeugtyp-Daten über adsbdb.com (PlaneBase). Flugzeugfotos via Planespotters.net und airport-data.com.",
     "airline": "Airline",
     "airlinePlaceholder": "z. B. British Airways, BAW, oder einen Namen eingeben",
     "profile": "Profil",

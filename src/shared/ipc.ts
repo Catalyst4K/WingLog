@@ -156,6 +156,11 @@ export interface WingLogApi {
    */
   aircraftPickPhoto: () => Promise<AircraftPhotoPick | null>
   /**
+   * Opens the page of a Planespotters photo in the browser. The main process opens the link only if it is an https link on
+   * planespotters.net; anything else is ignored, so the renderer can't make it open an arbitrary address.
+   */
+  aircraftOpenPhotoPage: (url: string) => Promise<void>
+  /**
    * Current status, for a renderer mounting after the initial connect already happened —
    * `onSimConnectionStatus` only delivers *future* changes, since Electron doesn't replay
    * missed IPC pushes to a listener that subscribes late.

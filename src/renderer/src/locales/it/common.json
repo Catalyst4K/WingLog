@@ -24,7 +24,8 @@
     "ariaLabel": "Diagramma di atterraggio per la pista {{ident}}"
   },
   "aircraftPhoto": {
-    "credit": "Foto via airport-data.com"
+    "credit": "Foto via airport-data.com",
+    "creditPhotographer": "Foto: {{photographer}}"
   },
   "settingsView": {
     "title": "Impostazioni",
@@ -364,7 +365,7 @@
     "unknownOperator": "compagnia sconosciuta",
     "icaoType": "Tipo ICAO",
     "icaoTypePlaceholder": "es. A350, Boeing, B77W, o digita un codice ICAO",
-    "icaoTypeHint": "Ricerca immatricolazione e dati sul tipo di aeromobile tramite adsbdb.com (PlaneBase). Foto degli aeromobili tramite airport-data.com.",
+    "icaoTypeHint": "Ricerca immatricolazione e dati sul tipo di aeromobile tramite adsbdb.com (PlaneBase). Foto degli aeromobili tramite Planespotters.net e airport-data.com.",
     "airline": "Compagnia",
     "airlinePlaceholder": "es. British Airways, BAW, o digita un nome",
     "profile": "Profilo",

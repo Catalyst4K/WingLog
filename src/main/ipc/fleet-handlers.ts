@@ -5,6 +5,7 @@
 import type { BrowserWindow, IpcMain } from 'electron'
 import { IpcChannels, type AircraftUpdate } from '@shared/ipc'
 import { t } from '../i18n'
+import { isPlanespottersPage } from '@shared/aircraft-photo'
 import { pickAircraftPhoto } from '../aircraft-lookup/aircraft-photo-file'
 import type { WingLogDb } from '../db/client'
 import { exportAircraft, importAircraft } from '../db/aircraft-import-export'
@@ -31,6 +32,8 @@ export interface FleetHandlerDeps {
   window: BrowserWindow
   /** Pushes a change to the cloud copy, when signed in. */
   scheduleBackgroundSync: () => void
+  /** Opens a link in the system browser. */
+  openExternal: (url: string) => Promise<void>
 }
 
 /**
@@ -41,7 +44,7 @@ export interface FleetHandlerDeps {
  */
 export function registerFleetHandlers(
   ipcMain: IpcMain,
-  { db, window, scheduleBackgroundSync }: FleetHandlerDeps
+  { db, window, scheduleBackgroundSync, openExternal }: FleetHandlerDeps
 ): void {
   // Validated here, not just in the renderer — the renderer isn't a security boundary.
   const requireAircraftId = (id: unknown): number => {
@@ -100,6 +103,11 @@ export function registerFleetHandlers(
   )
 
   ipcMain.handle(IpcChannels.aircraftPickPhoto, () => pickAircraftPhoto(window))
+
+  // From the renderer, so it is opened only if it is an https link on planespotters.net.
+  ipcMain.handle(IpcChannels.aircraftOpenPhotoPage, async (_event, url: unknown) => {
+    if (typeof url === 'string' && isPlanespottersPage(url)) await openExternal(url)
+  })
 
   ipcMain.handle(IpcChannels.fleetListLandings, (_event, aircraftId: number) => {
     const icaoType = getAircraftById(db, aircraftId)?.icaoType ?? null

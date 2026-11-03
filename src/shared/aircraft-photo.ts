@@ -2,6 +2,7 @@
  * What an aircraft's photo fields may hold, shared by the picker that makes the pilot's own picture and the validator that checks every
  * save (docs/plans/aircraft-photos.md).
  */
+import type { Aircraft, PlanespottersPhoto } from './types/aircraft'
 
 /** The longest side of the pilot's own picture once shrunk, in pixels. Big enough for the detail page at any window size. */
 export const CUSTOM_PHOTO_MAX_EDGE_PX = 1280
@@ -17,6 +18,13 @@ export const CUSTOM_PHOTO_MAX_CHARS = 1_500_000
 
 /** The longest photo link kept for a looked-up photo, in characters. */
 export const PHOTO_URL_MAX_CHARS = 2048
+
+/** Where Planespotters' images are served from, and where its photo pages are. A stored link on any other host is refused. */
+export const PLANESPOTTERS_IMAGE_HOST = 't.plnspttrs.net'
+export const PLANESPOTTERS_PAGE_HOST = 'www.planespotters.net'
+
+/** The longest photographer name kept, in characters. */
+export const PHOTOGRAPHER_MAX_CHARS = 120
 
 /** How the pilot's own picture starts: the only form it is ever saved in. */
 export const CUSTOM_PHOTO_PREFIX = 'data:image/jpeg;base64,'
@@ -49,5 +57,88 @@ export function isPhotoUrl(value: string): boolean {
     return new URL(value).protocol === 'https:'
   } catch {
     return false
+  }
+}
+
+/**
+ * Whether a value is an https link on a given host and of a sensible length.
+ *
+ * @param value The value to check.
+ * @param host The host it must be on.
+ * @returns True when it is.
+ */
+function isHttpsLinkOn(value: string, host: string): boolean {
+  if (!isPhotoUrl(value)) return false
+  return new URL(value).hostname === host
+}
+
+/**
+ * Whether a value is a Planespotters image link: https, on their image host.
+ *
+ * @param value The value to check.
+ * @returns True when it is.
+ */
+export function isPlanespottersImage(value: string): boolean {
+  return isHttpsLinkOn(value, PLANESPOTTERS_IMAGE_HOST)
+}
+
+/**
+ * Whether a value is a Planespotters photo page: https, on planespotters.net. Only such a link is ever opened in the browser.
+ *
+ * @param value The value to check.
+ * @returns True when it is.
+ */
+export function isPlanespottersPage(value: string): boolean {
+  return isHttpsLinkOn(value, PLANESPOTTERS_PAGE_HOST)
+}
+
+/**
+ * Whether a value is a photographer's name worth keeping: some text, not too long, with no control characters.
+ *
+ * @param value The value to check.
+ * @returns True when it is.
+ */
+export function isPhotographer(value: string): boolean {
+  const hasControlCharacter = [...value].some(
+    (char) => char.charCodeAt(0) < 0x20 || char.charCodeAt(0) === 0x7f
+  )
+  return value.trim().length > 0 && value.length <= PHOTOGRAPHER_MAX_CHARS && !hasControlCharacter
+}
+
+/** What the picture of an aircraft can be, in the order it is tried: the pilot's own, Planespotters', airport-data's full size and thumbnail. */
+export interface AircraftPhotoSources {
+  customPhoto: string | null
+  planespotters: PlanespottersPhoto | null
+  photoUrl: string | null
+  thumbnailUrl: string | null
+}
+
+/**
+ * The photo sources an aircraft has.
+ *
+ * @param a The aircraft's photo fields.
+ * @returns The sources; Planespotters' only when all three of its fields are there.
+ */
+export function photoSourcesOf(
+  a: Pick<
+    Aircraft,
+    | 'customPhoto'
+    | 'planespottersPhotoUrl'
+    | 'planespottersPhotographer'
+    | 'planespottersPageUrl'
+    | 'photoUrl'
+    | 'photoThumbnailUrl'
+  >
+): AircraftPhotoSources {
+  const {
+    planespottersPhotoUrl: photoUrl,
+    planespottersPhotographer: photographer,
+    planespottersPageUrl: pageUrl
+  } = a
+  return {
+    customPhoto: a.customPhoto,
+    planespotters: photoUrl && photographer && pageUrl ? { photoUrl, photographer, pageUrl } : null,
+    photoUrl: a.photoUrl,
+    thumbnailUrl: a.photoThumbnailUrl
   }
 }

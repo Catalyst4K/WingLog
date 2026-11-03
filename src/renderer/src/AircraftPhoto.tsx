@@ -2,53 +2,101 @@
 
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import type { AircraftPhotoSources } from '@shared/aircraft-photo'
+import { winglogApi } from './data/winglog-api'
+import { runAsync } from './report-error'
 
 /**
- * The picture of an aircraft, large on its detail page or small in the form. It shows the first of these that loads: the pilot's own
- * picture, the lookup's full-size photo, the lookup's thumbnail (about 150 px wide, so only a fallback). A photo that fails to load
- * (removed or replaced since the lookup, or a fictional or GA registration with none) is skipped; with nothing left the whole figure is
- * hidden rather than showing a broken-image icon. Only a looked-up photo is credited, to airport-data.com: adsbdb names no photographer.
- * Large is edge to edge across the top of a Card (docs/plans/aircraft-photos.md).
+ * A link to a Planespotters photo's page, as its terms ask of the photo and its credit. It is a plain anchor with its real address; a
+ * click opens it in the system browser through the main process, not in this window.
  *
- * @param props The three sources, what the picture is of (alt text; empty for a purely decorative one), and whether it is large.
+ * @param props The photo's page, the link's class, and what it wraps.
+ * @returns The anchor.
+ */
+function PhotoPageLink(props: {
+  pageUrl: string
+  className?: string
+  children: React.ReactNode
+}): React.JSX.Element {
+  return (
+    <a
+      href={props.pageUrl}
+      className={props.className}
+      onClick={(event) => {
+        event.preventDefault()
+        runAsync('AircraftPhoto open photo page', winglogApi().aircraftOpenPhotoPage(props.pageUrl))
+      }}
+    >
+      {props.children}
+    </a>
+  )
+}
+
+/**
+ * The picture of an aircraft, large on its detail page or small in the form. It shows the first of its sources that loads: the pilot's
+ * own picture, Planespotters' photo, airport-data's full-size photo, airport-data's thumbnail (about 150 px wide, so only a last resort).
+ * A photo that fails to load (removed or replaced since the lookup, or a fictional or GA registration with none) is skipped; with
+ * nothing left the whole figure is hidden rather than showing a broken-image icon. Each looked-up photo is credited as its source asks:
+ * Planespotters by photographer and a link to the photo's page (the image links there too), airport-data by name only, as adsbdb names
+ * no photographer. The pilot's own picture has no credit. Large is edge to edge across the top of a Card (docs/plans/aircraft-photos.md).
+ *
+ * @param props The sources, what the picture is of (alt text; empty for a purely decorative one), and whether it is large.
  * @returns The element, or null when there is nothing to show.
  */
 export function AircraftPhoto(props: {
-  customPhoto: string | null
-  photoUrl: string | null
-  thumbnailUrl: string | null
+  sources: AircraftPhotoSources
   alt?: string
   variant?: 'large' | 'preview'
 }): React.JSX.Element | null {
   // The URLs that failed, not a flag, so switching to a different aircraft's URLs naturally starts afresh without an effect.
   const [failedUrls, setFailedUrls] = useState<string[]>([])
   const { t } = useTranslation()
+  const { customPhoto, planespotters, photoUrl, thumbnailUrl } = props.sources
 
-  const shown = [props.customPhoto, props.photoUrl, props.thumbnailUrl].find(
+  const shown = [customPhoto, planespotters?.photoUrl, photoUrl, thumbnailUrl].find(
     (url): url is string => !!url && !failedUrls.includes(url)
   )
   if (!shown) return null
 
-  const isOwn = shown === props.customPhoto
-  const credit = isOwn ? null : t('aircraftPhoto.credit')
+  const fromPlanespotters = planespotters && shown === planespotters.photoUrl ? planespotters : null
+  const credit =
+    shown === customPhoto ? null : fromPlanespotters ? (
+      <>
+        {t('aircraftPhoto.creditPhotographer', { photographer: fromPlanespotters.photographer })}
+        {' · '}
+        <PhotoPageLink
+          pageUrl={fromPlanespotters.pageUrl}
+          className="underline underline-offset-2 hover:text-foreground"
+        >
+          Planespotters.net
+        </PhotoPageLink>
+      </>
+    ) : (
+      t('aircraftPhoto.credit')
+    )
   const onError = (): void => setFailedUrls((urls) => [...urls, shown])
+  const image = (className: string): React.JSX.Element => {
+    const img = <img src={shown} alt={props.alt ?? ''} className={className} onError={onError} />
+    return fromPlanespotters ? (
+      <PhotoPageLink pageUrl={fromPlanespotters.pageUrl} className="block">
+        {img}
+      </PhotoPageLink>
+    ) : (
+      img
+    )
+  }
 
   if (props.variant === 'preview') {
     return (
       <figure className="flex w-fit flex-col items-start gap-1">
-        <img
-          src={shown}
-          alt={props.alt ?? ''}
-          className="max-h-40 rounded-md border border-border object-cover"
-          onError={onError}
-        />
+        {image('max-h-40 rounded-md border border-border object-cover')}
         {credit && <figcaption className="text-xs text-muted-foreground">{credit}</figcaption>}
       </figure>
     )
   }
   return (
     <figure className="-mt-(--card-spacing) flex flex-col gap-1.5">
-      <img src={shown} alt={props.alt ?? ''} className="aspect-[3/2] w-full object-cover" onError={onError} />
+      {image('aspect-[3/2] w-full object-cover')}
       {credit && (
         <figcaption className="px-(--card-spacing) text-xs text-muted-foreground">{credit}</figcaption>
       )}

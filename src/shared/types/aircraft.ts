@@ -50,6 +50,10 @@ export interface Aircraft {
   photoUrl: string | null
   /** The pilot's own picture, a JPEG data URL (see AircraftPhotoPick). Shown in place of the lookup's photos. */
   customPhoto: string | null
+  /** The newest photo of it, from Planespotters.net, shown ahead of the airport-data ones. The three travel together (see PlanespottersPhoto). */
+  planespottersPhotoUrl: string | null
+  planespottersPhotographer: string | null
+  planespottersPageUrl: string | null
 }
 
 export interface NewAircraft {
@@ -67,6 +71,22 @@ export interface NewAircraft {
   photoThumbnailUrl?: string | null
   photoUrl?: string | null
   customPhoto?: string | null
+  planespottersPhotoUrl?: string | null
+  planespottersPhotographer?: string | null
+  planespottersPageUrl?: string | null
+}
+
+/**
+ * A photo from Planespotters.net's public photo API. Its terms ask for the photographer's name next to the photo and a link from the
+ * photo to its page, and for the links to be used as given.
+ */
+export interface PlanespottersPhoto {
+  /** The image, 420 px wide, on Planespotters' own image host. */
+  photoUrl: string
+  /** Who took it. */
+  photographer: string
+  /** The photo's page on planespotters.net. */
+  pageUrl: string
 }
 
 export interface AircraftUpdate extends NewAircraft {
@@ -96,6 +116,8 @@ export interface AircraftLookupResult {
   photoThumbnailUrl: string | null
   /** adsbdb's `url_photo`, the full-size picture (docs/plans/aircraft-photos.md). Null if adsbdb had none. */
   photoUrl: string | null
+  /** Planespotters' photo of it, asked for separately; null when it has none or could not be reached (the lookup still succeeds). */
+  planespotters: PlanespottersPhoto | null
 }
 
 /**

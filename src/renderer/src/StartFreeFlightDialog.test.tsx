@@ -39,7 +39,10 @@ const AIRCRAFT: Aircraft = {
   retiredAt: null,
   photoThumbnailUrl: null,
   photoUrl: null,
-  customPhoto: null
+  customPhoto: null,
+  planespottersPhotoUrl: null,
+  planespottersPhotographer: null,
+  planespottersPageUrl: null
 }
 
 const RETIRED_AIRCRAFT: Aircraft = { ...AIRCRAFT, id: 2, registration: 'G-OLD', replacedByAircraftId: 1 }

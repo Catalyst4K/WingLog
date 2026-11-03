@@ -2,9 +2,14 @@ import { describe, expect, it } from 'vitest'
 import {
   CUSTOM_PHOTO_MAX_CHARS,
   CUSTOM_PHOTO_PREFIX,
+  PHOTOGRAPHER_MAX_CHARS,
   PHOTO_URL_MAX_CHARS,
   isCustomPhoto,
-  isPhotoUrl
+  isPhotographer,
+  isPhotoUrl,
+  isPlanespottersImage,
+  isPlanespottersPage,
+  photoSourcesOf
 } from './aircraft-photo'
 
 describe('isCustomPhoto', () => {
@@ -51,4 +56,97 @@ describe('isPhotoUrl', () => {
   it('rejects a link over the length limit', () => {
     expect(isPhotoUrl('https://a.example/' + 'x'.repeat(PHOTO_URL_MAX_CHARS))).toBe(false)
   })
+})
+
+describe('isPlanespottersImage and isPlanespottersPage', () => {
+  it('accept an https link on the right Planespotters host', () => {
+    expect(isPlanespottersImage('https://t.plnspttrs.net/00978/1947470_54b1bd86b7_280.jpg')).toBe(true)
+    expect(isPlanespottersPage('https://www.planespotters.net/photo/1947470/g-eztk?utm_source=api')).toBe(
+      true
+    )
+  })
+
+  it.each([
+    ['the other Planespotters host', 'https://www.planespotters.net/photo/1', isPlanespottersImage],
+    ['the other Planespotters host', 'https://t.plnspttrs.net/a.jpg', isPlanespottersPage],
+    ['a look-alike host', 'https://t.plnspttrs.net.evil.example/a.jpg', isPlanespottersImage],
+    ['a look-alike host', 'https://www.planespotters.net.evil.example/photo/1', isPlanespottersPage],
+    ['a host that only ends the same', 'https://notwww.planespotters.net/photo/1', isPlanespottersPage],
+    ['http', 'http://www.planespotters.net/photo/1', isPlanespottersPage],
+    [
+      'a link with credentials for another host',
+      'https://www.planespotters.net@evil.example/photo/1',
+      isPlanespottersPage
+    ]
+  ])('refuse %s', (_label, value, check) => {
+    expect(check(value)).toBe(false)
+  })
+})
+
+describe('isPhotographer', () => {
+  it.each(['John Robert Murdoch', 'Björn Wylezich', '李雷', 'Sebastian K'])('accepts %s', (name) => {
+    expect(isPhotographer(name)).toBe(true)
+  })
+
+  it.each([
+    ['nothing', ''],
+    ['only spaces', '   '],
+    ['a control character', 'Eve\u0007'],
+    ['a newline', 'Eve\nLog'],
+    ['a delete character', 'Eve\u007f'],
+    ['a name that is too long', 'x'.repeat(PHOTOGRAPHER_MAX_CHARS + 1)]
+  ])('refuses %s', (_label, name) => {
+    expect(isPhotographer(name)).toBe(false)
+  })
+
+  it('accepts one exactly at the limit', () => {
+    expect(isPhotographer('x'.repeat(PHOTOGRAPHER_MAX_CHARS))).toBe(true)
+  })
+})
+
+describe('photoSourcesOf', () => {
+  const none = {
+    customPhoto: null,
+    planespottersPhotoUrl: null,
+    planespottersPhotographer: null,
+    planespottersPageUrl: null,
+    photoUrl: null,
+    photoThumbnailUrl: null
+  }
+
+  it('gathers an aircraft’s photo fields, with Planespotters’ three as one photo', () => {
+    expect(
+      photoSourcesOf({
+        ...none,
+        customPhoto: 'data:image/jpeg;base64,AAAA',
+        planespottersPhotoUrl: 'https://t.plnspttrs.net/a_280.jpg',
+        planespottersPhotographer: 'John Robert Murdoch',
+        planespottersPageUrl: 'https://www.planespotters.net/photo/1',
+        photoUrl: 'https://image.airport-data.com/f.jpg',
+        photoThumbnailUrl: 'https://airport-data.com/t.jpg'
+      })
+    ).toEqual({
+      customPhoto: 'data:image/jpeg;base64,AAAA',
+      planespotters: {
+        photoUrl: 'https://t.plnspttrs.net/a_280.jpg',
+        photographer: 'John Robert Murdoch',
+        pageUrl: 'https://www.planespotters.net/photo/1'
+      },
+      photoUrl: 'https://image.airport-data.com/f.jpg',
+      thumbnailUrl: 'https://airport-data.com/t.jpg'
+    })
+  })
+
+  it.each(['planespottersPhotoUrl', 'planespottersPhotographer', 'planespottersPageUrl'] as const)(
+    'has no Planespotters photo when %s is missing, since its terms need all three',
+    (missing) => {
+      const all = {
+        ...none,
+        planespottersPhotoUrl: 'https://t.plnspttrs.net/a_280.jpg',
+        planespottersPhotographer: 'John Robert Murdoch',
+        planespottersPageUrl: 'https://www.planespotters.net/photo/1'
+      }
+      expect(photoSourcesOf({ ...all, [missing]: null }).planespotters).toBeNull()
+    }
+  )
 })

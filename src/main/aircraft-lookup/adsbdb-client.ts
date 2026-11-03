@@ -22,6 +22,9 @@
  */
 import type { AircraftLookupResult } from '@shared/ipc'
 
+/** What adsbdb alone answers: a lookup result before Planespotters' photo is added. */
+export type AdsbdbResult = Omit<AircraftLookupResult, 'planespotters'>
+
 class AdsbdbError extends Error {}
 
 interface AdsbdbAircraft {
@@ -39,9 +42,7 @@ interface AdsbdbAircraft {
  * @returns The aircraft, or null if adsbdb doesn't know the registration.
  * @throws AdsbdbError on any other failed or malformed reply.
  */
-export async function fetchAircraftByRegistration(
-  registration: string
-): Promise<AircraftLookupResult | null> {
+export async function fetchAircraftByRegistration(registration: string): Promise<AdsbdbResult | null> {
   const url = `https://api.adsbdb.com/v0/aircraft/${encodeURIComponent(registration)}`
   const response = await fetch(url)
   if (response.status === 404) return null

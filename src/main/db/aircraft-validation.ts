@@ -2,7 +2,13 @@
  * The one validator for aircraft input, used by create, update and import alike.
  */
 import type { NewAircraft } from '@shared/ipc'
-import { isCustomPhoto, isPhotoUrl } from '@shared/aircraft-photo'
+import {
+  isCustomPhoto,
+  isPhotographer,
+  isPhotoUrl,
+  isPlanespottersImage,
+  isPlanespottersPage
+} from '@shared/aircraft-photo'
 import { t } from '../i18n'
 
 const REQUIRED_STRING_FIELDS = ['registration', 'icaoType'] as const
@@ -18,7 +24,10 @@ const OPTIONAL_STRING_FIELDS = [
   'currentIcao',
   'photoThumbnailUrl',
   'photoUrl',
-  'customPhoto'
+  'customPhoto',
+  'planespottersPhotoUrl',
+  'planespottersPhotographer',
+  'planespottersPageUrl'
 ] as const
 
 export type AircraftInputResult = { data: NewAircraft } | { error: string }
@@ -27,7 +36,10 @@ export type AircraftInputResult = { data: NewAircraft } | { error: string }
 const PHOTO_CHECKS = [
   ['photoThumbnailUrl', isPhotoUrl],
   ['photoUrl', isPhotoUrl],
-  ['customPhoto', isCustomPhoto]
+  ['customPhoto', isCustomPhoto],
+  ['planespottersPhotoUrl', isPlanespottersImage],
+  ['planespottersPhotographer', isPhotographer],
+  ['planespottersPageUrl', isPlanespottersPage]
 ] as const
 
 /**

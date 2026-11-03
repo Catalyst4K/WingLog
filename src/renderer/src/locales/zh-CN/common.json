@@ -22,7 +22,8 @@
     "ariaLabel": "跑道 {{ident}} 的接地示意图"
   },
   "aircraftPhoto": {
-    "credit": "照片来自 airport-data.com"
+    "credit": "照片来自 airport-data.com",
+    "creditPhotographer": "照片：{{photographer}}"
   },
   "settingsView": {
     "title": "设置",
@@ -356,7 +357,7 @@
     "unknownOperator": "未知航空公司",
     "icaoType": "ICAO 机型代码",
     "icaoTypePlaceholder": "例如 A350、Boeing、B77W，或直接输入 ICAO 代码",
-    "icaoTypeHint": "注册号查询与机型数据来自 adsbdb.com（PlaneBase）。飞机照片来自 airport-data.com。",
+    "icaoTypeHint": "注册号查询与机型数据来自 adsbdb.com（PlaneBase）。飞机照片来自 Planespotters.net 和 airport-data.com。",
     "airline": "航空公司",
     "airlinePlaceholder": "例如 British Airways、BAW，或直接输入名称",
     "profile": "配置",

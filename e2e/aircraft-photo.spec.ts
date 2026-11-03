@@ -174,3 +174,66 @@ test('a file that is not a picture is refused with a reason, and nothing changes
     rmSync(dir, { recursive: true, force: true })
   }
 })
+
+/**
+ * A Planespotters photo, through the real app: it is shown large ahead of the airport-data ones, credited to its photographer, and
+ * the photo and the credit both link to its page, which opens in the system browser, never in the app's own window. The image host is
+ * answered here (so the test doesn't depend on the service being up), which also proves the app's CSP lets that host's images load; the
+ * system browser is stubbed so nothing opens.
+ */
+test('a Planespotters photo is shown with its photographer and links to its page through the system browser', async () => {
+  const page = 'https://www.planespotters.net/photo/1947470/g-eztk-easyjet-airbus-a320-214?utm_source=api'
+  const { app, window, cleanup } = await launchApp()
+  try {
+    await window.route('https://t.plnspttrs.net/**', (route) =>
+      route.fulfill({ status: 200, contentType: 'image/png', body: samplePng() })
+    )
+    await app.evaluate(({ shell }) => {
+      const opened: string[] = []
+      Object.assign(globalThis, { openedUrls: opened })
+      shell.openExternal = async (url: string) => {
+        opened.push(url)
+      }
+    })
+    await window.evaluate(
+      (planespottersPageUrl) =>
+        (
+          globalThis as { winglog?: { aircraftCreate: (aircraft: object) => Promise<unknown> } }
+        ).winglog?.aircraftCreate({
+          registration: 'G-EZTK',
+          icaoType: 'A320',
+          planespottersPhotoUrl: 'https://t.plnspttrs.net/00978/1947470_54b1bd86b7_280.jpg',
+          planespottersPhotographer: 'John Robert Murdoch',
+          planespottersPageUrl
+        }),
+      page
+    )
+    await window.getByRole('tab', { name: 'Dispatch' }).click()
+    await window.getByRole('tab', { name: 'Fleet' }).click()
+    await window.getByRole('row', { name: /G-EZTK/ }).click()
+
+    const photo = window.getByRole('img', { name: 'G-EZTK A320' })
+    await expect(photo).toBeVisible()
+    expect(await photo.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(0)
+    await expect(window.getByText(/Photo: John Robert Murdoch/)).toBeVisible()
+    await expect(window.getByText('Photo via airport-data.com')).toHaveCount(0)
+
+    // Both links go to the photo's page, and a click opens it outside the app.
+    const links = window.locator('figure a')
+    await expect(links).toHaveCount(2)
+    for (const link of await links.all()) await expect(link).toHaveAttribute('href', page)
+    const addressBefore = window.url()
+    await window.getByRole('link', { name: 'Planespotters.net' }).click()
+    await photo.click()
+    await expect
+      .poll(() => app.evaluate(() => (globalThis as { openedUrls?: string[] }).openedUrls))
+      .toEqual([page, page])
+    expect(window.url()).toBe(addressBefore)
+
+    mkdirSync(SCREENSHOT_DIR, { recursive: true })
+    await window.getByRole('button', { name: 'Back to fleet' }).scrollIntoViewIfNeeded()
+    await window.screenshot({ path: join(SCREENSHOT_DIR, 'detail-planespotters.png') })
+  } finally {
+    await cleanup()
+  }
+})

@@ -17,17 +17,23 @@ tabs.
 
 The **Location** column shows where each aircraft is, updated when a flight ends there.
 
+## Where the photos come from
+
+**Look up** fetches the newest photo of the aircraft from [Planespotters.net](https://www.planespotters.net), which WingLog shows first. The
+photographer is named under it, and the photo and the name link to its page on Planespotters.net, which opens in your browser. If Planespotters
+has none, WingLog uses the photo from airport-data.com instead, which is often older. Your own photo, if you add one (below), is shown before both.
+
 ## Photos for aircraft you added earlier
 
-Aircraft you looked up in an earlier version only have a small photo. The first time WingLog starts after updating, it quietly fetches the
-large one for each of them from the same registration database, so there is nothing to press. If you are offline at that moment it tries
-again the next time you start WingLog.
+Aircraft you looked up in an earlier version have only a small, often old photo. The first time WingLog starts after updating, it quietly
+fetches the newer photos for each of them, one aircraft every few seconds, so there is nothing to press. If you are offline at that moment it
+tries again the next time you start WingLog.
 
 ## Your own photo
 
 The photo from **Look up** can be old, and some aircraft have none. To use your own, edit the aircraft and press **Choose your own photo…**,
 then pick a JPEG or PNG. WingLog shrinks it to fit and keeps it with the aircraft, so it needs no file left in place and works on every
-device you sync. Your photo is shown instead of the looked-up one, with no credit line. **Remove my photo** brings the looked-up one back.
+device you sync. Your photo is shown instead of the looked-up ones, with no credit line. **Remove my photo** brings the looked-up one back.
 
 ## The aircraft page
 
