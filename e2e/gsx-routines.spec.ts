@@ -95,13 +95,26 @@ test.describe('GSX routines', () => {
       await page.getByRole('button', { name: 'Edit', exact: true }).click()
       await page.getByRole('button', { name: 'Edit Arrival' }).click()
       await dialog.getByRole('button', { name: 'Delete', exact: true }).click()
-      await dialog.getByRole('button', { name: 'Delete for good?' }).click()
+      await expect(dialog.getByTestId('gsx-routine-delete-confirmation')).toContainText('Delete “Arrival”?')
+      await page.screenshot({
+        path: 'release/sim/gsx-routines/pc-delete-confirmation.png',
+        animations: 'disabled'
+      })
+      await dialog
+        .getByTestId('gsx-routine-delete-confirmation')
+        .getByRole('button', { name: 'Delete' })
+        .click()
       await expect(dialog).toHaveCount(0)
       await expect(page.getByRole('button', { name: 'Edit Arrival' })).toHaveCount(0)
       await expect(page.getByRole('button', { name: 'Edit Turnaround clean' })).toBeVisible()
-      await page.getByRole('button', { name: 'Restore built-in routines' }).click()
-      await expect(page.getByRole('button', { name: 'Edit Arrival' })).toBeVisible()
-      await expect(page.getByRole('button', { name: 'Restore built-in routines' })).toHaveCount(0)
+
+      // Settings brings it back.
+      await page.getByRole('tab', { name: 'Settings' }).click()
+      await page.getByRole('tab', { name: '3rd party' }).click()
+      await page.getByRole('button', { name: 'Restore', exact: true }).click()
+      await expect(page.getByText('Restored.', { exact: false })).toBeVisible()
+      await page.getByRole('tab', { name: 'Ground services' }).click()
+      await expect(page.getByRole('button', { name: 'Arrival', exact: true })).toBeVisible()
     } finally {
       await cleanup()
       await server.stop()

@@ -629,6 +629,23 @@ describe('SettingsView', () => {
       )
     })
 
+    it('brings back the built-in routines from the Restore button, and says so', async () => {
+      const gsxRoutinesRestore = vi.fn().mockResolvedValue([])
+      setWinglog({ gsxRoutinesRestore })
+      const user = userEvent.setup()
+      renderSettings()
+      await user.click(screen.getByRole('tab', { name: '3rd party' }))
+      const card = within(await findCard())
+      expect(
+        card.getByText('Brings back any of WingLog’s built-in routines you have deleted.')
+      ).toBeInTheDocument()
+      await user.click(card.getByRole('button', { name: 'Restore' }))
+      expect(gsxRoutinesRestore).toHaveBeenCalledTimes(1)
+      expect(
+        await card.findByText('Restored. The built-in routines are back on the Ground services page.')
+      ).toBeInTheDocument()
+    })
+
     it('saves a host change', async () => {
       const winglog = setWinglog({
         settingsGetGsxRemote: vi.fn().mockResolvedValue(makeGsxRemote({ host: 'localhost' }))

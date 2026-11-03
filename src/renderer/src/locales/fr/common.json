@@ -112,6 +112,10 @@
       "port": "Port",
       "portPlaceholder": "8744",
       "portHint": "8744 est la valeur par défaut réelle de GSX, mais elle est configurable dans les paramètres de GSX lui-même, sous Remote Client — à vérifier là si la connexion échoue.",
+      "builtInRoutines": "Routines fournies",
+      "restore": "Restaurer",
+      "restoreHint": "Ramène les routines fournies avec WingLog que vous avez supprimées.",
+      "restored": "Restaurées. Les routines fournies sont de retour sur la page des services au sol.",
       "statusConnected": "Connecté",
       "statusConnecting": "Connexion…",
       "statusDisconnected": "Déconnecté"
@@ -788,7 +792,6 @@
     "newName": "Ma routine",
     "edit": "Modifier {{name}}",
     "editButton": "Modifier",
-    "restore": "Restaurer les routines fournies",
     "cancel": "Annuler",
     "stageOf": "Étape {{stage}} sur {{count}}",
     "services": {
@@ -846,7 +849,7 @@
       "titleNew": "Nouvelle routine",
       "titleEdit": "Routine",
       "description": "Cochez les services que cette routine demande à GSX. WingLog les range dans un ordre sûr, que vous pouvez modifier.",
-      "builtInNote": "Cette routine est fournie avec WingLog et ne peut pas être modifiée. Dupliquez-la pour créer la vôtre, ou supprimez-la. « Restaurer » ramène les routines fournies.",
+      "builtInNote": "Cette routine est fournie avec WingLog et ne peut pas être modifiée. Dupliquez-la pour créer la vôtre, ou supprimez-la. Vous pouvez récupérer les routines fournies dans les Réglages, sous GSX Remote Control.",
       "name": "Nom",
       "servicesHeading": "Services",
       "groupMain": "Menu principal de GSX",
@@ -870,7 +873,9 @@
       "close": "Fermer",
       "duplicate": "Dupliquer",
       "delete": "Supprimer",
-      "confirmDelete": "Supprimer définitivement ?",
+      "confirmDeleteOwn": "Supprimer « {{name}} » ? Cette action est irréversible.",
+      "confirmDeleteBuiltIn": "Supprimer « {{name}} » ? Vous pourrez la récupérer dans les Réglages, sous GSX Remote Control.",
+      "cancelDelete": "Annuler",
       "saveFailed": "Enregistrement impossible : {{reason}}",
       "copyOf": "{{name}} (copie)",
       "noServices": "Cochez au moins un service."

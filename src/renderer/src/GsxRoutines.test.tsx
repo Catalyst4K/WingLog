@@ -50,8 +50,7 @@ function withWinglog(
     gsxRoutineCancel: vi.fn().mockResolvedValue(undefined),
     gsxRoutinesList: vi.fn().mockResolvedValue(allRoutines(options.routines ?? [])),
     gsxRoutinesSave: vi.fn().mockResolvedValue(options.save ?? { ok: true, routines: allRoutines([OWN]) }),
-    gsxRoutinesDelete: vi.fn().mockResolvedValue(allRoutines([], ['builtin-arrival'])),
-    gsxRoutinesRestore: vi.fn().mockResolvedValue(allRoutines([]))
+    gsxRoutinesDelete: vi.fn().mockResolvedValue(allRoutines([], ['builtin-arrival']))
   }
   window.winglog = api as unknown as WingLogApi
   return { api, push: (progress) => act(() => listener(progress)) }
@@ -282,51 +281,59 @@ describe('GsxRoutines', () => {
       expect(screen.getByRole('dialog')).toBeInTheDocument()
     })
 
-    it('deletes one of the pilot’s own routines after asking once more', async () => {
+    it('asks before deleting one of the pilot’s own routines, then deletes it', async () => {
       const { api } = withWinglog({ routines: [OWN] })
       render(<GsxRoutines canEdit />)
       await editRoutine('A320 turnaround')
       const dialog = await screen.findByRole('dialog')
       await userEvent.click(within(dialog).getByRole('button', { name: 'Delete' }))
       expect(api.gsxRoutinesDelete).not.toHaveBeenCalled()
-      await userEvent.click(within(dialog).getByRole('button', { name: 'Delete for good?' }))
+      const confirmation = within(dialog).getByTestId('gsx-routine-delete-confirmation')
+      expect(confirmation).toHaveTextContent('Delete “A320 turnaround”? This can’t be undone.')
+      await userEvent.click(within(confirmation).getByRole('button', { name: 'Delete' }))
       await waitFor(() => expect(api.gsxRoutinesDelete).toHaveBeenCalledWith('my-turnaround'))
       await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
       expect(screen.queryByRole('button', { name: 'A320 turnaround' })).toBeNull()
     })
 
-    it('deletes a built-in routine after asking once more, and it leaves the row', async () => {
+    it('says a deleted built-in can be brought back from Settings, and it leaves the row', async () => {
       const { api } = withWinglog()
       render(<GsxRoutines canEdit />)
       await editRoutine('Arrival')
       const dialog = await screen.findByRole('dialog')
       await userEvent.click(within(dialog).getByRole('button', { name: 'Delete' }))
-      expect(api.gsxRoutinesDelete).not.toHaveBeenCalled()
-      await userEvent.click(within(dialog).getByRole('button', { name: 'Delete for good?' }))
+      const confirmation = within(dialog).getByTestId('gsx-routine-delete-confirmation')
+      expect(confirmation).toHaveTextContent(
+        'Delete “Arrival”? You can bring it back from Settings, under GSX Remote Control.'
+      )
+      await userEvent.click(within(confirmation).getByRole('button', { name: 'Delete' }))
       await waitFor(() => expect(api.gsxRoutinesDelete).toHaveBeenCalledWith('builtin-arrival'))
       await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
       expect(screen.queryByRole('button', { name: 'Edit Arrival' })).toBeNull()
       expect(screen.getByRole('button', { name: 'Edit Turnaround clean' })).toBeInTheDocument()
     })
 
-    it('offers Restore only while Edit is on and a built-in is missing, and brings them back', async () => {
-      const { api } = withWinglog()
-      api.gsxRoutinesList.mockResolvedValue(allRoutines([], ['builtin-arrival']))
+    it('keeps the routine when the confirmation is cancelled, and goes back to the usual buttons', async () => {
+      const { api } = withWinglog({ routines: [OWN] })
       render(<GsxRoutines canEdit />)
-      await screen.findByRole('button', { name: 'Turnaround clean' })
-      expect(screen.queryByRole('button', { name: 'Restore built-in routines' })).toBeNull()
-      await userEvent.click(screen.getByRole('button', { name: 'Edit', pressed: false }))
-      await userEvent.click(screen.getByRole('button', { name: 'Restore built-in routines' }))
-      expect(api.gsxRoutinesRestore).toHaveBeenCalledTimes(1)
-      expect(await screen.findByRole('button', { name: 'Edit Arrival' })).toBeInTheDocument()
-      expect(screen.queryByRole('button', { name: 'Restore built-in routines' })).toBeNull()
+      await editRoutine('A320 turnaround')
+      const dialog = await screen.findByRole('dialog')
+      await userEvent.click(within(dialog).getByRole('button', { name: 'Delete' }))
+      await userEvent.click(
+        within(within(dialog).getByTestId('gsx-routine-delete-confirmation')).getByRole('button', {
+          name: 'Cancel'
+        })
+      )
+      expect(api.gsxRoutinesDelete).not.toHaveBeenCalled()
+      expect(within(dialog).queryByTestId('gsx-routine-delete-confirmation')).toBeNull()
+      expect(within(dialog).getByRole('button', { name: 'Save' })).toBeInTheDocument()
     })
 
-    it('has no Restore when every built-in is there', async () => {
+    it('has no Restore on the Routines row; that is in Settings', async () => {
       withWinglog()
       render(<GsxRoutines canEdit />)
       await userEvent.click(await screen.findByRole('button', { name: 'Edit', pressed: false }))
-      expect(screen.queryByRole('button', { name: 'Restore built-in routines' })).toBeNull()
+      expect(screen.queryByRole('button', { name: /Restore/ })).toBeNull()
     })
 
     it('closes without saving', async () => {

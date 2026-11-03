@@ -112,6 +112,10 @@
       "port": "Port",
       "portPlaceholder": "8744",
       "portHint": "8744 is GSX's own default, but it's configurable under Remote Client in GSX's own settings — check there if this doesn't connect.",
+      "builtInRoutines": "Built-in routines",
+      "restore": "Restore",
+      "restoreHint": "Brings back any of WingLog’s built-in routines you have deleted.",
+      "restored": "Restored. The built-in routines are back on the Ground services page.",
       "statusConnected": "Connected",
       "statusConnecting": "Connecting…",
       "statusDisconnected": "Disconnected"
@@ -786,7 +790,6 @@
     "newName": "My routine",
     "edit": "Edit {{name}}",
     "editButton": "Edit",
-    "restore": "Restore built-in routines",
     "cancel": "Cancel",
     "stageOf": "Stage {{stage}} of {{count}}",
     "services": {
@@ -844,7 +847,7 @@
       "titleNew": "New routine",
       "titleEdit": "Routine",
       "description": "Tick the services this routine asks GSX for. WingLog lays them out in a safe order, which you can change.",
-      "builtInNote": "This routine comes with WingLog and can't be changed. Duplicate it to make your own, or delete it. Restore brings the built-in routines back.",
+      "builtInNote": "This routine comes with WingLog and can't be changed. Duplicate it to make your own, or delete it. You can bring the built-in routines back from Settings, under GSX Remote Control.",
       "name": "Name",
       "servicesHeading": "Services",
       "groupMain": "GSX main menu",
@@ -868,7 +871,9 @@
       "close": "Close",
       "duplicate": "Duplicate",
       "delete": "Delete",
-      "confirmDelete": "Delete for good?",
+      "confirmDeleteOwn": "Delete “{{name}}”? This can’t be undone.",
+      "confirmDeleteBuiltIn": "Delete “{{name}}”? You can bring it back from Settings, under GSX Remote Control.",
+      "cancelDelete": "Cancel",
       "saveFailed": "Couldn't save: {{reason}}",
       "copyOf": "{{name}} copy",
       "noServices": "Tick at least one service."

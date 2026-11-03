@@ -1,12 +1,13 @@
 /** Settings → 3rd party: the SimBrief credentials, GSX, GSX Remote and BeyondATC cards. */
 
-import { useId } from 'react'
+import { useId, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { NavigraphLogo } from '../NavigraphLogo'
+import { winglogApi } from '../data/winglog-api'
 import { asyncHandler, runAsync } from '../report-error'
 import { OnOffControl, SettingRow, SettingsCard, StatusBadge } from './ui/SettingsCard'
 import type {
@@ -205,6 +206,7 @@ export function GsxRemoteCard(props: { gsxRemote: GsxRemoteSettingsState }): Rea
   const r = props.gsxRemote
   const hostId = useId()
   const portId = useId()
+  const [isRestored, setIsRestored] = useState(false)
   return (
     <SettingsCard
       title={t('settingsView.gsxRemote.cardTitle')}
@@ -254,6 +256,22 @@ export function GsxRemoteCard(props: { gsxRemote: GsxRemoteSettingsState }): Rea
             onBlur={asyncHandler('SettingsView commitGsxRemotePort', () => r.commitPort())}
           />
         </form>
+      </SettingRow>
+      <SettingRow
+        label={t('settingsView.gsxRemote.builtInRoutines')}
+        note={isRestored ? t('settingsView.gsxRemote.restored') : t('settingsView.gsxRemote.restoreHint')}
+      >
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={asyncHandler('SettingsView handleRestoreBuiltInRoutines', async () => {
+            await winglogApi().gsxRoutinesRestore()
+            setIsRestored(true)
+          })}
+        >
+          {t('settingsView.gsxRemote.restore')}
+        </Button>
       </SettingRow>
     </SettingsCard>
   )

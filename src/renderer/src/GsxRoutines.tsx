@@ -6,7 +6,7 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Pencil, Plus } from 'lucide-react'
-import { BUILT_IN_ROUTINES, type GsxRoutine } from '@shared/gsx-routines'
+import type { GsxRoutine } from '@shared/gsx-routines'
 import type { GsxRoutineProgress, GsxRoutineServiceProgress } from '@shared/gsx-routine-progress'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -89,7 +89,6 @@ export function GsxRoutines(props: { canEdit: boolean }): React.JSX.Element {
   const [editing, setEditing] = useState<{ routine: GsxRoutine; isStored: boolean } | null>(null)
   const isRunning = progress?.state === 'running'
   const [isEditMode, setIsEditMode] = useState(false)
-  const hasDeletedBuiltIns = BUILT_IN_ROUTINES.some((b) => !routines.some((r) => r.id === b.id))
 
   useEffect(() => {
     runAsync('GsxRoutines gsxRoutinesList', winglogApi().gsxRoutinesList().then(setRoutines))
@@ -144,20 +143,6 @@ export function GsxRoutines(props: { canEdit: boolean }): React.JSX.Element {
                 {t('gsxRoutines.new')}
               </Button>
             </li>
-            {isEditMode && hasDeletedBuiltIns && (
-              <li>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={asyncHandler('GsxRoutines gsxRoutinesRestore', async () =>
-                    setRoutines(await winglogApi().gsxRoutinesRestore())
-                  )}
-                >
-                  {t('gsxRoutines.restore')}
-                </Button>
-              </li>
-            )}
             <li>
               <Button
                 type="button"
