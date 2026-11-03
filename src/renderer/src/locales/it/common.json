@@ -387,7 +387,14 @@
     "currentAirport": "Aeroporto attuale",
     "saving": "Salvataggio…",
     "save": "Salva",
-    "cancel": "Annulla"
+    "cancel": "Annulla",
+    "photo": {
+      "label": "Foto",
+      "choose": "Scegli la tua foto…",
+      "replace": "Scegli un’altra foto…",
+      "remove": "Rimuovi la mia foto",
+      "hint": "La tua immagine viene mostrata al posto di quella della ricerca per marche. JPEG o PNG."
+    }
   },
   "airportSearch": {
     "placeholder": "ICAO o cerca per nome"

@@ -7,9 +7,31 @@ import { open } from 'node:fs/promises'
  *  export. The path comes from a native dialog, but the file's contents are still untrusted. */
 export const MAX_IMPORT_BYTES = 25 * 1024 * 1024
 
-/** Reads an import file, refusing anything implausibly large. The size check and the read
+/** Reads a file the pilot chose, refusing anything over a limit. The size check and the read
  *  go through one open handle (fstat, not a separate stat-then-read by path), so the file
  *  can't be swapped for a bigger one between the two.
+ *
+ * @param path The file the pilot chose.
+ * @param maxBytes The largest file to accept, in bytes.
+ * @param tooLargeMessage The error to show when it's over the limit.
+ * @returns The file's bytes.
+ * @throws When it's too large or can't be read.
+ */
+export async function readLimitedFile(
+  path: string,
+  maxBytes: number,
+  tooLargeMessage: string
+): Promise<Buffer> {
+  const handle = await open(path, 'r')
+  try {
+    if ((await handle.stat()).size > maxBytes) throw new Error(tooLargeMessage)
+    return await handle.readFile()
+  } finally {
+    await handle.close()
+  }
+}
+
+/** Reads an import file, refusing anything implausibly large.
  *
  * @param path The file the pilot chose.
  * @param tooLargeMessage The error to show when it's over the limit.
@@ -17,11 +39,5 @@ export const MAX_IMPORT_BYTES = 25 * 1024 * 1024
  * @throws When it's too large or can't be read.
  */
 export async function readImportFile(path: string, tooLargeMessage: string): Promise<string> {
-  const handle = await open(path, 'r')
-  try {
-    if ((await handle.stat()).size > MAX_IMPORT_BYTES) throw new Error(tooLargeMessage)
-    return await handle.readFile('utf-8')
-  } finally {
-    await handle.close()
-  }
+  return (await readLimitedFile(path, MAX_IMPORT_BYTES, tooLargeMessage)).toString('utf-8')
 }

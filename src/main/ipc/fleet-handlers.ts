@@ -1,10 +1,11 @@
 /**
- * Fleet IPC: the aircraft list, its import and export, and each aircraft's flights, landings and
+ * Fleet IPC: the aircraft list, its import and export, choosing an aircraft's photo, and each aircraft's flights, landings and
  * last stand. Every channel is a query (coding-standards.md §9): plain IPC to the local database.
  */
 import type { BrowserWindow, IpcMain } from 'electron'
 import { IpcChannels, type AircraftUpdate } from '@shared/ipc'
 import { t } from '../i18n'
+import { pickAircraftPhoto } from '../aircraft-lookup/aircraft-photo-file'
 import type { WingLogDb } from '../db/client'
 import { exportAircraft, importAircraft } from '../db/aircraft-import-export'
 import {
@@ -97,6 +98,8 @@ export function registerFleetHandlers(
   ipcMain.handle(IpcChannels.aircraftExport, (_event, format?: unknown) =>
     exportAircraft(db, window, asDataFormat(format))
   )
+
+  ipcMain.handle(IpcChannels.aircraftPickPhoto, () => pickAircraftPhoto(window))
 
   ipcMain.handle(IpcChannels.fleetListLandings, (_event, aircraftId: number) => {
     const icaoType = getAircraftById(db, aircraftId)?.icaoType ?? null

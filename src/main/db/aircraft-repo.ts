@@ -33,7 +33,9 @@ function toAircraft(row: typeof aircraft.$inferSelect): Aircraft {
     createdAt: row.createdAt,
     replacedByAircraftId: row.replacedByAircraftId,
     retiredAt: row.retiredAt,
-    photoThumbnailUrl: row.photoThumbnailUrl
+    photoThumbnailUrl: row.photoThumbnailUrl,
+    photoUrl: row.photoUrl,
+    customPhoto: row.customPhoto
   }
 }
 

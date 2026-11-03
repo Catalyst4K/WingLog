@@ -385,7 +385,14 @@
     "currentAirport": "Aktueller Flughafen",
     "saving": "Wird gespeichert…",
     "save": "Speichern",
-    "cancel": "Abbrechen"
+    "cancel": "Abbrechen",
+    "photo": {
+      "label": "Foto",
+      "choose": "Eigenes Foto wählen…",
+      "replace": "Anderes Foto wählen…",
+      "remove": "Mein Foto entfernen",
+      "hint": "Dein eigenes Bild wird statt des Fotos aus der Kennzeichen-Suche angezeigt. JPEG oder PNG."
+    }
   },
   "airportSearch": {
     "placeholder": "ICAO oder nach Namen suchen"

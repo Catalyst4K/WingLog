@@ -37,7 +37,9 @@ const FULL_AIRCRAFT: Aircraft = {
   createdAt: '2026-01-01T00:00:00.000Z',
   replacedByAircraftId: null,
   retiredAt: null,
-  photoThumbnailUrl: 'https://airport-data.com/images/aircraft/thumbnails/001/685/001685661.jpg'
+  photoThumbnailUrl: 'https://airport-data.com/images/aircraft/thumbnails/001/685/001685661.jpg',
+  photoUrl: 'https://image.airport-data.com/aircraft/001685661.jpg',
+  customPhoto: null
 }
 
 const MINIMAL_AIRCRAFT: Aircraft = {
@@ -56,7 +58,9 @@ const MINIMAL_AIRCRAFT: Aircraft = {
   createdAt: '2026-01-01T00:00:00.000Z',
   replacedByAircraftId: null,
   retiredAt: null,
-  photoThumbnailUrl: null
+  photoThumbnailUrl: null,
+  photoUrl: null,
+  customPhoto: null
 }
 
 function buildWinglog(overrides: Partial<WingLogApi> = {}): WingLogApi {
@@ -224,7 +228,8 @@ describe('AircraftForm', () => {
         icaoType: 'B77W',
         operator: 'Cathay Pacific Airways',
         operatorIcao: 'CPA',
-        photoThumbnailUrl: 'https://airport-data.com/thumb.jpg'
+        photoThumbnailUrl: 'https://airport-data.com/thumb.jpg',
+        photoUrl: 'https://image.airport-data.com/aircraft/full.jpg'
       }),
       airlineFindByIcao: vi.fn().mockResolvedValue(airline),
       simbriefAirframesForType: vi.fn().mockResolvedValue([{ ...DEFAULT_OPTION, simbriefType: 'B77W' }])
@@ -250,6 +255,7 @@ describe('AircraftForm', () => {
       expect(onSubmit).toHaveBeenCalledWith(
         expect.objectContaining({
           photoThumbnailUrl: 'https://airport-data.com/thumb.jpg',
+          photoUrl: 'https://image.airport-data.com/aircraft/full.jpg',
           operatorIata: 'CX',
           operatorIcao: 'CPA'
         })
@@ -280,7 +286,8 @@ describe('AircraftForm', () => {
         icaoType: 'A320',
         operator: 'Some Other Airline',
         operatorIcao: null,
-        photoThumbnailUrl: 'https://airport-data.com/other.jpg'
+        photoThumbnailUrl: 'https://airport-data.com/other.jpg',
+        photoUrl: 'https://image.airport-data.com/aircraft/other.jpg'
       })
     })
     const user = userEvent.setup()
@@ -656,11 +663,125 @@ describe('AircraftForm', () => {
         simbriefType: null,
         currentIcao: null,
         photoThumbnailUrl: null,
+        photoUrl: null,
+        customPhoto: null,
         simbriefAirframeDeveloper: null,
         simbriefAirframeEngines: null,
         simbriefAirframeRegistration: null
       })
     )
+  })
+
+  describe('the photo', () => {
+    const OWN = 'data:image/jpeg;base64,/9j/4AAQSkZJRg=='
+
+    it('shows the aircraft’s looked-up photo as the preview, with a way to choose your own', () => {
+      setWinglog()
+      const { container } = render(
+        <AircraftForm initial={FULL_AIRCRAFT} onSubmit={vi.fn()} onCancel={vi.fn()} />
+      )
+      expect(container.querySelector('img')).toHaveAttribute('src', FULL_AIRCRAFT.photoUrl)
+      expect(screen.getByRole('button', { name: 'Choose your own photo…' })).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Remove my photo' })).toBeNull()
+    })
+
+    it('keeps the picture the main process returns, shows it in place of the looked-up one and saves it', async () => {
+      const winglog = setWinglog({ aircraftPickPhoto: vi.fn().mockResolvedValue({ dataUrl: OWN }) })
+      const user = userEvent.setup()
+      const onSubmit = vi.fn().mockResolvedValue(undefined)
+      const { container } = render(
+        <AircraftForm initial={FULL_AIRCRAFT} onSubmit={onSubmit} onCancel={vi.fn()} />
+      )
+      await user.click(screen.getByRole('button', { name: 'Choose your own photo…' }))
+      await waitFor(() => expect(container.querySelector('img')).toHaveAttribute('src', OWN))
+      expect(winglog.aircraftPickPhoto).toHaveBeenCalledTimes(1)
+      expect(screen.getByRole('button', { name: 'Choose a different photo…' })).toBeInTheDocument()
+      // The lookup's photo is still on the aircraft; only the pilot's own picture was added.
+      await user.click(screen.getByText('Save'))
+      await waitFor(() =>
+        expect(onSubmit).toHaveBeenCalledWith(
+          expect.objectContaining({
+            customPhoto: OWN,
+            photoUrl: FULL_AIRCRAFT.photoUrl,
+            photoThumbnailUrl: FULL_AIRCRAFT.photoThumbnailUrl
+          })
+        )
+      )
+    })
+
+    it('removes the pilot’s own picture and goes back to the looked-up photo', async () => {
+      setWinglog()
+      const user = userEvent.setup()
+      const onSubmit = vi.fn().mockResolvedValue(undefined)
+      const { container } = render(
+        <AircraftForm
+          initial={{ ...FULL_AIRCRAFT, customPhoto: OWN }}
+          onSubmit={onSubmit}
+          onCancel={vi.fn()}
+        />
+      )
+      expect(container.querySelector('img')).toHaveAttribute('src', OWN)
+      await user.click(screen.getByRole('button', { name: 'Remove my photo' }))
+      expect(container.querySelector('img')).toHaveAttribute('src', FULL_AIRCRAFT.photoUrl)
+      expect(screen.queryByRole('button', { name: 'Remove my photo' })).toBeNull()
+      await user.click(screen.getByText('Save'))
+      await waitFor(() =>
+        expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ customPhoto: null }))
+      )
+    })
+
+    it('says why a file could not be used, and keeps what was there', async () => {
+      setWinglog({
+        aircraftPickPhoto: vi.fn().mockResolvedValue({ error: 'That file is too large to be a photo' })
+      })
+      const user = userEvent.setup()
+      const { container } = render(
+        <AircraftForm initial={FULL_AIRCRAFT} onSubmit={vi.fn()} onCancel={vi.fn()} />
+      )
+      await user.click(screen.getByRole('button', { name: 'Choose your own photo…' }))
+      expect(await screen.findByText('That file is too large to be a photo')).toBeInTheDocument()
+      expect(container.querySelector('img')).toHaveAttribute('src', FULL_AIRCRAFT.photoUrl)
+    })
+
+    it('changes nothing when the file dialog is closed', async () => {
+      setWinglog({ aircraftPickPhoto: vi.fn().mockResolvedValue(null) })
+      const user = userEvent.setup()
+      const { container } = render(
+        <AircraftForm initial={FULL_AIRCRAFT} onSubmit={vi.fn()} onCancel={vi.fn()} />
+      )
+      await user.click(screen.getByRole('button', { name: 'Choose your own photo…' }))
+      await waitFor(() =>
+        expect(screen.getByRole('button', { name: 'Choose your own photo…' })).toBeEnabled()
+      )
+      expect(container.querySelector('img')).toHaveAttribute('src', FULL_AIRCRAFT.photoUrl)
+    })
+
+    it('keeps the full-size link from a lookup for an aircraft that had only the old thumbnail', async () => {
+      setWinglog({
+        aircraftLookupByRegistration: vi.fn().mockResolvedValue({
+          icaoType: 'A35K',
+          operator: null,
+          operatorIcao: null,
+          photoThumbnailUrl: 'https://airport-data.com/images/aircraft/thumbnails/001/685/001685661.jpg',
+          photoUrl: 'https://image.airport-data.com/aircraft/001685661.jpg'
+        })
+      })
+      const user = userEvent.setup()
+      const onSubmit = vi.fn().mockResolvedValue(undefined)
+      const { container } = render(
+        <AircraftForm initial={{ ...FULL_AIRCRAFT, photoUrl: null }} onSubmit={onSubmit} onCancel={vi.fn()} />
+      )
+      expect(container.querySelector('img')).toHaveAttribute('src', FULL_AIRCRAFT.photoThumbnailUrl)
+      await user.click(screen.getByText('Look up'))
+      await screen.findByText(/Found:/)
+      await waitFor(() =>
+        expect(container.querySelector('img')).toHaveAttribute('src', FULL_AIRCRAFT.photoUrl)
+      )
+      await user.click(screen.getByText('Save'))
+      await waitFor(() =>
+        expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ photoUrl: FULL_AIRCRAFT.photoUrl }))
+      )
+    })
   })
 
   it('shows "Saving…" while the submit promise is pending, then clears on success', async () => {

@@ -2,6 +2,7 @@
  * The one validator for aircraft input, used by create, update and import alike.
  */
 import type { NewAircraft } from '@shared/ipc'
+import { isCustomPhoto, isPhotoUrl } from '@shared/aircraft-photo'
 import { t } from '../i18n'
 
 const REQUIRED_STRING_FIELDS = ['registration', 'icaoType'] as const
@@ -15,10 +16,35 @@ const OPTIONAL_STRING_FIELDS = [
   'simbriefAirframeEngines',
   'simbriefAirframeRegistration',
   'currentIcao',
-  'photoThumbnailUrl'
+  'photoThumbnailUrl',
+  'photoUrl',
+  'customPhoto'
 ] as const
 
 export type AircraftInputResult = { data: NewAircraft } | { error: string }
+
+/** Which photo fields hold what, so a link can't be a script and a picture can't be anything but one we made. */
+const PHOTO_CHECKS = [
+  ['photoThumbnailUrl', isPhotoUrl],
+  ['photoUrl', isPhotoUrl],
+  ['customPhoto', isCustomPhoto]
+] as const
+
+/**
+ * The first photo field holding something it may not.
+ *
+ * @param fields The optional string fields, trimmed.
+ * @returns The error to show, or undefined when every photo field is fine.
+ */
+function photoError(
+  fields: Partial<Record<(typeof OPTIONAL_STRING_FIELDS)[number], string | null>>
+): string | undefined {
+  for (const [field, isValid] of PHOTO_CHECKS) {
+    const value = fields[field]
+    if (typeof value === 'string' && !isValid(value)) return t('errors.photoInvalid', { field })
+  }
+  return undefined
+}
 
 /**
  * Validates and normalizes aircraft input from an untrusted source (an imported JSON
@@ -58,6 +84,9 @@ export function parseAircraftInput(raw: unknown): AircraftInputResult {
     if (typeof value !== 'string') return { error: t('errors.fieldMustBeString', { field }) }
     fields[field] = value.trim()
   }
+
+  const problem = photoError(fields)
+  if (problem) return { error: problem }
 
   return { data: { ...required, ...fields } }
 }

@@ -74,9 +74,15 @@ export const aircraft = sqliteTable('aircraft', {
   retiredAt: text('retired_at'),
   // Real-world livery photo thumbnail from adsbdb's registration lookup (docs/plans/fleet-redesign.md #3), stored at lookup
   // time rather than fetched per detail-page view (local-first); it goes stale if the photo is replaced, an accepted
-  // tradeoff. Deliberately NOT adsbdb's full-size `url_photo`, which 404s consistently while the thumbnail host serves
-  // reliably. adsbdb gives no photographer name, so the UI credits airport-data.com.
+  // tradeoff. About 150 px wide, so only the fallback now; photoUrl is the one shown. adsbdb gives no photographer name,
+  // so the UI credits airport-data.com.
   photoThumbnailUrl: text('photo_thumbnail_url'),
+  // The same photo at full size (adsbdb's `url_photo`, about 1900 px wide), stored at lookup time too (docs/plans/
+  // aircraft-photos.md). Null for an aircraft saved before this column or never looked up; the thumbnail stands in.
+  photoUrl: text('photo_url'),
+  // The pilot's own picture of this aircraft, as a JPEG data URL (docs/plans/aircraft-photos.md): shown in place of the
+  // lookup's photos, which it leaves in place so removing it brings them back. Shrunk to 1280 px before it is stored.
+  customPhoto: text('custom_photo'),
   // Soft-delete tombstone (winglog-backend/docs/plans/cloud-sync-v2.md #3a) — a hard
   // DELETE is indistinguishable from "never created" once it reaches the sync protocol, so
   // a pull would resurrect it on every other device. Null (the default) means live; set

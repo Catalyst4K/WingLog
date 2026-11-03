@@ -14,6 +14,11 @@ vi.mock('../db/aircraft-import-export', () => ({
   exportAircraft: (...args: unknown[]) => exportAircraft(...args)
 }))
 
+const pickAircraftPhoto = vi.fn()
+vi.mock('../aircraft-lookup/aircraft-photo-file', () => ({
+  pickAircraftPhoto: (...args: unknown[]) => pickAircraftPhoto(...args)
+}))
+
 describe('fleet IPC handlers', () => {
   let db: WingLogDb
   let invoke: ReturnType<typeof fakeIpc>['invoke']
@@ -26,6 +31,7 @@ describe('fleet IPC handlers', () => {
     sync.mockClear()
     importAircraft.mockReset()
     exportAircraft.mockReset()
+    pickAircraftPhoto.mockReset()
     const ipc = fakeIpc()
     invoke = ipc.invoke
     registerFleetHandlers(ipc.ipcMain, { db, window, scheduleBackgroundSync: sync })
@@ -81,6 +87,28 @@ describe('fleet IPC handlers', () => {
     expect(sync).toHaveBeenCalledTimes(1)
     invoke(IpcChannels.aircraftExport, 'csv')
     expect(exportAircraft).toHaveBeenCalledWith(db, window, 'csv')
+  })
+
+  it('opens the photo dialog over the window and answers with what it returns, saving nothing', async () => {
+    pickAircraftPhoto
+      .mockResolvedValueOnce({ dataUrl: 'data:image/jpeg;base64,AAAA' })
+      .mockResolvedValueOnce(null)
+    expect(await invoke(IpcChannels.aircraftPickPhoto)).toEqual({ dataUrl: 'data:image/jpeg;base64,AAAA' })
+    expect(pickAircraftPhoto).toHaveBeenCalledWith(window)
+    expect(await invoke(IpcChannels.aircraftPickPhoto)).toBeNull()
+    expect(sync).not.toHaveBeenCalled()
+    expect(invoke(IpcChannels.aircraftList)).toEqual([])
+  })
+
+  it('refuses a photo that is not a picture we made, from the renderer', () => {
+    expect(() =>
+      invoke(IpcChannels.aircraftCreate, {
+        registration: 'G-EVIL',
+        icaoType: 'A320',
+        customPhoto: 'https://example.com/tracker.gif'
+      })
+    ).toThrow('"customPhoto" is not a picture or link WingLog can keep')
+    expect(sync).not.toHaveBeenCalled()
   })
 
   it("lists an aircraft's flights, landings and last stands", () => {

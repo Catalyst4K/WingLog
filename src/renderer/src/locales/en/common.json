@@ -385,7 +385,14 @@
     "currentAirport": "Current airport",
     "saving": "Saving…",
     "save": "Save",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "photo": {
+      "label": "Photo",
+      "choose": "Choose your own photo…",
+      "replace": "Choose a different photo…",
+      "remove": "Remove my photo",
+      "hint": "Your own picture is shown instead of the one from the registration lookup. JPEG or PNG."
+    }
   },
   "airportSearch": {
     "placeholder": "ICAO or search by name"

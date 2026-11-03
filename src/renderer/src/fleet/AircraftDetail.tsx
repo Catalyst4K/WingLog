@@ -117,8 +117,8 @@ function RetirementNote(props: {
 }
 
 /**
- * An aircraft's detail page: actions, the retired / replaced note, the identity card with its
- * photo and totals, the SimBrief profile, its flights and its landing history.
+ * An aircraft's detail page: actions, the retired / replaced note, the identity card opening with its
+ * large photo, then its totals, the SimBrief profile, its flights and its landing history.
  *
  * @param props The aircraft, its stats, where it last parked, what replaced it, and the handlers.
  * @returns The element.
@@ -160,13 +160,18 @@ export function AircraftDetail(props: {
       <div className="flex flex-wrap gap-4">
         <div className="flex min-w-72 flex-1 flex-col gap-4">
           <Card>
+            <AircraftPhoto
+              customPhoto={a.customPhoto}
+              photoUrl={a.photoUrl}
+              thumbnailUrl={a.photoThumbnailUrl}
+              alt={`${a.registration} ${a.icaoType}`}
+            />
             <CardHeader>
               <CardTitle className="text-xl">
                 {a.registration} — {a.icaoType}
               </CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
-              <AircraftPhoto thumbnailUrl={a.photoThumbnailUrl} />
               <dl className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-sm">
                 <DetailField
                   label={t('fleetView.detail.fields.airline')}

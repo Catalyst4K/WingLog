@@ -379,7 +379,14 @@
     "currentAirport": "目前所在機場",
     "saving": "正在儲存…",
     "save": "儲存",
-    "cancel": "取消"
+    "cancel": "取消",
+    "photo": {
+      "label": "照片",
+      "choose": "選擇自己的照片…",
+      "replace": "選擇其他照片…",
+      "remove": "移除我的照片",
+      "hint": "將顯示你自己的圖片，而不是依註冊號碼查詢到的照片。支援 JPEG 或 PNG。"
+    }
   },
   "airportSearch": {
     "placeholder": "ICAO 代碼或依名稱搜尋"

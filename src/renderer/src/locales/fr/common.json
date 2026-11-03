@@ -387,7 +387,14 @@
     "currentAirport": "Aéroport actuel",
     "saving": "Enregistrement…",
     "save": "Enregistrer",
-    "cancel": "Annuler"
+    "cancel": "Annuler",
+    "photo": {
+      "label": "Photo",
+      "choose": "Choisir votre propre photo…",
+      "replace": "Choisir une autre photo…",
+      "remove": "Retirer ma photo",
+      "hint": "Votre propre image est affichée à la place de celle de la recherche par immatriculation. JPEG ou PNG."
+    }
   },
   "airportSearch": {
     "placeholder": "OACI ou rechercher par nom"

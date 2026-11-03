@@ -10,6 +10,7 @@ export const IpcChannels = {
   aircraftUnretire: 'aircraft:unretire',
   aircraftImport: 'aircraft:import',
   aircraftExport: 'aircraft:export',
+  aircraftPickPhoto: 'aircraft:pick-photo',
   simTelemetry: 'sim:telemetry',
   simConnectionStatus: 'sim:connection-status',
   simConnectionStatusGet: 'sim:connection-status:get',

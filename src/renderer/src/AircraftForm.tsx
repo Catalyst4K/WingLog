@@ -17,6 +17,7 @@ import { AirportSearch } from './AirportSearch'
 import { Combobox } from './components/Combobox'
 import { AirframeProfileField, CustomAirframeField } from './aircraft-form/AirframeFields'
 import { fillFromLookup } from './aircraft-form/lookup-fill'
+import { PhotoField } from './aircraft-form/PhotoField'
 import { asyncHandler, runAsync } from './report-error'
 
 interface FormState {
@@ -78,16 +79,20 @@ function toNewAircraft(f: FormState): NewAircraft {
  * The values the form carries but has no input for: from the aircraft being edited, else none.
  *
  * @param a The aircraft being edited, if any.
- * @returns The photo and the SimBrief airframe's developer, engines and registration.
+ * @returns The photos and the SimBrief airframe's developer, engines and registration.
  */
 function hiddenFields(a: Aircraft | undefined): {
   photoThumbnailUrl: string | null
+  photoUrl: string | null
+  customPhoto: string | null
   airframeDeveloper: string | null
   airframeEngines: string | null
   airframeRegistration: string | null
 } {
   return {
     photoThumbnailUrl: a?.photoThumbnailUrl ?? null,
+    photoUrl: a?.photoUrl ?? null,
+    customPhoto: a?.customPhoto ?? null,
     airframeDeveloper: a?.simbriefAirframeDeveloper ?? null,
     airframeEngines: a?.simbriefAirframeEngines ?? null,
     airframeRegistration: a?.simbriefAirframeRegistration ?? null
@@ -117,6 +122,8 @@ export function AircraftForm(props: {
   // so toFormState/toNewAircraft don't need to round-trip values nothing renders as input.
   const hidden = hiddenFields(props.initial)
   const [photoThumbnailUrl, setPhotoThumbnailUrl] = useState<string | null>(hidden.photoThumbnailUrl)
+  const [photoUrl, setPhotoUrl] = useState<string | null>(hidden.photoUrl)
+  const [customPhoto, setCustomPhoto] = useState<string | null>(hidden.customPhoto)
   const [airframeDeveloper, setAirframeDeveloper] = useState<string | null>(hidden.airframeDeveloper)
   const [airframeEngines, setAirframeEngines] = useState<string | null>(hidden.airframeEngines)
   const [airframeRegistration, setAirframeRegistration] = useState<string | null>(hidden.airframeRegistration)
@@ -279,6 +286,7 @@ export function AircraftForm(props: {
       if (photoThumbnailUrl === null && result.photoThumbnailUrl) {
         setPhotoThumbnailUrl(result.photoThumbnailUrl)
       }
+      if (photoUrl === null && result.photoUrl) setPhotoUrl(result.photoUrl)
       // Autofills the SimBrief type with the closest match to the real-world type adsbdb
       // just reported (docs/plans/simbrief-airframe-picker.md) — "closest" in practice
       // means "does SimBrief recognise this exact ICAO code at all", since adsbdb gives no
@@ -319,6 +327,8 @@ export function AircraftForm(props: {
       await props.onSubmit({
         ...toNewAircraft(form),
         photoThumbnailUrl,
+        photoUrl,
+        customPhoto,
         simbriefAirframeDeveloper: airframeDeveloper,
         simbriefAirframeEngines: airframeEngines,
         simbriefAirframeRegistration: airframeRegistration
@@ -360,6 +370,13 @@ export function AircraftForm(props: {
       </Label>
 
       {lookupStatus && <p className="text-sm text-muted-foreground">{lookupStatus}</p>}
+
+      <PhotoField
+        customPhoto={customPhoto}
+        photoUrl={photoUrl}
+        thumbnailUrl={photoThumbnailUrl}
+        onChange={setCustomPhoto}
+      />
 
       <div className="flex flex-col gap-1.5">
         <Label>{t('aircraftForm.icaoType')}</Label>

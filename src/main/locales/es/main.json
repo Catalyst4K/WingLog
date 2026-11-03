@@ -5,7 +5,9 @@
     "exportLogbook": "Exportar bitácora",
     "importLogbookCsv": "Importar CSV de bitácora",
     "importLogbookJson": "Importar JSON de bitácora",
-    "gsxReceiptsFolder": "Carpeta de recibos de GSX"
+    "gsxReceiptsFolder": "Carpeta de recibos de GSX",
+    "choosePhoto": "Elegir una foto de la aeronave",
+    "pictures": "Imágenes"
   },
   "startupFailed": "WingLog no se pudo iniciar",
   "errors": {
@@ -40,7 +42,11 @@
     "notValidAirportCode": "Ese no es un código de aeropuerto válido",
     "noFlightBeingTracked": "No se está registrando ningún vuelo",
     "credentialEncryptionUnavailable": "El cifrado de credenciales a nivel del sistema operativo no está disponible en este equipo",
-    "notLoggedIn": "No has iniciado sesión"
+    "notLoggedIn": "No has iniciado sesión",
+    "photoInvalid": "«{{field}}» no es una imagen ni un enlace que WingLog pueda guardar",
+    "photoUnreadable": "WingLog no pudo leer ese archivo como imagen. Elige un JPEG o PNG.",
+    "photoTooDetailed": "Esa imagen tiene demasiado detalle para guardarla. Prueba con una más pequeña.",
+    "photoFileTooLarge": "Ese archivo es demasiado grande para ser una foto (el límite es 25 MB)"
   },
   "labels": {
     "unknownRegistration": "(desconocida)",

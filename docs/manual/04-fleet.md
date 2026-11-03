@@ -12,15 +12,22 @@ tabs.
 2. Enter the registration and the ICAO type (for example `A359`).
 3. Press **Look up** to fill in the real-world type, operator and a photo from a public registration
    database. Anything it fills in can still be edited.
-4. Optionally pick the aircraft's **SimBrief profile** (see below), then save.
+4. Optionally choose your own **Photo** (see below).
+5. Optionally pick the aircraft's **SimBrief profile** (see below), then save.
 
 The **Location** column shows where each aircraft is, updated when a flight ends there.
+
+## Your own photo
+
+The photo from **Look up** can be old, and some aircraft have none. To use your own, edit the aircraft and press **Choose your own photo…**,
+then pick a JPEG or PNG. WingLog shrinks it to fit and keeps it with the aircraft, so it needs no file left in place and works on every
+device you sync. Your photo is shown instead of the looked-up one, with no credit line. **Remove my photo** brings the looked-up one back.
 
 ## The aircraft page
 
 Click an aircraft to see:
 
-- its photo, airline, current airport, total hours, number of flights and last flight;
+- its photo, shown large across the top, then its airline, current airport, total hours, number of flights and last flight;
 - **Last parked** stand: when a flight ends at a gate, WingLog notes which stand you parked at, and
   shows it here and in Dispatch so you can start your next flight from the same gate;
 - **SimBrief profile**: the SimBrief airframe Dispatch uses for this aircraft;
