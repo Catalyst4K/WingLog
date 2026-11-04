@@ -461,6 +461,47 @@ describe('re-routes keep to the nose', () => {
   })
 })
 
+describe('re-routes after a turn on the spot (taxi-rules-2.md step 1)', () => {
+  // T runs east to the hold H. The aircraft stopped on T at x = 100 and turned right round: it faces west, and the cleared route runs
+  // east behind it. The node at x = 0 is 100 m ahead of the nose and on the cleared route, but following the route on from there is a
+  // 180° hairpin; the block north of T (x = 0 to 200) comes back onto T at x = 200 with turns no sharper than 90° (WSSS stop-and-turn
+  // runs: the re-route cut its line at the first node on the cleared route and drew the hairpin the search had priced a loop to avoid).
+  const H = pt(600, 0)
+  const segments = [
+    seg(pt(-100, 0), pt(0, 0), 'T'),
+    seg(pt(0, 0), pt(200, 0), 'T'),
+    seg(pt(200, 0), H, 'T', true),
+    seg(pt(0, 0), pt(0, 60), null),
+    seg(pt(0, 60), pt(200, 60), null),
+    seg(pt(200, 60), pt(200, 0), null)
+  ]
+  const cleared: TracedRoute = [pt(-100, 0), pt(0, 0), pt(200, 0), H].map(lonLat)
+  const [lat, lon] = pt(100, 0)
+
+  it('goes round the block rather than back along the route through a hairpin at the first node on it', () => {
+    const route = rejoinTaxiRoute({
+      segments,
+      route: cleared,
+      fromSegment: 1,
+      from: { lat, lon },
+      headingDeg: 270
+    })!
+    expect(route).toEqual([[lon, lat], ...[pt(0, 0), pt(0, 60), pt(200, 60), pt(200, 0), H].map(lonLat)])
+  })
+
+  it('still joins the cleared route at the first node on it when the turn onto it is one an airliner can make', () => {
+    // Facing east at x = 100 on the way to the hold: the route continues straight ahead.
+    const route = rejoinTaxiRoute({
+      segments,
+      route: cleared,
+      fromSegment: 1,
+      from: { lat, lon },
+      headingDeg: 90
+    })!
+    expect(route).toEqual([[lon, lat], ...[pt(200, 0), H].map(lonLat)])
+  })
+})
+
 describe('re-routing a "hold short of runway" route', () => {
   // A runway runs east, 60 m wide, 100-160 m north of T. Taxiways cross it straight at x = 100 and x = 600, with hold shorts 60 m
   // out either side. The route was traced to the crossing at x = 100; the aircraft taxied on past it along T (EGLL flight 239).

@@ -46,6 +46,20 @@ export interface RunResult {
   problems: string[]
   /** The slowest sample, ms. */
   maxSampleMs: number
+  /** The first re-route that failed routeProblems, with where the aircraft was; null when none did. */
+  badReroute: BadReroute | null
+}
+
+/** A re-route that failed routeProblems (the evidence for taxi-rules-2.md step 1: is it the line or the check?). */
+export interface BadReroute {
+  /** Seconds into the run. */
+  t: number
+  from: LonLat
+  headingDeg: number
+  line: LonLat[]
+  problems: string[]
+  /** What the same checks say about the track the aircraft then drove to the end: when it fails too, the situation forces the problem. */
+  driveProblems: string[]
 }
 
 /**
@@ -119,13 +133,15 @@ export async function runDrive(
   const problemCodes = new Set<string>()
   const rerouteTimes: number[] = []
   let maxSampleMs = 0
+  let badReroute: BadReroute | null = null
   let behindRun = 0
   let drawn = false
   try {
     telemetry(drive.samples[0], drive.startHeadingDeg)
     hub.publish('beyondAtcState', { ...EMPTY_BEYONDATC_STATE, infoBoxes: boxesFor(clearance) })
     await new Promise((r) => setTimeout(r, 0))
-    for (const s of drive.samples.slice(1)) {
+    for (const [index, s] of drive.samples.entries()) {
+      if (index === 0) continue
       const before = vi.mocked(logger.info).mock.calls.length
       const startedAt = performance.now()
       telemetry(s, s.headingDeg)
@@ -140,17 +156,29 @@ export async function runDrive(
         if (rerouted) {
           rerouteTimes.push(s.t)
           const end = route.line[route.line.length - 1]
-          const problems = routeProblems(route.line, {
+          const request = {
             segments: airport.segments,
             taxiways: [],
             holdingPoint: null,
             from: { lat: s.lat, lon: s.lon },
             end: { lat: end[1], lon: end[0] },
             headingDeg: null
-          })
+          }
+          const problems = routeProblems(route.line, request)
           if (problems.length > 0) {
             failures.add('reroute-with-problems')
             problems.forEach((p) => problemCodes.add(p))
+            if (!badReroute) {
+              const driven: LonLat[] = drive.samples.slice(index).map((d) => [d.lon, d.lat])
+              badReroute = {
+                t: s.t,
+                from: [s.lon, s.lat],
+                headingDeg: s.headingDeg,
+                line: route.line,
+                problems,
+                driveProblems: driven.length >= 2 ? routeProblems(driven, request) : []
+              }
+            }
           }
         }
         behindRun = s.groundSpeedMs > MOVING_MS && pointsBehind(route.line, s.headingDeg) ? behindRun + 1 : 0
@@ -184,7 +212,8 @@ export async function runDrive(
       reroutes: rerouteTimes.length,
       failures: [...failures],
       problems: [...problemCodes],
-      maxSampleMs: Math.round(maxSampleMs * 10) / 10
+      maxSampleMs: Math.round(maxSampleMs * 10) / 10,
+      badReroute
     }
   }
 }
