@@ -7,8 +7,8 @@ import type { StoredSession } from '../backend/session-store'
 import type { SyncResult } from './sync-engine'
 import { CloudSyncController } from './cloud-sync-controller'
 
-const { backupBeforeFirstSync, saveSession, clearSession, login, logout, provision, runSync } =
-  vi.hoisted(() => ({
+const { backupBeforeFirstSync, saveSession, clearSession, login, logout, provision, runSync } = vi.hoisted(
+  () => ({
     backupBeforeFirstSync: vi.fn(),
     saveSession: vi.fn(),
     clearSession: vi.fn(),
@@ -16,7 +16,8 @@ const { backupBeforeFirstSync, saveSession, clearSession, login, logout, provisi
     logout: vi.fn(),
     provision: vi.fn(),
     runSync: vi.fn()
-  }))
+  })
+)
 
 vi.mock('../backend/session-store', () => ({ saveSession, clearSession }))
 vi.mock('../backend/sync-client', () => ({ login, logout, provision, syncPull: vi.fn(), syncPush: vi.fn() }))
@@ -83,7 +84,9 @@ describe('CloudSyncController', () => {
     saveSession.mockRejectedValue(new Error('encryption is not available'))
     const controller = new CloudSyncController(db, '/fake/db/path', '/fake/userdata', loaded)
 
-    await expect(controller.login(SESSION.email, 'password123')).rejects.toThrow('encryption is not available')
+    await expect(controller.login(SESSION.email, 'password123')).rejects.toThrow(
+      'encryption is not available'
+    )
     expect(controller.getStatus().loggedIn).toBe(false)
   })
 
