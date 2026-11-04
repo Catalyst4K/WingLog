@@ -14,6 +14,7 @@ import { navdataStatusOf, type NavdataSignature } from '../navdata/sim-navdata-s
 /**
  * A refresh that needs the sim: when the sim isn't running or is still loading, the cache keeps serving and the caller tries again
  * next time, so a failed attempt is an ordinary event to note at info level, not an error for Electron to log as a failed handler.
+ * One that worked is noted too: it replaces the cached data, and the route is rebuilt from it.
  *
  * @param icao The airport.
  * @param what What was being refreshed, for the log.
@@ -21,8 +22,10 @@ import { navdataStatusOf, type NavdataSignature } from '../navdata/sim-navdata-s
  * @returns Resolves whether or not it worked.
  */
 async function refreshQuietly(icao: string, what: string, refresh: () => Promise<void>): Promise<void> {
+  const startedAt = Date.now()
   try {
     await refresh()
+    logger.info(`[navdata] ${icao} ${what} refreshed in ${((Date.now() - startedAt) / 1000).toFixed(1)} s`)
   } catch (error) {
     logger.info(`[navdata] ${icao} ${what} not refreshed: ${String(error)}`)
   }
