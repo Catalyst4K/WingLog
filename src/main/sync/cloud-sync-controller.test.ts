@@ -7,10 +7,9 @@ import type { StoredSession } from '../backend/session-store'
 import type { SyncResult } from './sync-engine'
 import { CloudSyncController } from './cloud-sync-controller'
 
-const { backupBeforeFirstSync, loadSession, saveSession, clearSession, login, logout, provision, runSync } =
+const { backupBeforeFirstSync, saveSession, clearSession, login, logout, provision, runSync } =
   vi.hoisted(() => ({
     backupBeforeFirstSync: vi.fn(),
-    loadSession: vi.fn(),
     saveSession: vi.fn(),
     clearSession: vi.fn(),
     login: vi.fn(),
@@ -19,7 +18,7 @@ const { backupBeforeFirstSync, loadSession, saveSession, clearSession, login, lo
     runSync: vi.fn()
   }))
 
-vi.mock('../backend/session-store', () => ({ loadSession, saveSession, clearSession }))
+vi.mock('../backend/session-store', () => ({ saveSession, clearSession }))
 vi.mock('../backend/sync-client', () => ({ login, logout, provision, syncPull: vi.fn(), syncPush: vi.fn() }))
 vi.mock('../db/backup', () => ({ backupBeforeFirstSync }))
 vi.mock('./sync-engine', () => ({ runSync }))
@@ -32,13 +31,15 @@ const SESSION: StoredSession = {
 
 describe('CloudSyncController', () => {
   let db: WingLogDb
+  // What main/index.ts loads from disk at startup and hands to the constructor.
+  let loaded: StoredSession | null
 
   beforeEach(() => {
     const created = createDb(':memory:')
     migrate(created.db, { migrationsFolder: 'drizzle' })
     db = created.db
-    loadSession.mockReset().mockReturnValue(null)
-    saveSession.mockReset()
+    loaded = null
+    saveSession.mockReset().mockResolvedValue(undefined)
     clearSession.mockReset()
     login.mockReset()
     logout.mockReset().mockResolvedValue(undefined)
@@ -48,7 +49,7 @@ describe('CloudSyncController', () => {
   })
 
   it('reports logged-out status with no prior session on disk', () => {
-    const controller = new CloudSyncController(db, '/fake/db/path', '/fake/userdata')
+    const controller = new CloudSyncController(db, '/fake/db/path', '/fake/userdata', loaded)
     expect(controller.getStatus()).toEqual({
       loggedIn: false,
       email: null,
@@ -59,15 +60,15 @@ describe('CloudSyncController', () => {
   })
 
   it('restores a previously saved session and last-synced timestamp on construction', () => {
-    loadSession.mockReturnValue(SESSION)
-    const controller = new CloudSyncController(db, '/fake/db/path', '/fake/userdata')
+    loaded = SESSION
+    const controller = new CloudSyncController(db, '/fake/db/path', '/fake/userdata', loaded)
     expect(controller.getStatus().loggedIn).toBe(true)
     expect(controller.getStatus().email).toBe(SESSION.email)
   })
 
   it('logs in, saving the session and clearing any prior error', async () => {
     login.mockResolvedValue({ token: SESSION.token, expiresAt: SESSION.expiresAt })
-    const controller = new CloudSyncController(db, '/fake/db/path', '/fake/userdata')
+    const controller = new CloudSyncController(db, '/fake/db/path', '/fake/userdata', loaded)
 
     const status = await controller.login(SESSION.email, 'password123')
 
@@ -77,9 +78,18 @@ describe('CloudSyncController', () => {
     expect(status.email).toBe(SESSION.email)
   })
 
+  it('fails the login, and stays signed out, when the session cannot be saved', async () => {
+    login.mockResolvedValue({ token: SESSION.token, expiresAt: SESSION.expiresAt })
+    saveSession.mockRejectedValue(new Error('encryption is not available'))
+    const controller = new CloudSyncController(db, '/fake/db/path', '/fake/userdata', loaded)
+
+    await expect(controller.login(SESSION.email, 'password123')).rejects.toThrow('encryption is not available')
+    expect(controller.getStatus().loggedIn).toBe(false)
+  })
+
   it('provisions then logs in on signup', async () => {
     login.mockResolvedValue({ token: SESSION.token, expiresAt: SESSION.expiresAt })
-    const controller = new CloudSyncController(db, '/fake/db/path', '/fake/userdata')
+    const controller = new CloudSyncController(db, '/fake/db/path', '/fake/userdata', loaded)
 
     await controller.signup(SESSION.email, 'password123', 'INVITE1')
 
@@ -88,9 +98,9 @@ describe('CloudSyncController', () => {
   })
 
   it('logs out, clearing the session and the last-synced timestamp even if the backend call fails', async () => {
-    loadSession.mockReturnValue(SESSION)
+    loaded = SESSION
     logout.mockRejectedValue(new Error('network down'))
-    const controller = new CloudSyncController(db, '/fake/db/path', '/fake/userdata')
+    const controller = new CloudSyncController(db, '/fake/db/path', '/fake/userdata', loaded)
 
     const status = await controller.logout()
 
@@ -106,19 +116,19 @@ describe('CloudSyncController', () => {
   })
 
   it('refuses to sync when not logged in', async () => {
-    const controller = new CloudSyncController(db, '/fake/db/path', '/fake/userdata')
+    const controller = new CloudSyncController(db, '/fake/db/path', '/fake/userdata', loaded)
     await expect(controller.syncNow()).rejects.toThrow('Not logged in')
     expect(runSync).not.toHaveBeenCalled()
   })
 
   it('runs a sync and records the completion time', async () => {
-    loadSession.mockReturnValue(SESSION)
+    loaded = SESSION
     const result: SyncResult = {
       syncedAt: '2026-09-11T12:00:00.000Z',
       tables: {} as SyncResult['tables']
     }
     runSync.mockResolvedValue(result)
-    const controller = new CloudSyncController(db, '/fake/db/path', '/fake/userdata')
+    const controller = new CloudSyncController(db, '/fake/db/path', '/fake/userdata', loaded)
 
     const status = await controller.syncNow()
 
@@ -130,14 +140,14 @@ describe('CloudSyncController', () => {
   })
 
   it('does not start a second sync while one is already running', async () => {
-    loadSession.mockReturnValue(SESSION)
+    loaded = SESSION
     let resolveSync: (result: SyncResult) => void = () => {}
     runSync.mockReturnValue(
       new Promise<SyncResult>((resolve) => {
         resolveSync = resolve
       })
     )
-    const controller = new CloudSyncController(db, '/fake/db/path', '/fake/userdata')
+    const controller = new CloudSyncController(db, '/fake/db/path', '/fake/userdata', loaded)
 
     const first = controller.syncNow()
     const secondStatus = await controller.syncNow()
@@ -149,9 +159,9 @@ describe('CloudSyncController', () => {
   })
 
   it('records a sync failure and surfaces it in status without clearing the session', async () => {
-    loadSession.mockReturnValue(SESSION)
+    loaded = SESSION
     runSync.mockRejectedValue(new Error('server unreachable'))
-    const controller = new CloudSyncController(db, '/fake/db/path', '/fake/userdata')
+    const controller = new CloudSyncController(db, '/fake/db/path', '/fake/userdata', loaded)
 
     const status = await controller.syncNow()
 
@@ -161,9 +171,9 @@ describe('CloudSyncController', () => {
   })
 
   it('clears the session when a sync fails because it is invalid or expired', async () => {
-    loadSession.mockReturnValue(SESSION)
+    loaded = SESSION
     runSync.mockRejectedValue(new Error('invalid or expired session'))
-    const controller = new CloudSyncController(db, '/fake/db/path', '/fake/userdata')
+    const controller = new CloudSyncController(db, '/fake/db/path', '/fake/userdata', loaded)
 
     const status = await controller.syncNow()
 
@@ -175,7 +185,7 @@ describe('CloudSyncController', () => {
     const okResult = { syncedAt: '2026-09-11T12:00:00.000Z', tables: {} as SyncResult['tables'] }
 
     it('snapshots the database once, before the first sync runs', async () => {
-      loadSession.mockReturnValue(SESSION)
+      loaded = SESSION
       const order: string[] = []
       backupBeforeFirstSync.mockImplementation(() => {
         order.push('backup')
@@ -185,7 +195,7 @@ describe('CloudSyncController', () => {
         order.push('sync')
         return okResult
       })
-      const controller = new CloudSyncController(db, '/fake/db/path', '/fake/userdata')
+      const controller = new CloudSyncController(db, '/fake/db/path', '/fake/userdata', loaded)
 
       await controller.syncNow()
       await controller.syncNow()
@@ -195,12 +205,12 @@ describe('CloudSyncController', () => {
     })
 
     it('does not sync, and tries again next time, when the snapshot fails', async () => {
-      loadSession.mockReturnValue(SESSION)
+      loaded = SESSION
       backupBeforeFirstSync.mockImplementationOnce(() => {
         throw new Error('disk full')
       })
       runSync.mockResolvedValue(okResult)
-      const controller = new CloudSyncController(db, '/fake/db/path', '/fake/userdata')
+      const controller = new CloudSyncController(db, '/fake/db/path', '/fake/userdata', loaded)
 
       const failed = await controller.syncNow()
       expect(runSync).not.toHaveBeenCalled()

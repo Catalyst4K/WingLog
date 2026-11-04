@@ -81,6 +81,7 @@ import { recordParkedStand } from './tracking/parked-stand'
 import { createDiag, openDiagLog } from './diagnostics/diag'
 import { DevDiagnostics } from './diagnostics/dev-diagnostics'
 import { FlightCapture } from './diagnostics/flight-capture'
+import { loadSession, type StoredSession } from './backend/session-store'
 import { CloudSyncController } from './sync/cloud-sync-controller'
 
 /**
@@ -422,8 +423,12 @@ function startFleetAndLookups(
   )
 }
 
-/** Opens the database and the window, starts the services, and registers every IPC area. */
-function startApp(): void {
+/**
+ * Opens the database and the window, starts the services, and registers every IPC area.
+ *
+ * @param cloudSession The saved cloud-sync session, read before startup; null when signed out.
+ */
+function startApp(cloudSession: StoredSession | null): void {
   const { db, sqlite, dbPath, backedUp } = openDatabase(app.getPath('userData'))
 
   // Main-process strings (native dialog titles, thrown validation messages that reach
@@ -453,7 +458,7 @@ function startApp(): void {
   // exists, so this device picks up whatever changed elsewhere since it last opened.
   // Fire-and-forget: syncNow() catches its own errors into getStatus().lastError and never
   // throws, and this must never block the window opening (offline at launch is normal).
-  const cloudSync = new CloudSyncController(db, dbPath, app.getPath('userData'))
+  const cloudSync = new CloudSyncController(db, dbPath, app.getPath('userData'), cloudSession)
   if (cloudSync.getStatus().loggedIn) runLogged('cloud sync at launch', cloudSync.syncNow())
   const scheduleBackgroundSync = createBackgroundSync(cloudSync)
   startPeriodicSync(cloudSync)
@@ -702,7 +707,9 @@ if (!gotSingleInstanceLock) {
 
   app
     .whenReady()
-    .then(() => startApp())
+    // The saved cloud-sync session is read first, since safeStorage's methods are async (about a millisecond).
+    .then(() => loadSession(app.getPath('userData')))
+    .then((cloudSession) => startApp(cloudSession))
     .catch((error: unknown) => {
       // Without this, a startup failure (e.g. a missing/broken migration) leaves the process
       // running with no window and no visible error — indistinguishable from "still loading"
