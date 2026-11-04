@@ -4,7 +4,13 @@
  * and see GSX take it. Never two at once, and a pick is only built from the menu as it is right now.
  */
 import { GSX_ADDITIONAL_SERVICES_LABEL, GSX_ROUTINE_MENU } from '@shared/gsx-routines'
-import { findEntry, isAdditionalServicesMenu, isEntryDisabled, isMainMenu } from './routine-menu'
+import {
+  findAnyEntry,
+  findEntry,
+  isAdditionalServicesMenu,
+  isEntryDisabled,
+  isMainMenu
+} from './routine-menu'
 import {
   adoptService,
   endRun,
@@ -66,7 +72,7 @@ function retryOnceOrStop(
  * @param actions Where the pick is added.
  */
 function requestOnMenu(run: RoutineRun, attempt: Attempt, input: RunnerInput, actions: RunnerAction[]): void {
-  const index = findEntry(input.menu, GSX_ROUTINE_MENU[attempt.service].label)
+  const index = findAnyEntry(input.menu, GSX_ROUTINE_MENU[attempt.service].labels)
   const gsx = serviceById(input.services, attempt.service)
   if (index < 0 || isEntryDisabled(input.menu, index) || !gsx?.canTrigger) {
     skipService(run, attempt.service, 'not-offered', input, actions)

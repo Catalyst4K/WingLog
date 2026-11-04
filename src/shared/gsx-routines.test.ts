@@ -165,19 +165,23 @@ describe('the built-in routines', () => {
 describe('the menu table', () => {
   it('has the recorded labels, with only GPU, Lavatory, Water and Cleaning under Additional Services', () => {
     expect(GSX_ROUTINE_MENU.Catering).toEqual({
-      label: 'Request Catering service',
+      labels: ['Request Catering service'],
       viaAdditionalServices: false
     })
-    expect(GSX_ROUTINE_MENU.OperateJetways.label).toBe('Operate Jetway')
+    expect(GSX_ROUTINE_MENU.OperateJetways.labels).toEqual(['Operate Jetway'])
     const oneLevelDown = GSX_ROUTINE_SERVICES.filter((s) => GSX_ROUTINE_MENU[s].viaAdditionalServices)
     expect(oneLevelDown).toEqual(['GPU', 'Lavatory', 'Water', 'Cleaning'])
   })
 
   it('never offers a label a running service would show, only request labels and the jetway', () => {
     for (const service of GSX_ROUTINE_SERVICES) {
-      const { label } = GSX_ROUTINE_MENU[service]
-      expect(label.startsWith('Request ') || label === 'Operate Jetway').toBe(true)
+      for (const label of GSX_ROUTINE_MENU[service].labels)
+        expect(label.startsWith('Request ') || label === 'Operate Jetway').toBe(true)
     }
+  })
+
+  it('knows the GPU by the label Fenix and the A380 show and by the one the PMDG 777 shows', () => {
+    expect(GSX_ROUTINE_MENU.GPU.labels).toEqual(['Request GPU', 'Request PMDG Ground Power Unit'])
   })
 
   it('leaves Pushback and DeIce out', () => {

@@ -43,6 +43,19 @@ export function findEntry(menu: GsxRemoteMenuState, label: string): number {
 
 /**
  * @param menu The open menu.
+ * @param labels The exact labels a service can have, in the order to prefer them.
+ * @returns The position of the first label the menu has, or -1 when it has none of them.
+ */
+export function findAnyEntry(menu: GsxRemoteMenuState, labels: readonly string[]): number {
+  for (const label of labels) {
+    const index = findEntry(menu, label)
+    if (index >= 0) return index
+  }
+  return -1
+}
+
+/**
+ * @param menu The open menu.
  * @param index An entry's position.
  * @returns Whether GSX shows the entry greyed out.
  */

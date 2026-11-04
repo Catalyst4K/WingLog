@@ -3,6 +3,7 @@ import type { GsxRemoteMenuState } from '@shared/ipc'
 import { EMPTY_MENU } from './GsxRemoteService'
 import {
   decideFollowUp,
+  findAnyEntry,
   findEntry,
   isAdditionalServicesMenu,
   isEntryDisabled,
@@ -55,6 +56,20 @@ describe('finding an entry', () => {
   it('does not find a label that is not there', () => {
     expect(findEntry(menu('x', entries), 'Request Boarding')).toBe(-1)
     expect(findEntry(menu('x', entries), 'Request')).toBe(-1)
+  })
+
+  it('finds the first of several labels the menu has, preferring the earlier label', () => {
+    const pmdg = ['Request PMDG Ground Power Unit', 'Request DeIce']
+    expect(findAnyEntry(menu('x', pmdg), ['Request GPU', 'Request PMDG Ground Power Unit'])).toBe(0)
+    const both = ['Request DeIce', 'Request PMDG Ground Power Unit', 'Request GPU']
+    expect(findAnyEntry(menu('x', both), ['Request GPU', 'Request PMDG Ground Power Unit'])).toBe(2)
+  })
+
+  it('finds none of the labels when the menu has neither', () => {
+    expect(
+      findAnyEntry(menu('x', ['Request DeIce']), ['Request GPU', 'Request PMDG Ground Power Unit'])
+    ).toBe(-1)
+    expect(findAnyEntry(menu('x', ['Request GPU']), [])).toBe(-1)
   })
 
   it('reads greyed-out entries, and treats a missing flag as not greyed out', () => {
