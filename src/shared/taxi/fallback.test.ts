@@ -130,6 +130,54 @@ describe('findTaxiPath', () => {
     expect(route?.at(-1)).toEqual([stand.lon, stand.lat])
   })
 
+  describe('turns (rules 4 and 5, taxi-rules-2.md step 2)', () => {
+    // Metres east and north of a point, as a [lat, lon] pair. A at the origin, the aircraft heading east.
+    const at = (east: number, north: number): [number, number] => [
+      50 + north / 110_540,
+      east / (111_320 * Math.cos((50 * Math.PI) / 180))
+    ]
+    const A = at(0, 0)
+    const B = at(100, 0)
+    const C = at(0, 60)
+    const P = at(100, 160)
+    const Q = at(0, 160)
+    // A to B is 100 m east, then B to C turns back 149° onto a stand 60 m north of A: 217 m. The long way round (B, P, Q, C) turns 90°
+    // three times, at least 100 m apart, and is 460 m.
+    const hairpin = [seg(A, B, 'T'), seg(B, C, 'T')]
+    const longWay = [seg(B, P, 'T'), seg(P, Q, 'T'), seg(Q, C, 'T')]
+    const turnRequest = (
+      segments: NavdataTaxiSegment[],
+      over: Partial<TaxiTraceRequest> = {}
+    ): TaxiTraceRequest => ({
+      segments,
+      taxiways: [],
+      holdingPoint: null,
+      stand: { lat: C[0], lon: C[1] },
+      from: { lat: A[0], lon: A[1] },
+      headingDeg: 90,
+      ...over
+    })
+
+    it('takes the longer way round rather than a hairpin an airliner cannot turn', () => {
+      const route = findTaxiPath(turnRequest([...hairpin, ...longWay]))
+      expect(route?.slice(0, -1)).toEqual([A, B, P, Q, C].map(lonLat))
+    })
+
+    it('still takes the hairpin when it is the only way to the stand', () => {
+      const route = findTaxiPath(turnRequest(hairpin))
+      expect(route?.slice(0, -1)).toEqual([A, B, C].map(lonLat))
+    })
+
+    it('starts the way from the nose: a start behind the heading costs the turn it is', () => {
+      // The aircraft at B facing east; the stand is back west along A, 100 m behind, and a loop (B, P, Q, A) reaches it the other way.
+      const behind = [seg(A, B, 'T'), seg(B, P, 'T'), seg(P, Q, 'T'), seg(Q, A, 'T')]
+      const route = findTaxiPath(
+        turnRequest(behind, { from: { lat: B[0], lon: B[1] }, stand: { lat: A[0], lon: A[1] } })
+      )
+      expect(route?.[1]).toEqual(lonLat(P))
+    })
+  })
+
   it('has no destination for a clearance with nothing to say where it ends', () => {
     expect(findTaxiPath(request({ taxiways: [], holdingPoint: null }))).toBeNull()
     expect(
