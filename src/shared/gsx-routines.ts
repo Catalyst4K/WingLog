@@ -48,23 +48,25 @@ const GSX_ROUTINE_MAX_STAGES = 9
 export const GSX_ROUTINES_MAX = 50
 
 /** Where a service is requested from in GSX's menu, read from the recorded main menu (winglog-backend's docs/gsx-notes.md,
- *  "What twelve recorded flights say about routines"): the exact `Request …` label, and whether it is one level down under
- *  `Additional Services ▶`. A service is always found by this label, never by its position. */
+ *  "What twelve recorded flights say about routines"): the exact `Request …` labels, and whether it is one level down under
+ *  `Additional Services ▶`. A service is always found by one of these labels, never by its position. A service has more than one
+ *  label when an aircraft's add-on words its own entry (the PMDG 777's ground power). */
 export interface GsxRoutineMenuItem {
-  label: string
+  labels: readonly string[]
   viaAdditionalServices: boolean
 }
 
 export const GSX_ROUTINE_MENU: Readonly<Record<GsxRoutineService, GsxRoutineMenuItem>> = {
-  Deboarding: { label: 'Request Deboarding', viaAdditionalServices: false },
-  Catering: { label: 'Request Catering service', viaAdditionalServices: false },
-  Refueling: { label: 'Request Refueling', viaAdditionalServices: false },
-  Boarding: { label: 'Request Boarding', viaAdditionalServices: false },
-  OperateJetways: { label: 'Operate Jetway', viaAdditionalServices: false },
-  GPU: { label: 'Request GPU', viaAdditionalServices: true },
-  Lavatory: { label: 'Request Lavatory service', viaAdditionalServices: true },
-  Water: { label: 'Request Water service', viaAdditionalServices: true },
-  Cleaning: { label: 'Request Cleaning service', viaAdditionalServices: true }
+  Deboarding: { labels: ['Request Deboarding'], viaAdditionalServices: false },
+  Catering: { labels: ['Request Catering service'], viaAdditionalServices: false },
+  Refueling: { labels: ['Request Refueling'], viaAdditionalServices: false },
+  Boarding: { labels: ['Request Boarding'], viaAdditionalServices: false },
+  OperateJetways: { labels: ['Operate Jetway'], viaAdditionalServices: false },
+  // Fenix and the A380 word it "Request GPU"; the PMDG 777's own ground power is "Request PMDG Ground Power Unit" (flight 260, 2026-11-04).
+  GPU: { labels: ['Request GPU', 'Request PMDG Ground Power Unit'], viaAdditionalServices: true },
+  Lavatory: { labels: ['Request Lavatory service'], viaAdditionalServices: true },
+  Water: { labels: ['Request Water service'], viaAdditionalServices: true },
+  Cleaning: { labels: ['Request Cleaning service'], viaAdditionalServices: true }
 }
 
 /** Every service, in the order the editor lists them. */

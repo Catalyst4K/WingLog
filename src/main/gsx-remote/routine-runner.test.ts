@@ -194,6 +194,30 @@ describe('requesting a service', () => {
     ])
   })
 
+  it("requests the PMDG 777's ground power by the label its Additional Services menu shows (flight 260)", () => {
+    const session = new Session(custom(['GPU']))
+    session.tick()
+    session.menu = mainMenu()
+    session.tick()
+    session.menu = menu('Additional Services', [
+      'Request PMDG Ground Power Unit',
+      ...ADDITIONAL_ENTRIES.slice(1)
+    ])
+    expect(session.tick()).toEqual([
+      { kind: 'pick', index: 0, title: 'Additional Services', label: 'Request PMDG Ground Power Unit' }
+    ])
+  })
+
+  it('skips the GPU when the menu has neither of its labels', () => {
+    const session = new Session(custom(['GPU']))
+    session.tick()
+    session.menu = mainMenu()
+    session.tick()
+    session.menu = menu('Additional Services', ADDITIONAL_ENTRIES.slice(1))
+    expect(session.tick()).toEqual([{ kind: 'closeMenu' }])
+    expect(session.progress.services[0].progress).toBe('skipped')
+  })
+
   it('follows the service once GSX has requested it, and waits two seconds before the next request', () => {
     const session = new Session(custom(['Catering', 'Refueling']))
     request(session, 'Catering')
