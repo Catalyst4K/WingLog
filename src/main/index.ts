@@ -29,7 +29,7 @@ import { startStorageMaintenance } from './db/storage-maintenance'
 import type { Database as SqliteDatabase } from 'better-sqlite3'
 import { migrateDb } from './db/migrate'
 import { migrateLegacyUserData } from './db/legacy-userdata'
-import { getFlight, getInProgressFlight, setParkedStand } from './db/flight-repo'
+import { getFlight, getInProgressFlight, getLiveFlight, setParkedStand } from './db/flight-repo'
 import {
   getAppLanguage,
   getMinimizeToTray,
@@ -56,6 +56,7 @@ import { registerGsxRemoteHandlers } from './ipc/gsx-remote-handlers'
 import { registerBeyondAtcHandlers } from './ipc/beyondatc-handlers'
 import { registerLanHandlers } from './ipc/lan-handlers'
 import { createLan } from './lan/create-lan'
+import { shownFlightId } from './lan/lan-flight'
 import { resolveFeedUrls } from './online/feed-urls'
 import { registerAtcAreas } from './online/atc-areas-handlers'
 import { resolveAreaSource } from './online/atc-areas-download'
@@ -219,6 +220,38 @@ function wireTracking(
     }
   })
   return autoStartDetector
+}
+
+/**
+ * GSX Remote, and the GSX routines that run on its connection. A routine's data-entry guard needs the plan's zero fuel weight: the
+ * flight a second screen would show.
+ *
+ * @param deps The database, LiveHub, diagnostics, the sim (and its replayed GSX stream in e2e) and tracking.
+ * @returns GSX Remote's commands, for a second screen.
+ */
+function startGsxRemote(deps: {
+  db: WingLogDb
+  liveHub: LiveHub
+  devDiagnostics: DevDiagnostics | undefined
+  sim: SimConnectService | ReplaySimConnectService
+  replayStreams: ReplayedCapture | undefined
+  trackingController: TrackingController
+}): ReturnType<typeof registerGsxRemoteHandlers> {
+  const { db, liveHub, devDiagnostics, sim, replayStreams, trackingController } = deps
+  const gsxRemote = registerGsxRemoteHandlers(ipcMain, {
+    db,
+    liveHub,
+    devDiagnostics,
+    socketCtor:
+      process.env.WINGLOG_E2E_REPLAY_STREAMS === 'beyondatc' ? undefined : replayStreams?.gsx.socketCtor,
+    telemetry: () => sim.getLastTelemetry(),
+    plannedZfwKg: () => {
+      const id = shownFlightId(db, trackingController.getActive()?.flightId)
+      return (id === undefined ? undefined : getLiveFlight(db, id))?.zfwKg ?? null
+    }
+  })
+  app.on('before-quit', () => gsxRemote.stop())
+  return gsxRemote
 }
 
 /**
@@ -476,14 +509,7 @@ function startApp(): void {
   trackingController.setAutoFinish(getTrackingSettings(db).autoFinish)
 
   registerGsxHandlers(ipcMain, { db, window, scheduleBackgroundSync })
-  const gsxRemote = registerGsxRemoteHandlers(ipcMain, {
-    db,
-    liveHub,
-    devDiagnostics,
-    socketCtor:
-      process.env.WINGLOG_E2E_REPLAY_STREAMS === 'beyondatc' ? undefined : replayStreams?.gsx.socketCtor
-  })
-  app.on('before-quit', () => gsxRemote.stop())
+  const gsxRemote = startGsxRemote({ db, liveHub, devDiagnostics, sim, replayStreams, trackingController })
 
   const beyondAtc = registerBeyondAtcHandlers(ipcMain, {
     db,

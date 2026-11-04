@@ -308,6 +308,43 @@ export class GsxRemoteService extends EventEmitter<GsxRemoteServiceEvents> {
     else this.sendCommand('menu.toggle')
   }
 
+  /** Opens the menu only if it is closed. A routine uses this instead of `toggleMenu`, which would close a menu that opened
+   *  a moment ago.
+   *
+   * @returns Whether a toggle was sent.
+   */
+  openMenuIfClosed(): boolean {
+    if (this.getMenu().menuShown) return false
+    this.sendCommand('menu.toggle')
+    return true
+  }
+
+  /** Closes the menu only if it is open.
+   *
+   * @returns Whether a close was sent.
+   */
+  closeMenuIfOpen(): boolean {
+    if (!this.getMenu().menuShown) return false
+    this.sendCommand('menu.close')
+    return true
+  }
+
+  /** Picks an entry only if the menu is still the one the caller read: `menu.pick` is an index into whatever menu is open, and a
+   *  menu GSX opens by itself (the refuelling level, an operator choice) can replace the one a pick was meant for
+   *  (docs/gsx-notes.md, routines). Compares the title and the entry's label as they are right now.
+   *
+   * @param index The entry's position.
+   * @param title The menu's title when the pick was decided.
+   * @param label The entry's label when the pick was decided.
+   * @returns Whether the pick was sent.
+   */
+  pickMenuChecked(index: number, title: string, label: string): boolean {
+    const menu = this.getMenu()
+    if (!menu.menuShown || menu.title !== title || menu.entries[index] !== label) return false
+    this.pickMenu(index)
+    return true
+  }
+
   submitPrompt(gen: unknown, text: unknown): void {
     if (!Number.isInteger(gen) || typeof text !== 'string') return
     this.sendCommand('input.submit', { gen, text: text.slice(0, MAX_PROMPT_LENGTH) })

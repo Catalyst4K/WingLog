@@ -62,6 +62,8 @@ export function installWindowShim(link: Pick<LanConnection, 'query' | 'latest'>)
     settingsGetMapLanguage: () => link.query('settings.display').then((d) => field(d, 'mapLanguage', 'en')),
     settingsGetGsxRemote: () => link.query('settings.gsxRemote'),
     settingsGetBeyondAtc: () => link.query('settings.beyondAtc'),
+    // The routines the GSX page offers: a phone starts and cancels them, and the PC alone edits them.
+    gsxRoutinesList: () => link.query('gsx.routines'),
     // What BeyondATC shows now: the clearance prompt reads the route's arrival airport from it.
     beyondAtcGetState: () => Promise.resolve(link.latest('beyondAtcState')),
     weatherGetMetars: (codes: string[]) => link.query('weather.metars', codes),

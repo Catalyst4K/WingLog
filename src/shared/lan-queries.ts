@@ -22,6 +22,7 @@ export const LAN_QUERY_KINDS: Record<string, LanQueryKind> = {
   'settings.display': FAST,
   'settings.gsxRemote': FAST,
   'settings.beyondAtc': FAST,
+  'gsx.routines': FAST,
   // Reaches the internet.
   'weather.metars': SLOW,
   // Waits for a read of the network's feed when the PC's is too old.

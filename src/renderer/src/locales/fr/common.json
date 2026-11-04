@@ -790,6 +790,99 @@
     "ok": "OK",
     "cancel": "Annuler"
   },
+  "gsxRoutines": {
+    "title": "Routines",
+    "new": "Nouvelle routine",
+    "newName": "Ma routine",
+    "edit": "Modifier {{name}}",
+    "editButton": "Modifier",
+    "cancel": "Annuler",
+    "stageOf": "Étape {{stage}} sur {{count}}",
+    "services": {
+      "Deboarding": "Débarquement",
+      "Cleaning": "Nettoyage",
+      "Lavatory": "Toilettes",
+      "Water": "Eau",
+      "Catering": "Catering",
+      "Refueling": "Avitaillement",
+      "Boarding": "Embarquement",
+      "GPU": "GPU",
+      "OperateJetways": "Passerelle"
+    },
+    "state": {
+      "waiting": "en attente",
+      "asking": "demandé",
+      "running": "en cours",
+      "done": "terminé",
+      "skipped": "ignoré"
+    },
+    "builtIn": {
+      "departure": "Départ",
+      "arrival": "Arrivée",
+      "turnaroundClean": "Nettoyage d'escale"
+    },
+    "note": {
+      "starting": "Démarrage…",
+      "openingMenu": "Ouverture du menu GSX pour demander {{service}}…",
+      "asking": "Demande de {{service}} à GSX…",
+      "waitingForStage": "En attente de : {{services}}.",
+      "waitingForPilot": "En attente de votre action : {{menu}}",
+      "waitingForFuelEntry": "En attente de la saisie du carburant avant l'embarquement.",
+      "waitingForFuelEntryGap": "En attente du carburant : {{kg}} kg d'écart avec la cible.",
+      "waitingForPayloadEntry": "En attente de la saisie de la charge avant l'avitaillement.",
+      "entryTimedOut": "Une saisie de données a pris trop de temps ; la routine a continué sans elle.",
+      "following": "En attente de : {{services}}.",
+      "stalled": "Toujours en attente de : {{services}} après 30 minutes.",
+      "skipped": {
+        "notOffered": "{{service}} ignoré : GSX ne le propose pas ici.",
+        "dropped": "{{service}} ignoré : GSX a abandonné la demande deux fois.",
+        "bypassed": "{{service}} ignoré : GSX l'a contourné."
+      },
+      "finished": "Routine terminée.",
+      "stopped": {
+        "cancelled": "Routine annulée.",
+        "gsxDisconnected": "Routine arrêtée : GSX s'est déconnecté.",
+        "aircraftMoved": "Routine arrêtée : l'avion a bougé.",
+        "departure": "Routine arrêtée : le repoussage a été demandé.",
+        "menuFailed": "Routine arrêtée : le menu GSX ne s'est pas ouvert.",
+        "gsxHasNoPlan": "Routine arrêtée : GSX n'a pas de plan SimBrief. Utilisez « Reload SimBrief ».",
+        "noPlannedWeight": "Routine arrêtée : WingLog n'a pas de masse prévue pour ce vol."
+      }
+    },
+    "editor": {
+      "titleNew": "Nouvelle routine",
+      "titleEdit": "Routine",
+      "description": "Cochez les services que cette routine demande à GSX. WingLog les range dans un ordre sûr, que vous pouvez modifier.",
+      "name": "Nom",
+      "servicesHeading": "Services",
+      "groupMain": "Menu principal de GSX",
+      "groupAdditional": "Services supplémentaires",
+      "stagesHeading": "Ordre",
+      "stage": "Étape {{n}}",
+      "startsAtOnce": "Démarre tout de suite",
+      "startsLabel": "Ce qu'attend l'étape {{n}}",
+      "startsWhenDone": "Démarre quand {{service}} est terminé",
+      "moveLabel": "Déplacer {{service}} vers",
+      "newStage": "Nouvelle étape",
+      "relayNote": "Cocher ou décocher un service réorganise les étapes.",
+      "answerGsxChoice": "Répondre par le choix par défaut de GSX",
+      "answerGsxChoiceNote": "Quand GSX demande quel opérateur d'assistance ou de catering utiliser, choisit celui qu'il indique comme son choix. Les autres questions restent les vôtres.",
+      "yes": "Oui",
+      "no": "Non",
+      "fuel": "Niveau d'avitaillement",
+      "fuelAsk": "Me demander",
+      "fuelBlock": "Carburant bloc SimBrief",
+      "save": "Enregistrer",
+      "close": "Fermer",
+      "duplicate": "Dupliquer",
+      "delete": "Supprimer",
+      "confirmDelete": "Supprimer « {{name}} » ? Cette action est irréversible.",
+      "cancelDelete": "Annuler",
+      "saveFailed": "Enregistrement impossible : {{reason}}",
+      "copyOf": "{{name}} (copie)",
+      "noServices": "Cochez au moins un service."
+    }
+  },
   "beyondAtcView": {
     "title": "BeyondATC"
   },

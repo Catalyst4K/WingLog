@@ -57,6 +57,9 @@ function withWinglog(overrides: Partial<WingLogApi> = {}): void {
     gsxRemoteSubmitPrompt: vi.fn().mockResolvedValue(undefined),
     gsxRemoteCancelPrompt: vi.fn().mockResolvedValue(undefined),
     gsxRemoteRunCommand: vi.fn().mockResolvedValue(undefined),
+    gsxRoutineGet: vi.fn().mockResolvedValue(null),
+    onGsxRoutine: vi.fn().mockReturnValue(() => {}),
+    gsxRoutinesList: vi.fn().mockResolvedValue([]),
     ...overrides
   } as unknown as WingLogApi
 }

@@ -33,6 +33,8 @@
     "../src/shared/simbrief-ofp.ts",
     "../src/shared/track-gap-fill.ts",
     "../src/shared/geo.ts",
+    "../src/shared/gsx-routines.ts",
+    "../src/shared/gsx-routine-progress.ts",
     "../src/shared/units.ts",
     "../src/main/platform/*.ts"
   ]

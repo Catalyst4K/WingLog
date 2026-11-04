@@ -813,6 +813,99 @@
     "ok": "ОК",
     "cancel": "Отмена"
   },
+  "gsxRoutines": {
+    "title": "Сценарии",
+    "new": "Новый сценарий",
+    "newName": "Мой сценарий",
+    "edit": "Изменить «{{name}}»",
+    "editButton": "Изменить",
+    "cancel": "Отмена",
+    "stageOf": "Этап {{stage}} из {{count}}",
+    "services": {
+      "Deboarding": "Высадка",
+      "Cleaning": "Уборка",
+      "Lavatory": "Туалеты",
+      "Water": "Вода",
+      "Catering": "Кейтеринг",
+      "Refueling": "Заправка",
+      "Boarding": "Посадка пассажиров",
+      "GPU": "GPU",
+      "OperateJetways": "Телетрап"
+    },
+    "state": {
+      "waiting": "ожидание",
+      "asking": "запрос",
+      "running": "выполняется",
+      "done": "готово",
+      "skipped": "пропущено"
+    },
+    "builtIn": {
+      "departure": "Вылет",
+      "arrival": "Прибытие",
+      "turnaroundClean": "Уборка при оборотном рейсе"
+    },
+    "note": {
+      "starting": "Запуск…",
+      "openingMenu": "Открываю меню GSX, чтобы запросить: {{service}}…",
+      "asking": "Запрашиваю у GSX: {{service}}…",
+      "waitingForStage": "Ожидание: {{services}}.",
+      "waitingForPilot": "Ожидание вашего действия: {{menu}}",
+      "waitingForFuelEntry": "Ожидание ввода топлива перед посадкой пассажиров.",
+      "waitingForFuelEntryGap": "Ожидание топлива: отклонение от цели {{kg}} кг.",
+      "waitingForPayloadEntry": "Ожидание ввода загрузки перед заправкой.",
+      "entryTimedOut": "Ввод данных занял слишком много времени, сценарий продолжен без него.",
+      "following": "Ожидание: {{services}}.",
+      "stalled": "Всё ещё ожидание через 30 минут: {{services}}.",
+      "skipped": {
+        "notOffered": "Пропущено: {{service}} — GSX не предлагает это здесь.",
+        "dropped": "Пропущено: {{service}} — GSX дважды отклонил запрос.",
+        "bypassed": "Пропущено: {{service}} — GSX обошёл эту услугу."
+      },
+      "finished": "Сценарий завершён.",
+      "stopped": {
+        "cancelled": "Сценарий отменён.",
+        "gsxDisconnected": "Сценарий остановлен: GSX отключился.",
+        "aircraftMoved": "Сценарий остановлен: самолёт двинулся.",
+        "departure": "Сценарий остановлен: запрошен буксир (pushback).",
+        "menuFailed": "Сценарий остановлен: меню GSX не открылось.",
+        "gsxHasNoPlan": "Сценарий остановлен: у GSX нет плана SimBrief. Нажмите «Reload SimBrief».",
+        "noPlannedWeight": "Сценарий остановлен: у WingLog нет планового веса для этого полёта."
+      }
+    },
+    "editor": {
+      "titleNew": "Новый сценарий",
+      "titleEdit": "Сценарий",
+      "description": "Отметьте услуги, которые сценарий запрашивает у GSX. WingLog расставит их в безопасном порядке, который можно изменить.",
+      "name": "Название",
+      "servicesHeading": "Услуги",
+      "groupMain": "Главное меню GSX",
+      "groupAdditional": "Дополнительные услуги",
+      "stagesHeading": "Порядок",
+      "stage": "Этап {{n}}",
+      "startsAtOnce": "Начинается сразу",
+      "startsLabel": "Чего ждёт этап {{n}}",
+      "startsWhenDone": "Начинается, когда завершится: {{service}}",
+      "moveLabel": "Переместить «{{service}}» в",
+      "newStage": "Новый этап",
+      "relayNote": "При выборе или снятии услуги этапы расставляются заново.",
+      "answerGsxChoice": "Отвечать выбором GSX по умолчанию",
+      "answerGsxChoiceNote": "Когда GSX спрашивает, какого оператора наземного обслуживания или кейтеринга выбрать, выбирается тот, что помечен как выбор GSX. Остальные вопросы всегда остаются за вами.",
+      "yes": "Да",
+      "no": "Нет",
+      "fuel": "Уровень заправки",
+      "fuelAsk": "Спрашивать меня",
+      "fuelBlock": "Блочное топливо SimBrief",
+      "save": "Сохранить",
+      "close": "Закрыть",
+      "duplicate": "Копировать",
+      "delete": "Удалить",
+      "confirmDelete": "Удалить «{{name}}»? Это нельзя отменить.",
+      "cancelDelete": "Отмена",
+      "saveFailed": "Не удалось сохранить: {{reason}}",
+      "copyOf": "{{name}} (копия)",
+      "noServices": "Отметьте хотя бы одну услугу."
+    }
+  },
   "beyondAtcView": {
     "title": "BeyondATC"
   },

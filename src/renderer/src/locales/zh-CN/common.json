@@ -780,6 +780,99 @@
     "ok": "确定",
     "cancel": "取消"
   },
+  "gsxRoutines": {
+    "title": "例程",
+    "new": "新建例程",
+    "newName": "我的例程",
+    "edit": "编辑 {{name}}",
+    "editButton": "编辑",
+    "cancel": "取消",
+    "stageOf": "第 {{stage}} 阶段，共 {{count}} 阶段",
+    "services": {
+      "Deboarding": "下客",
+      "Cleaning": "清洁",
+      "Lavatory": "厕所服务",
+      "Water": "加水",
+      "Catering": "配餐",
+      "Refueling": "加油",
+      "Boarding": "登机",
+      "GPU": "地面电源",
+      "OperateJetways": "廊桥"
+    },
+    "state": {
+      "waiting": "等待中",
+      "asking": "请求中",
+      "running": "进行中",
+      "done": "完成",
+      "skipped": "已跳过"
+    },
+    "builtIn": {
+      "departure": "出港",
+      "arrival": "到港",
+      "turnaroundClean": "过站清洁"
+    },
+    "note": {
+      "starting": "正在启动…",
+      "openingMenu": "正在打开 GSX 菜单以请求{{service}}…",
+      "asking": "正在向 GSX 请求{{service}}…",
+      "waitingForStage": "正在等待：{{services}}。",
+      "waitingForPilot": "等待你操作：{{menu}}",
+      "waitingForFuelEntry": "登机前，正在等待燃油数据录入完成。",
+      "waitingForFuelEntryGap": "正在等待燃油：与目标相差 {{kg}} kg。",
+      "waitingForPayloadEntry": "加油前，正在等待业载数据录入完成。",
+      "entryTimedOut": "有一项数据录入耗时过长，例程已跳过继续运行。",
+      "following": "正在等待：{{services}}。",
+      "stalled": "30 分钟后仍在等待：{{services}}。",
+      "skipped": {
+        "notOffered": "已跳过{{service}}：GSX 在此处不提供。",
+        "dropped": "已跳过{{service}}：GSX 两次丢弃了该请求。",
+        "bypassed": "已跳过{{service}}：GSX 已将其绕过。"
+      },
+      "finished": "例程已完成。",
+      "stopped": {
+        "cancelled": "例程已取消。",
+        "gsxDisconnected": "例程已停止：GSX 已断开连接。",
+        "aircraftMoved": "例程已停止：飞机已移动。",
+        "departure": "例程已停止：已请求推出。",
+        "menuFailed": "例程已停止：GSX 菜单未能打开。",
+        "gsxHasNoPlan": "例程已停止：GSX 没有 SimBrief 计划。请使用“Reload SimBrief”。",
+        "noPlannedWeight": "例程已停止：WingLog 没有此航班的计划重量。"
+      }
+    },
+    "editor": {
+      "titleNew": "新建例程",
+      "titleEdit": "例程",
+      "description": "勾选此例程要向 GSX 请求的服务。WingLog 会按安全的顺序排列，你也可以调整。",
+      "name": "名称",
+      "servicesHeading": "服务",
+      "groupMain": "GSX 主菜单",
+      "groupAdditional": "附加服务",
+      "stagesHeading": "顺序",
+      "stage": "第 {{n}} 阶段",
+      "startsAtOnce": "立即开始",
+      "startsLabel": "第 {{n}} 阶段等待的内容",
+      "startsWhenDone": "在{{service}}完成后开始",
+      "moveLabel": "将{{service}}移到",
+      "newStage": "新阶段",
+      "relayNote": "勾选或取消勾选服务时，会重新排列各阶段。",
+      "answerGsxChoice": "替我采用 GSX 的默认选择",
+      "answerGsxChoiceNote": "当 GSX 询问使用哪个地勤或配餐运营商时，选择 GSX 标记为其推荐的那个。其他问题始终由你决定。",
+      "yes": "是",
+      "no": "否",
+      "fuel": "加油量",
+      "fuelAsk": "询问我",
+      "fuelBlock": "SimBrief 计划燃油",
+      "save": "保存",
+      "close": "关闭",
+      "duplicate": "复制",
+      "delete": "删除",
+      "confirmDelete": "删除“{{name}}”？此操作无法撤销。",
+      "cancelDelete": "取消",
+      "saveFailed": "无法保存：{{reason}}",
+      "copyOf": "{{name}} 副本",
+      "noServices": "请至少勾选一项服务。"
+    }
+  },
   "beyondAtcView": {
     "title": "BeyondATC"
   },

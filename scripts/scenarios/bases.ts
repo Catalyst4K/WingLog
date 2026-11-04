@@ -13,12 +13,26 @@ import {
   type ParsedFlightFixture
 } from '../../src/main/sim/flight-fixture'
 import type { NavdataRunway } from '../../src/main/navdata/navdata-provider'
+import type { RoutineFixture } from './gsx-routine-replay'
 
 function readRepoFile(path: string): string {
   return readFileSync(
     new URL(`../../${path}`, import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1'),
     'utf8'
   )
+}
+
+/**
+ * A slice of a recorded turnaround: GSX's service states and the aircraft's weights, from flight 256 (PMDG 777-300ER, the fuel arrives in
+ * one step) or flight 242 (Fenix A320, a progressive load). No positions, operators or plan text.
+ *
+ * @param flight Which recording.
+ * @returns The fixture.
+ */
+export function gsxRoutineFixture(flight: 256 | 242): RoutineFixture {
+  return JSON.parse(
+    readRepoFile(`scripts/scenarios/__fixtures__/gsx-routine-${flight}.json`)
+  ) as RoutineFixture
 }
 
 /** EGLL to EGCC in a Fenix A320, pushback to shutdown, 1 Hz (src/main/tracking/__fixtures__). */

@@ -28,6 +28,8 @@ import {
   type GsxRemotePromptState,
   type GsxRemoteServiceStatus,
   type GsxRemoteSettings,
+  type GsxRoutine,
+  type GsxRoutineProgress,
   type GsxSettings,
   type TrackingSettings,
   type LandingDistanceUnit,
@@ -355,6 +357,18 @@ const api: WingLogApi = {
     ipcRenderer.invoke(IpcChannels.gsxRemoteSubmitPrompt, gen, text),
   gsxRemoteCancelPrompt: (gen: number) => ipcRenderer.invoke(IpcChannels.gsxRemoteCancelPrompt, gen),
   gsxRemoteRunCommand: (id: GsxRemoteCommandId) => ipcRenderer.invoke(IpcChannels.gsxRemoteRunCommand, id),
+  gsxRoutineGet: () => ipcRenderer.invoke(IpcChannels.gsxRoutineGet),
+  onGsxRoutine: (listener: (progress: GsxRoutineProgress | null) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, progress: GsxRoutineProgress | null): void =>
+      listener(progress)
+    ipcRenderer.on(IpcChannels.gsxRoutine, handler)
+    return () => ipcRenderer.removeListener(IpcChannels.gsxRoutine, handler)
+  },
+  gsxRoutineStart: (id: string) => ipcRenderer.invoke(IpcChannels.gsxRoutineStart, id),
+  gsxRoutineCancel: () => ipcRenderer.invoke(IpcChannels.gsxRoutineCancel),
+  gsxRoutinesList: () => ipcRenderer.invoke(IpcChannels.gsxRoutinesList),
+  gsxRoutinesSave: (routine: GsxRoutine) => ipcRenderer.invoke(IpcChannels.gsxRoutinesSave, routine),
+  gsxRoutinesDelete: (id: string) => ipcRenderer.invoke(IpcChannels.gsxRoutinesDelete, id),
   atcAreasGetStatus: () => ipcRenderer.invoke(IpcChannels.atcAreasGetStatus),
   atcAreasSetAuto: (on: boolean) => ipcRenderer.invoke(IpcChannels.atcAreasSetAuto, on),
   atcAreasCheckNow: () => ipcRenderer.invoke(IpcChannels.atcAreasCheckNow),

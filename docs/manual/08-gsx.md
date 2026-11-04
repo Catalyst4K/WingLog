@@ -38,6 +38,42 @@ WingLog's **Ground services** page runs GSX's menu without the in-sim window:
 The port is GSX's own default, 8744. If it doesn't connect, check **Remote Client** in GSX's own
 settings.
 
+### Routines
+
+A routine asks GSX for several services with one button. On the **Ground services** page, above GSX's
+menu, tap a routine's name to start it. Three come with WingLog:
+
+- **Departure**: Refueling and Catering together, then Boarding once Catering has
+  finished, the way the Fenix A320's own EFB does it.
+- **Arrival**: the jetway and GPU, then Deboarding.
+- **Turnaround clean**: Deboarding, then Cleaning, Lavatory and Water.
+
+While a routine runs, the page shows which stage it's in, where each service is, and what it's
+waiting for. **Cancel** stops it. WingLog asks GSX for one service at a time, opening GSX's menu and
+picking the service by its name, so it still works if GSX's menu changes while a service runs.
+
+- **Questions GSX asks.** Which handling or catering operator to use is yours to answer, unless the
+  routine is set to **Answer GSX's own default for me**. The refuelling level is yours unless the
+  routine is set to **SimBrief block fuel**. Anything else, such as whether to attach the pushback
+  tug, is always yours: the status line says **Waiting for you** and names the menu.
+- **Fuel and passengers.** On some aircraft, such as the PMDG 777, GSX types the fuel and the payload
+  into the aircraft's own computer, and two entries at once can mix up. A routine never asks for
+  Boarding while the fuel is being entered, or for Refueling while the payload is.
+- **Boarding needs a plan.** The flight needs a planned weight from SimBrief, and GSX needs your plan
+  loaded (use **Reload SimBrief**). Without them the routine stops and says so.
+- **A service GSX doesn't offer** at this stand is skipped, with the reason, and the routine carries
+  on.
+- **It stops by itself** if GSX disconnects, the aircraft moves, or pushback is requested. It doesn't
+  carry on after WingLog restarts.
+
+**New routine** makes your own: name it, tick the services, and WingLog lays them out in a sensible
+order, which you can change by moving a service to another stage or choosing what a stage waits for.
+Press **Edit** and the routine buttons open their editor instead of starting the routine; press it
+again to go back. The three that come with WingLog are examples: change them like any other
+routine, make a copy with **Duplicate**, or delete them (WingLog asks first, and a deleted routine is
+gone for good). Pushback and de-icing aren't part of routines. On a phone or tablet you can start and cancel a routine but not
+edit one.
+
 ### Finding your arrival gate
 
 When you search GSX for a gate after landing, the gate search offers the gate BeyondATC assigned

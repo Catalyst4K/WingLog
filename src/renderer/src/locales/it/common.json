@@ -790,6 +790,99 @@
     "ok": "OK",
     "cancel": "Annulla"
   },
+  "gsxRoutines": {
+    "title": "Routine",
+    "new": "Nuova routine",
+    "newName": "La mia routine",
+    "edit": "Modifica {{name}}",
+    "editButton": "Modifica",
+    "cancel": "Annulla",
+    "stageOf": "Fase {{stage}} di {{count}}",
+    "services": {
+      "Deboarding": "Sbarco",
+      "Cleaning": "Pulizia",
+      "Lavatory": "Servizi igienici",
+      "Water": "Acqua",
+      "Catering": "Catering",
+      "Refueling": "Rifornimento",
+      "Boarding": "Imbarco",
+      "GPU": "GPU",
+      "OperateJetways": "Pontile"
+    },
+    "state": {
+      "waiting": "in attesa",
+      "asking": "richiesto",
+      "running": "in corso",
+      "done": "fatto",
+      "skipped": "saltato"
+    },
+    "builtIn": {
+      "departure": "Partenza",
+      "arrival": "Arrivo",
+      "turnaroundClean": "Pulizia di rotazione"
+    },
+    "note": {
+      "starting": "Avvio…",
+      "openingMenu": "Apertura del menu GSX per richiedere {{service}}…",
+      "asking": "Richiesta di {{service}} a GSX…",
+      "waitingForStage": "In attesa di: {{services}}.",
+      "waitingForPilot": "In attesa di te: {{menu}}",
+      "waitingForFuelEntry": "In attesa dell'inserimento del carburante prima dell'imbarco.",
+      "waitingForFuelEntryGap": "In attesa del carburante: {{kg}} kg dall'obiettivo.",
+      "waitingForPayloadEntry": "In attesa dell'inserimento del carico prima del rifornimento.",
+      "entryTimedOut": "Un inserimento dati ha richiesto troppo tempo, quindi la routine è andata avanti senza.",
+      "following": "In attesa di: {{services}}.",
+      "stalled": "Ancora in attesa di: {{services}} dopo 30 minuti.",
+      "skipped": {
+        "notOffered": "{{service}} saltato: GSX non lo offre qui.",
+        "dropped": "{{service}} saltato: GSX ha scartato la richiesta due volte.",
+        "bypassed": "{{service}} saltato: GSX lo ha escluso."
+      },
+      "finished": "Routine completata.",
+      "stopped": {
+        "cancelled": "Routine annullata.",
+        "gsxDisconnected": "Routine interrotta: GSX si è disconnesso.",
+        "aircraftMoved": "Routine interrotta: l'aereo si è mosso.",
+        "departure": "Routine interrotta: è stato richiesto il pushback.",
+        "menuFailed": "Routine interrotta: il menu GSX non si è aperto.",
+        "gsxHasNoPlan": "Routine interrotta: GSX non ha un piano SimBrief. Usa «Reload SimBrief».",
+        "noPlannedWeight": "Routine interrotta: WingLog non ha un peso pianificato per questo volo."
+      }
+    },
+    "editor": {
+      "titleNew": "Nuova routine",
+      "titleEdit": "Routine",
+      "description": "Seleziona i servizi che questa routine richiede a GSX. WingLog li dispone in un ordine sicuro, che puoi cambiare.",
+      "name": "Nome",
+      "servicesHeading": "Servizi",
+      "groupMain": "Menu principale di GSX",
+      "groupAdditional": "Servizi aggiuntivi",
+      "stagesHeading": "Ordine",
+      "stage": "Fase {{n}}",
+      "startsAtOnce": "Parte subito",
+      "startsLabel": "Cosa attende la fase {{n}}",
+      "startsWhenDone": "Parte quando {{service}} è finito",
+      "moveLabel": "Sposta {{service}} in",
+      "newStage": "Nuova fase",
+      "relayNote": "Selezionando o deselezionando un servizio le fasi vengono disposte di nuovo.",
+      "answerGsxChoice": "Rispondi con la scelta predefinita di GSX",
+      "answerGsxChoiceNote": "Quando GSX chiede quale operatore di handling o di catering usare, sceglie quello che indica come sua scelta. Le altre domande restano sempre tue.",
+      "yes": "Sì",
+      "no": "No",
+      "fuel": "Livello di rifornimento",
+      "fuelAsk": "Chiedimelo",
+      "fuelBlock": "Carburante di blocco SimBrief",
+      "save": "Salva",
+      "close": "Chiudi",
+      "duplicate": "Duplica",
+      "delete": "Elimina",
+      "confirmDelete": "Eliminare «{{name}}»? L’operazione non si può annullare.",
+      "cancelDelete": "Annulla",
+      "saveFailed": "Impossibile salvare: {{reason}}",
+      "copyOf": "{{name}} (copia)",
+      "noServices": "Seleziona almeno un servizio."
+    }
+  },
   "beyondAtcView": {
     "title": "BeyondATC"
   },

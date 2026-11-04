@@ -869,6 +869,7 @@ describe('LanServer', () => {
         'gsxRemotePrompt',
         'gsxRemoteServices',
         'gsxRemoteStatus',
+        'gsxRoutine',
         'simConnectionStatus',
         'simTelemetry',
         'simTraffic',

@@ -19,6 +19,7 @@ export class FakeGsxRemoteServer {
   private sockets = new Set<WebSocket>()
   readonly receivedCommands: { verb: string; args?: Record<string, unknown> }[] = []
   private connectionWaiters: (() => void)[] = []
+  private commandListeners: ((command: { verb: string; args?: Record<string, unknown> }) => void)[] = []
 
   private constructor(wss: WebSocketServer) {
     this.wss = wss
@@ -40,6 +41,7 @@ export class FakeGsxRemoteServer {
         ) {
           const { verb, args } = message as { verb: string; args?: Record<string, unknown> }
           this.receivedCommands.push({ verb, args })
+          for (const listener of this.commandListeners) listener({ verb, args })
         }
       })
     })
@@ -57,6 +59,11 @@ export class FakeGsxRemoteServer {
   waitForConnection(): Promise<void> {
     if (this.sockets.size > 0) return Promise.resolve()
     return new Promise((resolve) => this.connectionWaiters.push(resolve))
+  }
+
+  /** Calls the listener with each command the app sends, after it is recorded: a scripted GSX answers from it. */
+  onCommand(listener: (command: { verb: string; args?: Record<string, unknown> }) => void): void {
+    this.commandListeners.push(listener)
   }
 
   get port(): number {

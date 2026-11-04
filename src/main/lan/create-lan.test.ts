@@ -62,6 +62,7 @@ function fakeSelection(): EventEmitter & { current: () => unknown; set: (selecti
 const LOCAL = {
   display: () => ({ weightUnit: 'kg', altitudeUnit: 'ft', windSpeedUnit: 'kt', mapLanguage: 'en' }),
   addOns: () => ({ gsxRemote: true, beyondAtc: false }),
+  routines: () => [{ id: 'builtin-arrival', name: 'Arrival' }],
   metars: (codes: unknown) => Promise.resolve([{ asked: codes }]),
   atis: (requests: unknown) => Promise.resolve({ network: 'vatsim', asked: requests })
 }
@@ -80,6 +81,10 @@ describe('lanQueries', () => {
     })
     expect(queries['settings.gsxRemote']()).toEqual({ enabled: true, host: '', port: 1 })
     expect(queries['settings.beyondAtc']()).toEqual({ enabled: false, host: '' })
+  })
+
+  it('answers the GSX routines a device may start, read only', () => {
+    expect(queries['gsx.routines']()).toEqual([{ id: 'builtin-arrival', name: 'Arrival' }])
   })
 
   it('has every lookup placed in a lane in the shared table, and nothing in the table that it does not answer', () => {

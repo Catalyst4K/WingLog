@@ -25,6 +25,7 @@ const SUBSCRIBERS: Record<LiveTopic, keyof WingLogApi> = {
   gsxRemoteMenu: 'onGsxRemoteMenu',
   gsxRemotePrompt: 'onGsxRemotePrompt',
   gsxRemoteCommandBar: 'onGsxRemoteCommandBar',
+  gsxRoutine: 'onGsxRoutine',
   beyondAtcStatus: 'onBeyondAtcStatus',
   beyondAtcState: 'onBeyondAtcState',
   beyondAtcTranscript: 'onBeyondAtcTranscript',
@@ -45,6 +46,8 @@ const COMMANDS: { [C in LiveCommand]: [keyof WingLogApi, LiveCommands[C]] } = {
   'gsx.submitPrompt': ['gsxRemoteSubmitPrompt', [3, '12000']],
   'gsx.cancelPrompt': ['gsxRemoteCancelPrompt', [3]],
   'gsx.runCommand': ['gsxRemoteRunCommand', ['RELOAD_SIMBRIEF']],
+  'gsx.startRoutine': ['gsxRoutineStart', ['builtin-fenix-departure']],
+  'gsx.cancelRoutine': ['gsxRoutineCancel', []],
   'track.setProcedureSelection': [
     'trackingSetProcedureSelection',
     [

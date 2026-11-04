@@ -417,6 +417,9 @@ function createWinglog(overrides: Partial<WingLogApi> = {}): WingLogApi {
       .fn()
       .mockResolvedValue({ commands: [], simbrief: null, simbriefIconUri: null }),
     onGsxRemoteCommandBar: vi.fn(() => () => {}),
+    gsxRoutineGet: vi.fn().mockResolvedValue(null),
+    onGsxRoutine: vi.fn(() => () => {}),
+    gsxRoutinesList: vi.fn().mockResolvedValue([]),
     gsxRemotePickMenu: vi.fn().mockResolvedValue(undefined),
     gsxRemoteToggleMenu: vi.fn().mockResolvedValue(undefined),
     gsxRemoteSubmitPrompt: vi.fn().mockResolvedValue(undefined),
