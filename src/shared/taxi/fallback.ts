@@ -7,20 +7,11 @@
 
 import type { NavdataTaxiSegment } from '@shared/ipc'
 import { itemAt } from '@shared/item-at'
-import { MinQueue } from './min-queue'
 import { startOfRunwayHolds, type RunwayThreshold } from './runway-hold'
 import { crossingHolds, isHoldShortBeside } from './runway-crossing'
 import { routeProblems, type RouteProblem } from './route-checks'
-import {
-  buildGraph,
-  edgesOf,
-  isWrongWay,
-  nearestNode,
-  nodeKey,
-  standLinkNode,
-  WRONG_WAY_PENALTY_M,
-  type Graph
-} from './route-graph'
+import { buildGraph, nodeKey, standLinkNode, startNodes, type Graph } from './route-graph'
+import { addNose, nodesBack, waysBack } from './route-ways'
 import {
   MAX_CLEARANCE_TAXIWAYS,
   MAX_ROUTE_LENGTH_M,
@@ -170,62 +161,38 @@ export function findTaxiPath(request: TaxiTraceRequest): TracedRoute | null {
 
 /**
  * A shortest way from the aircraft to where the clearance ends. Segments on a cleared taxiway cost their length, so do unnamed ones, and
- * any other named taxiway costs OFF_CLEARANCE_COST_FACTOR times that. The first edge pointing back against the aircraft's heading
- * costs WRONG_WAY_PENALTY_M more, as in the trace.
+ * any other named taxiway costs OFF_CLEARANCE_COST_FACTOR times that. It starts from the nose and turns no sharper than an airliner can,
+ * as the trace does (rules 4 and 5, route-ways.ts): a start behind the heading costs WRONG_WAY_PENALTY_M, and turning more than
+ * TURN_WINDOW_MAX_DEG over TURN_WINDOW_M costs TURN_COST_M_PER_DEG a degree, so a hairpin is taken only when nothing else reaches the end.
  *
  * @param request The clearance, the network and where the aircraft is.
  * @returns The line, or null with no destination, an aircraft off the network, or a way longer than MAX_ROUTE_LENGTH_M.
  */
 function shortestWayToEnd(request: TaxiTraceRequest): TracedRoute | null {
   const graph = buildGraph(request.segments, request.from.lat)
-  const start = nearestNode(graph, request.from)
-  if (start < 0) return null
+  const headingDeg = request.headingDeg ?? null
+  const starts = startNodes(graph, request.from, headingDeg)
+  if (starts.length === 0) return null
   const destinations = new Set(destinationNodes(graph, request))
   if (destinations.size === 0) return null
 
   const cleared = new Set([...request.taxiways, ...(request.holdingPoint ? [request.holdingPoint] : [])])
-  const cost = new Array<number>(graph.nodes.length).fill(Infinity)
-  const previous = new Array<number>(graph.nodes.length).fill(-1)
-  const queue = new MinQueue()
-  cost[start] = 0
-  queue.push(start, 0)
-  while (queue.size > 0) {
-    const [node, nodeCost] = queue.pop()
-    if (nodeCost > itemAt(cost, node, 'taxi node')) continue
-    if (destinations.has(node)) return routeFrom(graph, previous, node, request)
-    for (const edge of edgesOf(graph, node)) {
-      const wrongWay =
-        node === start && isWrongWay(graph, node, edge.to, request.headingDeg ?? null)
-          ? WRONG_WAY_PENALTY_M
-          : 0
-      const factor = edge.name === null || cleared.has(edge.name) ? 1 : OFF_CLEARANCE_COST_FACTOR
-      const next = nodeCost + edge.lengthM * factor + wrongWay
-      if (next < itemAt(cost, edge.to, 'taxi node')) {
-        cost[edge.to] = next
-        previous[edge.to] = node
-        queue.push(edge.to, next)
-      }
-    }
-  }
-  return null
+  const ways = waysBack(graph, addNose(graph, request.from, headingDeg, starts), headingDeg, {
+    factor: (edge) => (edge.name === null || cleared.has(edge.name) ? 1 : OFF_CLEARANCE_COST_FACTOR),
+    until: destinations
+  })
+  if (ways.reached === null) return null
+  // The way back starts with the nose's two points, which are not on the network.
+  return routeFrom(graph, nodesBack(ways, ways.reached, Infinity).reverse().slice(2), request)
 }
 
 /**
  * @param graph The graph.
- * @param previous Each node's predecessor on its cheapest way (-1 for none).
- * @param end The destination node.
+ * @param nodes The way's nodes from the start to the destination.
  * @param request The clearance, for the stand appended at a stand clearance's end.
- * @returns The line from the start to `end`, or null when it is longer than MAX_ROUTE_LENGTH_M.
+ * @returns The line, or null when it is longer than MAX_ROUTE_LENGTH_M.
  */
-function routeFrom(
-  graph: Graph,
-  previous: number[],
-  end: number,
-  request: TaxiTraceRequest
-): TracedRoute | null {
-  const nodes: number[] = []
-  for (let n = end; n !== -1; n = itemAt(previous, n, 'taxi node')) nodes.push(n)
-  nodes.reverse()
+function routeFrom(graph: Graph, nodes: number[], request: TaxiTraceRequest): TracedRoute | null {
   let lengthM = 0
   const route: TracedRoute = nodes.map((n, i) => {
     const node = itemAt(graph.nodes, n, 'taxi node')
