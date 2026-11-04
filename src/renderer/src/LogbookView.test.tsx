@@ -178,6 +178,11 @@ function makeAircraft(overrides: Partial<Aircraft> = {}): Aircraft {
     replacedByAircraftId: null,
     retiredAt: null,
     photoThumbnailUrl: null,
+    photoUrl: null,
+    customPhoto: null,
+    planespottersPhotoUrl: null,
+    planespottersPhotographer: null,
+    planespottersPageUrl: null,
     ...overrides
   }
 }

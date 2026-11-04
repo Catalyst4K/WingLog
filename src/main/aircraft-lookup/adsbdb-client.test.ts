@@ -38,7 +38,8 @@ describe('fetchAircraftByRegistration', () => {
       icaoType: 'A35K',
       operator: 'British Airways',
       operatorIcao: 'BAW',
-      photoThumbnailUrl: null
+      photoThumbnailUrl: null,
+      photoUrl: null
     })
   })
 
@@ -60,14 +61,15 @@ describe('fetchAircraftByRegistration', () => {
       icaoType: 'A35K',
       operator: 'British Airways',
       operatorIcao: null,
-      photoThumbnailUrl: null
+      photoThumbnailUrl: null,
+      photoUrl: null
     })
   })
 
   // Real response shape captured live from https://api.adsbdb.com/v0/aircraft/G-EZTK
-  // deliberately maps url_photo_thumbnail, not
-  // url_photo (full-size): spot-checked live and the full-size URL 404s consistently.
-  it('maps url_photo_thumbnail to photoThumbnailUrl, ignoring the unreliable full-size url_photo', async () => {
+  // The full-size url_photo served (HTTP 200, 1920 px) for every registration checked on 2026-11-03, so both are kept; the thumbnail is
+  // the fallback for when the full-size one fails to load.
+  it('maps url_photo_thumbnail to photoThumbnailUrl and url_photo to photoUrl', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(async () => ({
@@ -91,6 +93,19 @@ describe('fetchAircraftByRegistration', () => {
     expect(result?.photoThumbnailUrl).toBe(
       'https://airport-data.com/images/aircraft/thumbnails/001/685/001685661.jpg'
     )
+    expect(result?.photoUrl).toBe('https://image.airport-data.com/aircraft/001685661.jpg')
+  })
+
+  it('leaves photoUrl null when adsbdb gives a photo link that is not text', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({
+        ok: true,
+        status: 200,
+        json: async () => ({ response: { aircraft: { icao_type: 'A320', url_photo: 42 } } })
+      }))
+    )
+    expect((await fetchAircraftByRegistration('G-EZTK'))?.photoUrl).toBeNull()
   })
 
   it('returns null (not an error) for a 404 — a made-up or unrecognised registration', async () => {

@@ -5,7 +5,9 @@
     "exportLogbook": "匯出飛行日誌",
     "importLogbookCsv": "匯入 CSV 飛行日誌",
     "importLogbookJson": "匯入 JSON 飛行日誌",
-    "gsxReceiptsFolder": "GSX 收據資料夾"
+    "gsxReceiptsFolder": "GSX 收據資料夾",
+    "choosePhoto": "選擇飛機照片",
+    "pictures": "圖片"
   },
   "startupFailed": "WingLog 啟動失敗",
   "errors": {
@@ -40,7 +42,11 @@
     "notValidAirportCode": "這不是有效的機場代碼",
     "noFlightBeingTracked": "目前沒有正在追蹤的航班",
     "credentialEncryptionUnavailable": "此裝置上無法使用作業系統層級的憑證加密",
-    "notLoggedIn": "尚未登入"
+    "notLoggedIn": "尚未登入",
+    "photoInvalid": "「{{field}}」不是 WingLog 可以儲存的圖片或連結",
+    "photoUnreadable": "WingLog 無法將該檔案當作圖片讀取。請選擇 JPEG 或 PNG。",
+    "photoTooDetailed": "這張圖片過於精細，無法儲存。請換一張較小的。",
+    "photoFileTooLarge": "該檔案太大，不能作為照片（上限 25 MB）"
   },
   "labels": {
     "unknownRegistration": "（未知）",

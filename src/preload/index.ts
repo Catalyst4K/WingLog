@@ -68,6 +68,8 @@ const api: WingLogApi = {
   aircraftUnretire: (id: number) => ipcRenderer.invoke(IpcChannels.aircraftUnretire, id),
   aircraftImport: (format?: DataFormat) => ipcRenderer.invoke(IpcChannels.aircraftImport, format),
   aircraftExport: (format?: DataFormat) => ipcRenderer.invoke(IpcChannels.aircraftExport, format),
+  aircraftPickPhoto: () => ipcRenderer.invoke(IpcChannels.aircraftPickPhoto),
+  aircraftOpenPhotoPage: (url: string) => ipcRenderer.invoke(IpcChannels.aircraftOpenPhotoPage, url),
   getSimConnectionStatus: () => ipcRenderer.invoke(IpcChannels.simConnectionStatusGet),
   onSimTelemetry: (listener: (telemetry: SimTelemetry) => void) => {
     const handler = (_event: Electron.IpcRendererEvent, telemetry: SimTelemetry): void => listener(telemetry)

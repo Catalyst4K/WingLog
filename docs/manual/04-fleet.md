@@ -12,15 +12,34 @@ tabs.
 2. Enter the registration and the ICAO type (for example `A359`).
 3. Press **Look up** to fill in the real-world type, operator and a photo from a public registration
    database. Anything it fills in can still be edited.
-4. Optionally pick the aircraft's **SimBrief profile** (see below), then save.
+4. Optionally choose your own **Photo** (see below).
+5. Optionally pick the aircraft's **SimBrief profile** (see below), then save.
 
 The **Location** column shows where each aircraft is, updated when a flight ends there.
+
+## Where the photos come from
+
+**Look up** fetches the newest photo of the aircraft from [Planespotters.net](https://www.planespotters.net), which WingLog shows first. The
+photographer is named under it, and the photo and the name link to its page on Planespotters.net, which opens in your browser. If Planespotters
+has none, WingLog uses the photo from airport-data.com instead, which is often older. Your own photo, if you add one (below), is shown before both.
+
+## Photos for aircraft you added earlier
+
+Aircraft you looked up in an earlier version have only a small, often old photo. The first time WingLog starts after updating, it quietly
+fetches the newer photos for each of them, about one aircraft a second, so there is nothing to press. If you are offline at that moment it
+tries again the next time you start WingLog.
+
+## Your own photo
+
+The photo from **Look up** can be old, and some aircraft have none. To use your own, edit the aircraft and press **Choose your own photo…**,
+then pick a JPEG or PNG. WingLog shrinks it to fit and keeps it with the aircraft, so it needs no file left in place and works on every
+device you sync. Your photo is shown instead of the looked-up ones, with no credit line. **Remove my photo** brings the looked-up one back.
 
 ## The aircraft page
 
 Click an aircraft to see:
 
-- its photo, airline, current airport, total hours, number of flights and last flight;
+- its photo, shown large across the top, then its airline, current airport, total hours, number of flights and last flight;
 - **Last parked** stand: when a flight ends at a gate, WingLog notes which stand you parked at, and
   shows it here and in Dispatch so you can start your next flight from the same gate;
 - **SimBrief profile**: the SimBrief airframe Dispatch uses for this aircraft;

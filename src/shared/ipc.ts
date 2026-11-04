@@ -12,6 +12,7 @@ import type {
   AircraftImportSummary,
   AircraftLastParked,
   AircraftLookupResult,
+  AircraftPhotoPick,
   AircraftTypeOption,
   AircraftUpdate,
   AirlineOption,
@@ -149,6 +150,16 @@ export interface WingLogApi {
   aircraftImport: (format?: DataFormat) => Promise<AircraftImportSummary | null>
   /** Opens a native file-save dialog in the main process; false if the user cancels. */
   aircraftExport: (format?: DataFormat) => Promise<boolean>
+  /**
+   * Opens a native file dialog in the main process for a picture of an aircraft, and answers with it shrunk and ready to keep, or
+   * with why it can't be used. Null if the pilot cancels. Nothing is saved until the aircraft is.
+   */
+  aircraftPickPhoto: () => Promise<AircraftPhotoPick | null>
+  /**
+   * Opens the page of a Planespotters photo in the browser. The main process opens the link only if it is an https link on
+   * planespotters.net; anything else is ignored, so the renderer can't make it open an arbitrary address.
+   */
+  aircraftOpenPhotoPage: (url: string) => Promise<void>
   /**
    * Current status, for a renderer mounting after the initial connect already happened —
    * `onSimConnectionStatus` only delivers *future* changes, since Electron doesn't replay

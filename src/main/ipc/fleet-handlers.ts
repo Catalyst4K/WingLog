@@ -1,10 +1,12 @@
 /**
- * Fleet IPC: the aircraft list, its import and export, and each aircraft's flights, landings and
+ * Fleet IPC: the aircraft list, its import and export, choosing an aircraft's photo, and each aircraft's flights, landings and
  * last stand. Every channel is a query (coding-standards.md §9): plain IPC to the local database.
  */
 import type { BrowserWindow, IpcMain } from 'electron'
 import { IpcChannels, type AircraftUpdate } from '@shared/ipc'
 import { t } from '../i18n'
+import { isPlanespottersPage } from '@shared/aircraft-photo'
+import { pickAircraftPhoto } from '../aircraft-lookup/aircraft-photo-file'
 import type { WingLogDb } from '../db/client'
 import { exportAircraft, importAircraft } from '../db/aircraft-import-export'
 import {
@@ -30,6 +32,8 @@ export interface FleetHandlerDeps {
   window: BrowserWindow
   /** Pushes a change to the cloud copy, when signed in. */
   scheduleBackgroundSync: () => void
+  /** Opens a link in the system browser. */
+  openExternal: (url: string) => Promise<void>
 }
 
 /**
@@ -40,7 +44,7 @@ export interface FleetHandlerDeps {
  */
 export function registerFleetHandlers(
   ipcMain: IpcMain,
-  { db, window, scheduleBackgroundSync }: FleetHandlerDeps
+  { db, window, scheduleBackgroundSync, openExternal }: FleetHandlerDeps
 ): void {
   // Validated here, not just in the renderer — the renderer isn't a security boundary.
   const requireAircraftId = (id: unknown): number => {
@@ -97,6 +101,13 @@ export function registerFleetHandlers(
   ipcMain.handle(IpcChannels.aircraftExport, (_event, format?: unknown) =>
     exportAircraft(db, window, asDataFormat(format))
   )
+
+  ipcMain.handle(IpcChannels.aircraftPickPhoto, () => pickAircraftPhoto(window))
+
+  // From the renderer, so it is opened only if it is an https link on planespotters.net.
+  ipcMain.handle(IpcChannels.aircraftOpenPhotoPage, async (_event, url: unknown) => {
+    if (typeof url === 'string' && isPlanespottersPage(url)) await openExternal(url)
+  })
 
   ipcMain.handle(IpcChannels.fleetListLandings, (_event, aircraftId: number) => {
     const icaoType = getAircraftById(db, aircraftId)?.icaoType ?? null

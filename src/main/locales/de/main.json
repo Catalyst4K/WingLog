@@ -5,7 +5,9 @@
     "exportLogbook": "Logbuch exportieren",
     "importLogbookCsv": "Logbuch-CSV importieren",
     "importLogbookJson": "Logbuch-JSON importieren",
-    "gsxReceiptsFolder": "GSX-Belegordner"
+    "gsxReceiptsFolder": "GSX-Belegordner",
+    "choosePhoto": "Foto des Flugzeugs auswählen",
+    "pictures": "Bilder"
   },
   "startupFailed": "WingLog konnte nicht gestartet werden",
   "errors": {
@@ -40,7 +42,11 @@
     "notValidAirportCode": "Das ist kein gültiger Flughafencode",
     "noFlightBeingTracked": "Es wird kein Flug aufgezeichnet",
     "credentialEncryptionUnavailable": "Betriebssystemseitige Anmeldedatenverschlüsselung ist auf diesem Gerät nicht verfügbar",
-    "notLoggedIn": "Nicht angemeldet"
+    "notLoggedIn": "Nicht angemeldet",
+    "photoInvalid": "„{{field}}“ ist kein Bild und kein Link, den WingLog speichern kann",
+    "photoUnreadable": "WingLog konnte die Datei nicht als Bild lesen. Wähle ein JPEG oder PNG.",
+    "photoTooDetailed": "Dieses Bild ist zu detailreich zum Speichern. Versuche ein kleineres.",
+    "photoFileTooLarge": "Diese Datei ist zu groß für ein Foto (Grenze: 25 MB)"
   },
   "labels": {
     "unknownRegistration": "(unbekannt)",

@@ -5,6 +5,8 @@
  * modules and the services, not here.
  */
 import { runLogged } from './logging/run-logged'
+import { backfillAircraftPhotos } from './aircraft-lookup/photo-backfill'
+import { planespottersUserAgent } from './aircraft-lookup/planespotters-client'
 import { join } from 'node:path'
 import { canShowTray, currentPlatform, quitsWhenAllWindowsClose } from './platform/platform'
 import { CloseGuard } from './window/CloseGuard'
@@ -358,6 +360,35 @@ function recordParkedStandOnCompletion(
   })
 }
 
+/**
+ * Registers the fleet and lookup channels, and starts the one-time pass that gives the aircraft already in the fleet their newer photos
+ * (docs/plans/aircraft-photos.md), in the background.
+ *
+ * @param db The database.
+ * @param window The window file dialogs open over.
+ * @param scheduleBackgroundSync Pushes a change to the cloud copy, when signed in.
+ */
+function startFleetAndLookups(
+  db: WingLogDb,
+  window: BrowserWindow,
+  scheduleBackgroundSync: () => void
+): void {
+  registerFleetHandlers(ipcMain, {
+    db,
+    window,
+    scheduleBackgroundSync,
+    openExternal: (url) => shell.openExternal(url)
+  })
+  registerLookupHandlers(ipcMain)
+  runLogged(
+    'aircraft photo backfill',
+    backfillAircraftPhotos(db, {
+      onChanged: scheduleBackgroundSync,
+      userAgent: planespottersUserAgent(app.getVersion())
+    })
+  )
+}
+
 /** Opens the database and the window, starts the services, and registers every IPC area. */
 function startApp(): void {
   const { db, sqlite, dbPath, backedUp } = openDatabase(app.getPath('userData'))
@@ -394,9 +425,8 @@ function startApp(): void {
   const scheduleBackgroundSync = createBackgroundSync(cloudSync)
   startPeriodicSync(cloudSync)
 
-  registerFleetHandlers(ipcMain, { db, window, scheduleBackgroundSync })
   registerLogbookHandlers(ipcMain, { db, window, scheduleBackgroundSync })
-  registerLookupHandlers(ipcMain)
+  startFleetAndLookups(db, window, scheduleBackgroundSync)
   registerDispatchHandlers(ipcMain, { db })
 
   const { sim, replayStreams } = connectSim()

@@ -46,6 +46,14 @@ export interface Aircraft {
    *  schema.ts's photoThumbnailUrl comment. Null for a fictional/GA registration adsbdb
    *  has no photo for, or one never looked up. */
   photoThumbnailUrl: string | null
+  /** The same photo at full size, from the same lookup. Null for an aircraft saved before it was stored. */
+  photoUrl: string | null
+  /** The pilot's own picture, a JPEG data URL (see AircraftPhotoPick). Shown in place of the lookup's photos. */
+  customPhoto: string | null
+  /** The newest photo of it, from Planespotters.net, shown ahead of the airport-data ones. The three travel together (see PlanespottersPhoto). */
+  planespottersPhotoUrl: string | null
+  planespottersPhotographer: string | null
+  planespottersPageUrl: string | null
 }
 
 export interface NewAircraft {
@@ -61,6 +69,24 @@ export interface NewAircraft {
   simbriefAirframeRegistration?: string | null
   currentIcao?: string | null
   photoThumbnailUrl?: string | null
+  photoUrl?: string | null
+  customPhoto?: string | null
+  planespottersPhotoUrl?: string | null
+  planespottersPhotographer?: string | null
+  planespottersPageUrl?: string | null
+}
+
+/**
+ * A photo from Planespotters.net's public photo API. Its terms ask for the photographer's name next to the photo and a link from the
+ * photo to its page, and for the links to be used as given.
+ */
+export interface PlanespottersPhoto {
+  /** The image, 280 px high and usually 420 wide, on Planespotters' own image host. */
+  photoUrl: string
+  /** Who took it. */
+  photographer: string
+  /** The photo's page on planespotters.net. */
+  pageUrl: string
 }
 
 export interface AircraftUpdate extends NewAircraft {
@@ -86,11 +112,19 @@ export interface AircraftLookupResult {
    *  matching adsbdb's free-text operator name against it. Null if adsbdb didn't have
    *  one for this aircraft. */
   operatorIcao: string | null
-  /** adsbdb's `url_photo_thumbnail` — see Aircraft.photoThumbnailUrl. Deliberately not
-   *  `url_photo` (full-size): confirmed live it 404s consistently, see docs/decisions.md,
-   * . Null if adsbdb had no photo for this registration. */
+  /** adsbdb's `url_photo_thumbnail` — see Aircraft.photoThumbnailUrl. Null if adsbdb had no photo for this registration. */
   photoThumbnailUrl: string | null
+  /** adsbdb's `url_photo`, the full-size picture (docs/plans/aircraft-photos.md). Null if adsbdb had none. */
+  photoUrl: string | null
+  /** Planespotters' photo of it, asked for separately; null when it has none or could not be reached (the lookup still succeeds). */
+  planespotters: PlanespottersPhoto | null
 }
+
+/**
+ * What choosing a photo for an aircraft answers: the picture ready to keep (shrunk, as a JPEG data URL), or why it could not be
+ * used. The pilot closing the dialog is null instead.
+ */
+export type AircraftPhotoPick = { dataUrl: string } | { error: string }
 
 /** One match from the vendored ICAO Doc 8643 type-designator list (see resources/). */
 export interface AircraftTypeOption {

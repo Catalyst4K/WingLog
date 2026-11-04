@@ -5,7 +5,9 @@
     "exportLogbook": "Exporter le carnet",
     "importLogbookCsv": "Importer le CSV du carnet",
     "importLogbookJson": "Importer le JSON du carnet",
-    "gsxReceiptsFolder": "Dossier des reçus GSX"
+    "gsxReceiptsFolder": "Dossier des reçus GSX",
+    "choosePhoto": "Choisir une photo de l'avion",
+    "pictures": "Images"
   },
   "startupFailed": "Échec du démarrage de WingLog",
   "errors": {
@@ -40,7 +42,11 @@
     "notValidAirportCode": "Ce n'est pas un code d'aéroport valide",
     "noFlightBeingTracked": "Aucun vol n'est en cours de suivi",
     "credentialEncryptionUnavailable": "Le chiffrement des identifiants au niveau du système d'exploitation n'est pas disponible sur cet ordinateur",
-    "notLoggedIn": "Non connecté"
+    "notLoggedIn": "Non connecté",
+    "photoInvalid": "« {{field}} » n'est pas une image ni un lien que WingLog peut conserver",
+    "photoUnreadable": "WingLog n'a pas pu lire ce fichier comme une image. Choisissez un JPEG ou un PNG.",
+    "photoTooDetailed": "Cette image est trop détaillée pour être conservée. Essayez-en une plus petite.",
+    "photoFileTooLarge": "Ce fichier est trop volumineux pour être une photo (la limite est de 25 Mo)"
   },
   "labels": {
     "unknownRegistration": "(inconnue)",

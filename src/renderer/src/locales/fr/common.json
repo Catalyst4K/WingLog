@@ -24,7 +24,8 @@
     "ariaLabel": "Schéma d'atterrissage pour la piste {{ident}}"
   },
   "aircraftPhoto": {
-    "credit": "Photo via airport-data.com"
+    "credit": "Photo via airport-data.com",
+    "creditPhotographer": "Photo : {{photographer}}"
   },
   "settingsView": {
     "title": "Paramètres",
@@ -364,7 +365,7 @@
     "unknownOperator": "compagnie inconnue",
     "icaoType": "Type OACI",
     "icaoTypePlaceholder": "ex. A350, Boeing, B77W, ou saisissez un code OACI",
-    "icaoTypeHint": "Recherche d'immatriculation et données de type d'appareil via adsbdb.com (PlaneBase). Photos d'appareils via airport-data.com.",
+    "icaoTypeHint": "Recherche d'immatriculation et données de type d'appareil via adsbdb.com (PlaneBase). Photos d'avions via Planespotters.net et airport-data.com.",
     "airline": "Compagnie",
     "airlinePlaceholder": "ex. British Airways, BAW, ou saisissez un nom",
     "profile": "Profil",
@@ -387,7 +388,14 @@
     "currentAirport": "Aéroport actuel",
     "saving": "Enregistrement…",
     "save": "Enregistrer",
-    "cancel": "Annuler"
+    "cancel": "Annuler",
+    "photo": {
+      "label": "Photo",
+      "choose": "Choisir votre propre photo…",
+      "replace": "Choisir une autre photo…",
+      "remove": "Retirer ma photo",
+      "hint": "Votre propre image est affichée à la place de celle de la recherche par immatriculation. JPEG ou PNG."
+    }
   },
   "airportSearch": {
     "placeholder": "OACI ou rechercher par nom"

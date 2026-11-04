@@ -24,7 +24,8 @@
     "ariaLabel": "Diagrama de aterrizaje de la pista {{ident}}"
   },
   "aircraftPhoto": {
-    "credit": "Foto vía airport-data.com"
+    "credit": "Foto vía airport-data.com",
+    "creditPhotographer": "Foto: {{photographer}}"
   },
   "settingsView": {
     "title": "Ajustes",
@@ -364,7 +365,7 @@
     "unknownOperator": "operador desconocido",
     "icaoType": "Tipo ICAO",
     "icaoTypePlaceholder": "p. ej. A350, Boeing, B77W, o escribe un código ICAO",
-    "icaoTypeHint": "Búsqueda de matrícula y datos de tipo de aeronave vía adsbdb.com (PlaneBase). Fotos de aeronaves vía airport-data.com.",
+    "icaoTypeHint": "Búsqueda de matrícula y datos de tipo de aeronave vía adsbdb.com (PlaneBase). Fotos de aeronaves vía Planespotters.net y airport-data.com.",
     "airline": "Aerolínea",
     "airlinePlaceholder": "p. ej. British Airways, BAW, o escribe un nombre",
     "profile": "Perfil",
@@ -387,7 +388,14 @@
     "currentAirport": "Aeropuerto actual",
     "saving": "Guardando…",
     "save": "Guardar",
-    "cancel": "Cancelar"
+    "cancel": "Cancelar",
+    "photo": {
+      "label": "Foto",
+      "choose": "Elegir tu propia foto…",
+      "replace": "Elegir otra foto…",
+      "remove": "Quitar mi foto",
+      "hint": "Tu propia imagen se muestra en lugar de la de la búsqueda por matrícula. JPEG o PNG."
+    }
   },
   "airportSearch": {
     "placeholder": "ICAO o buscar por nombre"

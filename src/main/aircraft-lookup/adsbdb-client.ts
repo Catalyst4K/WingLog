@@ -22,6 +22,9 @@
  */
 import type { AircraftLookupResult } from '@shared/ipc'
 
+/** What adsbdb alone answers: a lookup result before Planespotters' photo is added. */
+export type AdsbdbResult = Omit<AircraftLookupResult, 'planespotters'>
+
 class AdsbdbError extends Error {}
 
 interface AdsbdbAircraft {
@@ -29,6 +32,7 @@ interface AdsbdbAircraft {
   registered_owner?: unknown
   registered_owner_operator_flag_code?: unknown
   url_photo_thumbnail?: unknown
+  url_photo?: unknown
 }
 
 /**
@@ -38,9 +42,7 @@ interface AdsbdbAircraft {
  * @returns The aircraft, or null if adsbdb doesn't know the registration.
  * @throws AdsbdbError on any other failed or malformed reply.
  */
-export async function fetchAircraftByRegistration(
-  registration: string
-): Promise<AircraftLookupResult | null> {
+export async function fetchAircraftByRegistration(registration: string): Promise<AdsbdbResult | null> {
   const url = `https://api.adsbdb.com/v0/aircraft/${encodeURIComponent(registration)}`
   const response = await fetch(url)
   if (response.status === 404) return null
@@ -62,8 +64,9 @@ export async function fetchAircraftByRegistration(
       typeof aircraft.registered_owner_operator_flag_code === 'string'
         ? aircraft.registered_owner_operator_flag_code
         : null,
-    // Deliberately url_photo_thumbnail, not url_photo (full-size) — see
-    // docs/decisions.md: the full-size URL 404s consistently in practice.
-    photoThumbnailUrl: typeof aircraft.url_photo_thumbnail === 'string' ? aircraft.url_photo_thumbnail : null
+    // Both are kept: the full-size picture is what the detail page shows, and the thumbnail is the fallback for when it fails to
+    // load (an earlier check found the full-size host 404ing; docs/plans/aircraft-photos.md found it serving).
+    photoThumbnailUrl: typeof aircraft.url_photo_thumbnail === 'string' ? aircraft.url_photo_thumbnail : null,
+    photoUrl: typeof aircraft.url_photo === 'string' ? aircraft.url_photo : null
   }
 }

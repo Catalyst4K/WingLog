@@ -24,7 +24,8 @@
     "ariaLabel": "Touchdown diagram for runway {{ident}}"
   },
   "aircraftPhoto": {
-    "credit": "Photo via airport-data.com"
+    "credit": "Photo via airport-data.com",
+    "creditPhotographer": "Photo: {{photographer}}"
   },
   "settingsView": {
     "title": "Settings",
@@ -362,7 +363,7 @@
     "unknownOperator": "unknown operator",
     "icaoType": "ICAO type",
     "icaoTypePlaceholder": "e.g. A350, Boeing, B77W, or type an ICAO code",
-    "icaoTypeHint": "Registration lookup and aircraft type data via adsbdb.com (PlaneBase). Aircraft photos via airport-data.com.",
+    "icaoTypeHint": "Registration lookup and aircraft type data via adsbdb.com (PlaneBase). Aircraft photos via Planespotters.net and airport-data.com.",
     "airline": "Airline",
     "airlinePlaceholder": "e.g. British Airways, BAW, or type a name",
     "profile": "Profile",
@@ -385,7 +386,14 @@
     "currentAirport": "Current airport",
     "saving": "Saving…",
     "save": "Save",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "photo": {
+      "label": "Photo",
+      "choose": "Choose your own photo…",
+      "replace": "Choose a different photo…",
+      "remove": "Remove my photo",
+      "hint": "Your own picture is shown instead of the one from the registration lookup. JPEG or PNG."
+    }
   },
   "airportSearch": {
     "placeholder": "ICAO or search by name"
