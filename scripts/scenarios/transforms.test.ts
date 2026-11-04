@@ -8,10 +8,12 @@ import {
   delaySpokenStand,
   dropAtcLine,
   duplicateAtcLine,
+  parkingBrakeNotSeen,
   renameTaxiway,
   renameTaxiwaySegments,
   speedUpTaxi,
-  stallFieldUpdates
+  stallFieldUpdates,
+  taxiInOnEngine2
 } from './transforms'
 
 const EGLL = egllEgcc()
@@ -147,6 +149,50 @@ describe('stallFieldUpdates', () => {
       ['gsx', 200],
       ['beyondatc', 5100]
     ])
+  })
+})
+
+/** The real tick at `tOffsetMs` in `capture`. */
+function tickAt(capture: ParsedFlightFixture, tOffsetMs: number): FlightFixtureEvent & { type: 'telemetry' } {
+  const tick = capture.events.find((e) => e.type === 'telemetry' && e.tOffsetMs === tOffsetMs)
+  if (tick?.type !== 'telemetry') throw new Error(`no tick at ${tOffsetMs}`)
+  return tick
+}
+
+// The real flight: touchdown at 3,742,400 ms, a stop with the brake set on the taxi-in at 3,979,353, engine 1 off at the stand
+// at 4,095,390.
+describe('parkingBrakeNotSeen', () => {
+  it('reads the brake as off from the given time, and leaves earlier ticks alone', () => {
+    const varied = parkingBrakeNotSeen(3_900_000)(EGLL)
+    expect(tickAt(EGLL, 3_979_353).data.parkingBrakeOn).toBe(true)
+    expect(tickAt(varied, 3_979_353).data.parkingBrakeOn).toBe(false)
+    expect(tickAt(varied, 884_891).data.parkingBrakeOn).toBe(true)
+    expect(
+      varied.events.some((e) => e.type === 'telemetry' && e.tOffsetMs >= 3_900_000 && e.data.parkingBrakeOn)
+    ).toBe(false)
+  })
+})
+
+describe('taxiInOnEngine2', () => {
+  it('runs engine 2 alone from after touchdown until the real shutdown, then neither', () => {
+    const varied = taxiInOnEngine2(60_000)(EGLL)
+    expect(tickAt(varied, 3_742_400).data).toMatchObject({ engineCombustion1: true })
+    expect(tickAt(varied, 3_742_400).data.engineCombustion2).toBeUndefined()
+    expect(tickAt(varied, 3_979_353).data).toMatchObject({
+      engineCombustion1: false,
+      engineCombustion2: true,
+      parkingBrakeOn: true
+    })
+    expect(tickAt(varied, 4_095_390).data).toMatchObject({
+      engineCombustion1: false,
+      engineCombustion2: false
+    })
+    const last = varied.events.filter((e) => e.type === 'telemetry').at(-1)
+    expect(last?.type === 'telemetry' && last.data.engineCombustion2).toBe(false)
+  })
+
+  it('refuses a capture with no touchdown', () => {
+    expect(() => taxiInOnEngine2(60_000)(slice(5))).toThrow(/no touchdown/)
   })
 })
 

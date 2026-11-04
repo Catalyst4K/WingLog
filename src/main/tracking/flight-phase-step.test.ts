@@ -146,12 +146,49 @@ describe('stepPhase', () => {
     expect([bounce?.phase, down?.phase]).toEqual(['landing', 'landing'])
   })
 
-  it('shuts down when parked after landing, and only with auto-shutdown on', () => {
-    const parked = [{ groundSpeedMs: 0, parkingBrakeOn: true, engineCombustion1: false }]
+  describe('shutdown', () => {
     const landedTaxi: PhaseState = { ...INITIAL_PHASE_STATE, phase: 'taxi', hasLanded: true }
-    expect(run(landedTaxi, parked)[0]?.phase).toBe('shutdown')
-    expect(run(landedTaxi, parked, { ...SETTINGS, autoShutdown: false })[0]?.phase).toBe('taxi')
-    expect(run({ ...INITIAL_PHASE_STATE }, parked)[0]?.phase).toBe('preflight')
+    const parked: Partial<SimTelemetry> = { groundSpeedMs: 0, parkingBrakeOn: true, engineCombustion1: false }
+
+    it('shuts down when parked after landing, and only with auto-shutdown on', () => {
+      expect(run(landedTaxi, [parked])[0]?.phase).toBe('shutdown')
+      expect(run(landedTaxi, [parked], { ...SETTINGS, autoShutdown: false })[0]?.phase).toBe('taxi')
+      expect(run({ ...INITIAL_PHASE_STATE }, [parked])[0]?.phase).toBe('preflight')
+    })
+
+    // Flights 253 and 259 (Fenix A320): the sim read the brake as off from the gate onwards, and neither finished.
+    it('shuts down without the parking brake, which an aircraft can stop passing to the sim', () => {
+      expect(run(landedTaxi, [{ ...parked, parkingBrakeOn: false }])[0]?.phase).toBe('shutdown')
+    })
+
+    it('waits for every engine: taxiing in on engine 2 is not a shutdown, even stopped with the brake set', () => {
+      const holding = { ...parked, engineCombustion2: true }
+      expect(run(landedTaxi, [holding])[0]?.phase).toBe('taxi')
+      expect(
+        run(landedTaxi, [holding, { ...holding, engineCombustion2: false }]).map((r) => r.phase)
+      ).toEqual(['taxi', 'shutdown'])
+    })
+
+    it('waits for engines 3 and 4 on a four-engine aircraft', () => {
+      expect(run(landedTaxi, [{ ...parked, engineCombustion3: true }])[0]?.phase).toBe('taxi')
+      expect(run(landedTaxi, [{ ...parked, engineCombustion4: true }])[0]?.phase).toBe('taxi')
+      const allOff = {
+        ...parked,
+        engineCombustion2: false,
+        engineCombustion3: false,
+        engineCombustion4: false
+      }
+      expect(run(landedTaxi, [allOff])[0]?.phase).toBe('shutdown')
+    })
+
+    it('does not shut down while still rolling with the engines off', () => {
+      expect(run(landedTaxi, [{ ...parked, groundSpeedMs: 1 }])[0]?.phase).toBe('taxi')
+    })
+
+    it('never shuts down before a landing: a stop with the engines off on the way out is not the end of the flight', () => {
+      const taxiOut: PhaseState = { ...INITIAL_PHASE_STATE, phase: 'taxi' }
+      expect(run(taxiOut, [parked])[0]?.phase).toBe('taxi')
+    })
   })
 
   it('freezes while paused or slewing: no change, no point', () => {
