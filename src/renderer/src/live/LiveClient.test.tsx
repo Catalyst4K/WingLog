@@ -47,7 +47,7 @@ const COMMANDS: { [C in LiveCommand]: [keyof WingLogApi, LiveCommands[C]] } = {
   'gsx.cancelPrompt': ['gsxRemoteCancelPrompt', [3]],
   'gsx.runCommand': ['gsxRemoteRunCommand', ['RELOAD_SIMBRIEF']],
   'gsx.startRoutine': ['gsxRoutineStart', ['builtin-fenix-departure']],
-  'gsx.cancelRoutine': ['gsxRoutineCancel', []],
+  'gsx.cancelRoutine': ['gsxRoutineCancel', ['abort']],
   'track.setProcedureSelection': [
     'trackingSetProcedureSelection',
     [

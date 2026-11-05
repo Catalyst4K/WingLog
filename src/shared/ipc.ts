@@ -109,7 +109,7 @@ import type {
   WindSpeedUnit
 } from './types/settings'
 import type { StorageStatus } from './types/storage'
-import type { GsxRoutineProgress } from './gsx-routine-progress'
+import type { GsxRoutineCancelChoice, GsxRoutineProgress } from './gsx-routine-progress'
 import type { GsxRoutine } from './gsx-routines'
 import type { EstimatedStretch, TrackEstimateResult } from './track-gap-fill'
 import type { SimConnectionStatus, SimTelemetry } from './types/sim'
@@ -613,7 +613,7 @@ export interface WingLogApi {
   onGsxRoutine: (listener: (progress: GsxRoutineProgress | null) => void) => () => void
   /** Starts a routine by its id; does nothing for an unknown id, or while one is running. */
   gsxRoutineStart: (id: string) => Promise<void>
-  gsxRoutineCancel: () => Promise<void>
+  gsxRoutineCancel: (choice?: GsxRoutineCancelChoice) => Promise<void>
   /** The three built-in routines, then the pilot's own. */
   gsxRoutinesList: () => Promise<GsxRoutine[]>
   /** Saves one of the pilot's own routines, new or changed. Main checks it again; the answer is the whole list, or why it was refused. */

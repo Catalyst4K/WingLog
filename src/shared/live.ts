@@ -1,6 +1,6 @@
 /** The live topics main pushes while flying, and what each one carries. */
 
-import type { GsxRoutineProgress } from './gsx-routine-progress'
+import type { GsxRoutineCancelChoice, GsxRoutineProgress } from './gsx-routine-progress'
 import type { Waypoint } from './route'
 import type {
   BeyondAtcArrivalClearance,
@@ -137,7 +137,7 @@ export interface LiveCommands {
   'gsx.cancelPrompt': [gen: number]
   'gsx.runCommand': [id: GsxRemoteCommandId]
   'gsx.startRoutine': [id: string]
-  'gsx.cancelRoutine': []
+  'gsx.cancelRoutine': [choice?: GsxRoutineCancelChoice]
   'track.setProcedureSelection': [selection: ProcedureSelection]
   'traffic.setNetworkOn': [on: boolean]
   'traffic.setSimOn': [on: boolean]

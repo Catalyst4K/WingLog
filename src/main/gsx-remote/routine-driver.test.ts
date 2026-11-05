@@ -256,6 +256,73 @@ describe('RoutineDriver', () => {
     expect(published.at(-1)).toMatchObject({ state: 'running' })
   })
 
+  describe('cancel with a choice for the services under way', () => {
+    const IN_PROGRESS: GsxRemoteMenuState = {
+      ...EMPTY_MENU,
+      menuShown: true,
+      title: 'Service in progress',
+      entries: ['Complete now', 'Abort service', 'Back']
+    }
+    const relabelled = (): GsxRemoteMenuState => ({
+      ...MAIN_MENU,
+      entries: MAIN_MENU.entries.map((entry, i) => (i === 1 ? 'Catering truck is loading' : entry))
+    })
+
+    /** A routine that has asked for Catering, which GSX is now performing. */
+    function cateringUnderWay(): void {
+      driver.start(routine(['Catering']))
+      gsx.menu = MAIN_MENU
+      gsx.changed()
+      gsx.menu = EMPTY_MENU
+      gsx.states.Catering = 'performing'
+      vi.advanceTimersByTime(3_000)
+    }
+
+    it('aborts the service in GSX’s menu first, then clears the routine from the screens', () => {
+      cateringUnderWay()
+      driver.cancel('abort')
+      expect(published.at(-1)).toMatchObject({ state: 'running', note: { code: 'ending', choice: 'abort' } })
+      expect(driver.isRunning()).toBe(true)
+      gsx.menu = relabelled()
+      gsx.changed()
+      expect(gsx.sent).toContain(
+        'pick 1 Catering truck is loading in Activate Services at EGLL/London Heathrow'
+      )
+      gsx.menu = IN_PROGRESS
+      gsx.changed()
+      expect(gsx.sent).toContain('pick 1 Abort service in Service in progress')
+      gsx.menu = EMPTY_MENU
+      gsx.states.Catering = 'available'
+      vi.advanceTimersByTime(1_000)
+      expect(published.at(-1)).toBeNull()
+      expect(driver.isRunning()).toBe(false)
+      expect(logged).toContain('info GSX routine "Test" stopped: cancelled')
+    })
+
+    it('keeps the routine on the screens for a while when a service had to be left as it is', () => {
+      cateringUnderWay()
+      driver.cancel('complete')
+      vi.advanceTimersByTime(11_000)
+      expect(published.at(-1)).toMatchObject({
+        state: 'stopped',
+        note: { code: 'ending-failed', services: ['Catering'] }
+      })
+      vi.advanceTimersByTime(2 * 60_000)
+      expect(published.at(-1)).toBeNull()
+    })
+
+    it.each(['leave', 'bogus', 7, null, undefined])(
+      'leaves the services running for %s, and clears at once',
+      (choice) => {
+        cateringUnderWay()
+        driver.cancel(choice)
+        expect(published.at(-1)).toBeNull()
+        expect(driver.isRunning()).toBe(false)
+        expect(gsx.sent.filter((s) => s.startsWith('pick')).length).toBe(1)
+      }
+    )
+  })
+
   it('cancel with nothing running does nothing', () => {
     driver.cancel()
     expect(published).toEqual([])

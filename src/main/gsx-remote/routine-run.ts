@@ -23,6 +23,23 @@ export interface ServiceRun {
   /** GSX has shown the service running at some point, so going back to `available` means it finished. */
   hasPerformed: boolean
   lastGsxState: string | undefined
+  /** Where the routine's own request picked the service: while it runs GSX relabels that entry, so it is the way back to it for
+   *  Abort or Complete (docs/plans/gsx-routine-cancel.md). Null for a service the routine did not ask for itself. */
+  slot: { viaAdditionalServices: boolean; index: number } | null
+}
+
+/** Cancel with a choice: the services under way are aborted or completed through GSX's menu, one at a time, before the routine ends. */
+export interface WindDown {
+  choice: 'abort' | 'complete'
+  /** The services still to do, the first being worked on. */
+  queue: GsxRoutineService[]
+  /** `open`: the menu must be opened. `submenu`: `Additional Services ▶` was picked. `choose`: the service's own entry was picked, and
+   *  `Service in progress` is awaited. `wait`: Abort or Complete was picked, and GSX's change is awaited. */
+  step: 'open' | 'submenu' | 'choose' | 'wait'
+  sinceMs: number
+  hasOpened: boolean
+  /** The services left as they are because their entry could not be reached in time. */
+  failed: GsxRoutineService[]
 }
 
 /** One request for one service, from opening GSX's menu to GSX taking it. At most one at a time: the menu is shared. */
@@ -40,6 +57,7 @@ export interface RoutineRun {
   routine: GsxRoutine
   services: Partial<Record<GsxRoutineService, ServiceRun>>
   attempt: Attempt | null
+  windDown: WindDown | null
   /** No new request before this time: a late follow-up menu may still open after a pick. */
   settleUntilMs: number
   lastOwnPickAtMs: number
@@ -86,13 +104,15 @@ export function startRoutine(routine: GsxRoutine, nowMs: number): RoutineRun {
       retryAtMs: 0,
       hasBeenDropped: false,
       hasPerformed: false,
-      lastGsxState: undefined
+      lastGsxState: undefined,
+      slot: null
     }
   }
   return {
     routine,
     services,
     attempt: null,
+    windDown: null,
     settleUntilMs: 0,
     lastOwnPickAtMs: -Infinity,
     lastFollowUpPickAtMs: -Infinity,

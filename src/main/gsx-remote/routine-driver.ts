@@ -14,7 +14,7 @@ import type {
   SimTelemetry
 } from '@shared/ipc'
 import type { GsxRoutine } from '@shared/gsx-routines'
-import type { GsxRoutineProgress } from '@shared/gsx-routine-progress'
+import { GSX_ROUTINE_CANCEL_CHOICES, type GsxRoutineProgress } from '@shared/gsx-routine-progress'
 import { NEW_GUARD, stepGuard, type GuardResult, type GuardState } from './data-entry-guard'
 import { cancelRoutine, stepRoutine } from './routine-runner'
 import {
@@ -113,13 +113,18 @@ export class RoutineDriver {
     return true
   }
 
-  /** The pilot pressed Cancel: the menu the routine opened is closed and the routine is gone from the screens at once, not left there
-   *  for CLEAR_AFTER_END_MS saying "cancelled". Does nothing when no routine is running. */
-  cancel(): void {
+  /**
+   * The pilot pressed Cancel: the menu the routine opened is closed and the routine is gone from the screens at once, not left there
+   * for CLEAR_AFTER_END_MS saying "cancelled". With abort or complete the services it has under way are first aborted or completed
+   * in GSX's menu (docs/plans/gsx-routine-cancel.md), which takes a few seconds. Does nothing when no routine is running.
+   *
+   * @param choice What to do with the services under way; unchecked, and anything but abort or complete leaves them running.
+   */
+  cancel(choice?: unknown): void {
     if (!this.run || this.run.outcome) return
-    const step = cancelRoutine(this.run, this.deps.gsx.getMenu())
+    const picked = GSX_ROUTINE_CANCEL_CHOICES.find((known) => known === choice)
+    const step = cancelRoutine(this.run, this.readInput(), picked)
     this.apply(step.run, step.actions)
-    this.clearEnded(true)
   }
 
   /** Stops everything and clears the screens: GSX Remote is being replaced or the app is quitting. */
@@ -187,7 +192,10 @@ export class RoutineDriver {
         `GSX routine "${run.routine.name}" ${run.outcome.state === 'finished' ? 'finished' : `stopped: ${run.outcome.reason}`}`
       )
       this.stopRunning()
-      this.clearTimer = setTimeout(() => this.clearEnded(true), CLEAR_AFTER_END_MS)
+      const isPlainCancel =
+        run.outcome.state === 'stopped' && run.outcome.reason === 'cancelled' && run.note.code === 'stopped'
+      if (isPlainCancel) this.clearEnded(true)
+      else this.clearTimer = setTimeout(() => this.clearEnded(true), CLEAR_AFTER_END_MS)
     }
   }
 

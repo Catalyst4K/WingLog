@@ -837,7 +837,12 @@
         "menuFailed": "流程已停止：GSX 選單未能開啟。",
         "gsxHasNoPlan": "流程已停止：GSX 沒有 SimBrief 計畫。請使用「Reload SimBrief」。",
         "noPlannedWeight": "流程已停止：WingLog 沒有此航班的計畫重量。"
-      }
+      },
+      "ending": {
+        "abort": "正在 GSX 中止 {{services}}…",
+        "complete": "正在 GSX 完成 {{services}}…"
+      },
+      "endingFailed": "例程已取消。WingLog 無法在 GSX 選單中操作：{{services}}。保持原樣。"
     },
     "editor": {
       "titleNew": "新增流程",
@@ -871,6 +876,14 @@
       "saveFailed": "無法儲存：{{reason}}",
       "copyOf": "{{name}} 副本",
       "noServices": "請至少勾選一項服務。"
+    },
+    "cancelPrompt": {
+      "label": "取消例程",
+      "question": "{{services}} 仍在進行。要如何處理？",
+      "abort": "中止",
+      "complete": "立即完成",
+      "leave": "保持運行",
+      "keepGoing": "繼續例程"
     }
   },
   "beyondAtcView": {

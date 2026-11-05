@@ -870,7 +870,12 @@
         "menuFailed": "Сценарий остановлен: меню GSX не открылось.",
         "gsxHasNoPlan": "Сценарий остановлен: у GSX нет плана SimBrief. Нажмите «Reload SimBrief».",
         "noPlannedWeight": "Сценарий остановлен: у WingLog нет планового веса для этого полёта."
-      }
+      },
+      "ending": {
+        "abort": "Прерывание: {{services}} в GSX…",
+        "complete": "Завершение: {{services}} в GSX…"
+      },
+      "endingFailed": "Рутина отменена. WingLog не смог добраться в меню GSX до: {{services}}. Оставлено как есть."
     },
     "editor": {
       "titleNew": "Новый сценарий",
@@ -904,6 +909,14 @@
       "saveFailed": "Не удалось сохранить: {{reason}}",
       "copyOf": "{{name}} (копия)",
       "noServices": "Отметьте хотя бы одну услугу."
+    },
+    "cancelPrompt": {
+      "label": "Отменить рутину",
+      "question": "{{services}} ещё выполняется. Что с этим сделать?",
+      "abort": "Прервать",
+      "complete": "Завершить сейчас",
+      "leave": "Оставить выполняться",
+      "keepGoing": "Продолжить рутину"
     }
   },
   "beyondAtcView": {

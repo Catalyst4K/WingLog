@@ -29,6 +29,7 @@ import {
   type GsxRemoteServiceStatus,
   type GsxRemoteSettings,
   type GsxRoutine,
+  type GsxRoutineCancelChoice,
   type GsxRoutineProgress,
   type GsxSettings,
   type TrackingSettings,
@@ -365,7 +366,8 @@ const api: WingLogApi = {
     return () => ipcRenderer.removeListener(IpcChannels.gsxRoutine, handler)
   },
   gsxRoutineStart: (id: string) => ipcRenderer.invoke(IpcChannels.gsxRoutineStart, id),
-  gsxRoutineCancel: () => ipcRenderer.invoke(IpcChannels.gsxRoutineCancel),
+  gsxRoutineCancel: (choice?: GsxRoutineCancelChoice) =>
+    ipcRenderer.invoke(IpcChannels.gsxRoutineCancel, ...(choice === undefined ? [] : [choice])),
   gsxRoutinesList: () => ipcRenderer.invoke(IpcChannels.gsxRoutinesList),
   gsxRoutinesSave: (routine: GsxRoutine) => ipcRenderer.invoke(IpcChannels.gsxRoutinesSave, routine),
   gsxRoutinesDelete: (id: string) => ipcRenderer.invoke(IpcChannels.gsxRoutinesDelete, id),
