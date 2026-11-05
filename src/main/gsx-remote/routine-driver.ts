@@ -113,11 +113,13 @@ export class RoutineDriver {
     return true
   }
 
-  /** The pilot pressed Cancel. Does nothing when no routine is running. */
+  /** The pilot pressed Cancel: the menu the routine opened is closed and the routine is gone from the screens at once, not left there
+   *  for CLEAR_AFTER_END_MS saying "cancelled". Does nothing when no routine is running. */
   cancel(): void {
     if (!this.run || this.run.outcome) return
     const step = cancelRoutine(this.run, this.deps.gsx.getMenu())
     this.apply(step.run, step.actions)
+    this.clearEnded(true)
   }
 
   /** Stops everything and clears the screens: GSX Remote is being replaced or the app is quitting. */

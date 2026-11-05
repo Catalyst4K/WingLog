@@ -236,17 +236,24 @@ describe('RoutineDriver', () => {
     expect(published.at(-1)).toMatchObject({ note: { code: 'stopped', reason: 'gsx-disconnected' } })
   })
 
-  it('cancel stops it and closes the menu the routine had opened', () => {
+  it('cancel stops it, closes the menu the routine had opened, and clears it from the screens at once', () => {
     driver.start(routine(['Catering']))
     gsx.menu = MAIN_MENU
     driver.cancel()
     expect(gsx.sent).toContain('close')
-    expect(published.at(-1)).toMatchObject({
-      state: 'stopped',
-      note: { code: 'stopped', reason: 'cancelled' }
-    })
+    expect(published.filter((p) => p?.state === 'stopped')).toEqual([
+      expect.objectContaining({ note: { code: 'stopped', reason: 'cancelled' } })
+    ])
+    expect(published.at(-1)).toBeNull()
     driver.cancel()
     expect(published.filter((p) => p?.state === 'stopped')).toHaveLength(1)
+  })
+
+  it('a cancelled routine can be started again straight away', () => {
+    driver.start(routine(['Catering']))
+    driver.cancel()
+    expect(driver.start(routine(['Catering']))).toBe(true)
+    expect(published.at(-1)).toMatchObject({ state: 'running' })
   })
 
   it('cancel with nothing running does nothing', () => {
