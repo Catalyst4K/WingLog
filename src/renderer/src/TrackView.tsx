@@ -225,7 +225,7 @@ export function TrackView(props: {
   return (
     // Nothing shrinks: when the cards and the map don't fit, the page scrolls rather than clipping a card or squeezing the map.
     <div className="flex h-full flex-col gap-4 [&>*]:shrink-0">
-      <h1 className="font-heading text-2xl font-semibold text-foreground">{t('trackView.title')}</h1>
+      <h1 className="sr-only">{t('trackView.title')}</h1>
       <AutoTuneOnlineWarning />
 
       {active ? (

@@ -247,7 +247,7 @@ export function DispatchView(props: {
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="font-heading text-2xl font-semibold text-foreground">{t('dispatchView.title')}</h1>
+      <h1 className="sr-only">{t('dispatchView.title')}</h1>
 
       <div className="flex flex-wrap items-start gap-4">
         <div className="flex min-w-72 max-w-md flex-1 flex-col gap-4">

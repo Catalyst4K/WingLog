@@ -15,7 +15,7 @@ export function GsxRemoteView(): React.JSX.Element {
   const { t } = useTranslation()
   return (
     <div className="flex flex-col gap-4">
-      <h1 className="font-heading text-2xl font-semibold text-foreground">{t('gsxRemoteView.title')}</h1>
+      <h1 className="sr-only">{t('gsxRemoteView.title')}</h1>
       <GsxRemotePanel />
     </div>
   )

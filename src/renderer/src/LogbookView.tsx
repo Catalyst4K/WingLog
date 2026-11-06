@@ -184,7 +184,7 @@ export function LogbookView(props: {
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="font-heading text-2xl font-semibold text-foreground">{t('logbookView.title')}</h1>
+      <h1 className="sr-only">{t('logbookView.title')}</h1>
 
       {!loading && flights.length > 0 && <LogbookStatsStrip stats={stats} flightCount={flights.length} />}
 

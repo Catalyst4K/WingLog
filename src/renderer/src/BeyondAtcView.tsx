@@ -18,7 +18,7 @@ export function BeyondAtcView(): React.JSX.Element {
   const { t } = useTranslation()
   return (
     <div className="flex h-full min-h-0 flex-col gap-4">
-      <h1 className="font-heading text-2xl font-semibold text-foreground">{t('beyondAtcView.title')}</h1>
+      <h1 className="sr-only">{t('beyondAtcView.title')}</h1>
       <BeyondAtcPanel />
     </div>
   )

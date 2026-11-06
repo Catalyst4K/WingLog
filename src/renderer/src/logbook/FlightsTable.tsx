@@ -24,31 +24,21 @@ export function LogbookStatsStrip(props: {
 }): React.JSX.Element {
   const { t } = useTranslation()
   const { stats } = props
+  // v2: one quiet line, the figures in the mono face, no uppercase labels (winglog-backend docs/plans/v2-design.md).
+  const stat = (value: string | number, label: string): React.JSX.Element => (
+    <span>
+      <span className="font-mono text-foreground">{value}</span> <span>{label}</span>
+    </span>
+  )
   return (
-    <div className="flex flex-wrap gap-8">
-      <div>
-        <p className="text-xs tracking-wide text-muted-foreground uppercase">
-          {t('logbookView.stats.totalFlights')}
-        </p>
-        <p className="text-xl font-semibold text-foreground">{stats?.totalFlights ?? props.flightCount}</p>
-      </div>
-      <div>
-        <p className="text-xs tracking-wide text-muted-foreground uppercase">
-          {t('logbookView.stats.totalFlightHours')}
-        </p>
-        <p className="text-xl font-semibold text-foreground">
-          {formatMinutes(stats?.totalBlockMinutes ?? null)}
-        </p>
-      </div>
-      <div>
-        <p className="text-xs tracking-wide text-muted-foreground uppercase">
-          {t('logbookView.stats.totalMilesFlown')}
-        </p>
-        <p className="text-xl font-semibold text-foreground">
-          {stats ? `${Math.round(stats.totalNm).toLocaleString()} nm` : '—'}
-        </p>
-      </div>
-    </div>
+    <p className="flex flex-wrap gap-x-6 gap-y-1 text-sm text-muted-foreground">
+      {stat(stats?.totalFlights ?? props.flightCount, t('logbookView.stats.totalFlights'))}
+      {stat(formatMinutes(stats?.totalBlockMinutes ?? null), t('logbookView.stats.totalFlightHours'))}
+      {stat(
+        stats ? `${Math.round(stats.totalNm).toLocaleString()} nm` : '—',
+        t('logbookView.stats.totalMilesFlown')
+      )}
+    </p>
   )
 }
 

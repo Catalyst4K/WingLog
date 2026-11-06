@@ -153,7 +153,7 @@ function AirportFrequencies(props: {
         const typeKey = FREQUENCY_TYPE_KEY[group.type]
         return (
           <section key={group.type} aria-label={typeKey ? t(typeKey) : group.type}>
-            <h3 className="px-1.5 pb-0.5 text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
+            <h3 className="px-1.5 pb-0.5 text-xs font-medium text-muted-foreground">
               {typeKey ? t(typeKey) : group.type}
             </h3>
             <ul className="flex flex-col gap-0.5">
