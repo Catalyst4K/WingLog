@@ -37,7 +37,7 @@ describe('AtcAreasRow', () => {
       screen.getByText(/In use: VAT-Spy v2610\.1, TRACON v1\.2\.13 \(bundled with WingLog\)\./)
     ).toBeInTheDocument()
     expect(screen.getByText(/Not checked yet\./)).toBeInTheDocument()
-    expect(screen.getByText(/It sends nothing but WingLog's version/)).toBeInTheDocument()
+    expect(screen.getByText(/Nothing else is sent/)).toBeInTheDocument()
   })
 
   it('says a downloaded copy came from GitHub, and when it was last checked', async () => {

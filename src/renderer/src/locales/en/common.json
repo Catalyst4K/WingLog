@@ -99,20 +99,20 @@
       "receiptsFolder": "Receipts folder",
       "notSet": "Not set",
       "browse": "Browse…",
-      "pathHint": "Usually %APPDATA%\\Virtuali\\GSX\\Receipts. A path that's wrong or no longer exists just means no receipts are found — never an error.",
+      "pathHint": "Usually %APPDATA%\\Virtuali\\GSX\\Receipts.",
       "displayCurrency": "Display currency",
       "currencyHint": "GSX totals convert using a live rate fetched at the time you view them — nothing is stored converted."
     },
     "gsxRemote": {
       "cardTitle": "GSX Remote Control",
-      "description": "Live ground-service control, rebuilt inside WingLog from GSX Pro's own Remote Client connection — not an embedded copy of GSX's page.",
+      "description": "Run GSX ground services from WingLog.",
       "enabled": "Enabled",
       "on": "On",
       "off": "Off",
       "host": "Host",
       "port": "Port",
       "portPlaceholder": "8744",
-      "portHint": "8744 is GSX's own default, but it's configurable under Remote Client in GSX's own settings — check there if this doesn't connect.",
+      "portHint": "Change it only if you changed it in GSX.",
       "statusConnected": "Connected",
       "statusConnecting": "Connecting…",
       "statusDisconnected": "Disconnected"
@@ -184,12 +184,11 @@
     "usernameAutoFilledToast": "SimBrief username filled in automatically: {{username}}",
     "beyondAtc": {
       "cardTitle": "BeyondATC",
-      "description": "Live ATC panel and remote control, connected to BeyondATC's own local WebSocket — not an embedded copy of BeyondATC's own app.",
+      "description": "Shows BeyondATC's clearances and radio, and lets you reply from WingLog.",
       "enabled": "Enabled",
       "on": "On",
       "off": "Off",
       "host": "Host",
-      "hostHint": "BeyondATC always listens on port 41716 — only the host is configurable, for a future LAN setup.",
       "statusConnected": "Connected",
       "statusConnecting": "Connecting…",
       "statusDisconnected": "Disconnected"
@@ -208,7 +207,7 @@
       "simTrafficButton": "Sim traffic button",
       "simTrafficButtonHint": "The teal aircraft on Track's map: the sim's own traffic (BeyondATC's and other AI). Off removes the button from the map, on the PC and the phone.",
       "atcAreas": "Keep ATC areas up to date",
-      "atcAreasHint": "About once a week WingLog asks GitHub for newer coverage areas from the community's VAT-Spy and SimAware TRACON projects. It sends nothing but WingLog's version.",
+      "atcAreasHint": "Updates the ATC areas weekly from GitHub. Nothing else is sent.",
       "atcAreasInUse": "In use: VAT-Spy {{vatspy}}, TRACON {{tracon}} ({{source}}).",
       "atcAreasBundled": "bundled with WingLog",
       "atcAreasDownloaded": "downloaded from GitHub",
@@ -232,7 +231,7 @@
       "settings": "Settings"
     },
     "connection": {
-      "connected": "Connected (SimConnect {{version}})",
+      "connected": "Sim connected",
       "connecting": "Connecting…",
       "disconnected": "Disconnected — retrying",
       "states": {
@@ -240,7 +239,7 @@
         "connecting": "connecting",
         "disconnected": "disconnected"
       },
-      "badge": "SimConnect: {{state}}"
+      "badge": "Sim: {{state}}"
     },
     "orphanedFlight": {
       "resumeTitle": "Resume tracking?",
@@ -663,7 +662,7 @@
     "nearest": "Nearest:",
     "hideTaxiChart": "Hide taxi chart",
     "showTaxiChart": "Show taxi chart",
-    "showTaxiChartTitle": "Show taxi chart — full taxiway network at the departure/arrival airport",
+    "showTaxiChartTitle": "Show taxi chart",
     "loadingTaxiChart": "Loading taxi chart for {{icao}}… this can take a few minutes at large airports",
     "approximateRoute": "Approximate route — no flight plan on file for this flight",
     "showNetworkTraffic": "Show {{network}} traffic",

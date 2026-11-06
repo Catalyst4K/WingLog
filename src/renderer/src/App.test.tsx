@@ -589,7 +589,7 @@ describe('App', () => {
     ]) {
       expect(screen.getByRole('tab', { name })).toBeInTheDocument()
     }
-    expect(screen.getByText('SimConnect: disconnected')).toBeInTheDocument()
+    expect(screen.getByText('Sim: disconnected')).toBeInTheDocument()
   })
 
   it('hides the GSX Remote Control and BeyondATC tabs until their settings are enabled', async () => {
@@ -694,11 +694,11 @@ describe('App', () => {
     await screen.findByText('Fleet', { selector: 'h1' })
 
     statusListener?.({ state: 'connecting' })
-    expect(await screen.findByText('SimConnect: connecting')).toBeInTheDocument()
+    expect(await screen.findByText('Sim: connecting')).toBeInTheDocument()
 
     statusListener?.({ state: 'connected', simConnectVersion: '12.2' })
-    expect(await screen.findByText('SimConnect: connected')).toBeInTheDocument()
-    expect(screen.getByTitle('Connected (SimConnect 12.2)')).toBeInTheDocument()
+    expect(await screen.findByText('Sim: connected')).toBeInTheDocument()
+    expect(screen.getByTitle('Sim connected')).toBeInTheDocument()
 
     // Telemetry only matters visibly once Track is open (its map overlay reads it) — confirm
     // it clears there rather than staying frozen once the sim disconnects.
@@ -708,7 +708,7 @@ describe('App', () => {
     await screen.findByText(/Speed: 194 kt/)
 
     statusListener?.({ state: 'disconnected' })
-    expect(await screen.findByText('SimConnect: disconnected')).toBeInTheDocument()
+    expect(await screen.findByText('Sim: disconnected')).toBeInTheDocument()
     expect(await screen.findByText(/Speed: N\/A/)).toBeInTheDocument()
   })
 

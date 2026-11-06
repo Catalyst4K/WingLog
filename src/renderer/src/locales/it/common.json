@@ -191,7 +191,6 @@
       "on": "Sì",
       "off": "No",
       "host": "Host",
-      "hostHint": "BeyondATC è sempre in ascolto sulla porta 41716 — è configurabile solo l'host, in vista di una futura configurazione in rete locale.",
       "statusConnected": "Connesso",
       "statusConnecting": "Connessione…",
       "statusDisconnected": "Disconnesso"

@@ -205,7 +205,6 @@
       "on": "Вкл",
       "off": "Выкл",
       "host": "Хост",
-      "hostHint": "BeyondATC всегда слушает порт 41716 — настраивается только хост, на будущее для локальной сети.",
       "statusConnected": "Подключено",
       "statusConnecting": "Подключение…",
       "statusDisconnected": "Отключено"

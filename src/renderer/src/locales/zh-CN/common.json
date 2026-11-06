@@ -184,7 +184,6 @@
       "on": "开",
       "off": "关",
       "host": "主机",
-      "hostHint": "BeyondATC 始终监听 41716 端口 — 仅主机可配置，为未来的局域网设置预留。",
       "statusConnected": "已连接",
       "statusConnecting": "正在连接…",
       "statusDisconnected": "未连接"

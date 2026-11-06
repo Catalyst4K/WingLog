@@ -286,11 +286,7 @@ export function BeyondAtcCard(props: { beyondAtc: BeyondAtcSettingsState }): Rea
           onChange={asyncHandler('SettingsView handleBeyondAtcToggle', b.toggle)}
         />
       </SettingRow>
-      <SettingRow
-        label={t('settingsView.beyondAtc.host')}
-        note={t('settingsView.beyondAtc.hostHint')}
-        controlId={hostId}
-      >
+      <SettingRow label={t('settingsView.beyondAtc.host')} controlId={hostId}>
         <Input
           id={hostId}
           type="text"

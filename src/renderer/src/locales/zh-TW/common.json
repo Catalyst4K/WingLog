@@ -184,7 +184,6 @@
       "on": "開",
       "off": "關",
       "host": "主機",
-      "hostHint": "BeyondATC 一律監聽 41716 連接埠 — 僅主機可設定，為未來的區域網路設定預留。",
       "statusConnected": "已連線",
       "statusConnecting": "連線中…",
       "statusDisconnected": "未連線"

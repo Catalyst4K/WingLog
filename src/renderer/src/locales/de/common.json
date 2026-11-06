@@ -189,7 +189,6 @@
       "on": "Ein",
       "off": "Aus",
       "host": "Host",
-      "hostHint": "BeyondATC lauscht immer auf Port 41716 — nur der Host ist konfigurierbar, für eine spätere LAN-Einrichtung.",
       "statusConnected": "Verbunden",
       "statusConnecting": "Verbinde…",
       "statusDisconnected": "Getrennt"

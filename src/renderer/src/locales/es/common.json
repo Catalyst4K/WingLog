@@ -191,7 +191,6 @@
       "on": "Activado",
       "off": "Desactivado",
       "host": "Host",
-      "hostHint": "BeyondATC siempre escucha en el puerto 41716 — solo el host es configurable, pensado para una futura configuración en red local.",
       "statusConnected": "Conectado",
       "statusConnecting": "Conectando…",
       "statusDisconnected": "Desconectado"
