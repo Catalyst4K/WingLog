@@ -1,19 +1,22 @@
 /**
  * The building blocks every Settings card is made of (winglog-backend's docs/plans/settings-layout.md), so the cards cannot drift
- * apart again: one width, one card anatomy, one way to lay out a setting, one on/off control, one status badge.
+ * apart again: one width, one section anatomy, one way to lay out a setting, one on/off control, one status light.
+ *
+ * v2 (winglog-backend docs/plans/v2-design.md, Part 5): a "card" is no longer a box. It is a heading, a one-line hint and a column of
+ * label-and-control rows, divided from the section above by a hairline. The `data-slot` names stay (`card`, `card-content`) because
+ * tests and the e2e specs find a section by them.
  */
 
 import type { ReactNode } from 'react'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
+import { StatusLight, type LightState } from '@/components/StatusLight'
 import { cn } from '@/lib/utils'
 
 /**
- * A Settings card. Its width is fixed here and nowhere else: the category panel decides how wide cards are, a card never does.
+ * A Settings section. Its width is fixed here and nowhere else: the page decides how wide sections are, a section never does.
  *
- * @param props The title, an optional status badge and description, the body, and an optional footer of actions.
+ * @param props The title, an optional status light and description, the body, and an optional footer of actions.
  * @returns The element.
  */
 export function SettingsCard(props: {
@@ -24,21 +27,27 @@ export function SettingsCard(props: {
   footer?: ReactNode
 }): React.JSX.Element {
   return (
-    <Card className="w-full max-w-2xl">
-      <CardHeader>
-        <CardTitle className="flex items-center justify-between gap-2">
+    <section
+      data-slot="card"
+      className="flex w-full max-w-2xl flex-col gap-3 border-t border-border pt-6 first:border-t-0 first:pt-0"
+    >
+      <header className="flex flex-col gap-1">
+        <h2 className="flex items-center justify-between gap-2 text-base font-medium text-foreground">
           <span>{props.title}</span>
           {props.status}
-        </CardTitle>
-        {props.description && <CardDescription>{props.description}</CardDescription>}
-      </CardHeader>
+        </h2>
+        {props.description && <p className="text-sm text-muted-foreground">{props.description}</p>}
+      </header>
       {props.children !== undefined && (
-        <CardContent className="flex flex-col divide-y divide-border/60 [&>*]:py-3 [&>*:first-child]:pt-0 [&>*:last-child]:pb-0">
+        <div
+          data-slot="card-content"
+          className="flex flex-col divide-y divide-border/60 [&>*]:py-3 [&>*:first-child]:pt-0 [&>*:last-child]:pb-0"
+        >
           {props.children}
-        </CardContent>
+        </div>
       )}
-      {props.footer && <div className="flex justify-end gap-2 px-(--card-spacing)">{props.footer}</div>}
-    </Card>
+      {props.footer && <div className="flex justify-end gap-2">{props.footer}</div>}
+    </section>
   )
 }
 
@@ -148,20 +157,26 @@ export function OnOffControl(props: {
 }
 
 /**
- * A connection's state, shown the same way in every card's header.
+ * A connection's state, shown the same way in every section's heading: a light and the word. Green connected, amber while it is
+ * connecting or not connected, red for an error.
  *
  * @param props The state, and its (translated) text.
- * @returns The badge.
+ * @returns The light and word.
  */
 export function StatusBadge(props: {
   state: 'connected' | 'connecting' | 'disconnected' | 'error'
   label: string
 }): React.JSX.Element {
-  const variant = {
-    connected: 'default',
-    connecting: 'secondary',
-    disconnected: 'outline',
-    error: 'destructive'
-  } as const
-  return <Badge variant={variant[props.state]}>{props.label}</Badge>
+  const light: Record<typeof props.state, LightState> = {
+    connected: 'green',
+    connecting: 'amber',
+    disconnected: 'amber',
+    error: 'red'
+  }
+  return (
+    <span className="inline-flex items-center gap-1.5 text-xs font-normal text-muted-foreground">
+      <StatusLight state={light[props.state]} />
+      {props.label}
+    </span>
+  )
 }

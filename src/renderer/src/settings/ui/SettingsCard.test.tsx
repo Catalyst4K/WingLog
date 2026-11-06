@@ -111,6 +111,40 @@ describe('StatusBadge', () => {
   })
 })
 
+describe('a section in v2', () => {
+  it('is a heading, a hint and rows divided by hairlines, not a box', () => {
+    render(
+      <SettingsCard title="Units" description="One line.">
+        <SettingRow label="Weights">
+          <span>kg</span>
+        </SettingRow>
+      </SettingsCard>
+    )
+    const section = screen
+      .getByRole('heading', { name: 'Units' })
+      .closest('[data-slot="card"]') as HTMLElement
+    expect(section.tagName).toBe('SECTION')
+    expect(section).toHaveClass('border-t')
+    expect(section).not.toHaveClass('border')
+    expect(section).not.toHaveClass('bg-card')
+  })
+
+  it('shows a connection as a light and the word: green connected, amber waiting, red for an error', () => {
+    const { container } = render(
+      <>
+        {(['connected', 'connecting', 'disconnected', 'error'] as const).map((state) => (
+          <StatusBadge key={state} state={state} label={state} />
+        ))}
+      </>
+    )
+    expect(
+      [...container.querySelectorAll('[data-slot="status-light"]')].map((light) =>
+        light.getAttribute('data-state')
+      )
+    ).toEqual(['green', 'amber', 'amber', 'red'])
+  })
+})
+
 describe('SettingsSection', () => {
   it('is a labelled region with a heading and actions beside it', () => {
     render(
