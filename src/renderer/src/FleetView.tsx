@@ -65,7 +65,12 @@ export function FleetView(props: {
     return stats.find((s) => s.aircraftId === aircraftId)
   }
 
-  /** An aircraft's airport and stand as text to sort by: an unknown one sorts as empty. */
+  /**
+   * An aircraft's airport and stand as text to sort by: an unknown one sorts as empty.
+   *
+   * @param a The aircraft.
+   * @returns Its airport and stand.
+   */
   function whereIs(a: Aircraft): { airport: string; stand: string } {
     const icao = a.currentIcao ?? statsFor(a.id)?.lastArrIcao ?? null
     const where = airportAndStand(
