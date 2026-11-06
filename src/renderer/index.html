@@ -9,10 +9,8 @@
       tile-source entry for why OpenFreeMap specifically.
     -->
     <!--
-      Design system (docs/decisions.md, 2026-09-01): Space Grotesk/Inter/IBM Plex Mono
-      load from Google Fonts, so style-src needs fonts.googleapis.com (the stylesheet)
-      and font-src needs fonts.gstatic.com (the actual font files) alongside the
-      existing OpenFreeMap allowances.
+      v2 design (winglog-backend docs/plans/v2-design.md, D2): Fira Sans and Fira Mono are vendored in
+      src/renderer/src/fonts, so no font is loaded from the network and the CSP names no font host.
     -->
     <!--
       Airline search (docs/decisions.md, 2026-09-01): Fleet fetches a small airline logo
@@ -27,15 +25,9 @@
     -->
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://tiles.openfreemap.org https://images.kiwi.com https://airport-data.com https://image.airport-data.com https://t.plnspttrs.net; connect-src 'self' https://tiles.openfreemap.org; worker-src 'self' blob:"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: https://tiles.openfreemap.org https://images.kiwi.com https://airport-data.com https://image.airport-data.com https://t.plnspttrs.net; connect-src 'self' https://tiles.openfreemap.org; worker-src 'self' blob:"
     />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap"
-      rel="stylesheet"
-    />
     <title>WingLog</title>
   </head>
   <body>

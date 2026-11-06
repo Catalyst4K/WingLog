@@ -1,10 +1,13 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
+@import './fonts/fonts.css';
 
 /*
- * Design tokens for the "Glass Cockpit / MFD" direction — see the 2026-09-01
- * design-system entry in docs/decisions.md for the full rationale and the exact
- * values these are transcribed from. Change values here, not in components.
+ * Design tokens for v2, "Plate, with Airfield's lights" (winglog-backend docs/plans/v2-design.md, "The design rules" and
+ * "Tokens"). Change values here, not in components.
+ *
+ * Colour has one job each: --plan (magenta) is the plan, --foreground (ink) is what happened, the --light-* colours are state
+ * and are off when things are normal, --destructive is only for what can't be undone. Nothing else is coloured.
  */
 
 @custom-variant dark (&:is(.dark *));
@@ -24,9 +27,10 @@
 @custom-variant data-vertical (&[data-orientation='vertical']);
 
 @theme inline {
-  --font-sans: 'Inter', system-ui, sans-serif;
-  --font-heading: 'Space Grotesk', 'Inter', system-ui, sans-serif;
-  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+  /* One family: Fira Sans for text, Fira Mono for idents, times, routes and figures (vendored in ./fonts, no network). */
+  --font-sans: 'Fira Sans', system-ui, sans-serif;
+  --font-heading: 'Fira Sans', system-ui, sans-serif;
+  --font-mono: 'Fira Mono', ui-monospace, monospace;
 
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -44,11 +48,18 @@
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
+  --color-destructive-line: var(--destructive-line);
   --color-success: var(--success);
   --color-success-foreground: var(--success-foreground);
   --color-border: var(--border);
   --color-input: var(--input);
+  --color-field: var(--field);
   --color-ring: var(--ring);
+  --color-plan: var(--plan);
+  --color-light-green: var(--light-green);
+  --color-light-amber: var(--light-amber);
+  --color-light-red: var(--light-red);
+  --color-light-off: var(--light-off);
 
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
@@ -57,52 +68,66 @@
 }
 
 :root {
-  --background: #f8fafc;
-  --foreground: #0f172a;
-  --card: #ffffff;
-  --card-foreground: #0f172a;
-  --popover: #ffffff;
-  --popover-foreground: #0f172a;
-  --primary: #0ea5e9;
-  --primary-foreground: #0a0e14;
-  --secondary: #eef2f7;
-  --secondary-foreground: #0f172a;
-  --muted: #eef2f7;
-  --muted-foreground: #64748b;
-  --accent: #f1f5f9;
-  --accent-foreground: #0f172a;
-  --destructive: #ef4444;
+  --background: #f3f1eb; /* Ground */
+  --foreground: #1c1b19; /* Text, and ink: what happened */
+  --card: #fbfaf6; /* Panel: a slightly lighter ground, not a border */
+  --card-foreground: #1c1b19;
+  --popover: #fbfaf6;
+  --popover-foreground: #1c1b19;
+  --primary: #1c1b19; /* The one filled button per screen */
+  --primary-foreground: #fbfaf6;
+  --secondary: #e9e6de; /* Inset */
+  --secondary-foreground: #1c1b19;
+  --muted: #e9e6de;
+  --muted-foreground: #5e594f; /* Quiet text */
+  --accent: #e9e6de;
+  --accent-foreground: #1c1b19;
+  --destructive: #b3261e; /* Can't undo: text */
   --destructive-foreground: #ffffff;
-  --success: #10b981;
-  --success-foreground: #052e1c;
-  --border: #e2e8f0;
-  --input: #e2e8f0;
-  --ring: #0ea5e9;
+  --destructive-line: #e2b8b2; /* Can't undo: outline */
+  --success: #1e9653;
+  --success-foreground: #ffffff;
+  --border: #ddd9cf; /* Line: hairline rules */
+  --input: #c9c4b8; /* Control outline */
+  --field: #ffffff;
+  --ring: #5e594f;
+  --plan: #a61e6b; /* Magenta: the plan */
+  --light-green: #1e9653;
+  --light-amber: #b87400;
+  --light-red: #d23b3b;
+  --light-off: #d3cfc4;
   --radius: 0.5rem;
 }
 
 .dark {
-  --background: #0a0e14;
-  --foreground: #e6f1ff;
-  --card: #111823;
-  --card-foreground: #e6f1ff;
-  --popover: #111823;
-  --popover-foreground: #e6f1ff;
-  --primary: #22d3ee;
-  --primary-foreground: #0a0e14;
-  --secondary: #16202e;
-  --secondary-foreground: #e6f1ff;
-  --muted: #16202e;
-  --muted-foreground: #7d96b3;
-  --accent: #16202e;
-  --accent-foreground: #e6f1ff;
-  --destructive: #f87171;
-  --destructive-foreground: #0a0e14;
-  --success: #34d399;
-  --success-foreground: #052e1c;
-  --border: #1e2a3a;
-  --input: #1e2a3a;
-  --ring: #22d3ee;
+  --background: #141413;
+  --foreground: #ece9e1;
+  --card: #1b1b19;
+  --card-foreground: #ece9e1;
+  --popover: #1b1b19;
+  --popover-foreground: #ece9e1;
+  --primary: #ece9e1;
+  --primary-foreground: #141413;
+  --secondary: #262522;
+  --secondary-foreground: #ece9e1;
+  --muted: #262522;
+  --muted-foreground: #a29e94;
+  --accent: #262522;
+  --accent-foreground: #ece9e1;
+  --destructive: #ee7d72;
+  --destructive-foreground: #141413;
+  --destructive-line: #4a3a37;
+  --success: #34d37e;
+  --success-foreground: #141413;
+  --border: #2c2b28;
+  --input: #3a3935;
+  --field: #1f1f1c;
+  --ring: #a29e94;
+  --plan: #e26aae;
+  --light-green: #34d37e;
+  --light-amber: #ffb224;
+  --light-red: #ff5a5a;
+  --light-off: #3a3935;
 }
 
 @layer base {
@@ -126,6 +151,8 @@
   }
   html {
     @apply font-sans;
+    /* Tabular figures throughout, so columns of numbers line up. */
+    font-variant-numeric: tabular-nums;
   }
 }
 

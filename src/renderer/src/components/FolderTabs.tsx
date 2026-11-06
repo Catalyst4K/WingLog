@@ -47,9 +47,9 @@ export function FolderTabsTrigger({
   return (
     <TabsTrigger
       className={cn(
-        // Sits 1px low so the active tab's background covers the list's bottom border.
-        'h-auto flex-none -mb-px rounded-t-md rounded-b-none border border-transparent px-4 py-1.5 after:hidden',
-        'data-active:border-border data-active:border-b-background data-active:bg-background',
+        // Sits 1px low so the active tab's underline covers the list's bottom border.
+        'h-auto flex-none -mb-px rounded-none border-0 border-b-2 border-transparent px-3 py-2 after:hidden',
+        'data-active:border-foreground data-active:bg-transparent',
         className
       )}
       {...props}

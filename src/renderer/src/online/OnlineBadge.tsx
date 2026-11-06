@@ -1,6 +1,7 @@
 /** The badge in the header (and the phone's flight banner) saying the pilot is online: the network and the callsign found in its feed. */
 import { useTranslation } from 'react-i18next'
 import { Badge } from '@/components/ui/badge'
+import { StatusLight } from '@/components/StatusLight'
 import { cn } from '@/lib/utils'
 import { useOnlineStatus } from '../live/use-online-status'
 
@@ -23,7 +24,7 @@ export function OnlineBadge(props: { className?: string }): React.JSX.Element | 
       title={t(probably ? 'online.badgeProbably' : 'online.badgeTitle', { network: name, callsign })}
       className={cn('shrink-0', props.className)}
     >
-      <span aria-hidden="true" className="size-1.5 rounded-full bg-emerald-500" />
+      <StatusLight state="green" />
       {`${name} · ${callsign}${probably ? '?' : ''}`}
     </Badge>
   )

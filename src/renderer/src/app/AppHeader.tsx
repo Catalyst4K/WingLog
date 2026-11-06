@@ -1,11 +1,11 @@
 /** The app's header: the tab strip, the online badge and the sim connection badge. */
 
-import { BookOpen, Plane, Radar, Radio, Route, Settings as SettingsIcon, Truck } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
 import type { AppPage, SimConnectionStatus } from '@shared/ipc'
-import { Badge } from '@/components/ui/badge'
+import { StatusLight, type LightState } from '@/components/StatusLight'
 import { TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { cn } from '@/lib/utils'
 import { DevBuildBadge } from '../DevBuildBadge'
 import { OnlineBadge } from '../online/OnlineBadge'
 
@@ -23,17 +23,15 @@ function appTabs(
   t: TFunction,
   gsxRemoteEnabled: boolean,
   beyondAtcEnabled: boolean
-): { page: AppPage; label: string; icon: typeof Plane }[] {
+): { page: AppPage; label: string }[] {
   return [
-    { page: 'fleet', label: t('app.tabs.fleet'), icon: Plane },
-    { page: 'dispatch', label: t('app.tabs.dispatch'), icon: Route },
-    { page: 'track', label: t('app.tabs.track'), icon: Radar },
-    ...(gsxRemoteEnabled ? [{ page: 'gsx' as const, label: t('app.tabs.gsx'), icon: Truck }] : []),
-    ...(beyondAtcEnabled
-      ? [{ page: 'beyondatc' as const, label: t('app.tabs.beyondAtc'), icon: Radio }]
-      : []),
-    { page: 'logbook', label: t('app.tabs.logbook'), icon: BookOpen },
-    { page: 'settings', label: t('app.tabs.settings'), icon: SettingsIcon }
+    { page: 'fleet', label: t('app.tabs.fleet') },
+    { page: 'dispatch', label: t('app.tabs.dispatch') },
+    { page: 'track', label: t('app.tabs.track') },
+    ...(gsxRemoteEnabled ? [{ page: 'gsx' as const, label: t('app.tabs.gsx') }] : []),
+    ...(beyondAtcEnabled ? [{ page: 'beyondatc' as const, label: t('app.tabs.beyondAtc') }] : []),
+    { page: 'logbook', label: t('app.tabs.logbook') },
+    { page: 'settings', label: t('app.tabs.settings') }
   ]
 }
 
@@ -52,19 +50,25 @@ function connectionStateLabel(status: SimConnectionStatus, t: TFunction): string
   return t(`app.connection.states.${status.state}`)
 }
 
-function connectionStatusVariant(status: SimConnectionStatus): 'default' | 'secondary' | 'destructive' {
+/**
+ * The sim connection as a light: green connected, amber connecting, red lost.
+ *
+ * @param status The sim connection status.
+ * @returns The light's state.
+ */
+function connectionLight(status: SimConnectionStatus): LightState {
   switch (status.state) {
     case 'connected':
-      return 'default'
+      return 'green'
     case 'connecting':
-      return 'secondary'
+      return 'amber'
     case 'disconnected':
-      return 'destructive'
+      return 'red'
   }
 }
 
 /**
- * The header: one tab per enabled page, then the dev-build, online and connection badges.
+ * The header: one tab per enabled page, then the dev-build and online badges and the sim connection light.
  *
  * @param props Which optional tabs exist, the tab-click handler, and the sim connection status.
  * @returns The element.
@@ -78,46 +82,41 @@ export function AppHeader(props: {
   const { t } = useTranslation()
   const { simStatus } = props
   return (
-    // Narrow windows (a second monitor, and later a tablet or phone): tabs drop to icons
-    // below lg, keeping each label for screen readers, and scroll if they still don't fit.
-    // px-1 below sm is what fits all seven next to the phone badge at 360 px: px-1.5 left
-    // the row 16 px short and Settings half off screen (v1.4.0's red e2e).
-    <header className="flex items-center justify-between gap-2 border-b border-border px-4 py-3 sm:gap-4 sm:px-6">
+    // Text-only tabs (v2): in a narrow window they scroll rather than turning into icons.
+    // winglog-backend docs/plans/v2-design.md D9 recommends a "More" menu instead; not built yet.
+    <header className="flex items-center justify-between gap-2 border-b border-border px-4 py-2 sm:gap-4 sm:px-6">
       <TabsList
         variant="line"
         className="min-w-0 justify-start overflow-x-auto overflow-y-hidden [scrollbar-width:none]"
       >
-        {appTabs(t, props.gsxRemoteEnabled, props.beyondAtcEnabled).map(
-          ({ page: tabPage, label, icon: Icon }) => (
-            <TabsTrigger
-              key={tabPage}
-              value={tabPage}
-              className="gap-1.5 px-1 sm:px-3"
-              aria-label={label}
-              onClick={() => props.onTabClick(tabPage)}
-            >
-              <Icon />
-              {/* Hidden below lg; the tab keeps its name through aria-label. Not sr-only/lg:not-sr-only:
-                not-sr-only resets white-space, which wrapped "Ground services" under the underline. */}
-              <span className="hidden lg:inline">{label}</span>
-            </TabsTrigger>
-          )
-        )}
+        {appTabs(t, props.gsxRemoteEnabled, props.beyondAtcEnabled).map(({ page: tabPage, label }) => (
+          <TabsTrigger
+            key={tabPage}
+            value={tabPage}
+            className="px-3 text-[0.9375rem]"
+            onClick={() => props.onTabClick(tabPage)}
+          >
+            {label}
+          </TabsTrigger>
+        ))}
       </TabsList>
       <div className="flex shrink-0 items-center gap-2">
         <DevBuildBadge />
         {/* Not below sm: the tabs and the connection badge only just fit at 360 px. */}
         <OnlineBadge className="hidden sm:inline-flex" />
-        <Badge
-          variant={connectionStatusVariant(simStatus)}
+        <span
           title={connectionStatusLabel(simStatus, t)}
-          className="shrink-0"
+          className={cn(
+            'flex shrink-0 items-center gap-2 text-sm',
+            simStatus.state === 'disconnected' ? 'text-destructive' : 'text-muted-foreground'
+          )}
         >
+          <StatusLight state={connectionLight(simStatus)} count={3} />
           <span className="sm:hidden">{connectionStateLabel(simStatus, t)}</span>
           <span className="hidden sm:inline">
             {t('app.connection.badge', { state: connectionStateLabel(simStatus, t) })}
           </span>
-        </Badge>
+        </span>
       </div>
     </header>
   )
