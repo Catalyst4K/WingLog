@@ -732,7 +732,8 @@
       "runway": "Piste",
       "distanceFromThreshold": "Distance au seuil",
       "centrelineOffset": "Écart par rapport à l'axe",
-      "scoreBreakdown": "Détail de la note"
+      "scoreBreakdown": "Détail de la note",
+      "outOf": "sur 100"
     },
     "deleteFlightConfirmTitle": "Supprimer ce vol ?",
     "deleteFlightConfirmDescription_one": "Sa trace ({{count}} point), le rapport d'atterrissage et les reçus des services au sol seront supprimés avec lui. Cette action est irréversible.",
@@ -757,7 +758,8 @@
       "fuelBurn": "Carburant consommé",
       "fuelPlanned": "Carburant prévu",
       "planned": "prévu",
-      "online": "En ligne"
+      "online": "En ligne",
+      "offline": "Non"
     },
     "altitude": "Altitude",
     "trueAltitude": "Altitude vraie",
@@ -802,7 +804,10 @@
       "online": "En ligne"
     },
     "trackTools": "Outils de trace",
-    "lightNote": "Un voyant n’apparaît que pour un atterrissage ferme ou dur."
+    "lightNote": "Un voyant n’apparaît que pour un atterrissage ferme ou dur.",
+    "route": "Route",
+    "planned": "Planifiée",
+    "flown": "Volée"
   },
   "gsxRemoteView": {
     "title": "Services au sol"

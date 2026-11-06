@@ -730,7 +730,8 @@
       "runway": "Runway",
       "distanceFromThreshold": "Distance from threshold",
       "centrelineOffset": "Centreline offset",
-      "scoreBreakdown": "Score breakdown"
+      "scoreBreakdown": "Score breakdown",
+      "outOf": "of 100"
     },
     "deleteFlightConfirmTitle": "Delete this flight?",
     "deleteFlightConfirmDescription_one": "Its track ({{count}} point), landing report and ground-service invoices go with it. This cannot be undone.",
@@ -755,7 +756,8 @@
       "fuelBurn": "Fuel burn",
       "fuelPlanned": "Fuel planned",
       "planned": "planned",
-      "online": "Online"
+      "online": "Online",
+      "offline": "No"
     },
     "altitude": "Altitude",
     "trueAltitude": "True altitude",
@@ -800,7 +802,10 @@
       "online": "Online"
     },
     "trackTools": "Track tools",
-    "lightNote": "A light appears only on a firm or hard landing."
+    "lightNote": "A light appears only on a firm or hard landing.",
+    "route": "Route",
+    "planned": "Planned",
+    "flown": "Flown"
   },
   "gsxRemoteView": {
     "title": "Ground services"

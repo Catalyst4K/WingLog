@@ -1005,10 +1005,10 @@ describe('App', () => {
     await user.click(screen.getByText('G-ABCD'))
     await user.click(await screen.findByRole('button', { name: /BA900/ }))
 
-    expect(await screen.findByText(/BA900.*EGLL.*KJFK/)).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'BA900' })).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Back to aircraft' }))
-    expect(await screen.findByText('G-ABCD — A320')).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'G-ABCD A320' })).toBeInTheDocument()
   })
 
   describe('GSX important-menu global prompt', () => {

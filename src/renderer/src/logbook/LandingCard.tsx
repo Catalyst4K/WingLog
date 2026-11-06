@@ -5,14 +5,12 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { LandingDistanceUnit, LandingScoreCategoryKey, LandingWithDetails } from '@shared/ipc'
 import { Button } from '@/components/ui/button'
-import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { cn } from '@/lib/utils'
 import { landingLabels } from '../landing-labels'
 import { LandingBadge } from '../LandingBadge'
-import { LandingScoreBadge } from '../LandingScoreBadge'
 import { LandingScoreBreakdownDialog } from '../LandingScoreBreakdownDialog'
 import { isCategoryBad } from '../landing-score-ui'
 import { TouchdownDiagram } from '../TouchdownDiagram'
@@ -53,7 +51,7 @@ function LandingSwitcher(props: {
   const { t } = useTranslation()
   const { selectedIndex } = props
   return (
-    <CardAction>
+    <div>
       {props.ids.length <= LANDING_TAB_THRESHOLD ? (
         <Tabs value={String(selectedIndex)} onValueChange={(v) => props.onSelect(Number(v))}>
           <TabsList aria-label={t('logbookView.landingCard.selectLanding')}>
@@ -78,7 +76,7 @@ function LandingSwitcher(props: {
           </SelectContent>
         </Select>
       )}
-    </CardAction>
+    </div>
   )
 }
 
@@ -102,12 +100,12 @@ function LandingFields(props: {
   }
 
   return (
-    <dl className={cn(DETAIL_GRID_CLASS, 'min-w-0 flex-1')}>
-      <DetailField
-        label={t('logbookView.landingCard.landingScore')}
-        value={<LandingScoreBadge score={scoreResult?.score ?? null} />}
-        valueClassName="text-base font-semibold"
-      />
+    <dl
+      className={cn(
+        DETAIL_GRID_CLASS,
+        'min-w-0 flex-1 gap-y-0 [&>*]:border-t [&>*]:border-border [&>*]:py-1.5'
+      )}
+    >
       <DetailField
         label={t('logbookView.landingCard.touchdownRate')}
         warn={isCategoryBad(categoryScore('verticalSpeed'))}
@@ -208,14 +206,10 @@ export function LandingCard(props: {
   // nothing, so the layout doesn't jump once the fetch resolves.
   if (landings === undefined) {
     return (
-      <Card className="min-w-72 flex-1">
-        <CardHeader>
-          <CardTitle className="text-sm">{t('logbookView.landingCard.title')}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Skeleton className="h-40 w-full" />
-        </CardContent>
-      </Card>
+      <section className="min-w-72 flex-[1_1_25rem]" aria-label={t('logbookView.landingCard.title')}>
+        <h3 className="m-0 pb-2 text-[17px] font-semibold">{t('logbookView.landingCard.title')}</h3>
+        <Skeleton className="h-40 w-full" />
+      </section>
     )
   }
 
@@ -228,59 +222,66 @@ export function LandingCard(props: {
   const unit = props.landingDistanceUnit
 
   return (
-    // `@container` + `@lg:` rather than the viewport's `sm:` - the card's width depends on
-    // the layout around it (it wraps beside other cards), not just the window.
-    <Card className="@container min-w-72 flex-1">
-      <CardHeader>
-        <CardTitle className="text-sm">{t('logbookView.landingCard.title')}</CardTitle>
-        {landings.length > 1 && (
-          <LandingSwitcher
-            labels={labels}
-            ids={landings.map((l) => l.id)}
-            selectedIndex={selectedIndex}
-            onSelect={setSelectedIndex}
-          />
-        )}
-      </CardHeader>
-      <CardContent className="flex flex-col gap-4 @lg:flex-row @lg:items-start">
-        <LandingFields landing={landing} scoreResult={scoreResult} unit={unit} />
-        {scoreResult && (
-          // The breakdown trigger lives in this same right-hand column, centred above the
-          // diagram, rather than in the card header — a header
-          // button's own right-alignment doesn't line up with this narrower column's
-          // centre, and CardHeader/CardContent are separate layout contexts with no shared
-          // width to align against. Rendered whenever a score exists, independent of the
-          // diagram below it, since most categories still score without a runway match.
-          <div className="flex w-full flex-shrink-0 flex-col items-center gap-2 self-start @lg:w-40">
+    // `@container` + `@lg:` rather than the viewport's `sm:`: the section's width depends on the layout around it (it sits beside the
+    // route map), not just the window. As on the canvas (r3-flight): a heading with the breakdown button, the score large, then the
+    // measurements and the touchdown diagram.
+    <section className="@container min-w-72 flex-[1_1_25rem]" aria-label={t('logbookView.landingCard.title')}>
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 pb-2">
+        <h3 className="m-0 text-[17px] font-semibold">
+          {t('logbookView.landingCard.title')}
+          {landing.icao || landing.runwayIdent
+            ? ` · ${[landing.icao, landing.runwayIdent].filter(Boolean).join(' ')}`
+            : ''}
+        </h3>
+        <div className="flex items-center gap-2">
+          {landings.length > 1 && (
+            <LandingSwitcher
+              labels={labels}
+              ids={landings.map((l) => l.id)}
+              selectedIndex={selectedIndex}
+              onSelect={setSelectedIndex}
+            />
+          )}
+          {scoreResult && (
             <LandingScoreBreakdownDialog
               overall={scoreResult.score}
               categories={scoreResult.categories}
               unit={unit}
               trigger={
-                <Button type="button" variant="outline" size="sm">
+                <Button type="button" variant="outline">
                   {t('logbookView.landingCard.scoreBreakdown')}
                 </Button>
               }
             />
-            {runway && landing.distanceFromThresholdM != null && (
-              // No bigger than the field list it sits alongside (the
-              // original width-only cap left height unconstrained, so a long runway's tall
-              // window could still dwarf the text next to it) — fixed height, width
-              // follows from the diagram's own aspect ratio (TouchdownDiagram.tsx).
-              <div className="flex h-56 w-full justify-center">
-                <TouchdownDiagram
-                  runway={runway}
-                  touchdown={{
-                    distanceFromThresholdM: landing.distanceFromThresholdM,
-                    centrelineOffsetM: landing.centrelineOffsetM ?? 0,
-                    groundSpeedMs: landing.groundSpeedMs
-                  }}
-                />
-              </div>
-            )}
+          )}
+        </div>
+      </div>
+      <div className="flex items-baseline gap-3 pb-2.5">
+        <span className="sr-only">{t('logbookView.landingCard.landingScore')}</span>
+        <span className="font-mono text-[44px] leading-none font-medium">{scoreResult?.score ?? '—'}</span>
+        {scoreResult && (
+          <span className="flex items-center gap-2 text-sm text-muted-foreground">
+            {t('logbookView.landingCard.outOf')}
+            <LandingBadge severity={scoreResult.severity} />
+          </span>
+        )}
+      </div>
+      <div className="flex flex-col gap-4 @lg:flex-row @lg:items-start">
+        <LandingFields landing={landing} scoreResult={scoreResult} unit={unit} />
+        {scoreResult && runway && landing.distanceFromThresholdM != null && (
+          // Fixed height, the width follows from the diagram's own aspect ratio (TouchdownDiagram.tsx).
+          <div className="flex h-56 w-full flex-shrink-0 justify-center @lg:w-32">
+            <TouchdownDiagram
+              runway={runway}
+              touchdown={{
+                distanceFromThresholdM: landing.distanceFromThresholdM,
+                centrelineOffsetM: landing.centrelineOffsetM ?? 0,
+                groundSpeedMs: landing.groundSpeedMs
+              }}
+            />
           </div>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </section>
   )
 }

@@ -724,7 +724,8 @@
       "runway": "跑道",
       "distanceFromThreshold": "距入口距离",
       "centrelineOffset": "中线偏移",
-      "scoreBreakdown": "评分明细"
+      "scoreBreakdown": "评分明细",
+      "outOf": "满分 100"
     },
     "deleteFlightConfirmTitle": "删除此航班？",
     "deleteFlightConfirmDescription_other": "其航迹（{{count}} 个点）、落地报告及地面服务收据也会一并删除。此操作无法撤销。",
@@ -748,7 +749,8 @@
       "fuelBurn": "燃油消耗",
       "fuelPlanned": "计划燃油",
       "planned": "计划",
-      "online": "在线"
+      "online": "在线",
+      "offline": "否"
     },
     "altitude": "高度",
     "trueAltitude": "真实高度",
@@ -793,7 +795,10 @@
       "online": "在线"
     },
     "trackTools": "航迹工具",
-    "lightNote": "只有较重或重着陆才会出现指示灯。"
+    "lightNote": "只有较重或重着陆才会出现指示灯。",
+    "route": "航路",
+    "planned": "计划",
+    "flown": "实飞"
   },
   "gsxRemoteView": {
     "title": "地面服务"

@@ -724,7 +724,8 @@
       "runway": "跑道",
       "distanceFromThreshold": "距跑道頭距離",
       "centrelineOffset": "中線偏移",
-      "scoreBreakdown": "評分明細"
+      "scoreBreakdown": "評分明細",
+      "outOf": "滿分 100"
     },
     "deleteFlightConfirmTitle": "刪除此航班？",
     "deleteFlightConfirmDescription_other": "其航跡（{{count}} 個點）、落地報告及地面服務收據也會一併刪除。此操作無法復原。",
@@ -748,7 +749,8 @@
       "fuelBurn": "燃油消耗",
       "fuelPlanned": "計畫燃油",
       "planned": "計畫",
-      "online": "線上"
+      "online": "線上",
+      "offline": "否"
     },
     "altitude": "高度",
     "trueAltitude": "真實高度",
@@ -793,7 +795,10 @@
       "online": "線上"
     },
     "trackTools": "航跡工具",
-    "lightNote": "只有較重或重降落才會出現指示燈。"
+    "lightNote": "只有較重或重降落才會出現指示燈。",
+    "route": "航路",
+    "planned": "計畫",
+    "flown": "實飛"
   },
   "gsxRemoteView": {
     "title": "地面服務"

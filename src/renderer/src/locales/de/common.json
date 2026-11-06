@@ -730,7 +730,8 @@
       "runway": "Landebahn",
       "distanceFromThreshold": "Abstand zur Schwelle",
       "centrelineOffset": "Abweichung von der Mittellinie",
-      "scoreBreakdown": "Bewertungsdetails"
+      "scoreBreakdown": "Bewertungsdetails",
+      "outOf": "von 100"
     },
     "deleteFlightConfirmTitle": "Diesen Flug löschen?",
     "deleteFlightConfirmDescription_one": "Die Flugspur ({{count}} Punkt), der Landungsbericht und die Bodenservice-Belege werden mit gelöscht. Dies kann nicht rückgängig gemacht werden.",
@@ -755,7 +756,8 @@
       "fuelBurn": "Treibstoffverbrauch",
       "fuelPlanned": "Geplanter Treibstoff",
       "planned": "geplant",
-      "online": "Online"
+      "online": "Online",
+      "offline": "Nein"
     },
     "altitude": "Höhe",
     "trueAltitude": "Wahre Höhe",
@@ -800,7 +802,10 @@
       "online": "Online"
     },
     "trackTools": "Spur-Werkzeuge",
-    "lightNote": "Ein Licht erscheint nur bei einer festen oder harten Landung."
+    "lightNote": "Ein Licht erscheint nur bei einer festen oder harten Landung.",
+    "route": "Strecke",
+    "planned": "Geplant",
+    "flown": "Geflogen"
   },
   "gsxRemoteView": {
     "title": "Bodendienste"

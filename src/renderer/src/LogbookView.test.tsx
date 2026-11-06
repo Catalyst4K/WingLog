@@ -543,7 +543,8 @@ describe('LogbookView list', () => {
       await user.click(screen.getByRole('button', { name: /Back/ }))
       await user.click((await screen.findByText('OFFLINE1')).closest('tr')!)
       await screen.findByText('Block time')
-      expect(screen.queryByText('Online')).not.toBeInTheDocument()
+      // An offline flight says so in the same cell: Online, No.
+      expect(screen.getByText('Online').nextElementSibling).toHaveTextContent('No')
     })
 
     it('shows a flight summary strip with the planned fuel in magenta beside the burn', async () => {
@@ -559,7 +560,8 @@ describe('LogbookView list', () => {
       await user.click((await screen.findByText('PLAN1')).closest('tr')!)
       const burn = (await screen.findByText('Fuel burn')).nextElementSibling as HTMLElement
       expect(burn).toHaveTextContent('4,000 kg')
-      expect(within(burn).getByText(/planned 4,200 kg/)).toHaveClass('text-plan')
+      expect(burn.nextElementSibling).toHaveTextContent('planned 4,200 kg')
+      expect(burn.nextElementSibling).toHaveClass('text-plan')
     })
 
     it('shows no filter while no flight was flown online', async () => {
@@ -598,7 +600,7 @@ describe('LogbookView list', () => {
     expect(within(row).getByText('G-TEST')).toBeInTheDocument()
 
     await userEvent.click(row)
-    expect(await screen.findByText('G-TEST')).toBeInTheDocument()
+    expect(await screen.findByText(/G-TEST · C172/)).toBeInTheDocument()
   })
 
   it('does not badge a CSV-imported flight (no OFP, but also never actually flown live) as a free flight', async () => {
@@ -760,7 +762,7 @@ describe('LogbookView list', () => {
     const row = (await screen.findByRole('columnheader', { name: /Touchdown rate/ })).closest('table')!
     await user.click(within(row).getByText('TA100'))
 
-    expect(await screen.findByText('TA100 — EGLL → EGKK')).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'TA100' })).toBeInTheDocument()
   })
 })
 
@@ -780,7 +782,7 @@ describe('LandingCard', () => {
     render(<LandingCard flightId={1} landingDistanceUnit="ft" />)
 
     expect(await screen.findByText('78')).toBeInTheDocument()
-    expect(screen.getByText('Firm')).toBeInTheDocument()
+    expect(screen.getAllByText('Firm').length).toBeGreaterThan(0)
   })
 
   it('no longer says whose runway data the landing was measured against (v2: Callum, 2026-11-04: no need to show it)', async () => {
@@ -817,7 +819,7 @@ describe('LandingCard', () => {
     // Shrinkable grid tracks (a bare `1fr` can't go below its content's width) and a
     // container query, since the card's width depends on the layout around it.
     expect(container.querySelector('dl')).toHaveClass('grid-cols-[minmax(0,1fr)_minmax(0,1fr)]')
-    expect(container.querySelector('[data-slot="card"]')).toHaveClass('@container')
+    expect(container.querySelector('section')).toHaveClass('@container')
   })
 
   it('renders nothing extra when the flight has no landing row', async () => {
@@ -1134,8 +1136,8 @@ describe('FlightDetail', () => {
     render(<LogbookView weightUnit="kg" landingDistanceUnit="ft" />)
     await user.click(await screen.findByText('TA100'))
 
-    expect(await screen.findByText('TA100 — EGLL → EGKK')).toBeInTheDocument()
-    expect(screen.getByText('G-ONE')).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'TA100' })).toBeInTheDocument()
+    expect(screen.getByText(/G-ONE · A320/)).toBeInTheDocument()
     expect(screen.getByText('2h 0m')).toBeInTheDocument() // block minutes: 120
     expect(screen.getByText('1h 40m')).toBeInTheDocument() // air minutes: 100
   })
@@ -1153,7 +1155,7 @@ describe('FlightDetail', () => {
     render(<LogbookView weightUnit="kg" landingDistanceUnit="ft" />)
     await user.click(await screen.findByText('TA100'))
 
-    expect(await screen.findByText('TA100 — EGLL → Unknown')).toBeInTheDocument()
+    expect(await screen.findByText('EGLL → Unknown')).toBeInTheDocument()
     expect(screen.getByText('Free flight')).toBeInTheDocument()
   })
 
@@ -1189,7 +1191,7 @@ describe('FlightDetail', () => {
       const user = userEvent.setup()
       render(<LogbookView weightUnit="kg" landingDistanceUnit="ft" />)
       await user.click(await screen.findByText('TA100'))
-      await screen.findByText('TA100 — EGLL → EGKK')
+      await screen.findByRole('heading', { name: 'TA100' })
 
       expect(screen.queryByRole('button', { name: 'Add to fleet' })).not.toBeInTheDocument()
     })
@@ -1269,7 +1271,7 @@ describe('FlightDetail', () => {
     const user = userEvent.setup()
     render(<LogbookView weightUnit="kg" landingDistanceUnit="ft" />)
     await user.click(await screen.findByText('TA100'))
-    await screen.findByText('TA100 — EGLL → EGKK')
+    await screen.findByRole('heading', { name: 'TA100' })
 
     await user.click(screen.getByRole('button', { name: 'Back to logbook' }))
     expect(await screen.findByText('Logbook', { selector: 'h1' })).toBeInTheDocument()
@@ -1305,7 +1307,7 @@ describe('FlightDetail', () => {
     render(<LogbookView weightUnit="kg" landingDistanceUnit="ft" />)
 
     await user.click(await screen.findByText('TA100'))
-    await screen.findByText('TA100 — EGLL → EGKK')
+    await screen.findByRole('heading', { name: 'TA100' })
     expect(winglog.logbookGetFlight).toHaveBeenCalledWith(4)
     // The OFP-only "View OFP" action proves the detail got the full flight, not the list row.
     expect(screen.getByRole('button', { name: /OFP/ })).toBeInTheDocument()
@@ -1320,7 +1322,7 @@ describe('FlightDetail', () => {
     const user = userEvent.setup()
     render(<LogbookView weightUnit="kg" landingDistanceUnit="ft" />)
     await user.click(await screen.findByText('TA100'))
-    await screen.findByText('TA100 — EGLL → EGKK')
+    await screen.findByRole('heading', { name: 'TA100' })
 
     await user.click(screen.getByRole('button', { name: 'Delete flight' }))
     const dialog = await screen.findByRole('alertdialog')
@@ -1344,7 +1346,7 @@ describe('FlightDetail', () => {
     const user = userEvent.setup()
     render(<LogbookView weightUnit="kg" landingDistanceUnit="ft" />)
     await user.click(await screen.findByText('TA100'))
-    await screen.findByText('TA100 — EGLL → EGKK')
+    await screen.findByRole('heading', { name: 'TA100' })
 
     await user.click(screen.getByRole('button', { name: 'Delete flight' }))
     await user.click(
@@ -1378,14 +1380,14 @@ describe('FlightDetail', () => {
     const user = userEvent.setup()
     render(<LogbookView weightUnit="kg" landingDistanceUnit="ft" />)
     await user.click(await screen.findByText('TA100'))
-    await screen.findByText('TA100 — EGLL → EGKK')
+    await screen.findByRole('heading', { name: 'TA100' })
 
     await user.click(screen.getByRole('button', { name: 'Delete flight' }))
     const dialog = await screen.findByRole('alertdialog')
     await user.click(within(dialog).getByRole('button', { name: 'Back' }))
 
     expect(winglog.flightDelete).not.toHaveBeenCalled()
-    expect(screen.getByText('TA100 — EGLL → EGKK')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'TA100' })).toBeInTheDocument()
   })
 
   it('shows an error toast with the stringified value when delete fails with a non-Error', async () => {
@@ -1397,7 +1399,7 @@ describe('FlightDetail', () => {
     const user = userEvent.setup()
     render(<LogbookView weightUnit="kg" landingDistanceUnit="ft" />)
     await user.click(await screen.findByText('TA100'))
-    await screen.findByText('TA100 — EGLL → EGKK')
+    await screen.findByRole('heading', { name: 'TA100' })
 
     await user.click(screen.getByRole('button', { name: 'Delete flight' }))
     const dialog = await screen.findByRole('alertdialog')
@@ -1405,7 +1407,7 @@ describe('FlightDetail', () => {
 
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith('boom'))
     // The delete failed, so the detail page is still showing this flight.
-    expect(screen.getByText('TA100 — EGLL → EGKK')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'TA100' })).toBeInTheDocument()
   })
 
   it('uses the real OFP-derived route and waypoints when the flight has one, skipping the great-circle fallback', async () => {
@@ -1425,7 +1427,7 @@ describe('FlightDetail', () => {
     const user = userEvent.setup()
     render(<LogbookView weightUnit="kg" landingDistanceUnit="ft" />)
     await user.click(await screen.findByText('TA100'))
-    await screen.findByText('TA100 — EGLL → EGKK')
+    await screen.findByRole('heading', { name: 'TA100' })
 
     expect(winglog.logbookGreatCircleRoute).not.toHaveBeenCalled()
     expect(
@@ -1505,7 +1507,7 @@ describe('FlightDetail', () => {
     const user = userEvent.setup()
     render(<LogbookView weightUnit="kg" landingDistanceUnit="ft" />)
     await user.click(await screen.findByText('TA100'))
-    await screen.findByText('TA100 — EGLL → EGKK')
+    await screen.findByRole('heading', { name: 'TA100' })
     expect(screen.queryByRole('button', { name: 'View OFP PDF' })).not.toBeInTheDocument()
   })
 
@@ -1553,7 +1555,7 @@ describe('FlightDetail', () => {
     const user = userEvent.setup()
     render(<LogbookView weightUnit="kg" landingDistanceUnit="ft" />)
     await user.click(await screen.findByText('TA100'))
-    await screen.findByText('TA100 — EGLL → EGKK')
+    await screen.findByRole('heading', { name: 'TA100' })
     expect(screen.queryByText(/Speed \(/)).not.toBeInTheDocument()
   })
 
@@ -1613,7 +1615,7 @@ describe('FlightDetail', () => {
     const user = userEvent.setup()
     render(<LogbookView weightUnit="kg" landingDistanceUnit="ft" />)
     await user.click(await screen.findByText('TA100'))
-    await screen.findByText('TA100 — EGLL → EGKK')
+    await screen.findByRole('heading', { name: 'TA100' })
     expect(screen.queryByText('Fuel planned vs actual')).not.toBeInTheDocument()
   })
 
@@ -1642,7 +1644,7 @@ describe('FlightDetail', () => {
     const user = userEvent.setup()
     const { rerender } = render(<LogbookView weightUnit="kg" landingDistanceUnit="ft" resetSignal={1} />)
     await user.click(await screen.findByText('TA100'))
-    await screen.findByText('TA100 — EGLL → EGKK')
+    await screen.findByRole('heading', { name: 'TA100' })
 
     rerender(<LogbookView weightUnit="kg" landingDistanceUnit="ft" resetSignal={2} />)
     expect(await screen.findByText('TA100')).toBeInTheDocument()
@@ -1670,6 +1672,7 @@ describe('LogbookView translations', () => {
     await user.click(screen.getByText('TA100'))
     expect(await screen.findByRole('button', { name: /Zurück zum Logbuch/ })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Flug löschen/ })).toBeInTheDocument()
-    expect(screen.getByText('Datum')).toBeInTheDocument()
+    // The date is part of the quiet line under the flight's number now, not a field of its own: check a field that remains.
+    expect(screen.getByText('Blockzeit')).toBeInTheDocument()
   })
 })
