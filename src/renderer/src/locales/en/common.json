@@ -997,7 +997,6 @@
     "frequencyPlaceholder": "118.850",
     "setFrequency": "Set",
     "selectFrequency": "Choose a frequency…",
-    "frequenciesButton": "Frequencies",
     "departure": "Departure",
     "arrival": "Arrival",
     "noFrequencies": "No frequencies for this airport yet.",
@@ -1083,7 +1082,8 @@
       "tuned": "Tuned",
       "runways": "RWY {{runways}}",
       "enroute": "En route"
-    }
+    },
+    "changeFrequency": "Change"
   },
   "storage": {
     "label": "Low disk space",

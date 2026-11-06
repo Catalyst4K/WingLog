@@ -668,7 +668,7 @@ describe('BeyondAtcPanel', () => {
     const user = userEvent.setup()
     render(<BeyondAtcPanel />)
 
-    await user.click((await screen.findAllByRole('button', { name: 'Frequencies' }))[0])
+    await user.click((await screen.findAllByRole('button', { name: 'Change' }))[0])
     await user.click(await screen.findByRole('button', { name: /Singapore Approach\s+RWY 02L\s+124\.050/ }))
 
     expect(beyondAtcSetFrequency).toHaveBeenCalledWith('124.050')

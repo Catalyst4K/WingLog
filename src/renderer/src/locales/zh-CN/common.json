@@ -989,7 +989,6 @@
     "frequencyPlaceholder": "118.850",
     "setFrequency": "设置",
     "selectFrequency": "选择频率…",
-    "frequenciesButton": "频率",
     "departure": "离场",
     "arrival": "进场",
     "noFrequencies": "该机场暂无频率。",
@@ -1075,7 +1074,8 @@
       "tuned": "已调谐",
       "runways": "跑道 {{runways}}",
       "enroute": "航路"
-    }
+    },
+    "changeFrequency": "更改"
   },
   "storage": {
     "label": "磁盘空间不足",

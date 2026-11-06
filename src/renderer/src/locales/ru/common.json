@@ -1022,7 +1022,6 @@
     "frequencyPlaceholder": "118.850",
     "setFrequency": "Задать",
     "selectFrequency": "Выбрать частоту…",
-    "frequenciesButton": "Частоты",
     "departure": "Вылет",
     "arrival": "Прилёт",
     "noFrequencies": "Для этого аэропорта пока нет частот.",
@@ -1108,7 +1107,8 @@
       "tuned": "Настроена",
       "runways": "ВПП {{runways}}",
       "enroute": "На маршруте"
-    }
+    },
+    "changeFrequency": "Изменить"
   },
   "storage": {
     "label": "Мало места на диске",

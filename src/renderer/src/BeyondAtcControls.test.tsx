@@ -184,7 +184,11 @@ describe('BeyondAtcRadios', () => {
         {...makeRadiosProps({ facility: { name: 'Singapore Radar', frequency: '133.250' }, onSetFrequency })}
       />
     )
-    await user.click(screen.getAllByRole('button', { name: 'Set' })[0])
+    // Set appears once the field has been typed in; typing the very value that is tuned sends nothing.
+    const field = screen.getByRole('textbox', { name: 'COM1 frequency' })
+    await user.clear(field)
+    await user.type(field, '133.250')
+    await user.click(screen.getByRole('button', { name: 'Set' }))
     expect(onSetFrequency).not.toHaveBeenCalled()
   })
 
@@ -217,6 +221,7 @@ describe('BeyondAtcRadios', () => {
     const user = userEvent.setup()
     render(<BeyondAtcRadios {...makeRadiosProps({ onSetFrequency })} />)
 
+    await user.type(screen.getByRole('textbox', { name: 'COM1 frequency' }), '   ')
     await user.click(screen.getAllByRole('button', { name: 'Set' })[0])
 
     expect(onSetFrequency).not.toHaveBeenCalled()
@@ -225,7 +230,7 @@ describe('BeyondAtcRadios', () => {
   it('does not show a frequency picker button when no options are known, only manual entry', () => {
     render(<BeyondAtcRadios {...makeRadiosProps()} />)
 
-    expect(screen.queryByRole('button', { name: 'Frequencies' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Change' })).not.toBeInTheDocument()
   })
 
   describe('the frequency dialog', () => {
@@ -262,7 +267,7 @@ describe('BeyondAtcRadios', () => {
           })}
         />
       )
-      await user.click(screen.getAllByRole('button', { name: 'Frequencies' })[0])
+      await user.click(screen.getAllByRole('button', { name: 'Change' })[0])
       return user
     }
 

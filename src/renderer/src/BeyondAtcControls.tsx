@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Headset, Loader2 } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 import type {
   BeyondAtcCom2,
   BeyondAtcFacility,
@@ -231,9 +231,8 @@ function FrequencyPicker(props: {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button type="button" variant="outline" size="sm" className="h-10 gap-1.5 px-3 text-sm">
-          <Headset className="size-4 text-muted-foreground" aria-hidden />
-          {t('beyondAtcPanel.frequenciesButton')}
+        <Button type="button" variant="outline" size="sm" className="h-10 px-3 text-sm">
+          {t('beyondAtcPanel.changeFrequency')}
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
@@ -282,29 +281,18 @@ function FrequencyRow(props: {
     props.onSet(trimmed)
   }
 
+  // As on the canvas (r3-beyondatc): the radio's name, its frequency in the mono face with the station beside it, and Change on the
+  // right. The frequency is the field, so it can be typed over; Set appears once it has been.
   return (
-    <div className="flex flex-col gap-1 border-b border-border py-2.5">
-      <div className="flex items-baseline justify-between gap-2">
-        <span className="text-sm text-muted-foreground">{props.label}</span>
-        <span className="truncate text-sm text-muted-foreground">
-          {props.stationName ?? t('beyondAtcPanel.frequencyUnknown')}
-        </span>
-      </div>
-      {/* Moving between the field and this row's own buttons keeps what was typed; leaving the row abandons it. */}
-      <div
-        className="flex flex-wrap items-center gap-2"
-        onBlur={(e) => {
-          if (!e.currentTarget.contains(e.relatedTarget)) setDraft(null)
-        }}
-      >
-        <FrequencyPicker
-          options={props.options}
-          departureAirport={props.departureAirport}
-          arrivalAirport={props.arrivalAirport}
-          progressPct={props.progressPct}
-          tunedFrequency={props.frequency}
-          onSelect={props.onSet}
-        />
+    <div
+      className="grid grid-cols-[4rem_minmax(0,1fr)_auto] items-center gap-3 border-b border-border py-2.5"
+      // Moving between the field and this row's own buttons keeps what was typed; leaving the row abandons it.
+      onBlur={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget)) setDraft(null)
+      }}
+    >
+      <span className="text-sm text-muted-foreground">{props.label}</span>
+      <span className="flex min-w-0 items-baseline gap-2.5">
         <Input
           type="text"
           inputMode="decimal"
@@ -315,12 +303,27 @@ function FrequencyRow(props: {
           onKeyDown={(e) => {
             if (e.key === 'Enter') commit()
           }}
-          className="h-10 w-28 font-mono text-lg"
+          className="h-10 w-28 shrink-0 font-mono text-lg"
         />
-        <Button type="button" variant="outline" size="sm" className="h-10 px-3 text-sm" onClick={commit}>
-          {t('beyondAtcPanel.setFrequency')}
-        </Button>
-      </div>
+        <span className="truncate text-sm text-muted-foreground">
+          {props.stationName ?? t('beyondAtcPanel.frequencyUnknown')}
+        </span>
+      </span>
+      <span className="flex items-center gap-2">
+        {draft !== null && (
+          <Button type="button" size="sm" className="h-10 px-3 text-sm" onClick={commit}>
+            {t('beyondAtcPanel.setFrequency')}
+          </Button>
+        )}
+        <FrequencyPicker
+          options={props.options}
+          departureAirport={props.departureAirport}
+          arrivalAirport={props.arrivalAirport}
+          progressPct={props.progressPct}
+          tunedFrequency={props.frequency}
+          onSelect={props.onSet}
+        />
+      </span>
     </div>
   )
 }

@@ -997,7 +997,6 @@
     "frequencyPlaceholder": "118.850",
     "setFrequency": "Setzen",
     "selectFrequency": "Frequenz wählen…",
-    "frequenciesButton": "Frequenzen",
     "departure": "Abflug",
     "arrival": "Ankunft",
     "noFrequencies": "Noch keine Frequenzen für diesen Flughafen.",
@@ -1083,7 +1082,8 @@
       "tuned": "Eingestellt",
       "runways": "Piste {{runways}}",
       "enroute": "Streckenflug"
-    }
+    },
+    "changeFrequency": "Ändern"
   },
   "storage": {
     "label": "Wenig Speicherplatz",
