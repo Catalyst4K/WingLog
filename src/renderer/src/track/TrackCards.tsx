@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import type {
   ActiveTracking,
   Aircraft,
+  FlightPhase,
   LogbookFlight,
   ProcedureSelection,
   SimTelemetry,
@@ -18,6 +19,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle
 } from '@/components/ui/alert-dialog'
+import { StatusLight } from '@/components/StatusLight'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
@@ -104,6 +106,46 @@ function TimeReadouts(props: { times: TrackTimes }): React.JSX.Element {
   )
 }
 
+/** The phases of a flight, in order, as the strip shows them. */
+const PHASE_ORDER: FlightPhase[] = [
+  'pushback',
+  'taxi',
+  'takeoff',
+  'climb',
+  'cruise',
+  'descent',
+  'landing',
+  'shutdown'
+]
+
+/**
+ * The flight's phases as a row of lights (winglog-backend docs/plans/v2-design.md, "Track"): green for those done, amber for the one it
+ * is in, off for those still to come.
+ *
+ * @param props The phase the flight is in.
+ * @returns The element.
+ */
+export function PhaseLights(props: { phase: FlightPhase }): React.JSX.Element {
+  const current = PHASE_ORDER.indexOf(props.phase)
+  return (
+    <ol className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs" data-testid="phase-lights">
+      {PHASE_ORDER.map((phase, index) => {
+        const state = index < current ? 'green' : index === current ? 'amber' : 'off'
+        return (
+          <li
+            key={phase}
+            aria-current={index === current ? 'step' : undefined}
+            className={`inline-flex items-center gap-1.5 capitalize ${index === current ? 'font-medium text-foreground' : 'text-muted-foreground'}`}
+          >
+            <StatusLight state={state} />
+            {phase}
+          </li>
+        )
+      })}
+    </ol>
+  )
+}
+
 /**
  * The flight being tracked: who, the phase, the times, Cancel and Finish, and a free flight's
  * editable airports.
@@ -133,9 +175,8 @@ export function ActiveFlightCard(props: {
             simIcaoType={flight?.simIcaoType}
             simRegistration={flight?.simRegistration}
           />
-          <span className="text-sm text-muted-foreground">
-            {t('trackView.phase')} <span className="font-mono capitalize">{props.active.phase}</span>
-          </span>
+          <span className="text-sm text-muted-foreground">{t('trackView.phase')}</span>
+          <PhaseLights phase={props.active.phase} />
           <TimeReadouts times={props.times} />
         </div>
         <div className="flex gap-2">
