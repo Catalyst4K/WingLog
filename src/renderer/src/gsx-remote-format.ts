@@ -1,6 +1,7 @@
 /** Formatting for GSX Remote's services, progress, bill and gate. */
 
 import type { GsxRemoteGateInfo, GsxRemoteServiceStatus } from '@shared/ipc'
+import type { LightState } from '@/components/StatusLight'
 
 /**
  * Services shown only while active, otherwise folded under "show more" — Callum's call
@@ -21,6 +22,20 @@ const SECONDARY_SERVICE_IDS = new Set(['OperateStairs', 'GPU', 'DeIce', 'Lavator
  */
 export function isServiceActive(service: GsxRemoteServiceStatus): boolean {
   return service.state !== 'available'
+}
+
+/**
+ * The light on a service's row (winglog-backend docs/plans/v2-design.md, "Ground services"): green when it is done, amber while it is
+ * requested or under way, off while it is still to come (or was bypassed).
+ *
+ * @param service One GSX service.
+ * @returns The light's state.
+ */
+export function serviceLight(service: GsxRemoteServiceStatus): LightState {
+  if (service.state === 'completed') return 'green'
+  if (service.state === 'requested' || service.state === 'performing' || service.state === 'completing')
+    return 'amber'
+  return 'off'
 }
 
 /**

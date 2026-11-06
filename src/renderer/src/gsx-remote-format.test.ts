@@ -10,6 +10,7 @@ import {
   isSecondaryService,
   isServiceActive,
   parseGsxParking,
+  serviceLight,
   visibleServices
 } from './gsx-remote-format'
 
@@ -33,6 +34,13 @@ describe('gsx-remote-format', () => {
     expect(isServiceActive(makeService({ state: 'available' }))).toBe(false)
     expect(isServiceActive(makeService({ state: 'requested' }))).toBe(true)
     expect(isServiceActive(makeService({ state: 'performing' }))).toBe(true)
+  })
+
+  it('lights a service green when done, amber while requested or under way, and off otherwise', () => {
+    const light = (state: string): string => serviceLight(makeService({ state }))
+    expect(light('completed')).toBe('green')
+    for (const state of ['requested', 'performing', 'completing']) expect(light(state)).toBe('amber')
+    for (const state of ['available', 'bypassed', 'unknown']) expect(light(state)).toBe('off')
   })
 
   it('flags the real secondary service ids, not the core turnaround ones', () => {

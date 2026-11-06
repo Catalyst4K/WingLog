@@ -338,6 +338,42 @@ describe('GsxRemotePanel', () => {
     expect(screen.getByText('Provider: World Fuel Services')).toBeInTheDocument()
   })
 
+  it('puts a light on each service: amber while it is requested or under way', async () => {
+    let servicesListener: (services: GsxRemoteServiceStatus[]) => void = () => {}
+    withWinglog({
+      onGsxRemoteServices: vi.fn((listener) => {
+        servicesListener = listener
+        return () => {}
+      })
+    })
+    render(<GsxRemotePanel />)
+    await screen.findByText('Tap to open')
+    const service = (id: string, displayName: string, state: string): GsxRemoteServiceStatus => ({
+      id,
+      displayName,
+      state,
+      stateText: '',
+      icon: '',
+      canTrigger: false,
+      canBypass: false,
+      statusText: '',
+      progressText: ''
+    })
+    servicesListener([
+      service('Refueling', 'Refuel', 'performing'),
+      service('Catering', 'Catering', 'completed'),
+      service('Boarding', 'Boarding', 'available')
+    ])
+    const lightOf = async (name: string): Promise<string | null | undefined> =>
+      (await screen.findByText(name))
+        .closest('li')
+        ?.querySelector('[data-slot="status-light"]')
+        ?.getAttribute('data-state')
+    expect(await lightOf('Refuel')).toBe('amber')
+    expect(await lightOf('Catering')).toBe('green')
+    expect(await lightOf('Boarding')).toBe('off')
+  })
+
   it('shows a text prompt and submits the typed answer', async () => {
     let promptListener: (prompt: GsxRemotePromptState | null) => void = () => {}
     const gsxRemoteSubmitPrompt = vi.fn().mockResolvedValue(undefined)

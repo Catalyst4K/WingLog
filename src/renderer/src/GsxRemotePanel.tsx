@@ -18,6 +18,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { useAtcAssignedStand } from './use-atc-assigned-stand'
 import { useLiveClient, useLiveTopic } from './live/LiveClient'
+import { StatusLight } from '@/components/StatusLight'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
@@ -28,6 +29,7 @@ import {
   gateSubtitle,
   hiddenServices,
   parseGsxParking,
+  serviceLight,
   visibleServices
 } from './gsx-remote-format'
 import { asyncHandler, runAsync } from './report-error'
@@ -387,9 +389,12 @@ function ServiceRow(props: { service: GsxRemoteServiceStatus }): React.JSX.Eleme
   const { t } = useTranslation()
   const bill = props.service.detail?.bill
   return (
-    <li className="flex flex-col gap-0.5 rounded-md border border-border/60 px-2 py-1.5 text-xs">
+    <li className="flex flex-col gap-0.5 border-b border-border/60 px-1 py-2 text-xs last:border-b-0">
       <div className="flex items-baseline justify-between gap-2">
-        <span className="font-medium text-foreground">{props.service.displayName}</span>
+        <span className="flex items-center gap-2 font-medium text-foreground">
+          <StatusLight state={serviceLight(props.service)} />
+          {props.service.displayName}
+        </span>
         <span className="flex items-baseline gap-1.5 text-right text-muted-foreground">
           {props.service.operator && (
             <span>{t('gsxRemotePanel.provider', { name: props.service.operator })}</span>
