@@ -12,7 +12,7 @@ import { useNetworkTrafficOverlay } from './use-network-traffic-overlay'
 import { useNetworkAtcOverlay } from './use-network-atc-overlay'
 import { useLiveClient } from './live/LiveClient'
 import { runAsync } from './report-error'
-import { ROUTE_SOURCE_ID } from './flight-map/map-layers'
+import { ROUTE_SOURCE_ID, type ProcedureNames } from './flight-map/map-layers'
 import { isMapVisible } from './flight-map/map-state'
 import { ErrorBoundary } from './ErrorBoundary'
 import { MapControls, MapPills } from './flight-map/MapOverlays'
@@ -31,6 +31,8 @@ export interface FlightMapProps {
   route: [number, number][]
   /** Per-fix waypoint pins along the planned route (ident labels), same source as `route`. */
   waypoints?: Waypoint[]
+  /** The names of the SID, STAR and approach, tagged in magenta at each one's first fix. Pass a stable object (memoised). */
+  procedureNames?: ProcedureNames
   /** Every recorded point, unfiltered — points with a non-null `excludedReason` (junk from
    *  a crash-resume or a mid-flight teleport, winglog-backend's docs/plans/
    *  resume-track-cleanup.md) are dropped inside this component, not by the caller. */
@@ -99,6 +101,7 @@ export function FlightMap(props: FlightMapProps): React.JSX.Element {
 function FlightMapView({
   route,
   waypoints = EMPTY_WAYPOINTS,
+  procedureNames,
   trackPoints: rawTrackPoints,
   estimatedTrack = NO_ESTIMATE,
   live,
@@ -123,6 +126,7 @@ function FlightMapView({
   useRouteLayers(instance, {
     route,
     waypoints,
+    procedureNames,
     live,
     trackLoading,
     followingAircraftRef,

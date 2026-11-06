@@ -245,6 +245,11 @@ function FlightView(props: {
   const waypoints = usePlannedWaypoints(link, snapshot)
   useReportTaxiRoute(link)
   const route = useMemo<[number, number][]>(() => waypoints.map((w) => [w.lon, w.lat]), [waypoints])
+  const { sidIdent, starIdent, approachIdent } = selection
+  const procedureNames = useMemo(
+    () => ({ sid: sidIdent, star: starIdent, approach: approachIdent }),
+    [sidIdent, starIdent, approachIdent]
+  )
   const transition = useMemo(() => parseTransitionAltitudes(ofpJson), [ofpJson])
   const phase = trackPoints.at(-1)?.phase
   const times = useFlightTimes({
@@ -285,6 +290,7 @@ function FlightView(props: {
           live
           route={route}
           waypoints={waypoints}
+          procedureNames={procedureNames}
           trackPoints={trackPoints}
           telemetry={snapshot ? (telemetry ?? null) : null}
           telemetryPhase={phase}

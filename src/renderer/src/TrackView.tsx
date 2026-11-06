@@ -196,6 +196,11 @@ export function TrackView(props: {
   // A saved flight's route is the one the main process built, as on a second screen; a plan that is not a flight yet is assembled here
   // with the current selection spliced in, by the function Dispatch's preview uses (docs/plans/navdata-without-navigraph.md, Phase 5).
   const liveWaypoints = useShownRoute(previewFlight, airports, props.selection)
+  const { sidIdent, starIdent, approachIdent } = props.selection
+  const procedureNames = useMemo(
+    () => ({ sid: sidIdent, star: starIdent, approach: approachIdent }),
+    [sidIdent, starIdent, approachIdent]
+  )
   // The approach is suggested here only for a plan that is not a flight yet (Dispatch's fetched OFP, previewed): for a saved flight the
   // main process suggests it, with its navdata, whichever page is open. Telemetry only arrives while the sim is connected, so this also
   // retries navdata that couldn't be fetched before it was.
@@ -270,6 +275,7 @@ export function TrackView(props: {
           live
           route={route}
           waypoints={liveWaypoints}
+          procedureNames={procedureNames}
           trackPoints={trackPoints}
           // Only shown once tracking has officially started — before that the sim can hold
           // stale values from a previous session.

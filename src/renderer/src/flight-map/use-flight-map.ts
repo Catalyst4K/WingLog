@@ -31,7 +31,8 @@ import {
   ESTIMATED_TRAIL_SOURCE_ID,
   TRAIL_SOURCE_ID,
   waypointFeatures,
-  WAYPOINT_SOURCE_ID
+  WAYPOINT_SOURCE_ID,
+  type ProcedureNames
 } from './map-layers'
 
 // How long Track's map may stay hidden waiting to frame the aircraft before it's shown
@@ -194,6 +195,8 @@ export function useRouteLayers(
   options: {
     route: [number, number][]
     waypoints: Waypoint[]
+    /** The procedures' names, tagged on the map at their first fixes. */
+    procedureNames?: ProcedureNames
     live: boolean
     trackLoading: boolean
     followingAircraftRef: RefObject<boolean>
@@ -202,15 +205,23 @@ export function useRouteLayers(
   }
 ): void {
   const { mapRef, mapReady } = instance
-  const { route, waypoints, live, trackLoading, followingAircraftRef, mapLanguage, routeIsApproximate } =
-    options
+  const {
+    route,
+    waypoints,
+    procedureNames,
+    live,
+    trackLoading,
+    followingAircraftRef,
+    mapLanguage,
+    routeIsApproximate
+  } = options
 
   useEffect(() => {
     if (!mapReady || !mapRef.current) return
     const routeSource = mapRef.current.getSource<GeoJSONSource>(ROUTE_SOURCE_ID)
     updateSourceData(routeSource, lineString(route))
     const waypointSource = mapRef.current.getSource<GeoJSONSource>(WAYPOINT_SOURCE_ID)
-    updateSourceData(waypointSource, waypointFeatures(waypoints))
+    updateSourceData(waypointSource, waypointFeatures(waypoints, procedureNames))
     if (!live || trackLoading) return
     // Same route as the remembered camera was framed for: keep the user's own view.
     const key = routeKey(route)
@@ -219,7 +230,7 @@ export function useRouteLayers(
     // Following an aircraft: the follow effect frames it instead — fitting the whole route
     // first would just be overwritten (and flash) a moment later.
     if (!followingAircraftRef.current) fitBoundsTo(mapRef.current, route)
-  }, [mapReady, route, waypoints, live, trackLoading, mapRef, followingAircraftRef])
+  }, [mapReady, route, waypoints, procedureNames, live, trackLoading, mapRef, followingAircraftRef])
 
   // A language change while the map is open (only possible from a remount today, since
   // Settings is its own tab, but cheap to keep correct) re-applies to the loaded style.

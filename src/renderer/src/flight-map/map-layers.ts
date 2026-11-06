@@ -178,20 +178,37 @@ interface WaypointFeatureCollection {
   }[]
 }
 
+/** The names of the procedures flown, so each can be tagged on the map at its first fix. */
+export interface ProcedureNames {
+  sid: string | null
+  star: string | null
+  approach: string | null
+}
+
 /**
- * The waypoints as GeoJSON points carrying their ident and route segment.
+ * The waypoints as GeoJSON points carrying their ident and route segment, and, on the first fix of each procedure, the procedure's name
+ * (winglog-backend docs/plans/v2-design.md: procedure names are tagged in magenta at their first fix).
  *
  * @param waypoints The waypoints.
+ * @param names The procedures' names, when they are known.
  * @returns The feature collection.
  */
-export function waypointFeatures(waypoints: Waypoint[]): WaypointFeatureCollection {
+export function waypointFeatures(waypoints: Waypoint[], names?: ProcedureNames): WaypointFeatureCollection {
+  const tagged = new Set<string>()
   return {
     type: 'FeatureCollection',
-    features: waypoints.map((w) => ({
-      type: 'Feature',
-      properties: { ident: w.ident, segment: w.segment },
-      geometry: { type: 'Point', coordinates: [w.lon, w.lat] }
-    }))
+    features: waypoints.map((w) => {
+      const name = w.segment === 'enroute' ? null : (names?.[w.segment] ?? null)
+      const first = name !== null && !tagged.has(w.segment)
+      if (first) tagged.add(w.segment)
+      return {
+        type: 'Feature',
+        properties: first
+          ? { ident: w.ident, segment: w.segment, tag: name }
+          : { ident: w.ident, segment: w.segment },
+        geometry: { type: 'Point', coordinates: [w.lon, w.lat] }
+      }
+    })
   }
 }
 
@@ -375,6 +392,25 @@ function addWaypointLayers(map: MapLibreMap, dark: boolean): void {
       'icon-allow-overlap': true
     },
     paint: { 'icon-color': mapPalette(dark).quiet }
+  })
+  // A procedure's name, in magenta (it is the plan), above its first fix.
+  map.addLayer({
+    id: `${WAYPOINT_SOURCE_ID}-tag`,
+    type: 'symbol',
+    source: WAYPOINT_SOURCE_ID,
+    filter: ['has', 'tag'],
+    layout: {
+      'text-field': ['get', 'tag'],
+      'text-size': 12,
+      'text-offset': [0, -1.1],
+      'text-anchor': 'bottom',
+      'text-allow-overlap': true
+    },
+    paint: {
+      'text-color': mapPalette(dark).plan,
+      'text-halo-color': mapPalette(dark).halo,
+      'text-halo-width': 1.5
+    }
   })
   const waypointLabel = waypointLabelColors(dark)
   map.addLayer({
