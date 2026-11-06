@@ -365,7 +365,8 @@
       "retired": "{{registration}} ausgemustert.",
       "unretired": "{{registration}} ist wieder aktiv.",
       "replaced": "{{registration}} ausgemustert, ersetzt durch {{replacement}}."
-    }
+    },
+    "standNote": "Stand ist, wo das Flugzeug an diesem Flughafen zuletzt geparkt hat, aus dem Sim; leer, wenn es nicht erfasst wurde oder das Flugzeug seitdem weitergeflogen ist."
   },
   "aircraftForm": {
     "registration": "Kennzeichen",
@@ -798,7 +799,8 @@
       "all": "Alle",
       "online": "Online"
     },
-    "trackTools": "Spur-Werkzeuge"
+    "trackTools": "Spur-Werkzeuge",
+    "lightNote": "Ein Licht erscheint nur bei einer festen oder harten Landung."
   },
   "gsxRemoteView": {
     "title": "Bodendienste"

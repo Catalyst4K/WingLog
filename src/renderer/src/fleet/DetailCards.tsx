@@ -5,7 +5,6 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { Aircraft, AircraftLanding, Flight } from '@shared/ipc'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { AirlineLogo } from '../AirlineLogo'
 import { LandingBadge } from '../LandingBadge'
 import { LandingScoreBadge } from '../LandingScoreBadge'
@@ -70,14 +69,14 @@ export function SimBriefProfileCard(props: { aircraft: Aircraft }): React.JSX.El
   }
 
   return (
-    <Card size="sm">
-      <CardHeader>
-        <CardTitle className="text-base">{t('fleetView.simbriefProfile.cardTitle')}</CardTitle>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-2 text-sm">
+    <section className="mt-1 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 py-2 text-sm">
+      <h3 className="m-0 text-sm font-normal text-muted-foreground">
+        {t('fleetView.simbriefProfile.cardTitle')}
+      </h3>
+      <div className="flex min-w-0 flex-1 flex-wrap items-center justify-between gap-x-4 gap-y-2">
         {a.simbriefAirframeId ? (
           <>
-            <p className="text-foreground">
+            <p className="m-0 text-foreground">
               {t('fleetView.simbriefProfile.custom')}{' '}
               {a.simbriefAirframeRegistration ? (
                 <>
@@ -88,12 +87,12 @@ export function SimBriefProfileCard(props: { aircraft: Aircraft }): React.JSX.El
                 <span className="font-mono">{a.simbriefAirframeId}</span>
               )}
             </p>
-            <Button type="button" variant="outline" size="sm" className="w-fit" onClick={openAirframes}>
+            <Button type="button" variant="outline" onClick={openAirframes}>
               {t('fleetView.simbriefProfile.openInSimBrief')}
             </Button>
           </>
         ) : a.simbriefType ? (
-          <p className="text-foreground">
+          <p className="m-0 text-foreground">
             {a.simbriefAirframeDeveloper ? (
               <>
                 {a.simbriefAirframeDeveloper}
@@ -107,12 +106,12 @@ export function SimBriefProfileCard(props: { aircraft: Aircraft }): React.JSX.El
             )}
           </p>
         ) : (
-          <p className="text-muted-foreground">
+          <p className="m-0 text-muted-foreground">
             {t('fleetView.simbriefProfile.noProfile', { icaoType: a.icaoType })}
           </p>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </section>
   )
 }
 
@@ -137,42 +136,45 @@ export function LandingHistoryCard(props: { aircraftId: number }): React.JSX.Ele
   }, [props.aircraftId])
 
   return (
-    <Card size="sm">
-      <CardHeader>
-        <CardTitle className="text-base">{t('fleetView.landingHistory.cardTitle')}</CardTitle>
-      </CardHeader>
-      <CardContent>
-        {landings.length === 0 ? (
-          <p className="text-sm text-muted-foreground">{t('fleetView.landingHistory.empty')}</p>
-        ) : (
-          <div className="flex flex-col gap-1.5 text-sm">
-            {landings.map((l) => {
-              const fpm = Math.round(msToFpm(l.verticalSpeedMs))
-              return (
-                <div key={l.id} className="flex items-center justify-between gap-3">
-                  <span className="text-muted-foreground">
-                    {new Date(l.touchdownTsUtc).toLocaleDateString()}
-                  </span>
-                  <span className="font-mono tabular-nums text-foreground">{fpm} fpm</span>
-                  <span className="text-foreground">
-                    {l.arrIcao} {l.runwayIdent ?? '—'}
-                  </span>
-                  <span className="text-muted-foreground">
-                    {l.crosswindMs != null
-                      ? t('fleetView.landingHistory.crosswind', {
-                          kt: Math.round(msToKt(Math.abs(l.crosswindMs)))
-                        })
-                      : '—'}
-                  </span>
-                  <LandingScoreBadge score={l.score} />
+    <section aria-label={t('fleetView.landingHistory.cardTitle')}>
+      <h3 className="m-0 pb-2 text-[17px] font-semibold">{t('fleetView.landingHistory.cardTitle')}</h3>
+      {landings.length === 0 ? (
+        <p className="m-0 border-t border-border pt-2 text-sm text-muted-foreground">
+          {t('fleetView.landingHistory.empty')}
+        </p>
+      ) : (
+        <div className="flex flex-col text-sm">
+          {landings.map((l) => {
+            const fpm = Math.round(msToFpm(l.verticalSpeedMs))
+            return (
+              <div
+                key={l.id}
+                className="grid min-h-11 grid-cols-[7rem_5.25rem_minmax(0,1fr)_6.5rem_auto] items-center gap-3 border-t border-border"
+              >
+                <span className="font-mono text-sm text-muted-foreground">
+                  {new Date(l.touchdownTsUtc).toLocaleDateString()}
+                </span>
+                <span className="font-mono tabular-nums text-foreground">{fpm} fpm</span>
+                <span className="text-foreground">
+                  {l.arrIcao} {l.runwayIdent ?? '—'}
+                </span>
+                <span className="text-sm text-muted-foreground">
+                  {l.crosswindMs != null
+                    ? t('fleetView.landingHistory.crosswind', {
+                        kt: Math.round(msToKt(Math.abs(l.crosswindMs)))
+                      })
+                    : '—'}
+                </span>
+                <span className="flex items-center justify-end gap-2">
                   <LandingBadge severity={l.severity} />
-                </div>
-              )
-            })}
-          </div>
-        )}
-      </CardContent>
-    </Card>
+                  <LandingScoreBadge score={l.score} />
+                </span>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </section>
   )
 }
 
@@ -199,35 +201,33 @@ export function AircraftFlightsCard(props: {
   }, [props.aircraftId])
 
   return (
-    <Card size="sm">
-      <CardHeader>
-        <CardTitle className="text-base">{t('fleetView.flights.cardTitle')}</CardTitle>
-      </CardHeader>
-      <CardContent>
-        {flights.length === 0 ? (
-          <p className="text-sm text-muted-foreground">{t('fleetView.flights.empty')}</p>
-        ) : (
-          <div className="flex max-h-64 flex-col divide-y divide-border overflow-y-auto">
-            {flights.map((f) => (
-              <button
-                key={f.id}
-                type="button"
-                onClick={() => props.onOpenFlight(f.id)}
-                className="flex cursor-pointer items-center justify-between gap-3 px-1.5 py-1.5 text-left text-sm transition-colors hover:bg-muted"
-              >
-                <span className="text-muted-foreground">{formatDate(f.actualOutUtc)}</span>
-                <span className="text-foreground">{f.flightNumber ?? '—'}</span>
-                <span className="text-foreground">
-                  {f.depIcao} → {f.arrIcao}
-                </span>
-                <span className="font-mono tabular-nums text-muted-foreground">
-                  {formatMinutes(f.blockMinutes)}
-                </span>
-              </button>
-            ))}
-          </div>
-        )}
-      </CardContent>
-    </Card>
+    <section aria-label={t('fleetView.flights.cardTitle')}>
+      <h3 className="m-0 pb-2 text-[17px] font-semibold">{t('fleetView.flights.cardTitle')}</h3>
+      {flights.length === 0 ? (
+        <p className="m-0 border-t border-border pt-2 text-sm text-muted-foreground">
+          {t('fleetView.flights.empty')}
+        </p>
+      ) : (
+        <div className="flex max-h-[28rem] flex-col overflow-y-auto">
+          {flights.map((f) => (
+            <button
+              key={f.id}
+              type="button"
+              onClick={() => props.onOpenFlight(f.id)}
+              className="grid min-h-[42px] cursor-pointer grid-cols-[7rem_4.75rem_minmax(0,1fr)_3.5rem] items-center gap-3 rounded-sm border-t border-border text-left text-sm transition-colors hover:bg-card"
+            >
+              <span className="font-mono text-sm text-muted-foreground">{formatDate(f.actualOutUtc)}</span>
+              <span className="font-medium text-foreground">{f.flightNumber ?? '—'}</span>
+              <span className="text-foreground">
+                {f.depIcao} → {f.arrIcao}
+              </span>
+              <span className="text-right font-mono tabular-nums text-foreground">
+                {formatMinutes(f.blockMinutes)}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+    </section>
   )
 }

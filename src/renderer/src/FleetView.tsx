@@ -298,28 +298,34 @@ export function FleetView(props: {
     />
   )
 
+  const newAircraftButton = (
+    <Button type="button" onClick={() => setView({ kind: 'new' })}>
+      <Plus />
+      {t('fleetView.newAircraft')}
+    </Button>
+  )
+
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between">
-        <h1 className="sr-only">{t('fleetView.title')}</h1>
-        <Button type="button" size="sm" onClick={() => setView({ kind: 'new' })}>
-          <Plus />
-          {t('fleetView.newAircraft')}
-        </Button>
-      </div>
-
+      <h1 className="sr-only">{t('fleetView.title')}</h1>
       {retiredAircraft.length === 0 ? (
-        activeList
+        <>
+          <div className="flex justify-end">{newAircraftButton}</div>
+          {activeList}
+        </>
       ) : (
         <FolderTabs defaultValue="active" className="gap-0">
-          <FolderTabsList>
-            <FolderTabsTrigger value="active">
-              {t('fleetView.activeTab', { count: activeAircraft.length })}
-            </FolderTabsTrigger>
-            <FolderTabsTrigger value="retired">
-              {t('fleetView.retiredTab', { count: retiredAircraft.length })}
-            </FolderTabsTrigger>
-          </FolderTabsList>
+          <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+            <FolderTabsList>
+              <FolderTabsTrigger value="active">
+                {t('fleetView.activeTab', { count: activeAircraft.length })}
+              </FolderTabsTrigger>
+              <FolderTabsTrigger value="retired">
+                {t('fleetView.retiredTab', { count: retiredAircraft.length })}
+              </FolderTabsTrigger>
+            </FolderTabsList>
+            {newAircraftButton}
+          </div>
           <FolderTabsContent value="active" className="pt-4">
             {activeList}
           </FolderTabsContent>

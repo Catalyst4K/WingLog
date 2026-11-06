@@ -367,7 +367,8 @@
       "retired": "{{registration}} retiré.",
       "unretired": "{{registration}} est de nouveau actif.",
       "replaced": "{{registration}} retiré, remplacé par {{replacement}}."
-    }
+    },
+    "standNote": "Le poste est l’endroit où l’appareil s’est garé en dernier sur cet aéroport, d’après le simulateur ; vide s’il n’a pas été enregistré ou si l’appareil a bougé depuis."
   },
   "aircraftForm": {
     "registration": "Immatriculation",
@@ -800,7 +801,8 @@
       "all": "Tous",
       "online": "En ligne"
     },
-    "trackTools": "Outils de trace"
+    "trackTools": "Outils de trace",
+    "lightNote": "Un voyant n’apparaît que pour un atterrissage ferme ou dur."
   },
   "gsxRemoteView": {
     "title": "Services au sol"

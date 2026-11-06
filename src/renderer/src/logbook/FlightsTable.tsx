@@ -32,7 +32,7 @@ export function LogbookStatsStrip(props: {
     </span>
   )
   return (
-    <p className="flex flex-wrap gap-x-6 gap-y-1 text-sm text-muted-foreground">
+    <p className="m-0 flex flex-wrap gap-x-6 gap-y-1 text-sm text-muted-foreground">
       {stat(stats?.totalFlights ?? props.flightCount, t('logbookView.stats.totalFlights'))}
       {stat(formatMinutes(stats?.totalBlockMinutes ?? null), t('logbookView.stats.totalFlightHours'))}
       {stat(
@@ -155,6 +155,9 @@ export function FlightsTable(props: {
           })}
         </TableBody>
       </Table>
+      <p className="m-0 border-t border-border px-3 pt-3.5 text-[13px] text-muted-foreground">
+        {t('logbookView.lightNote')}
+      </p>
     </div>
   )
 }

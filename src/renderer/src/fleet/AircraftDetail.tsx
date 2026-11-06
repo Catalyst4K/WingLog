@@ -5,7 +5,6 @@ import { useTranslation } from 'react-i18next'
 import { isRetired } from '@shared/aircraft'
 import type { Aircraft, AircraftLastParked, FleetStats } from '@shared/ipc'
 import { Button } from '@/components/ui/button'
-import { StatCell, StatStrip } from '@/components/StatStrip'
 import { photoSourcesOf } from '@shared/aircraft-photo'
 import { AircraftPhoto } from '../AircraftPhoto'
 import { AircraftFlightsCard, AirlineLabel, LandingHistoryCard, SimBriefProfileCard } from './DetailCards'
@@ -112,9 +111,24 @@ function RetirementNote(props: {
 }
 
 /**
- * An aircraft's detail page, laid out like a Logbook flight's (winglog-backend docs/plans/v2-design.md): actions, the retired / replaced
- * note, the registration and type as a heading, a strip of its figures, then the photo and SimBrief profile beside its flights and
- * its landing history.
+ * One figure under the registration: a quiet label over a value in the mono face, as large as a heading of its own.
+ *
+ * @param props The label and the value.
+ * @returns The element.
+ */
+function Figure(props: { label: string; children: React.ReactNode }): React.JSX.Element {
+  return (
+    <div>
+      <dt className="text-[13px] text-muted-foreground">{props.label}</dt>
+      <dd className="m-0 mt-0.5 font-mono text-xl">{props.children}</dd>
+    </div>
+  )
+}
+
+/**
+ * An aircraft's detail page, as on the design canvas (r3-fleet): the actions, the retired / replaced note, then two columns. On the left
+ * the photo, the registration large with its type and airline, four figures between hairlines, and the SimBrief profile row; on the right
+ * its flights and its landing history as plain lists.
  *
  * @param props The aircraft, its stats, where it last parked, what replaced it, and the handlers.
  * @returns The element.
@@ -153,34 +167,37 @@ export function AircraftDetail(props: {
 
       <RetirementNote aircraft={a} replacedBy={props.replacedBy} onViewAircraft={props.onViewAircraft} />
 
-      <h2 className="text-lg font-medium">
-        {a.registration} — {a.icaoType}
-      </h2>
-      <StatStrip>
-        <StatCell label={t('fleetView.detail.fields.airline')}>
-          <AirlineLabel operator={a.operator} operatorIata={a.operatorIata} />
-        </StatCell>
-        <StatCell label={t('fleetView.detail.fields.currentAirport')}>
-          {locationLabel(currentIcao, props.lastParked)}
-        </StatCell>
-        <StatCell label={t('fleetView.detail.fields.totalHours')}>
-          {s ? s.totalHours.toFixed(1) : '0.0'}
-        </StatCell>
-        <StatCell label={t('fleetView.detail.fields.flights')}>{s?.totalCycles ?? 0}</StatCell>
-        <StatCell label={t('fleetView.detail.fields.lastFlight')}>
-          {formatDate(s?.lastFlightInUtc ?? null)}
-        </StatCell>
-      </StatStrip>
-
-      <div className="flex flex-wrap gap-4">
-        <div className="flex min-w-72 flex-1 flex-col gap-4">
+      <div className="flex flex-wrap items-start gap-7">
+        <section className="min-w-72 flex-[1.25_1_35rem]" aria-label={a.registration}>
           <AircraftPhoto sources={photoSourcesOf(a)} alt={`${a.registration} ${a.icaoType}`} />
+          <div className="mt-4 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+            <h2 className="m-0">
+              <span className="text-[34px] leading-tight font-semibold">{a.registration}</span>{' '}
+              <span className="ml-3 text-[17px] font-normal text-muted-foreground">{a.icaoType}</span>
+            </h2>
+            <AirlineLabel operator={a.operator} operatorIata={a.operatorIata} />
+          </div>
+          <dl className="mt-4 mb-0 grid grid-cols-2 gap-x-5 gap-y-3 border-y border-border py-3.5 sm:grid-cols-4">
+            <Figure label={t('fleetView.detail.fields.currentAirport')}>
+              {locationLabel(currentIcao, props.lastParked)}
+            </Figure>
+            <Figure label={t('fleetView.detail.fields.totalHours')}>
+              {s ? s.totalHours.toFixed(1) : '0.0'}
+            </Figure>
+            <Figure label={t('fleetView.detail.fields.flights')}>{s?.totalCycles ?? 0}</Figure>
+            <Figure label={t('fleetView.detail.fields.lastFlight')}>
+              {formatDate(s?.lastFlightInUtc ?? null)}
+            </Figure>
+          </dl>
           <SimBriefProfileCard aircraft={a} />
-        </div>
-        <div className="flex min-w-72 flex-1 flex-col gap-4">
+        </section>
+        <section
+          className="flex min-w-72 flex-[1_1_27rem] flex-col gap-6"
+          aria-label={t('fleetView.flights.cardTitle')}
+        >
           <AircraftFlightsCard aircraftId={a.id} onOpenFlight={props.onOpenFlight} />
           <LandingHistoryCard aircraftId={a.id} />
-        </div>
+        </section>
       </div>
     </div>
   )

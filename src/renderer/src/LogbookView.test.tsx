@@ -692,7 +692,7 @@ describe('LogbookView list', () => {
     expect(await screen.findByRole('columnheader', { name: /Touchdown rate/ })).toBeInTheDocument()
   })
 
-  it('sits the folder tabs between the totals and the table, and keeps arrow-key navigation', async () => {
+  it('puts the totals quiet on the right of the tabs row, above the table, and keeps arrow-key navigation', async () => {
     const user = userEvent.setup()
     setWinglog({
       logbookListCompletedFlights: vi.fn().mockResolvedValue([makeFlight({ id: 1 })]),
@@ -706,7 +706,9 @@ describe('LogbookView list', () => {
     const totals = screen.getByText('Total flights')
     const flightsTab = screen.getByRole('tab', { name: 'Flights' })
     const table = screen.getByRole('table')
-    expect(totals.compareDocumentPosition(flightsTab) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    // The tabs come first in the row and the totals follow on its right (r3-logbook).
+    expect(flightsTab.compareDocumentPosition(totals) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(totals.compareDocumentPosition(table) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(flightsTab.compareDocumentPosition(table) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
 
     // Radix's roving focus survives the restyle: arrow right moves to and activates Landings.

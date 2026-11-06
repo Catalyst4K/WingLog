@@ -417,7 +417,7 @@ describe('FleetView', () => {
     // Clicking the replacement link opens that aircraft's detail without following the row's
     // own onClick (stopPropagation) — and shows a "Retired — replaced by" banner.
     await user.click(screen.getByRole('button', { name: 'Replaced by G-NEW' }))
-    expect(await screen.findByText(/^G-NEW — A320$/)).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'G-NEW A320' })).toBeInTheDocument()
   })
 
   it('shows a bare id fallback when a retired aircraft’s replacement is not in the fleet', async () => {
@@ -439,11 +439,11 @@ describe('FleetView', () => {
     await screen.findByText('G-OLD')
     // Click the row itself, not the replacement link within it.
     await user.click(screen.getByText('G-OLD'))
-    expect(await screen.findByText('G-OLD — A320')).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'G-OLD A320' })).toBeInTheDocument()
     expect(screen.getByText(/Retired — replaced by/)).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'G-NEW' }))
-    expect(await screen.findByText('G-NEW — A320')).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'G-NEW A320' })).toBeInTheDocument()
   })
 
   describe('plain Retire (docs/plans/fleet-retire.md)', () => {
@@ -564,7 +564,7 @@ describe('FleetView', () => {
     const user = userEvent.setup()
     render(<FleetView onOpenFlightInLogbook={vi.fn()} />)
     await user.click(await screen.findByText('G-ONE'))
-    expect(await screen.findByText('G-ONE — A320')).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'G-ONE A320' })).toBeInTheDocument()
     expect(screen.getByText('Test Air')).toBeInTheDocument()
     expect(screen.getByText('12.5')).toBeInTheDocument()
     expect(screen.getByText('4')).toBeInTheDocument()
@@ -573,22 +573,29 @@ describe('FleetView', () => {
     expect(await screen.findByText('Fleet')).toBeInTheDocument()
   })
 
-  it('lays the detail page out like a Logbook flight: a heading, then a strip of its figures in the mono face', async () => {
+  it('lays the detail page out as on the canvas: the registration large with its type, four figures in the mono face, and the airline beside it', async () => {
     setWinglog({
       aircraftList: vi.fn().mockResolvedValue([makeAircraft()]),
       logbookFleetStats: vi.fn().mockResolvedValue([makeStats()])
     })
     render(<FleetView onOpenFlightInLogbook={vi.fn()} initialAircraftId={1} />)
-    expect(await screen.findByRole('heading', { name: 'G-ONE — A320' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'G-ONE A320' })).toBeInTheDocument()
     const strip = screen.getByText('Total hours').closest('dl') as HTMLElement
     expect([...strip.querySelectorAll('dt')].map((label) => label.textContent)).toEqual([
-      'Airline',
       'Current airport',
       'Total hours',
       'Flights',
       'Last flight'
     ])
-    expect(screen.getByText('12.5')).toHaveClass('font-mono')
+    expect(screen.getByText('12.5')).toHaveClass('font-mono', 'text-xl')
+    expect(screen.getByText('Test Air')).toBeInTheDocument()
+  })
+
+  it('explains the Stand column under the list, and offers New aircraft as the filled button', async () => {
+    setWinglog({ aircraftList: vi.fn().mockResolvedValue([makeAircraft()]) })
+    render(<FleetView onOpenFlightInLogbook={vi.fn()} />)
+    expect(await screen.findByText(/Stand is where the aircraft last parked/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'New aircraft' })).toHaveAttribute('data-variant', 'default')
   })
 
   it('detail page falls back to the stats’ lastArrIcao for current airport when unset', async () => {
@@ -603,7 +610,7 @@ describe('FleetView', () => {
   it('detail page shows a dash for current airport when neither it nor any stats are set', async () => {
     setWinglog({ aircraftList: vi.fn().mockResolvedValue([makeAircraft({ currentIcao: null })]) })
     render(<FleetView onOpenFlightInLogbook={vi.fn()} initialAircraftId={1} />)
-    await screen.findByText('G-ONE — A320')
+    await screen.findByRole('heading', { name: 'G-ONE A320' })
     expect(screen.getAllByText('—').length).toBeGreaterThan(0)
   })
 
@@ -619,7 +626,7 @@ describe('FleetView', () => {
     expect(screen.queryByText('ZZZZ')).not.toBeInTheDocument()
 
     await user.click(screen.getByText('G-ONE'))
-    expect(await screen.findByText('G-ONE — A320')).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'G-ONE A320' })).toBeInTheDocument()
     expect(screen.getByText('Unknown')).toBeInTheDocument()
     expect(screen.queryByText('ZZZZ')).not.toBeInTheDocument()
   })
@@ -643,7 +650,7 @@ describe('FleetView', () => {
       aircraftList: vi.fn().mockResolvedValue([makeAircraft({ id: 7, registration: 'G-DIRECT' })])
     })
     render(<FleetView onOpenFlightInLogbook={vi.fn()} initialAircraftId={7} />)
-    expect(await screen.findByText('G-DIRECT — A320')).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'G-DIRECT A320' })).toBeInTheDocument()
   })
 
   it('does not reset on the initial mount, but returns to the list when resetSignal is later bumped', async () => {
@@ -654,7 +661,7 @@ describe('FleetView', () => {
       <FleetView onOpenFlightInLogbook={vi.fn()} initialAircraftId={7} resetSignal={1} />
     )
     // Mount-time value of resetSignal must not immediately undo the initialAircraftId drill-down.
-    expect(await screen.findByText('G-DIRECT — A320')).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'G-DIRECT A320' })).toBeInTheDocument()
 
     rerender(<FleetView onOpenFlightInLogbook={vi.fn()} initialAircraftId={7} resetSignal={2} />)
     expect(await screen.findByText('Fleet')).toBeInTheDocument()
@@ -710,7 +717,7 @@ describe('FleetView', () => {
     const user = userEvent.setup()
     render(<FleetView onOpenFlightInLogbook={vi.fn()} />)
     await user.click(await screen.findByText('G-EDIT'))
-    await screen.findByText('G-EDIT — A320')
+    await screen.findByRole('heading', { name: 'G-EDIT A320' })
     await user.click(screen.getByText('Edit'))
     expect(await screen.findByText('Edit G-EDIT')).toBeInTheDocument()
 
@@ -720,7 +727,7 @@ describe('FleetView', () => {
         expect.objectContaining({ id: 3, registration: 'G-EDIT' })
       )
     )
-    expect(await screen.findByText('G-EDITED — A320')).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'G-EDITED A320' })).toBeInTheDocument()
   })
 
   it('cancelling an edit returns to the detail page unchanged', async () => {
@@ -731,7 +738,7 @@ describe('FleetView', () => {
     await user.click(screen.getByText('Edit'))
     await screen.findByText('Edit G-EDIT')
     await user.click(screen.getByText('Cancel'))
-    expect(await screen.findByText('G-EDIT — A320')).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'G-EDIT A320' })).toBeInTheDocument()
   })
 
   // No test for the edit view's "Aircraft not found." branch — it's not reachable via any
@@ -750,7 +757,7 @@ describe('FleetView', () => {
     const user = userEvent.setup()
     render(<FleetView onOpenFlightInLogbook={vi.fn()} />)
     await user.click(await screen.findByText('G-DEL'))
-    await screen.findByText('G-DEL — A320')
+    await screen.findByRole('heading', { name: 'G-DEL A320' })
     await user.click(screen.getByText('Delete'))
     expect(await screen.findByText('Delete G-DEL?')).toBeInTheDocument()
 
@@ -802,7 +809,7 @@ describe('FleetView', () => {
         .mockResolvedValue([makeAircraft({ id: 5, registration: 'G-RET', replacedByAircraftId: 1 })])
     })
     render(<FleetView onOpenFlightInLogbook={vi.fn()} initialAircraftId={5} />)
-    await screen.findByText('G-RET — A320')
+    await screen.findByRole('heading', { name: 'G-RET A320' })
     expect(screen.queryByText('Replace…')).not.toBeInTheDocument()
   })
 
@@ -817,7 +824,7 @@ describe('FleetView', () => {
     })
     const user = userEvent.setup()
     render(<FleetView onOpenFlightInLogbook={vi.fn()} initialAircraftId={1} />)
-    await screen.findByText('G-OLDTAIL — A320')
+    await screen.findByRole('heading', { name: 'G-OLDTAIL A320' })
     await user.click(screen.getByText('Replace…'))
     expect(await screen.findByText('Replace G-OLDTAIL')).toBeInTheDocument()
 
@@ -838,7 +845,7 @@ describe('FleetView', () => {
     })
     const user = userEvent.setup()
     render(<FleetView onOpenFlightInLogbook={vi.fn()} initialAircraftId={1} />)
-    await screen.findByText('G-OLDTAIL — A320')
+    await screen.findByRole('heading', { name: 'G-OLDTAIL A320' })
     await user.click(screen.getByText('Replace…'))
     await pickSelectOption(user, 'G-NEWTAIL — A320')
     expect(await screen.findByText(/Checking flight history…/)).toBeInTheDocument()
@@ -853,7 +860,7 @@ describe('FleetView', () => {
     const winglog = setWinglog({ aircraftList: vi.fn().mockResolvedValue([source, target]) })
     const user = userEvent.setup()
     render(<FleetView onOpenFlightInLogbook={vi.fn()} initialAircraftId={1} />)
-    await screen.findByText('G-OLDTAIL — A320')
+    await screen.findByRole('heading', { name: 'G-OLDTAIL A320' })
     await user.click(screen.getByText('Replace…'))
     await screen.findByText('Replace G-OLDTAIL')
     await user.click(screen.getByText('Cancel'))
@@ -871,7 +878,7 @@ describe('FleetView', () => {
     })
     const user = userEvent.setup()
     render(<FleetView onOpenFlightInLogbook={vi.fn()} initialAircraftId={1} />)
-    await screen.findByText('G-OLDTAIL — A320')
+    await screen.findByRole('heading', { name: 'G-OLDTAIL A320' })
     await user.click(screen.getByText('Replace…'))
     await screen.findByText('Replace G-OLDTAIL')
     await pickSelectOption(user, 'G-NEWTAIL — A320')
@@ -891,7 +898,7 @@ describe('FleetView', () => {
     })
     const user = userEvent.setup()
     render(<FleetView onOpenFlightInLogbook={vi.fn()} initialAircraftId={1} />)
-    await screen.findByText('G-OLDTAIL — A320')
+    await screen.findByRole('heading', { name: 'G-OLDTAIL A320' })
     await user.click(screen.getByText('Replace…'))
     await screen.findByText('Replace G-OLDTAIL')
     await pickSelectOption(user, 'G-NEWTAIL — A320')
@@ -905,7 +912,7 @@ describe('FleetView', () => {
     setWinglog({ aircraftList: vi.fn().mockResolvedValue([source]) })
     const user = userEvent.setup()
     render(<FleetView onOpenFlightInLogbook={vi.fn()} initialAircraftId={1} />)
-    await screen.findByText('G-OLDTAIL — A320')
+    await screen.findByRole('heading', { name: 'G-OLDTAIL A320' })
     await user.click(screen.getByText('Replace…'))
     await user.click(screen.getByRole('combobox'))
     // Only one aircraft exists (the one being replaced) — it must not offer itself as its

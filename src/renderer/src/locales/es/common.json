@@ -367,7 +367,8 @@
       "retired": "{{registration}} retirada.",
       "unretired": "{{registration}} está activa de nuevo.",
       "replaced": "{{registration}} retirada, reemplazada por {{replacement}}."
-    }
+    },
+    "standNote": "El puesto es donde la aeronave aparcó por última vez en ese aeropuerto, según el simulador; en blanco si no se registró o la aeronave se ha movido desde entonces."
   },
   "aircraftForm": {
     "registration": "Matrícula",
@@ -800,7 +801,8 @@
       "all": "Todos",
       "online": "En línea"
     },
-    "trackTools": "Herramientas de trayectoria"
+    "trackTools": "Herramientas de trayectoria",
+    "lightNote": "Solo aparece una luz en un aterrizaje firme o duro."
   },
   "gsxRemoteView": {
     "title": "Servicios de tierra"

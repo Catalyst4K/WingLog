@@ -367,7 +367,8 @@
       "retired": "{{registration}} ritirato.",
       "unretired": "{{registration}} è di nuovo attivo.",
       "replaced": "{{registration}} ritirato, sostituito da {{replacement}}."
-    }
+    },
+    "standNote": "Lo stand è dove l’aeromobile ha parcheggiato l’ultima volta in quell’aeroporto, dal simulatore; vuoto se non è stato registrato o se l’aeromobile si è spostato da allora."
   },
   "aircraftForm": {
     "registration": "Immatricolazione",
@@ -800,7 +801,8 @@
       "all": "Tutti",
       "online": "Online"
     },
-    "trackTools": "Strumenti traccia"
+    "trackTools": "Strumenti traccia",
+    "lightNote": "Una luce compare solo per un atterraggio deciso o duro."
   },
   "gsxRemoteView": {
     "title": "Servizi di terra"

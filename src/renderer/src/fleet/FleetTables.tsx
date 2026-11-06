@@ -39,45 +39,51 @@ export function ActiveFleetTable(props: {
 }): React.JSX.Element {
   const { t } = useTranslation()
   return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          {fleetSortColumns(t).map((col) => (
-            <SortableHead
-              key={col.key}
-              sortKey={col.key}
-              label={col.label}
-              activeKey={props.sortKey}
-              dir={props.sortDir}
-              onSort={props.onSort}
-            />
-          ))}
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {props.rows.map((a) => {
-          const s = props.stats.find((x) => x.aircraftId === a.id)
-          const icao = a.currentIcao ?? s?.lastArrIcao ?? null
-          const where = airportAndStand(
-            icao,
-            props.lastParked.find((p) => p.aircraftId === a.id)
-          )
-          return (
-            <TableRow key={a.id} onClick={() => props.onOpen(a.id)} className="cursor-pointer">
-              <TableCell className="font-medium">{a.registration}</TableCell>
-              <TableCell>{a.icaoType}</TableCell>
-              <TableCell>
-                <AirlineLabel operator={a.operator} operatorIata={a.operatorIata} />
-              </TableCell>
-              <TableCell className="font-mono">{where.airport ?? '—'}</TableCell>
-              <TableCell className="font-mono text-muted-foreground">{where.stand ?? ''}</TableCell>
-              <TableCell>{s ? s.totalHours.toFixed(1) : '0.0'}</TableCell>
-              <TableCell>{s?.totalCycles ?? 0}</TableCell>
-            </TableRow>
-          )
-        })}
-      </TableBody>
-    </Table>
+    // As on the design canvas (r3-fleet-list): quiet headings, taller rows divided by hairlines with a hover, the figures in the mono face.
+    <div className="[&_tbody_tr]:h-[52px] [&_tbody_tr:hover]:bg-card [&_th]:text-[13px] [&_th]:font-normal [&_th]:text-muted-foreground">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            {fleetSortColumns(t).map((col) => (
+              <SortableHead
+                key={col.key}
+                sortKey={col.key}
+                label={col.label}
+                activeKey={props.sortKey}
+                dir={props.sortDir}
+                onSort={props.onSort}
+              />
+            ))}
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {props.rows.map((a) => {
+            const s = props.stats.find((x) => x.aircraftId === a.id)
+            const icao = a.currentIcao ?? s?.lastArrIcao ?? null
+            const where = airportAndStand(
+              icao,
+              props.lastParked.find((p) => p.aircraftId === a.id)
+            )
+            return (
+              <TableRow key={a.id} onClick={() => props.onOpen(a.id)} className="cursor-pointer">
+                <TableCell className="font-medium">{a.registration}</TableCell>
+                <TableCell className="font-mono text-sm">{a.icaoType}</TableCell>
+                <TableCell>
+                  <AirlineLabel operator={a.operator} operatorIata={a.operatorIata} />
+                </TableCell>
+                <TableCell className="font-mono">{where.airport ?? '—'}</TableCell>
+                <TableCell className="font-mono text-muted-foreground">{where.stand ?? ''}</TableCell>
+                <TableCell className="font-mono">{s ? s.totalHours.toFixed(1) : '0.0'}</TableCell>
+                <TableCell className="font-mono">{s?.totalCycles ?? 0}</TableCell>
+              </TableRow>
+            )
+          })}
+        </TableBody>
+      </Table>
+      <p className="m-0 border-t border-border px-3 pt-3.5 text-[13px] text-muted-foreground">
+        {t('fleetView.standNote')}
+      </p>
+    </div>
   )
 }
 

@@ -197,13 +197,15 @@ export function LogbookView(props: {
     <div className="flex flex-col gap-6">
       <h1 className="sr-only">{t('logbookView.title')}</h1>
 
-      {!loading && flights.length > 0 && <LogbookStatsStrip stats={stats} flightCount={flights.length} />}
-
       <FolderTabs defaultValue="flights" className="gap-0">
-        <FolderTabsList>
-          <FolderTabsTrigger value="flights">{t('logbookView.tabs.flights')}</FolderTabsTrigger>
-          <FolderTabsTrigger value="landings">{t('logbookView.tabs.landings')}</FolderTabsTrigger>
-        </FolderTabsList>
+        {/* As on the canvas (r3-logbook): the tabs on the left, the totals quiet on the right of the same row. */}
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+          <FolderTabsList>
+            <FolderTabsTrigger value="flights">{t('logbookView.tabs.flights')}</FolderTabsTrigger>
+            <FolderTabsTrigger value="landings">{t('logbookView.tabs.landings')}</FolderTabsTrigger>
+          </FolderTabsList>
+          {!loading && flights.length > 0 && <LogbookStatsStrip stats={stats} flightCount={flights.length} />}
+        </div>
 
         <FolderTabsContent value="flights" className="pt-4">
           {hasOnlineFlights(flights) && (

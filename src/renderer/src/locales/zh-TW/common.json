@@ -359,7 +359,8 @@
       "retired": "{{registration}} 已除役。",
       "unretired": "{{registration}} 已重新在役。",
       "replaced": "{{registration}} 已除役，由 {{replacement}} 取代。"
-    }
+    },
+    "standNote": "機位是該飛機上次在該機場停放的位置，來自模擬器；未記錄或此後飛機已移動時留空。"
   },
   "aircraftForm": {
     "registration": "註冊號",
@@ -791,7 +792,8 @@
       "all": "全部",
       "online": "線上"
     },
-    "trackTools": "航跡工具"
+    "trackTools": "航跡工具",
+    "lightNote": "只有較重或重降落才會出現指示燈。"
   },
   "gsxRemoteView": {
     "title": "地面服務"

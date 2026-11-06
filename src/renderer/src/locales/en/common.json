@@ -365,7 +365,8 @@
       "retired": "{{registration}} retired.",
       "unretired": "{{registration}} is active again.",
       "replaced": "{{registration}} retired, replaced by {{replacement}}."
-    }
+    },
+    "standNote": "Stand is where the aircraft last parked at that airport, from the sim; blank when it wasn’t recorded or the aircraft has moved since."
   },
   "aircraftForm": {
     "registration": "Registration",
@@ -798,7 +799,8 @@
       "all": "All",
       "online": "Online"
     },
-    "trackTools": "Track tools"
+    "trackTools": "Track tools",
+    "lightNote": "A light appears only on a firm or hard landing."
   },
   "gsxRemoteView": {
     "title": "Ground services"
