@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import type { Waypoint } from '@shared/route'
 import { RouteProfile } from './RouteProfile'
 
@@ -39,6 +40,25 @@ describe('RouteProfile', () => {
   it('writes the height in the chosen unit', () => {
     render(<RouteProfile waypoints={ROUTE} aircraft={null} altitudeUnit="m" />)
     expect(screen.getByText('10,668 m · 360 nm')).toBeInTheDocument()
+  })
+
+  it('zooms to the stretch around the aircraft, scaling the height to it', async () => {
+    const user = userEvent.setup()
+    render(
+      <RouteProfile waypoints={ROUTE} aircraft={{ lon: 1, lat: 0, altitudeFt: 9000 }} altitudeUnit="ft" />
+    )
+    expect(screen.getByText('35,000 ft · 360 nm')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '100 nm' }))
+    expect(screen.getByRole('button', { name: '100 nm' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByText(/^[0-9,]+ ft · 100 nm$/)).toBeInTheDocument()
+    expect(screen.queryByText('35,000 ft · 100 nm')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Whole route' }))
+    expect(screen.getByText('35,000 ft · 360 nm')).toBeInTheDocument()
+  })
+
+  it('offers no zoom while there is no aircraft to centre on', () => {
+    render(<RouteProfile waypoints={ROUTE} aircraft={null} altitudeUnit="ft" />)
+    expect(screen.queryByRole('button', { name: '100 nm' })).not.toBeInTheDocument()
   })
 
   it('draws nothing for a route with no altitude to show', () => {

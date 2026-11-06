@@ -251,7 +251,7 @@ export function DispatchView(props: {
 
       {/* As on the canvas (r3-dispatch): the plan form and procedures on the left, the weather above the fetched plan on the right. */}
       <div className="flex flex-wrap items-start gap-5">
-        <div className="flex min-w-72 flex-[1_1_31rem] flex-col gap-5">
+        <div className="flex min-w-72 flex-[1_1_0] flex-col gap-5">
           <PlanFlightCard
             form={form}
             aircraft={aircraft}
@@ -281,7 +281,7 @@ export function DispatchView(props: {
           )}
         </div>
 
-        <div className="flex min-w-72 flex-[1.15_1_35rem] flex-col gap-5">
+        <div className="flex min-w-72 flex-[1.15_1_0] flex-col gap-5">
           <MetarPanel
             depIcao={metarAirports.depIcao}
             arrIcao={metarAirports.arrIcao}

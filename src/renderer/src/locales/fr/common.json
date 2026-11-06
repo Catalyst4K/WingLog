@@ -685,7 +685,9 @@
     "autoDetectedComplete": "{{label}} a été automatiquement détecté comme terminé et enregistré dans votre carnet.",
     "ok": "OK",
     "profile": {
-      "title": "Profil de la route"
+      "title": "Profil de la route",
+      "zoom": "Zoom",
+      "wholeRoute": "Route entière"
     },
     "flightInProgress": "Vol en cours",
     "change": "Modifier"

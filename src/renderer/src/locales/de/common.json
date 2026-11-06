@@ -683,7 +683,9 @@
     "autoDetectedComplete": "{{label}} wurde automatisch als abgeschlossen erkannt und im Logbuch gespeichert.",
     "ok": "OK",
     "profile": {
-      "title": "Streckenprofil"
+      "title": "Streckenprofil",
+      "zoom": "Zoom",
+      "wholeRoute": "Ganze Strecke"
     },
     "flightInProgress": "Laufender Flug",
     "change": "Ändern"

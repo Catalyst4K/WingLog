@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Waypoint } from './route'
-import { distanceAlongRoute, routeProfile } from './route-profile'
+import { clipProfile, distanceAlongRoute, routeProfile, zoomWindow } from './route-profile'
 
 function waypoint(ident: string, lon: number, altitudeFt: number, extra: Partial<Waypoint> = {}): Waypoint {
   return { ident, lon, lat: 0, altitudeFt, segment: 'enroute', ...extra }
@@ -73,5 +73,49 @@ describe('distanceAlongRoute', () => {
 
   it('is null with no waypoints', () => {
     expect(distanceAlongRoute([], [], [0, 0])).toBeNull()
+  })
+})
+
+describe('zoomWindow', () => {
+  it('puts the aircraft a fifth of the way into the stretch', () => {
+    expect(zoomWindow(1000, 500, 250)).toEqual({ fromNm: 450, toNm: 700 })
+  })
+
+  it('keeps the stretch inside the route at either end', () => {
+    expect(zoomWindow(1000, 10, 250)).toEqual({ fromNm: 0, toNm: 250 })
+    expect(zoomWindow(1000, 990, 250)).toEqual({ fromNm: 750, toNm: 1000 })
+  })
+
+  it('is the whole route when the route is no longer than the stretch', () => {
+    expect(zoomWindow(180, 90, 250)).toEqual({ fromNm: 0, toNm: 180 })
+  })
+})
+
+describe('clipProfile', () => {
+  const point = (
+    distanceNm: number,
+    altitudeFt: number
+  ): { ident: string; distanceNm: number; altitudeFt: number } => ({
+    ident: '',
+    distanceNm,
+    altitudeFt
+  })
+  const climb = [point(0, 0), point(100, 10000), point(300, 30000), point(500, 30000), point(600, 0)]
+
+  it('keeps the points inside and puts a point on each edge where the line crosses it', () => {
+    expect(clipProfile(climb, 50, 400)).toEqual([
+      point(50, 5000),
+      point(100, 10000),
+      point(300, 30000),
+      point(400, 30000)
+    ])
+  })
+
+  it('starts on a point that sits exactly on the edge', () => {
+    expect(clipProfile(climb, 100, 300)).toEqual([point(100, 10000), point(300, 30000)])
+  })
+
+  it('runs level to the end of the route when the stretch reaches past it', () => {
+    expect(clipProfile(climb, 550, 700).at(-1)).toEqual(point(700, 0))
   })
 })

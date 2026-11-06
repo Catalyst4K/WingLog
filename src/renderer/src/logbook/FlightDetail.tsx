@@ -194,7 +194,7 @@ function FlightDetail(props: {
       <FlightSummary flight={flight} aircraft={props.aircraft} weightUnit={weightUnit} />
 
       <div className="flex flex-wrap items-start gap-6">
-        <section className="min-w-72 flex-[1.5_1_35rem]" aria-label={t('logbookView.route')}>
+        <section className="min-w-72 flex-[1.5_1_0]" aria-label={t('logbookView.route')}>
           <div className="flex items-baseline justify-between pb-2">
             <h3 className="m-0 text-[17px] font-semibold">{t('logbookView.route')}</h3>
             <span className="flex gap-4 text-[13px] text-muted-foreground">

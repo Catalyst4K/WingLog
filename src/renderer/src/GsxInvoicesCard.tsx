@@ -265,7 +265,7 @@ export function GsxInvoicesCard(props: { flightId: number }): React.JSX.Element 
   }
 
   return (
-    <section className="min-w-0 flex-[1_1_26rem]" aria-label={t('gsxInvoicesCard.title')}>
+    <section className="min-w-72 flex-[1_1_0]" aria-label={t('gsxInvoicesCard.title')}>
       <div className="flex items-center justify-between gap-3 pb-2">
         <h3 className="m-0 text-[17px] font-semibold">{t('gsxInvoicesCard.title')}</h3>
         <Button

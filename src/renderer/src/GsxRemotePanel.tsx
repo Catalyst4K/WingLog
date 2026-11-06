@@ -464,8 +464,8 @@ export function GsxRemotePanel(props: { canEditRoutines?: boolean }): React.JSX.
       )}
       <GateHeader gate={gate} connected={status.state === 'connected'} />
       {/* As on the canvas (r3-gsx): the menu and the services on the left, the routines and the commands on the right; one column when narrow. */}
-      <div className="flex flex-col items-start gap-6 @3xl:flex-row">
-        <div className="flex w-full min-w-0 flex-col gap-5 @3xl:flex-[1.4_1_0]">
+      <div className="flex flex-col items-start gap-6 @2xl:flex-row">
+        <div className="flex w-full min-w-0 flex-col gap-5 @2xl:flex-[1.4_1_0]">
           <MenuHeader
             menu={menu}
             onToggle={asyncHandler('GsxRemotePanel gsx.toggleMenu', () => live.command('gsx.toggleMenu'))}
@@ -480,7 +480,7 @@ export function GsxRemotePanel(props: { canEditRoutines?: boolean }): React.JSX.
           />
           <ServicesList services={services} />
         </div>
-        <div className="flex w-full min-w-0 flex-col gap-5 @3xl:flex-1">
+        <div className="flex w-full min-w-0 flex-col gap-5 @2xl:flex-1">
           <GsxRoutines canEdit={props.canEditRoutines ?? true} />
           <CommandBar
             commandBar={commandBar}

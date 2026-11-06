@@ -38,7 +38,6 @@ export function PrefileButtons(props: {
     <Button
       type="button"
       variant="outline"
-      size="sm"
       onClick={asyncHandler(`PrefileButtons file ${network}`, async () => {
         const opened = await props.file(network)
         if (!opened) toast.error(t('online.noPrefileLink', { network: NETWORK_NAMES[network] }))

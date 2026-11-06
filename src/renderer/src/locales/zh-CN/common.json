@@ -677,7 +677,9 @@
     "autoDetectedComplete": "{{label}} 已被自动识别为完成，并保存到你的飞行日志。",
     "ok": "确定",
     "profile": {
-      "title": "航路剖面"
+      "title": "航路剖面",
+      "zoom": "缩放",
+      "wholeRoute": "整条航路"
     },
     "flightInProgress": "进行中的航班",
     "change": "更改"

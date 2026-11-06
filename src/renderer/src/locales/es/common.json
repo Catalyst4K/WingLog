@@ -685,7 +685,9 @@
     "autoDetectedComplete": "{{label}} se detectó automáticamente como completado y se guardó en tu bitácora.",
     "ok": "Aceptar",
     "profile": {
-      "title": "Perfil de la ruta"
+      "title": "Perfil de la ruta",
+      "zoom": "Zoom",
+      "wholeRoute": "Ruta completa"
     },
     "flightInProgress": "Vuelo en curso",
     "change": "Cambiar"

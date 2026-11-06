@@ -685,7 +685,9 @@
     "autoDetectedComplete": "{{label}} è stato rilevato automaticamente come completato e salvato nel libretto.",
     "ok": "OK",
     "profile": {
-      "title": "Profilo della rotta"
+      "title": "Profilo della rotta",
+      "zoom": "Zoom",
+      "wholeRoute": "Intera rotta"
     },
     "flightInProgress": "Volo in corso",
     "change": "Modifica"

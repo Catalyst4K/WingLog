@@ -28,7 +28,10 @@ export function FolderTabsList({
   return (
     <TabsList
       variant="line"
-      className={cn('h-auto w-full justify-start gap-1 rounded-none border-b border-border p-0', className)}
+      className={cn(
+        'h-auto w-full justify-start gap-1 rounded-none border-b border-border p-0 group-data-horizontal/tabs:h-auto',
+        className
+      )}
       {...props}
     />
   )

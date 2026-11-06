@@ -92,3 +92,44 @@ export function distanceAlongRoute(
   })
   return best === null ? null : (best as { at: number; away: number }).at
 }
+
+/**
+ * @param totalNm The whole route, nautical miles.
+ * @param alongNm How far along it the aircraft is.
+ * @param spanNm How much of the route to show.
+ * @returns The stretch of the route to zoom to: `spanNm` long with the aircraft a fifth of the way in (a little behind it, most of it
+ *   ahead), moved to stay inside the route; the whole route when it is no longer than `spanNm`.
+ */
+export function zoomWindow(
+  totalNm: number,
+  alongNm: number,
+  spanNm: number
+): { fromNm: number; toNm: number } {
+  if (spanNm >= totalNm) return { fromNm: 0, toNm: totalNm }
+  const fromNm = Math.min(Math.max(alongNm - spanNm * 0.2, 0), totalNm - spanNm)
+  return { fromNm, toNm: fromNm + spanNm }
+}
+
+/**
+ * @param points The profile's points, in order along the route.
+ * @param fromNm Where the stretch starts.
+ * @param toNm Where it ends.
+ * @returns The points inside the stretch, with a point placed on each edge where the line crosses it, so the line runs to the edges.
+ */
+export function clipProfile(points: ProfilePoint[], fromNm: number, toNm: number): ProfilePoint[] {
+  const altitudeAt = (nm: number): number => {
+    const afterIndex = points.findIndex((p) => p.distanceNm >= nm)
+    const after = points[afterIndex]
+    const before = points[afterIndex - 1]
+    if (!after) return points[points.length - 1]?.altitudeFt ?? 0
+    if (!before || after.distanceNm === nm) return after.altitudeFt
+    const share = (nm - before.distanceNm) / (after.distanceNm - before.distanceNm)
+    return before.altitudeFt + share * (after.altitudeFt - before.altitudeFt)
+  }
+  const inside = points.filter((p) => p.distanceNm > fromNm && p.distanceNm < toNm)
+  return [
+    { ident: '', distanceNm: fromNm, altitudeFt: altitudeAt(fromNm) },
+    ...inside,
+    { ident: '', distanceNm: toNm, altitudeFt: altitudeAt(toNm) }
+  ]
+}

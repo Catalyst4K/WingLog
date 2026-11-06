@@ -58,7 +58,7 @@ function ChartSection(props: {
   children: React.ReactNode
 }): React.JSX.Element {
   return (
-    <section className="min-w-0 flex-[1_1_28rem]" aria-label={props.title}>
+    <section className="min-w-72 flex-[1_1_0]" aria-label={props.title}>
       <div className="flex min-h-9 items-center justify-between gap-3 pb-2">
         <h3 className="m-0 text-[17px] font-semibold">{props.title}</h3>
         {props.aside}
@@ -203,7 +203,7 @@ export function FuelChart(props: {
   const { t } = useTranslation()
   const most = Math.max(...props.data.map((d) => d.kg), 1)
   return (
-    <section className="min-w-0 flex-[1_1_26rem]" aria-label={t('logbookView.fuelPlannedVsActual')}>
+    <section className="min-w-72 flex-[1_1_0]" aria-label={t('logbookView.fuelPlannedVsActual')}>
       <h3 className="m-0 pb-2 text-[17px] font-semibold">{t('logbookView.fuelPlannedVsActual')}</h3>
       {props.data.map((row, index) => {
         const planned = index === 0
