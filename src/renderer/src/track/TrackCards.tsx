@@ -322,6 +322,12 @@ export function FlightToolbar(props: {
 }): React.JSX.Element {
   const { t } = useTranslation()
   const { airports, selection } = props
+  const chosen = [
+    selection.arrivalIcao ? t('trackView.alternateIcao', { icao: selection.arrivalIcao }) : null,
+    selection.sidIdent,
+    selection.starIdent,
+    selection.approachIdent
+  ].filter((v): v is string => v !== null)
   return (
     <div className="flex items-center gap-2">
       {/* Weather for the departure, destination and alternate of whatever is being flown —
@@ -366,16 +372,12 @@ export function FlightToolbar(props: {
               />
             </DialogContent>
           </Dialog>
-          <span className="text-sm text-muted-foreground">
-            {[
-              selection.arrivalIcao ? t('trackView.alternateIcao', { icao: selection.arrivalIcao }) : null,
-              selection.sidIdent,
-              selection.starIdent,
-              selection.approachIdent
-            ]
-              .filter((v): v is string => v !== null)
-              .join(' · ') || t('trackView.nothingSelectedYet')}
-          </span>
+          {/* The chosen procedures are the plan, so they are magenta (winglog-backend docs/plans/v2-design.md); none chosen is quiet text. */}
+          {chosen.length > 0 ? (
+            <span className="font-mono text-sm text-plan">{chosen.join(' · ')}</span>
+          ) : (
+            <span className="text-sm text-muted-foreground">{t('trackView.nothingSelectedYet')}</span>
+          )}
         </>
       )}
     </div>

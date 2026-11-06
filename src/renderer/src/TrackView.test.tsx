@@ -974,7 +974,8 @@ describe('TrackView', () => {
     }
     renderTrack({ selection })
     await screen.findByText('Start tracking')
-    expect(screen.getByText('DET2G · ABC1')).toBeInTheDocument()
+    // The chosen procedures are the plan: magenta, in the mono face. Nothing chosen is quiet text instead.
+    expect(screen.getByText('DET2G · ABC1')).toHaveClass('text-plan', 'font-mono')
   })
 
   it('opens the Procedures dialog showing the live procedure selectors', async () => {
