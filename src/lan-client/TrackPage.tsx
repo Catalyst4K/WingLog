@@ -1,4 +1,4 @@
-/** The Track page: the live map of the flight, with its banners and the Procedures button. */
+/** The Track page: the live map of the flight, under one slim header: the flight, its times and the procedures as a chip. */
 
 import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -91,7 +91,7 @@ function TimesBanner({ times }: { times: TrackTimes }): React.JSX.Element | null
   const { t } = useTranslation()
   if (times.elapsedMs === null && times.remainingMs === null && times.etaMs === null) return null
   return (
-    <div className="flex items-center justify-between gap-2 border-b border-border bg-card px-3 py-1 text-xs text-muted-foreground">
+    <div className="flex min-w-0 flex-1 items-center justify-between gap-2 text-xs text-muted-foreground">
       <span>
         {t('trackView.times.et')}{' '}
         <span className="font-mono text-foreground">{formatElapsed(times.elapsedMs)}</span>
@@ -163,7 +163,8 @@ export function TrackPage({
 }
 
 /**
- * The Procedures button and what is chosen, as on the Track screen: the SID, STAR and approach, which the PC saves with the flight.
+ * The procedures as a chip: what is chosen (the plan, so magenta), or "Nothing selected yet", and a tap opens the choice. The SID, STAR and
+ * approach are saved with the flight by the PC.
  *
  * @param props The flight's airports, the choice, and what to do when it changes.
  * @returns The element.
@@ -172,41 +173,33 @@ function ProceduresBar(props: {
   airports: ProcedureAirports
   selection: ProcedureSelection
   onSelectionChange: (next: ProcedureSelection) => void
-  /** The last choice made here could not be confirmed by the PC. */
-  unconfirmed: boolean
 }): React.JSX.Element {
   const { t } = useTranslation()
-  const { unconfirmed, ...selectorProps } = props
+  const selectorProps = props
   const { selection } = selectorProps
   const chosen = [selection.sidIdent, selection.starIdent, selection.approachIdent]
     .filter(Boolean)
     .join(' · ')
   return (
-    <>
-      <div className="flex items-center gap-2 border-b border-border bg-card px-3 py-1">
-        <Dialog>
-          <DialogTrigger asChild>
-            <Button type="button" variant="outline" size="sm" className="h-8">
-              {t('trackView.proceduresEllipsis')}
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-h-[88dvh] overflow-y-auto sm:max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>{t('trackView.procedures')}</DialogTitle>
-            </DialogHeader>
-            <ProcedureSelector {...selectorProps} compact />
-          </DialogContent>
-        </Dialog>
-        <span className="truncate text-xs text-muted-foreground">
+    <Dialog>
+      <DialogTrigger asChild>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          aria-label={t('trackView.proceduresEllipsis')}
+          className={`h-7 max-w-[60%] shrink-0 truncate rounded-full px-3 text-xs ${chosen ? 'font-mono text-plan' : 'font-normal text-muted-foreground'}`}
+        >
           {chosen || t('trackView.nothingSelectedYet')}
-        </span>
-      </div>
-      {unconfirmed && (
-        <p role="alert" className="border-b border-border bg-muted px-3 py-1.5 text-xs text-foreground">
-          {t('trackView.choiceNotConfirmed')}
-        </p>
-      )}
-    </>
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-h-[88dvh] overflow-y-auto sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>{t('trackView.procedures')}</DialogTitle>
+        </DialogHeader>
+        <ProcedureSelector {...selectorProps} compact />
+      </DialogContent>
+    </Dialog>
   )
 }
 
@@ -313,10 +306,16 @@ function FlightView(props: {
 function FlightHeader(props: {
   snapshot: LanFlightSnapshot | null
   times: TrackTimes
-  procedures: Parameters<typeof ProceduresBar>[0] | null
+  procedures: (Parameters<typeof ProceduresBar>[0] & { unconfirmed: boolean }) | null
 }): React.JSX.Element {
   const { snapshot, times, procedures } = props
   const { t } = useTranslation()
+  // What the chip needs; whether the last choice is unconfirmed is a note of its own under the header.
+  const bar = procedures && {
+    airports: procedures.airports,
+    selection: procedures.selection,
+    onSelectionChange: procedures.onSelectionChange
+  }
   return (
     <>
       {!snapshot && (
@@ -327,8 +326,17 @@ function FlightHeader(props: {
       {snapshot && <FlightBanner flight={snapshot.flight} />}
       <AutoTuneOnlineWarning />
       <OnlineAtcSection />
-      {snapshot && <TimesBanner times={times} />}
-      {snapshot && procedures && <ProceduresBar {...procedures} />}
+      {snapshot && (
+        <div className="flex items-center justify-between gap-3 border-b border-border bg-card px-3 py-1">
+          <TimesBanner times={times} />
+          {bar && <ProceduresBar {...bar} />}
+        </div>
+      )}
+      {snapshot && procedures?.unconfirmed && (
+        <p role="alert" className="border-b border-border bg-muted px-3 py-1.5 text-xs text-foreground">
+          {t('trackView.choiceNotConfirmed')}
+        </p>
+      )}
     </>
   )
 }

@@ -123,6 +123,8 @@ describe('the Procedures button', () => {
       sockets[0].say({ t: 'snapshot', topics: {}, flight: FLIGHT_WITH_SELECTION })
     })
     expect(screen.getByRole('button', { name: 'Procedures…' })).toBeInTheDocument()
+    // A chip on the slim header, magenta because the procedures are the plan; its name stays Procedures…, whatever it shows.
+    expect(screen.getByRole('button', { name: 'Procedures…' })).toHaveClass('text-plan', 'rounded-full')
     expect(screen.getByText('KAMI2A · SIER7B · ILS 27L')).toBeInTheDocument()
   })
 
