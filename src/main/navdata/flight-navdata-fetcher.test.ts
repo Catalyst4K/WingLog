@@ -76,6 +76,53 @@ describe('FlightNavdataFetcher', () => {
     expect(calls).toHaveLength(4)
   })
 
+  describe('fetching the taxi networks again once the flight is loaded', () => {
+    it('fetches the shown flight’s taxi networks a second time, and nothing else', async () => {
+      const { fetcher, calls } = setup(flight({ ofpJson: PLAN_WITH_ALTERNATE }))
+      fetcher.refresh()
+      await fetcher.idle()
+      calls.length = 0
+      fetcher.refreshTaxiNetworks()
+      await fetcher.idle()
+      expect(calls).toEqual(['taxi VHHH', 'taxi ZJSY', 'taxi VMMC'])
+    })
+
+    it('is a plain first fetch when nothing was fetched yet', async () => {
+      const { fetcher, calls } = setup()
+      fetcher.refreshTaxiNetworks()
+      await fetcher.idle()
+      expect(calls).toEqual(['taxi VHHH', 'taxi ZJSY'])
+    })
+
+    it('does nothing without a flight or while the sim is down', async () => {
+      const { fetcher, calls, state } = setup()
+      state.connected = false
+      fetcher.refreshTaxiNetworks()
+      state.connected = true
+      state.flight = undefined
+      fetcher.refreshTaxiNetworks()
+      await fetcher.idle()
+      expect(calls).toEqual([])
+    })
+
+    it('does not queue one that is already waiting, and a failed one is tried again with the next trigger', async () => {
+      const { fetcher, calls, state } = setup()
+      fetcher.refresh()
+      await fetcher.idle()
+      calls.length = 0
+      state.failing.add('taxi ZJSY')
+      fetcher.refreshTaxiNetworks()
+      fetcher.refreshTaxiNetworks()
+      await fetcher.idle()
+      expect(calls).toEqual(['taxi VHHH', 'taxi ZJSY'])
+      state.failing.clear()
+      calls.length = 0
+      fetcher.refresh()
+      await fetcher.idle()
+      expect(calls).toEqual(['taxi ZJSY'])
+    })
+  })
+
   it('does not queue what is already waiting', async () => {
     const { fetcher, calls } = setup()
     fetcher.refresh()
