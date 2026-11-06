@@ -1336,6 +1336,52 @@ describe('FlightMap', () => {
       expect(edgeShown.length).toBeGreaterThan(0)
     })
 
+    it('draws a red hold-short bar across the end of the line, labelled, until ATC clears the aircraft past it', async () => {
+      const { push } = withTaxiRoute(ROUTE)
+      const map = await chartOn()
+      await waitFor(() => expect(visibility(map)).toBe('visible'))
+      const bar = (): {
+        type: string
+        features: { geometry: { type: string }; properties: { label?: string } }[]
+      } => map.sources['taxi-hold-short-bar']?.setData.mock.calls.at(-1)?.[0] as never
+      expect(bar().features.map((f) => f.geometry.type)).toEqual(['LineString', 'Point'])
+      expect(bar().features[1]?.properties.label).toBe('Hold at A1')
+      expect(map.layers['taxi-hold-short-bar-line']?.paint).toEqual({
+        'line-color': '#c62a1f',
+        'line-width': 5
+      })
+      // The PC says ATC has cleared the aircraft past it: the bar goes, the line stays.
+      await push({ ...ROUTE, revision: 2, holdShortCleared: true })
+      await waitFor(() => expect(bar().features).toEqual([]))
+      expect(traceLine(map)).toEqual({ type: 'LineString', coordinates: ROUTE.line })
+    })
+
+    it('labels a bar short of a runway with the runway', async () => {
+      withTaxiRoute({
+        ...ROUTE,
+        clearance: { ...ROUTE.clearance, holdingPoint: null, holdShortRunway: '20C' }
+      })
+      const map = await chartOn()
+      await waitFor(() => expect(visibility(map)).toBe('visible'))
+      const sent = map.sources['taxi-hold-short-bar']?.setData.mock.calls.at(-1)?.[0] as {
+        features: { properties: { label?: string } }[]
+      }
+      expect(sent.features[1]?.properties.label).toBe('Hold short 20C')
+    })
+
+    it('draws no bar for a clearance that ends at a stand', async () => {
+      withTaxiRoute({
+        ...ROUTE,
+        clearance: { taxiways: ['D'], holdingPoint: null, stand: 'N32', holdShortRunway: null }
+      })
+      const map = await chartOn()
+      await waitFor(() => expect(visibility(map)).toBe('visible'))
+      const sent = map.sources['taxi-hold-short-bar']?.setData.mock.calls.at(-1)?.[0] as {
+        features: unknown[]
+      }
+      expect(sent.features).toEqual([])
+    })
+
     it('follows each new line the PC pushes as the aircraft taxis', async () => {
       const { push } = withTaxiRoute(ROUTE)
       const map = await chartOn()

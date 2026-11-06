@@ -689,7 +689,9 @@
       "fixEnroute": "Fix",
       "fixProcedure": "SID or STAR fix",
       "fixApproach": "Approach fix"
-    }
+    },
+    "holdShort": "Hold short {{runway}}",
+    "holdAt": "Hold at {{point}}"
   },
   "logbookView": {
     "loading": "Loading…",

@@ -14,11 +14,52 @@ import { useLiveClient } from './live/LiveClient'
 import { useBeyondAtcHidden } from './live/use-online-status'
 import { setSourceData } from './map-source'
 import { mapPalette } from './flight-map/map-palette'
+import { holdShortBarEnds } from '@shared/taxi/hold-short-bar'
+import { useTranslation } from 'react-i18next'
 
 const TRACE_SOURCE_ID = 'taxi-route-trace'
 const TRACE_LAYER_ID = 'taxi-route-trace-line'
 /** A dark edge under the line, so the yellow reads on the light map. */
 const TRACE_EDGE_LAYER_ID = 'taxi-route-trace-edge'
+/** The red stop bar across the end of the line where it stops at a holding point or short of a runway, and its label. */
+const BAR_SOURCE_ID = 'taxi-hold-short-bar'
+const BAR_LAYER_ID = 'taxi-hold-short-bar-line'
+const BAR_LABEL_LAYER_ID = 'taxi-hold-short-bar-label'
+const EMPTY_BAR = { type: 'FeatureCollection' as const, features: [] }
+
+/**
+ * The bar to draw for a route, or none: a bar stands at the end of the line while the clearance stops at a holding point or short of a
+ * runway and ATC has not yet cleared the aircraft past it (the PC decides, see `TaxiRoute.holdShortCleared`).
+ *
+ * @param route The line to draw's route.
+ * @param line The line itself.
+ * @param label Says what the bar is in the pilot's language, given the runway or the holding point.
+ * @returns The bar as GeoJSON features: its line, and its label at the end.
+ */
+export function holdShortBarFeatures(
+  route: TaxiRoute,
+  line: [number, number][],
+  label: (what: { runway: string | null; point: string | null }) => string
+): { type: 'FeatureCollection'; features: object[] } {
+  const { holdShortRunway, holdingPoint } = route.clearance
+  if (route.holdShortCleared || !(holdShortRunway || holdingPoint)) return EMPTY_BAR
+  const ends = holdShortBarEnds(line)
+  const end = line.at(-1)
+  if (!ends || !end) return EMPTY_BAR
+  return {
+    type: 'FeatureCollection',
+    features: [
+      { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: ends } },
+      {
+        type: 'Feature',
+        properties: {
+          label: label({ runway: holdShortRunway, point: holdShortRunway ? null : holdingPoint })
+        },
+        geometry: { type: 'Point', coordinates: end }
+      }
+    ]
+  }
+}
 
 /**
  * Adds the route's source and layer if the map doesn't have them yet.
@@ -45,6 +86,29 @@ function ensureLayer(map: MapLibreMap): void {
     source: TRACE_SOURCE_ID,
     layout,
     paint: { 'line-color': palette.taxi, 'line-width': 3.5 }
+  })
+  map.addSource(BAR_SOURCE_ID, { type: 'geojson', data: EMPTY_BAR })
+  map.addLayer({
+    id: BAR_LAYER_ID,
+    type: 'line',
+    source: BAR_SOURCE_ID,
+    filter: ['==', ['geometry-type'], 'LineString'],
+    layout: { 'line-cap': 'butt' },
+    paint: { 'line-color': palette.holdBar, 'line-width': 5 }
+  })
+  map.addLayer({
+    id: BAR_LABEL_LAYER_ID,
+    type: 'symbol',
+    source: BAR_SOURCE_ID,
+    filter: ['==', ['geometry-type'], 'Point'],
+    layout: {
+      'text-field': ['get', 'label'],
+      'text-size': 11,
+      'text-anchor': 'top',
+      'text-offset': [0, 1],
+      'text-allow-overlap': true
+    },
+    paint: { 'text-color': palette.holdBar, 'text-halo-color': palette.halo, 'text-halo-width': 1.4 }
   })
 }
 
@@ -86,6 +150,7 @@ export function useTaxiRouteHighlight({
   arrIcao
 }: UseTaxiRouteHighlightArgs): void {
   const client = useLiveClient()
+  const { t } = useTranslation()
   const hidden = useBeyondAtcHidden()
   const [route, setRoute] = useState<TaxiRoute | null>(null)
   // Whether this hook has itself created its layer. Checked instead of calling map.getLayer() on every mount: App.tsx and LogbookView's own
@@ -118,6 +183,8 @@ export function useTaxiRouteHighlight({
       if (createdRef.current) {
         map.setLayoutProperty(TRACE_EDGE_LAYER_ID, 'visibility', 'none')
         map.setLayoutProperty(TRACE_LAYER_ID, 'visibility', 'none')
+        map.setLayoutProperty(BAR_LAYER_ID, 'visibility', 'none')
+        map.setLayoutProperty(BAR_LABEL_LAYER_ID, 'visibility', 'none')
       }
       return
     }
@@ -128,7 +195,17 @@ export function useTaxiRouteHighlight({
       properties: {},
       geometry: { type: 'LineString', coordinates: line }
     })
+    // The bar needs the whole route for its clearance, so it is drawn only for a route that is there (lineToDraw said so).
+    setSourceData(
+      map,
+      BAR_SOURCE_ID,
+      holdShortBarFeatures(route as TaxiRoute, line, ({ runway, point }) =>
+        runway ? t('flightMap.holdShort', { runway }) : t('flightMap.holdAt', { point })
+      ) as never
+    )
     map.setLayoutProperty(TRACE_EDGE_LAYER_ID, 'visibility', 'visible')
     map.setLayoutProperty(TRACE_LAYER_ID, 'visibility', 'visible')
-  }, [mapRef, mapReady, enabled, hidden, route, depIcao, arrIcao])
+    map.setLayoutProperty(BAR_LAYER_ID, 'visibility', 'visible')
+    map.setLayoutProperty(BAR_LABEL_LAYER_ID, 'visibility', 'visible')
+  }, [mapRef, mapReady, enabled, hidden, route, depIcao, arrIcao, t])
 }

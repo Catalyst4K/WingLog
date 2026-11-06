@@ -12,9 +12,17 @@
  * keeps following the old route until a re-route's answer comes back.
  */
 
-import type { BeyondAtcState, FlightPhase, NavdataStand, NavdataTaxiSegment, SimTelemetry } from '@shared/ipc'
+import type {
+  BeyondAtcState,
+  BeyondAtcTranscriptEntry,
+  FlightPhase,
+  NavdataStand,
+  NavdataTaxiSegment,
+  SimTelemetry
+} from '@shared/ipc'
 import type { LiveTopic, LiveTopics, TaxiRoute } from '@shared/live'
 import { clearanceAirport, clearanceEnds, startOf, type TaxiClearance } from '@shared/taxi/clearance'
+import { clearsHoldShort } from '@shared/taxi/hold-short-bar'
 import { INITIAL_TAXI_MEMORY, isDeparted, stepTaxiBoxes, type TaxiMemory } from '@shared/taxi/clearance-step'
 import type { TracedClearance } from '@shared/taxi/fallback'
 import { applyReroute, followPosition, startTracker, type RerouteTracker } from '@shared/taxi/reroute'
@@ -82,6 +90,9 @@ export class TaxiRouteService {
   private segments: NavdataTaxiSegment[] = []
   private position: Position | null = null
   private departed = false
+  /** When this clearance was taken, and whether ATC has since cleared the aircraft past its hold-short bar. */
+  private clearanceAt = 0
+  private holdShortCleared = false
   private slowLogged = false
   /** Taxi networks read from the cache, by airport; dropped when that airport is refreshed. */
   private readonly networks = new Map<string, NavdataTaxiSegment[]>()
@@ -118,6 +129,21 @@ export class TaxiRouteService {
   private onTopic<T extends LiveTopic>(topic: T, payload: LiveTopics[T]): void {
     if (topic === 'beyondAtcState') this.guarded(topic, () => this.onState(payload as BeyondAtcState))
     else if (topic === 'simTelemetry') this.guarded(topic, () => this.onTelemetry(payload as SimTelemetry))
+    else if (topic === 'beyondAtcTranscript')
+      this.guarded(topic, () => this.onTranscript(payload as BeyondAtcTranscriptEntry[]))
+  }
+
+  /**
+   * Clears the hold-short bar when ATC lets the aircraft past it: line up and wait, or cleared for takeoff, said after this clearance.
+   *
+   * @param entries The transcript.
+   */
+  private onTranscript(entries: BeyondAtcTranscriptEntry[]): void {
+    const clearance = this.clearance
+    if (!clearance || this.holdShortCleared || !(clearance.holdShortRunway || clearance.holdingPoint)) return
+    if (!entries.some((entry) => clearsHoldShort(entry, clearance.holdShortRunway, this.clearanceAt))) return
+    this.holdShortCleared = true
+    this.follow(this.deps.active()?.phase ?? null)
   }
 
   /**
@@ -140,6 +166,8 @@ export class TaxiRouteService {
     this.memory = result.memory
     if (!result.clearance) return
     this.clearance = result.clearance
+    this.clearanceAt = this.deps.now()
+    this.holdShortCleared = false
     this.flightId = this.deps.shownFlight()?.flightId ?? null
     this.slowLogged = false
     this.retrace()
@@ -434,6 +462,7 @@ export class TaxiRouteService {
           icao: this.icao ?? '',
           kind: this.traced && line ? this.traced.kind : null,
           line: this.traced && line ? line : [],
+          holdShortCleared: this.holdShortCleared,
           clearance: {
             taxiways: clearance.taxiways,
             holdingPoint: clearance.holdingPoint,

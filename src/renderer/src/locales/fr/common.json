@@ -691,7 +691,9 @@
       "fixEnroute": "Point",
       "fixProcedure": "Point SID ou STAR",
       "fixApproach": "Point d'approche"
-    }
+    },
+    "holdShort": "Attendre avant {{runway}}",
+    "holdAt": "Attendre à {{point}}"
   },
   "logbookView": {
     "loading": "Chargement…",

@@ -255,6 +255,47 @@ describe('TaxiRouteService: a clearance becomes a line', () => {
   })
 })
 
+describe('TaxiRouteService: the hold-short bar clears when ATC lets the aircraft past it (v2, Part 3)', () => {
+  const said = (text: string, ts: number, speaker: 'atc' | 'traffic' = 'atc') => [{ speaker, text, ts }]
+
+  it('is up while the clearance stops at a holding point, and clears on line up and wait', () => {
+    const w = setup()
+    w.telemetry(ON_D)
+    w.clearance(D_B7_A)
+    expect(w.last()).toMatchObject({ holdShortCleared: false, clearance: { holdingPoint: 'A' } })
+    const revision = w.last()!.revision
+    w.hub.publish('beyondAtcTranscript', said('Speedbird 33 Heavy, runway 08, line up and wait.', 10))
+    expect(w.last()).toMatchObject({ holdShortCleared: true })
+    expect(w.last()!.revision).toBe(revision + 1)
+  })
+
+  it('stays up for another aircraft’s clearance, or a line said before the clearance', () => {
+    const w = setup()
+    w.telemetry(ON_D)
+    w.setNow(5_000)
+    w.clearance(D_B7_A)
+    w.hub.publish('beyondAtcTranscript', said('Runway 08, line up and wait.', 10, 'traffic'))
+    w.hub.publish('beyondAtcTranscript', said('Runway 08, line up and wait.', 4_000))
+    expect(w.last()).toMatchObject({ holdShortCleared: false })
+  })
+
+  it('is up again for the next clearance', () => {
+    const w = setup()
+    w.telemetry(ON_D)
+    w.clearance(D_B7_A)
+    w.hub.publish('beyondAtcTranscript', said('Runway 08, cleared for takeoff.', 10))
+    expect(w.last()).toMatchObject({ holdShortCleared: true })
+    w.clearance(D_A3_A)
+    expect(w.last()).toMatchObject({ holdShortCleared: false })
+  })
+
+  it('publishes nothing for a transcript while there is no clearance', () => {
+    const w = setup()
+    w.hub.publish('beyondAtcTranscript', said('Runway 08, cleared for takeoff.', 10))
+    expect(w.published).toEqual([])
+  })
+})
+
 describe('TaxiRouteService: nothing is drawn when no route is found', () => {
   it('publishes the clearance with no line when the airport has no taxi network', () => {
     const w = setup({ networks: {} })

@@ -232,9 +232,7 @@ export function ProcedureSelector(props: {
 
   const departureColumn = (
     <div className="flex flex-col gap-3">
-      <span className="text-xs font-medium text-muted-foreground">
-        {t('procedureSelector.departure')}
-      </span>
+      <span className="text-xs font-medium text-muted-foreground">{t('procedureSelector.departure')}</span>
       <ProcedureSelect
         native={compact}
         label={t('procedureSelector.departureRunway')}
@@ -263,9 +261,7 @@ export function ProcedureSelector(props: {
   )
   const arrivalColumn = (
     <div className="flex flex-col gap-3">
-      <span className="text-xs font-medium text-muted-foreground">
-        {t('procedureSelector.arrival')}
-      </span>
+      <span className="text-xs font-medium text-muted-foreground">{t('procedureSelector.arrival')}</span>
       {altnIcao && (
         <div className="flex flex-col gap-1.5">
           <Label htmlFor={arrivalAirportId}>{t('procedureSelector.arrivalAirport')}</Label>

@@ -689,7 +689,9 @@
       "fixEnroute": "Wegpunkt",
       "fixProcedure": "SID- oder STAR-Punkt",
       "fixApproach": "Anflugpunkt"
-    }
+    },
+    "holdShort": "Vor {{runway}} halten",
+    "holdAt": "Halten bei {{point}}"
   },
   "logbookView": {
     "loading": "Wird geladen…",

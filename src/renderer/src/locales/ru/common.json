@@ -710,7 +710,9 @@
       "fixEnroute": "Точка",
       "fixProcedure": "Точка SID или STAR",
       "fixApproach": "Точка захода"
-    }
+    },
+    "holdShort": "Ждать перед {{runway}}",
+    "holdAt": "Ждать у {{point}}"
   },
   "logbookView": {
     "loading": "Загрузка…",

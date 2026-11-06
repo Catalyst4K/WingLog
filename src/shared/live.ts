@@ -56,6 +56,12 @@ export interface TaxiRoute {
   kind: 'exact' | 'pathfinder' | null
   /** From the aircraft to the end, [lon, lat]; empty when `kind` is null. It shortens as the aircraft taxis. */
   line: [number, number][]
+  /**
+   * True once BeyondATC has cleared the aircraft past the hold-short bar (line up and wait, or cleared for takeoff): the screens draw a
+   * bar at the end of the line while the clearance stops at a holding point or short of a runway and this is not true. The PC decides, so
+   * a phone and the PC window never disagree. Absent is false.
+   */
+  holdShortCleared?: boolean
   /** The clearance it is for. */
   clearance: {
     taxiways: string[]

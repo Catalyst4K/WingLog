@@ -27,6 +27,8 @@ export interface MapPalette {
   /** The cleared taxi route, and the dark edge that makes it read on the light map (none on the dark one). */
   taxi: string
   taxiEdgeOpacity: number
+  /** The hold-short bar and its label. */
+  holdBar: string
 }
 
 const LIGHT: MapPalette = {
@@ -42,7 +44,8 @@ const LIGHT: MapPalette = {
   atc: '#2a62a3',
   atcFillOpacity: 0.07,
   taxi: '#f2c200',
-  taxiEdgeOpacity: 0.7
+  taxiEdgeOpacity: 0.7,
+  holdBar: '#c62a1f'
 }
 
 const DARK: MapPalette = {
@@ -58,7 +61,8 @@ const DARK: MapPalette = {
   atc: '#7fb0e8',
   atcFillOpacity: 0.09,
   taxi: '#facc15',
-  taxiEdgeOpacity: 0
+  taxiEdgeOpacity: 0,
+  holdBar: '#f0645a'
 }
 
 /**

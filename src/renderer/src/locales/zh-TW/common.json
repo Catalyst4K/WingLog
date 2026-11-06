@@ -683,7 +683,9 @@
       "fixEnroute": "航路點",
       "fixProcedure": "SID 或 STAR 點",
       "fixApproach": "進場點"
-    }
+    },
+    "holdShort": "{{runway}} 前等待",
+    "holdAt": "在 {{point}} 等待"
   },
   "logbookView": {
     "loading": "載入中…",
