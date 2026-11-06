@@ -283,13 +283,6 @@ export function DispatchView(props: {
         </div>
 
         <div className="flex min-w-72 flex-1 flex-col gap-4">
-          <MetarPanel
-            depIcao={metarAirports.depIcao}
-            arrIcao={metarAirports.arrIcao}
-            altnIcao={metarAirports.altnIcao}
-            windSpeedUnit={props.windSpeedUnit}
-          />
-
           {ofp ? (
             <OfpCard
               ofp={ofp}
@@ -310,6 +303,13 @@ export function DispatchView(props: {
           ) : (
             <p className="text-sm text-muted-foreground">{t('dispatchView.planOrFetchPrompt')}</p>
           )}
+
+          <MetarPanel
+            depIcao={metarAirports.depIcao}
+            arrIcao={metarAirports.arrIcao}
+            altnIcao={metarAirports.altnIcao}
+            windSpeedUnit={props.windSpeedUnit}
+          />
         </div>
       </div>
 

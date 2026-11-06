@@ -675,6 +675,17 @@ describe('DispatchView', () => {
       expect(screen.getByText('ABCDE')).toBeInTheDocument()
     })
 
+    it('shows the OFP’s figures as one boxed strip, above the weather', async () => {
+      window.winglog = createWinglog({ dispatchFetchOfp: vi.fn().mockResolvedValue(makeOfp()) })
+      const user = userEvent.setup()
+      render(<Harness />)
+      await user.click(screen.getByRole('button', { name: 'Fetch latest OFP' }))
+      await screen.findByText('TA100: EGLL → EDDF (altn EDDL)')
+      const strip = screen.getByText('Cost index').closest('dl') as HTMLElement
+      expect([...strip.querySelectorAll('dt')].map((label) => label.textContent)).toContain('Planned fuel')
+      expect(strip).toHaveClass('flex-wrap')
+    })
+
     it('draws the step climbs in magenta, the plan colour, and the figures in the mono face', async () => {
       window.winglog = createWinglog({ dispatchFetchOfp: vi.fn().mockResolvedValue(makeOfp()) })
       const user = userEvent.setup()

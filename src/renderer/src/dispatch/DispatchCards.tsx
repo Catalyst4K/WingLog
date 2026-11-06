@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import type { Aircraft, AircraftLastParked, AltitudeUnit, DispatchOfp, WeightUnit } from '@shared/ipc'
 import { countSetOptions } from '@shared/dispatch-options'
 import { Badge } from '@/components/ui/badge'
+import { StatCell, StatStrip } from '@/components/StatStrip'
 import { Button } from '@/components/ui/button'
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
@@ -44,15 +45,6 @@ function LastParkedHint(props: {
     <p className="text-sm text-muted-foreground">
       {t('dispatchView.lastParkedHere', { stand: props.parked.stand })}
     </p>
-  )
-}
-
-function DetailField(props: { label: string; value: React.ReactNode }): React.JSX.Element {
-  return (
-    <>
-      <dt className="text-muted-foreground">{props.label}</dt>
-      <dd className="font-mono text-foreground">{props.value}</dd>
-    </>
   )
 }
 
@@ -205,33 +197,28 @@ export function OfpDetails(props: {
   const { ofp, weightUnit, altitudeUnit } = props
   return (
     <>
-      <dl className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-sm">
-        <DetailField
-          label={t('dispatchView.fields.aircraftOfp')}
-          value={`${ofp.aircraftIcaoType} ${ofp.aircraftRegistration}`}
-        />
-        <DetailField
-          label={t('dispatchView.fields.cruiseAltitude')}
-          value={formatAltitude(mToFt(ofp.cruiseAltM), altitudeUnit)}
-        />
-        <DetailField
-          label={t('dispatchView.fields.scheduledOutIn')}
-          value={`${formatUtc(ofp.schedOutUtc)} / ${formatUtc(ofp.schedInUtc)}`}
-        />
-        <DetailField
-          label={t('dispatchView.fields.plannedFuel')}
-          value={formatWeight(ofp.fuelPlannedKg, weightUnit)}
-        />
-        <DetailField
-          label={t('dispatchView.fields.paxCargo')}
-          value={`${ofp.pax} / ${formatWeight(ofp.cargoKg, weightUnit)}`}
-        />
-        <DetailField
-          label={t('dispatchView.fields.zfwTowLdw')}
-          value={`${formatWeight(ofp.zfwKg, weightUnit)} / ${formatWeight(ofp.towKg, weightUnit)} / ${formatWeight(ofp.ldwKg, weightUnit)}`}
-        />
-        <DetailField label={t('dispatchView.fields.costIndex')} value={ofp.costIndex ?? '—'} />
-      </dl>
+      {/* The plan at a glance: the same boxed strip as a Logbook flight and a Fleet aircraft. */}
+      <StatStrip>
+        <StatCell label={t('dispatchView.fields.aircraftOfp')}>
+          {`${ofp.aircraftIcaoType} ${ofp.aircraftRegistration}`}
+        </StatCell>
+        <StatCell label={t('dispatchView.fields.cruiseAltitude')}>
+          {formatAltitude(mToFt(ofp.cruiseAltM), altitudeUnit)}
+        </StatCell>
+        <StatCell label={t('dispatchView.fields.scheduledOutIn')}>
+          {`${formatUtc(ofp.schedOutUtc)} / ${formatUtc(ofp.schedInUtc)}`}
+        </StatCell>
+        <StatCell label={t('dispatchView.fields.plannedFuel')}>
+          {formatWeight(ofp.fuelPlannedKg, weightUnit)}
+        </StatCell>
+        <StatCell label={t('dispatchView.fields.paxCargo')}>
+          {`${ofp.pax} / ${formatWeight(ofp.cargoKg, weightUnit)}`}
+        </StatCell>
+        <StatCell label={t('dispatchView.fields.zfwTowLdw')}>
+          {`${formatWeight(ofp.zfwKg, weightUnit)} / ${formatWeight(ofp.towKg, weightUnit)} / ${formatWeight(ofp.ldwKg, weightUnit)}`}
+        </StatCell>
+        <StatCell label={t('dispatchView.fields.costIndex')}>{ofp.costIndex ?? '—'}</StatCell>
+      </StatStrip>
       <div className="flex flex-col gap-1.5 text-sm">
         <span className="text-muted-foreground">{t('dispatchView.steps')}</span>
         {ofp.stepClimbs.length === 0 ? (
