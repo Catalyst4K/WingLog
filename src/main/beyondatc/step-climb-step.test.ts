@@ -135,6 +135,34 @@ describe('tickStepClimb', () => {
     expect(asked.fire).toEqual({ altitudeFt: 34000, reason: 'fcu' })
   })
 
+  it('asks again for a step that was refused even once the aircraft has passed its fix (flight 262)', () => {
+    const fired = tickStepClimb(enabled, tick({ t: telemetry({ longitude: 29.9 }) })).state
+    const refused = settleRequest(fired, {
+      altitudeFt: 35000,
+      reason: 'simbrief',
+      outcome: 'noMenu',
+      attempt: 1
+    }).state
+    // Two minutes on, nearer the next fix than DENAK.
+    const passed = tick({ t: telemetry({ latitude: 43, longitude: 46 }), now: 1_121_000 })
+    const retry = tickStepClimb(finishRequest(refused), passed)
+    expect(retry.fire).toEqual({ altitudeFt: 35000, reason: 'simbrief' })
+    expect(retry.logs.at(-1)).toBe('requesting 35000 ft (trigger simbrief, attempt 2)')
+    // Before the retry is due it waits.
+    expect(
+      tickStepClimb(
+        finishRequest(refused),
+        tick({ t: telemetry({ latitude: 43, longitude: 46 }), now: 1_060_000 })
+      ).fire
+    ).toBeNull()
+  })
+
+  it('does not ask for a step behind it that was never asked for (switched on late)', () => {
+    const late = tickStepClimb(enabled, tick({ t: telemetry({ latitude: 43, longitude: 46 }) }))
+    expect(late.fire).toBeNull()
+    expect(late.state.nextStep).toBeNull()
+  })
+
   it('asks for no more levels after the top of descent', () => {
     const late = tickStepClimb(enabled, tick({ t: telemetry({ latitude: 38, longitude: 82.5 }) }))
     expect(late.state.pastTopOfDescent).toBe(true)
