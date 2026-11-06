@@ -120,7 +120,7 @@ function MarkNames(props: {
       <text x={layout.aimingPointXPx + props.aimingPointLengthPx / 2} y={-9} textAnchor="middle">
         {t('touchdownDiagram.aimPoint')}
       </text>
-      <text x={layout.touchdownZoneStartXPx} y={under + 22}>
+      <text x={layout.touchdownZoneStartXPx} y={under + 28}>
         {t('touchdownDiagram.touchdownZone')}
       </text>
       <path
@@ -257,7 +257,7 @@ export function TouchdownDiagram(props: {
   const svgHeightPx = layout.widthPx
   // Lying down, the page is as wide as the runway is long, with room above and below for the names of the marks.
   const frame = horizontal
-    ? { top: -26, width: layout.widthPx, height: layout.heightPx + 52, svgWidth: '100%', svgHeight: 'auto' }
+    ? { top: -26, width: layout.widthPx, height: layout.heightPx + 60, svgWidth: '100%', svgHeight: 'auto' }
     : { top: 0, width: svgWidthPx, height: svgHeightPx, svgWidth: 'auto', svgHeight: '100%' }
 
   const runwayBandLengthPx = Math.max(0, layout.runwayEndXPx - layout.runwayStartXPx)

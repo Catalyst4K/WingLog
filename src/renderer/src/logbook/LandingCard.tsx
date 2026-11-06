@@ -121,20 +121,19 @@ function LandingFields(props: {
         value={landing.gForce.toFixed(2)}
         warn={isCategoryBad(categoryScore('gForce'))}
       />
+      {/* As on the canvas (r3-flight): the attitude on one row, and where it touched down on one, so the list is as tall as the map beside it. */}
       <DetailField
-        label={t('logbookView.landingCard.pitch')}
-        value={formatPitchDeg(landing.pitchDeg)}
-        warn={isCategoryBad(categoryScore('pitch'))}
-      />
-      <DetailField
-        label={t('logbookView.landingCard.bank')}
-        value={`${landing.bankDeg.toFixed(1)}°`}
-        warn={isCategoryBad(categoryScore('bank'))}
-      />
-      <DetailField
-        label={t('logbookView.landingCard.crab')}
-        value={landing.crabDeg != null ? `${landing.crabDeg.toFixed(1)}°` : '—'}
-        warn={isCategoryBad(categoryScore('crab'))}
+        label={t('logbookView.landingCard.pitchBankCrab')}
+        warn={
+          isCategoryBad(categoryScore('pitch')) ||
+          isCategoryBad(categoryScore('bank')) ||
+          isCategoryBad(categoryScore('crab'))
+        }
+        value={[
+          formatPitchDeg(landing.pitchDeg),
+          `${landing.bankDeg.toFixed(1)}°`,
+          landing.crabDeg != null ? `${landing.crabDeg.toFixed(1)}°` : '—'
+        ].join(' · ')}
       />
       <DetailField
         label={t('logbookView.landingCard.airspeedGroundSpeed')}
@@ -148,22 +147,18 @@ function LandingFields(props: {
             : '—'
         }
       />
-      <DetailField label={t('logbookView.landingCard.runway')} value={landing.runwayIdent ?? '—'} />
       <DetailField
-        label={t('logbookView.landingCard.distanceFromThreshold')}
-        warn={isCategoryBad(categoryScore('distanceFromAimingPoint'))}
-        value={
+        label={t('logbookView.landingCard.touchdownPoint')}
+        warn={
+          isCategoryBad(categoryScore('distanceFromAimingPoint')) ||
+          isCategoryBad(categoryScore('centrelineOffset'))
+        }
+        value={[
           landing.distanceFromThresholdM != null
             ? formatRunwayDistance(landing.distanceFromThresholdM, unit)
-            : '—'
-        }
-      />
-      <DetailField
-        label={t('logbookView.landingCard.centrelineOffset')}
-        warn={isCategoryBad(categoryScore('centrelineOffset'))}
-        value={
+            : '—',
           landing.centrelineOffsetM != null ? formatCentrelineOffset(landing.centrelineOffsetM, unit) : '—'
-        }
+        ].join(' · ')}
       />
     </dl>
   )

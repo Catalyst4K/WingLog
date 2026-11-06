@@ -777,7 +777,8 @@ describe('LandingCard', () => {
         .mockResolvedValue([makeLandingWithDetails({ runwayIdent: '20R', runwaySource: 'sim', score })])
     })
     render(<LandingCard flightId={1} landingDistanceUnit="ft" />)
-    expect(await screen.findByText('20R')).toBeInTheDocument()
+    // The runway is in the heading now, not a row of its own.
+    expect(await screen.findByRole('heading', { name: /20R/ })).toBeInTheDocument()
     expect(screen.queryByText('Runway data')).not.toBeInTheDocument()
     expect(screen.queryByText('Simulator')).not.toBeInTheDocument()
     expect(screen.queryByText('Airport database')).not.toBeInTheDocument()
@@ -841,10 +842,11 @@ describe('LandingCard', () => {
     })
     render(<LandingCard flightId={1} landingDistanceUnit="ft" />)
 
-    const crabRow = await screen.findByText('Crab')
-    const pitchRow = screen.getByText('Pitch')
-    expect(crabRow.closest('dt')!.querySelector('svg')).not.toBeNull()
-    expect(pitchRow.closest('dt')!.querySelector('svg')).toBeNull()
+    // Pitch, bank and crab share a row: it is marked when any of them scored badly. A row of good figures is not.
+    const attitudeRow = await screen.findByText('Pitch · bank · crab')
+    const gForceRow = screen.getByText('G-force')
+    expect(attitudeRow.closest('dt')!.querySelector('svg')).not.toBeNull()
+    expect(gForceRow.closest('dt')!.querySelector('svg')).toBeNull()
   })
 
   it('opens the score breakdown dialog from the card header button', async () => {
