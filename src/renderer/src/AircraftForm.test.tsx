@@ -563,11 +563,11 @@ describe('AircraftForm', () => {
     const { container } = render(
       <AircraftForm initial={FULL_AIRCRAFT} onSubmit={vi.fn()} onCancel={vi.fn()} />
     )
-    expect(screen.queryByText(/double-check this against/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Check it against SimBrief/)).not.toBeInTheDocument()
 
     await user.clear(textInputs(container)[4])
     await user.type(textInputs(container)[4], 'not-a-real-id')
-    expect(screen.getByText(/double-check this against/)).toBeInTheDocument()
+    expect(screen.getByText(/Check it against SimBrief/)).toBeInTheDocument()
   })
 
   it('shows no format warning once cleared back to blank', async () => {
@@ -576,7 +576,7 @@ describe('AircraftForm', () => {
       <AircraftForm initial={FULL_AIRCRAFT} onSubmit={vi.fn()} onCancel={vi.fn()} />
     )
     await user.clear(textInputs(container)[4])
-    expect(screen.queryByText(/double-check this against/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Check it against SimBrief/)).not.toBeInTheDocument()
   })
 
   it('opens the SimBrief airframes page with the trimmed id, or null when blank', async () => {

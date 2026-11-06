@@ -178,7 +178,8 @@
       "license": "依 GNU General Public License v3.0 免費且開放原始碼發布。",
       "runSetup": "重新執行設定精靈",
       "openManual": "手冊（PDF）",
-      "manualMissing": "此版本未包含手冊。"
+      "manualMissing": "此版本未包含手冊。",
+      "credits": "註冊號查詢：adsbdb.com。飛機照片：Planespotters.net 和 airport-data.com。"
     },
     "usernameSavedToast": "SimBrief 使用者名稱已儲存。",
     "usernameAutoFilledToast": "已自動填入 SimBrief 使用者名稱：{{username}}",
@@ -301,7 +302,7 @@
       "custom": "自訂 —",
       "openInSimBrief": "在 SimBrief 中開啟",
       "usingDefault": "使用 SimBrief 預設設定檔：",
-      "noProfile": "尚未設定設定檔 — 計畫將使用 SimBrief 針對 {{icaoType}} 的預設設定檔，通常已足夠接近，但重量（進而燃油）可能會有落差。"
+      "noProfile": "未設定設定：SimBrief 使用它自己對 {{icaoType}} 的預設值，重量和燃油可能有偏差。"
     },
     "landingHistory": {
       "cardTitle": "落地紀錄",
@@ -314,7 +315,7 @@
     },
     "replaceDialog": {
       "title": "取代 {{registration}}",
-      "description": "將這架飛機的航班紀錄轉移到機隊中另一架飛機上，並將其標記為已除役 — 適用於同一實體機身更換塗裝或註冊號的情況，而非真正的除役。",
+      "description": "把這架飛機的飛行紀錄轉到機隊中的另一架，並將其除役。適用於同一機體更換塗裝或註冊號。",
       "replacementAircraft": "取代用飛機",
       "selectPlaceholder": "— 請選擇 —",
       "checkingFlightHistory": "正在檢查航班紀錄…",
@@ -349,7 +350,7 @@
     },
     "confirmRetire": {
       "title": "將 {{registration}} 除役？",
-      "description": "該飛機將移入「已除役」清單，不能再被選用於新航班。其航班紀錄仍保留在其名下 — 不會轉移給其他飛機。之後可以隨時取消除役。",
+      "description": "它會移到已除役清單，不能再用於新航班。飛行紀錄保留，之後可以恢復。",
       "confirmLabel": "將該飛機除役"
     },
     "toasts": {
@@ -368,7 +369,7 @@
     "unknownOperator": "未知航空公司",
     "icaoType": "ICAO 機型代碼",
     "icaoTypePlaceholder": "例如 A350、Boeing、B77W，或直接輸入 ICAO 代碼",
-    "icaoTypeHint": "註冊號查詢與機型資料來自 adsbdb.com（PlaneBase）。飛機照片來自 Planespotters.net 和 airport-data.com。",
+    "icaoTypeHint": "機型根據註冊號查詢。",
     "airline": "航空公司",
     "airlinePlaceholder": "例如 British Airways、BAW，或直接輸入名稱",
     "profile": "設定檔",
@@ -379,13 +380,13 @@
     "orTypeIcaoCode": "或輸入 ICAO 代碼",
     "waitingForSimBrief": "正在等待 SimBrief…",
     "createCustomAirframe": "在 SimBrief 中建立自訂機型設定檔",
-    "profileHint": "來自 SimBrief 社群機型庫的該機型即時清單（僅限 MSFS）— 選擇其一會一併填入代碼，或在你的 SimBrief 帳號中建立一個真正已儲存的設定檔。當下方未設定自訂設定檔時會使用此項。",
+    "profileHint": "來自 SimBrief 的此機型社群機體。選擇一個會填入代碼或建立已儲存的設定，在下方未設定自訂設定時使用。",
     "simbriefDefaultOption": "SimBrief 預設設定檔（{{engines}}）",
     "simbriefDefaultSelected": "SimBrief 預設 {{simbriefType}}（{{engines}}）",
     "customAirframeSaved": "自訂機型設定檔已儲存。",
     "customAirframeNotSaved": "未儲存任何機型設定檔 — 視窗在完成前已被關閉。",
     "customAirframeProfile": "自訂機型設定檔",
-    "airframeIdWarning": "已儲存的機型設定檔 ID 通常類似「123456_1582090020」 — 請在 SimBrief 的機型編輯器中核對（機隊詳細頁面有直達連結）。",
+    "airframeIdWarning": "已儲存的機體 ID 形如「123456_1582090020」。請到 SimBrief 的機體編輯器核對。",
     "openAirframesPage": "開啟機型設定檔頁面",
     "customAirframeHint": "留空則使用上方的設定檔。已在 SimBrief 中自行建立過？開啟機型設定檔頁面查找其 ID。",
     "currentAirport": "目前所在機場",
@@ -479,7 +480,7 @@
     "blankOrAuto": "留空 = 預設值，或填「auto」",
     "blankDefault": "留空 = 預設值",
     "title": "進階簽派選項",
-    "description": "每個欄位皆為選填且預設留空 — 全部保持不動將產生與目前相同的 SimBrief 請求。",
+    "description": "所有欄位皆為選填。留空則與以前完全一樣地規劃。",
     "loadFromPreviousFlight": "從歷史航班載入設定",
     "selectPastFlight": "— 選擇歷史航班 —",
     "loadedFrom": "已從 {{loadedFrom}} 載入 — 未還原起飛日期／時間，因為這一直是最值得重新設定的一項。",
@@ -551,7 +552,7 @@
   },
   "closeConfirm": {
     "title": "要關閉 WingLog 嗎？",
-    "description": "有一個航班正在進行。現在關閉 WingLog 會停止記錄，但航班會保留，下次開啟 WingLog 時可以繼續或捨棄。如果只是想讓視窗不礙事，請改為最小化。",
+    "description": "有一個航班正在進行。如果現在關閉 WingLog，追蹤會停止，但航班會保留；下次開啟時可以繼續或捨棄。想讓視窗讓開，請將其最小化。",
     "close": "關閉 WingLog",
     "keepOpen": "保持開啟"
   },
@@ -601,7 +602,7 @@
     "fly": "起飛",
     "discardPlan": "放棄計畫",
     "planOrFetchPrompt": "規劃或取得一個航班以在此查看詳細內容。",
-    "usedDefaultAirframe": "此計畫使用了 SimBrief 的預設機型設定檔，而非 {{registration}} 已儲存的設定檔（{{airframeId}}）— 已儲存的 ID 可能有誤。",
+    "usedDefaultAirframe": "此計畫使用了 SimBrief 的預設機體，而不是 {{registration}} 已儲存的設定（{{airframeId}}）。已儲存的 ID 可能有誤。",
     "planGenerated": "計畫已產生。",
     "savedAirframeTo": "已將此機型設定檔儲存到 {{registration}}。",
     "willDeleteTracked": "這將刪除目前正在追蹤的航班 {{label}}。",

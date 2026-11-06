@@ -209,6 +209,7 @@ function AboutCard(props: { appVersion: string; onRunSetup?: () => void }): Reac
     >
       <p className="text-sm font-medium text-foreground">{t('settingsView.about.simulationOnly')}</p>
       <p className="text-sm text-foreground">{t('settingsView.about.disclaimer')}</p>
+      <p className="text-xs text-muted-foreground">{t('settingsView.about.credits')}</p>
       <p className="text-xs text-muted-foreground">
         {t('settingsView.about.license')}{' '}
         <button

@@ -32,7 +32,7 @@ describe('CloseConfirm', () => {
     render(<CloseConfirm />)
     ask()
     expect(await screen.findByRole('alertdialog', { name: 'Close WingLog?' })).toBeInTheDocument()
-    expect(screen.getByText(/the flight is kept and you can resume or discard it/)).toBeInTheDocument()
+    expect(screen.getByText(/the flight is kept; resume or discard it/)).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Close WingLog' }))
     expect(api.closeConfirmAnswer).toHaveBeenCalledWith(true)
     expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()

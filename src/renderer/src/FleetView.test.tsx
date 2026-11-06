@@ -463,7 +463,7 @@ describe('FleetView', () => {
       await user.click(await screen.findByRole('button', { name: 'Retire' }))
 
       expect(await screen.findByText('Retire G-RET?')).toBeInTheDocument()
-      expect(screen.getByText(/flight history stays on it/)).toBeInTheDocument()
+      expect(screen.getByText(/Its history stays/)).toBeInTheDocument()
       await user.click(screen.getByRole('button', { name: 'Retire aircraft' }))
 
       await waitFor(() => expect(winglog.aircraftRetire).toHaveBeenCalledWith(4))
@@ -1002,7 +1002,9 @@ describe('FleetView', () => {
       render(<FleetView onOpenFlightInLogbook={vi.fn()} initialAircraftId={1} />)
       // "C172" also appears in the page's own "G-ONE — C172" header, so match the
       // fallback paragraph specifically rather than a bare /C172/ (ambiguous).
-      expect(await screen.findByText(/No profile set — plans fall back .* C172/)).toBeInTheDocument()
+      expect(
+        await screen.findByText(/No profile set: SimBrief plans with its own default for C172/)
+      ).toBeInTheDocument()
     })
   })
 

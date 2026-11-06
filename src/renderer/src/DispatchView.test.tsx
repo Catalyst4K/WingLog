@@ -540,7 +540,7 @@ describe('DispatchView', () => {
 
       await waitFor(() =>
         expect(toast.warning).toHaveBeenCalledWith(
-          "This plan used SimBrief's default airframe, not G-ABCD's saved profile (SAVED1) — the saved ID may be wrong."
+          'This plan used SimBrief’s default airframe, not G-ABCD’s saved profile (SAVED1). The saved ID may be wrong.'
         )
       )
     })

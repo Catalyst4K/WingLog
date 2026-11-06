@@ -185,7 +185,8 @@
       "license": "Logiciel libre et open source sous licence GNU General Public License v3.0.",
       "runSetup": "Relancer la configuration",
       "openManual": "Manuel (PDF)",
-      "manualMissing": "Le manuel n'est pas inclus dans cette version."
+      "manualMissing": "Le manuel n'est pas inclus dans cette version.",
+      "credits": "Recherche d’immatriculation : adsbdb.com. Photos d’appareils : Planespotters.net et airport-data.com."
     },
     "usernameSavedToast": "Nom d'utilisateur SimBrief enregistré.",
     "usernameAutoFilledToast": "Nom d'utilisateur SimBrief rempli automatiquement : {{username}}",
@@ -308,7 +309,7 @@
       "custom": "Personnalisé —",
       "openInSimBrief": "Ouvrir dans SimBrief",
       "usingDefault": "Utilise la valeur par défaut de SimBrief :",
-      "noProfile": "Aucun profil défini — les plans utilisent la valeur par défaut de SimBrief pour {{icaoType}}, généralement suffisante mais pouvant différer sur les masses (et donc le carburant)."
+      "noProfile": "Aucun profil défini : SimBrief planifie avec son propre réglage par défaut pour {{icaoType}}, qui peut s’écarter sur les masses et le carburant."
     },
     "landingHistory": {
       "cardTitle": "Historique des atterrissages",
@@ -321,7 +322,7 @@
     },
     "replaceDialog": {
       "title": "Remplacer {{registration}}",
-      "description": "Transfère l'historique de vol de cet appareil vers un autre appareil de la flotte et le marque comme retiré — pour un changement de livrée ou d'immatriculation sur la même cellule physique, pas un véritable retrait.",
+      "description": "Transfère l’historique de vols de cet appareil vers un autre appareil de la flotte et le retire. Pour un changement de livrée ou d’immatriculation sur le même appareil.",
       "replacementAircraft": "Appareil de remplacement",
       "selectPlaceholder": "— sélectionner —",
       "checkingFlightHistory": "Vérification de l'historique de vol…",
@@ -357,7 +358,7 @@
     },
     "confirmRetire": {
       "title": "Retirer {{registration}} ?",
-      "description": "Il passera dans la liste des appareils retirés et ne pourra plus être choisi pour de nouveaux vols. Son historique de vol reste sur lui — rien n'est transféré vers un autre appareil. Vous pourrez le réactiver plus tard.",
+      "description": "Il passe dans la liste des appareils retirés et ne peut plus être choisi pour de nouveaux vols. Son historique reste, et vous pourrez le réactiver plus tard.",
       "confirmLabel": "Retirer l'appareil"
     },
     "toasts": {
@@ -376,7 +377,7 @@
     "unknownOperator": "compagnie inconnue",
     "icaoType": "Type OACI",
     "icaoTypePlaceholder": "ex. A350, Boeing, B77W, ou saisissez un code OACI",
-    "icaoTypeHint": "Recherche d'immatriculation et données de type d'appareil via adsbdb.com (PlaneBase). Photos d'avions via Planespotters.net et airport-data.com.",
+    "icaoTypeHint": "Le type est recherché à partir de l’immatriculation.",
     "airline": "Compagnie",
     "airlinePlaceholder": "ex. British Airways, BAW, ou saisissez un nom",
     "profile": "Profil",
@@ -387,13 +388,13 @@
     "orTypeIcaoCode": "ou saisissez le code OACI",
     "waitingForSimBrief": "En attente de SimBrief…",
     "createCustomAirframe": "Créer une cellule personnalisée dans SimBrief",
-    "profileHint": "Liste en direct des cellules communautaires de SimBrief pour ce type (MSFS uniquement) — en choisir une remplit le code à côté, ou crée un profil réellement enregistré dans votre compte SimBrief. Utilisé chaque fois qu'aucun profil personnalisé n'est défini ci-dessous.",
+    "profileHint": "Appareils de la communauté pour ce type, depuis SimBrief. En choisir un remplit le code ou crée un profil enregistré, utilisé quand aucun profil personnalisé n’est défini plus bas.",
     "simbriefDefaultOption": "Valeur par défaut SimBrief ({{engines}})",
     "simbriefDefaultSelected": "Valeur par défaut SimBrief {{simbriefType}} ({{engines}})",
     "customAirframeSaved": "Cellule personnalisée enregistrée.",
     "customAirframeNotSaved": "Aucune cellule enregistrée — la fenêtre a été fermée avant la fin.",
     "customAirframeProfile": "Profil de cellule personnalisée",
-    "airframeIdWarning": "Les ID de cellule enregistrés ressemblent normalement à « 123456_1582090020 » — vérifiez-le dans l'éditeur de cellules de SimBrief (voir la page de détail de la flotte pour un lien direct).",
+    "airframeIdWarning": "Les identifiants d’appareil enregistrés ressemblent à « 123456_1582090020 ». Vérifiez-le dans l’éditeur d’appareils de SimBrief.",
     "openAirframesPage": "Ouvrir la page des cellules",
     "customAirframeHint": "Laissez vide pour utiliser le profil ci-dessus. Vous en avez déjà créé un vous-même dans SimBrief ? Ouvrez la page des cellules pour trouver son id.",
     "currentAirport": "Aéroport actuel",
@@ -487,7 +488,7 @@
     "blankOrAuto": "vide = valeur par défaut, ou « auto »",
     "blankDefault": "vide = valeur par défaut",
     "title": "Options de dispatch avancées",
-    "description": "Chaque champ est facultatif et vide par défaut — les laisser tous inchangés produit la même requête SimBrief qu'aujourd'hui.",
+    "description": "Tous les champs sont facultatifs. Laissez-les vides pour planifier comme avant.",
     "loadFromPreviousFlight": "Charger les réglages d'un vol précédent",
     "selectPastFlight": "— sélectionner un vol précédent —",
     "loadedFrom": "Chargé depuis {{loadedFrom}} — la date/heure de départ n'a pas été restaurée, car c'est toujours la seule chose qu'il vaut mieux redéfinir.",
@@ -559,7 +560,7 @@
   },
   "closeConfirm": {
     "title": "Fermer WingLog ?",
-    "description": "Un vol est en cours. Si vous fermez WingLog maintenant, le suivi s’arrête, mais le vol est conservé et vous pourrez le reprendre ou l’abandonner à la prochaine ouverture de WingLog. Pour écarter la fenêtre, réduisez-la plutôt.",
+    "description": "Un vol est en cours. Si vous fermez WingLog, le suivi s’arrête mais le vol est conservé ; reprenez-le ou abandonnez-le à la réouverture. Pour écarter la fenêtre, réduisez-la.",
     "close": "Fermer WingLog",
     "keepOpen": "Garder ouvert"
   },
@@ -609,7 +610,7 @@
     "fly": "Voler",
     "discardPlan": "Abandonner le plan",
     "planOrFetchPrompt": "Planifiez ou récupérez un vol pour en voir les détails ici.",
-    "usedDefaultAirframe": "Ce plan utilisait la valeur par défaut de SimBrief, pas le profil enregistré de {{registration}} ({{airframeId}}) — l'ID enregistré est peut-être erroné.",
+    "usedDefaultAirframe": "Ce plan a utilisé l’appareil par défaut de SimBrief, pas le profil enregistré de {{registration}} ({{airframeId}}). L’identifiant enregistré est peut-être erroné.",
     "planGenerated": "Plan généré.",
     "savedAirframeTo": "Cette cellule a été enregistrée sur {{registration}}.",
     "willDeleteTracked": "Cela supprimera le vol actuellement suivi, {{label}}.",

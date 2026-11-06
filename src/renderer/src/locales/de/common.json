@@ -183,7 +183,8 @@
       "license": "Frei und quelloffen unter der GNU General Public License v3.0.",
       "runSetup": "Einrichtung erneut ausführen",
       "openManual": "Handbuch (PDF)",
-      "manualMissing": "Das Handbuch ist in diesem Build nicht enthalten."
+      "manualMissing": "Das Handbuch ist in diesem Build nicht enthalten.",
+      "credits": "Registrierungssuche: adsbdb.com. Flugzeugfotos: Planespotters.net und airport-data.com."
     },
     "usernameSavedToast": "SimBrief-Benutzername gespeichert.",
     "usernameAutoFilledToast": "SimBrief-Benutzername automatisch ausgefüllt: {{username}}",
@@ -306,7 +307,7 @@
       "custom": "Benutzerdefiniert —",
       "openInSimBrief": "In SimBrief öffnen",
       "usingDefault": "Verwendet SimBrief-Standard:",
-      "noProfile": "Kein Profil festgelegt — Pläne greifen auf SimBriefs eigenen Standard für {{icaoType}} zurück, was meist ausreicht, aber bei Gewichten (und damit Treibstoff) abweichen kann."
+      "noProfile": "Kein Profil gesetzt: SimBrief plant mit seinem eigenen Standard für {{icaoType}}, der bei Gewichten und Treibstoff abweichen kann."
     },
     "landingHistory": {
       "cardTitle": "Landungsverlauf",
@@ -319,7 +320,7 @@
     },
     "replaceDialog": {
       "title": "{{registration}} ersetzen",
-      "description": "Überträgt die Flughistorie dieses Flugzeugs auf ein anderes Flottenflugzeug und markiert es als ausgemustert — für einen Lackierungs- oder Kennzeichenwechsel an derselben physischen Zelle, keine echte Ausmusterung.",
+      "description": "Überträgt die Flughistorie dieses Flugzeugs auf ein anderes Flottenflugzeug und setzt es außer Dienst. Für eine neue Lackierung oder Registrierung desselben Flugzeugs.",
       "replacementAircraft": "Ersatzflugzeug",
       "selectPlaceholder": "— auswählen —",
       "checkingFlightHistory": "Flughistorie wird geprüft…",
@@ -355,7 +356,7 @@
     },
     "confirmRetire": {
       "title": "{{registration}} ausmustern?",
-      "description": "Es wird in die Liste der ausgemusterten Flugzeuge verschoben und kann nicht mehr für neue Flüge ausgewählt werden. Seine Flughistorie bleibt bei ihm — nichts wird auf ein anderes Flugzeug übertragen. Du kannst es später reaktivieren.",
+      "description": "Es kommt in die Liste der ausgemusterten Flugzeuge und kann nicht mehr für neue Flüge gewählt werden. Die Historie bleibt, und du kannst es später reaktivieren.",
       "confirmLabel": "Flugzeug ausmustern"
     },
     "toasts": {
@@ -374,7 +375,7 @@
     "unknownOperator": "unbekannte Fluggesellschaft",
     "icaoType": "ICAO-Typ",
     "icaoTypePlaceholder": "z. B. A350, Boeing, B77W, oder einen ICAO-Code eingeben",
-    "icaoTypeHint": "Kennzeichen-Abfrage und Flugzeugtyp-Daten über adsbdb.com (PlaneBase). Flugzeugfotos via Planespotters.net und airport-data.com.",
+    "icaoTypeHint": "Der Typ wird anhand der Registrierung nachgeschlagen.",
     "airline": "Airline",
     "airlinePlaceholder": "z. B. British Airways, BAW, oder einen Namen eingeben",
     "profile": "Profil",
@@ -385,13 +386,13 @@
     "orTypeIcaoCode": "oder ICAO-Code eingeben",
     "waitingForSimBrief": "Warte auf SimBrief…",
     "createCustomAirframe": "Benutzerdefinierte Zelle in SimBrief erstellen",
-    "profileHint": "Live-Liste aus SimBriefs eigenen Community-Zellen für diesen Typ (nur MSFS) — eine Auswahl füllt den Code daneben aus oder erstellt ein echtes, gespeichertes Profil in deinem SimBrief-Konto. Wird verwendet, wenn unten kein benutzerdefiniertes Profil festgelegt ist.",
+    "profileHint": "Community-Flugzeuge für diesen Typ von SimBrief. Die Auswahl füllt den Code aus oder legt ein gespeichertes Profil an und wird verwendet, wenn unten kein eigenes Profil gesetzt ist.",
     "simbriefDefaultOption": "SimBrief-Standard ({{engines}})",
     "simbriefDefaultSelected": "SimBrief-Standard {{simbriefType}} ({{engines}})",
     "customAirframeSaved": "Benutzerdefinierte Zelle gespeichert.",
     "customAirframeNotSaved": "Keine Zelle gespeichert — das Fenster wurde vor dem Abschluss geschlossen.",
     "customAirframeProfile": "Benutzerdefiniertes Zellenprofil",
-    "airframeIdWarning": "Gespeicherte Zellen-IDs sehen normalerweise wie „123456_1582090020“ aus — vergleiche dies mit SimBriefs Zellen-Editor (siehe die Fleet-Detailseite für einen direkten Link).",
+    "airframeIdWarning": "Gespeicherte Flugzeug-IDs sehen so aus: „123456_1582090020“. Prüfe sie im Flugzeug-Editor von SimBrief.",
     "openAirframesPage": "Zellen-Seite öffnen",
     "customAirframeHint": "Leer lassen, um das obige Profil zu verwenden. Schon selbst eins in SimBrief erstellt? Öffne die Zellen-Seite, um die ID zu finden.",
     "currentAirport": "Aktueller Flughafen",
@@ -485,7 +486,7 @@
     "blankOrAuto": "leer = Standard, oder „auto“",
     "blankDefault": "leer = Standard",
     "title": "Erweiterte Flugplanungsoptionen",
-    "description": "Jedes Feld ist optional und standardmäßig leer — lässt du alle unverändert, entsteht dieselbe SimBrief-Anfrage wie heute.",
+    "description": "Jedes Feld ist optional. Lass sie leer, um genau wie bisher zu planen.",
     "loadFromPreviousFlight": "Einstellungen aus einem früheren Flug laden",
     "selectPastFlight": "— vergangenen Flug auswählen —",
     "loadedFrom": "Geladen von {{loadedFrom}} — Abflugdatum/-zeit wurde nicht wiederhergestellt, da es immer das eine ist, was man frisch setzen sollte.",
@@ -557,7 +558,7 @@
   },
   "closeConfirm": {
     "title": "WingLog schließen?",
-    "description": "Ein Flug läuft. Wenn du WingLog jetzt schließt, endet die Aufzeichnung, der Flug bleibt aber erhalten, und du kannst ihn beim nächsten Start fortsetzen oder verwerfen. Minimiere das Fenster stattdessen, wenn es nur nicht stören soll.",
+    "description": "Ein Flug läuft. Wenn du WingLog schließt, stoppt das Tracking, der Flug bleibt aber erhalten; setze ihn beim nächsten Start fort oder verwirf ihn. Um das Fenster aus dem Weg zu haben, minimiere es.",
     "close": "WingLog schließen",
     "keepOpen": "Geöffnet lassen"
   },
@@ -607,7 +608,7 @@
     "fly": "Fliegen",
     "discardPlan": "Plan verwerfen",
     "planOrFetchPrompt": "Plane oder rufe einen Flug ab, um hier die Details zu sehen.",
-    "usedDefaultAirframe": "Dieser Plan verwendete SimBriefs Standard-Zelle, nicht das gespeicherte Profil von {{registration}} ({{airframeId}}) — die gespeicherte ID könnte falsch sein.",
+    "usedDefaultAirframe": "Dieser Plan nutzte das Standardflugzeug von SimBrief, nicht das gespeicherte Profil von {{registration}} ({{airframeId}}). Die gespeicherte ID ist möglicherweise falsch.",
     "planGenerated": "Plan erstellt.",
     "savedAirframeTo": "Diese Zelle bei {{registration}} gespeichert.",
     "willDeleteTracked": "Dies löscht den gerade verfolgten Flug {{label}}.",

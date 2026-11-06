@@ -185,7 +185,8 @@
       "license": "Libero e open source sotto licenza GNU General Public License v3.0.",
       "runSetup": "Ripeti la configurazione",
       "openManual": "Manuale (PDF)",
-      "manualMissing": "Il manuale non è incluso in questa versione."
+      "manualMissing": "Il manuale non è incluso in questa versione.",
+      "credits": "Ricerca delle immatricolazioni: adsbdb.com. Foto dei velivoli: Planespotters.net e airport-data.com."
     },
     "usernameSavedToast": "Nome utente SimBrief salvato.",
     "usernameAutoFilledToast": "Nome utente SimBrief compilato automaticamente: {{username}}",
@@ -308,7 +309,7 @@
       "custom": "Personalizzato —",
       "openInSimBrief": "Apri in SimBrief",
       "usingDefault": "Utilizza il valore predefinito di SimBrief:",
-      "noProfile": "Nessun profilo impostato — i piani ricadono sul valore predefinito di SimBrief per {{icaoType}}, di solito sufficiente ma può differire sui pesi (e quindi sul carburante)."
+      "noProfile": "Nessun profilo: SimBrief pianifica con il suo valore predefinito per {{icaoType}}, che può discostarsi su pesi e carburante."
     },
     "landingHistory": {
       "cardTitle": "Cronologia atterraggi",
@@ -321,7 +322,7 @@
     },
     "replaceDialog": {
       "title": "Sostituisci {{registration}}",
-      "description": "Trasferisce la cronologia voli di questo aeromobile su un altro aeromobile della flotta e lo segna come ritirato — per un cambio di livrea o immatricolazione sulla stessa cellula fisica, non un ritiro vero e proprio.",
+      "description": "Sposta la cronologia dei voli di questo velivolo su un altro della flotta e lo ritira. Per un cambio di livrea o di immatricolazione sullo stesso velivolo.",
       "replacementAircraft": "Aeromobile sostitutivo",
       "selectPlaceholder": "— seleziona —",
       "checkingFlightHistory": "Controllo della cronologia voli…",
@@ -357,7 +358,7 @@
     },
     "confirmRetire": {
       "title": "Ritirare {{registration}}?",
-      "description": "Verrà spostato nell'elenco dei ritirati e non potrà più essere scelto per nuovi voli. La sua cronologia voli resta su di esso — nulla viene trasferito su un altro aeromobile. Potrai riattivarlo in seguito.",
+      "description": "Passa all’elenco dei ritirati e non può più essere scelto per nuovi voli. La cronologia resta e puoi riattivarlo in seguito.",
       "confirmLabel": "Ritira aeromobile"
     },
     "toasts": {
@@ -376,7 +377,7 @@
     "unknownOperator": "compagnia sconosciuta",
     "icaoType": "Tipo ICAO",
     "icaoTypePlaceholder": "es. A350, Boeing, B77W, o digita un codice ICAO",
-    "icaoTypeHint": "Ricerca immatricolazione e dati sul tipo di aeromobile tramite adsbdb.com (PlaneBase). Foto degli aeromobili tramite Planespotters.net e airport-data.com.",
+    "icaoTypeHint": "Il tipo viene cercato in base all’immatricolazione.",
     "airline": "Compagnia",
     "airlinePlaceholder": "es. British Airways, BAW, o digita un nome",
     "profile": "Profilo",
@@ -387,13 +388,13 @@
     "orTypeIcaoCode": "oppure digita il codice ICAO",
     "waitingForSimBrief": "In attesa di SimBrief…",
     "createCustomAirframe": "Crea una cellula personalizzata in SimBrief",
-    "profileHint": "Elenco in tempo reale delle cellule della community di SimBrief per questo tipo (solo MSFS) — sceglierne una compila il codice accanto, oppure crea un profilo realmente salvato nel tuo account SimBrief. Usato ogni volta che non è impostato un profilo personalizzato qui sotto.",
+    "profileHint": "Velivoli della community per questo tipo, da SimBrief. Sceglierne uno compila il codice o crea un profilo salvato, usato quando sotto non è impostato un profilo personalizzato.",
     "simbriefDefaultOption": "Predefinito SimBrief ({{engines}})",
     "simbriefDefaultSelected": "Predefinito SimBrief {{simbriefType}} ({{engines}})",
     "customAirframeSaved": "Cellula personalizzata salvata.",
     "customAirframeNotSaved": "Nessuna cellula salvata — la finestra è stata chiusa prima del completamento.",
     "customAirframeProfile": "Profilo cellula personalizzata",
-    "airframeIdWarning": "Gli ID cellula salvati di solito hanno l'aspetto \"123456_1582090020\" — verificalo nell'editor cellule di SimBrief (vedi la pagina di dettaglio della Flotta per un link diretto).",
+    "airframeIdWarning": "Gli ID dei velivoli salvati somigliano a «123456_1582090020». Controllalo nell’editor dei velivoli di SimBrief.",
     "openAirframesPage": "Apri la pagina delle cellule",
     "customAirframeHint": "Lascia vuoto per usare il profilo qui sopra. Ne hai già creata una tu stesso in SimBrief? Apri la pagina delle cellule per trovarne l'id.",
     "currentAirport": "Aeroporto attuale",
@@ -487,7 +488,7 @@
     "blankOrAuto": "vuoto = predefinito, oppure \"auto\"",
     "blankDefault": "vuoto = predefinito",
     "title": "Opzioni di dispatch avanzate",
-    "description": "Ogni campo è facoltativo e vuoto per impostazione predefinita — lasciandoli tutti invariati si ottiene la stessa richiesta a SimBrief di oggi.",
+    "description": "Ogni campo è facoltativo. Lasciali vuoti per pianificare come prima.",
     "loadFromPreviousFlight": "Carica impostazioni da un volo precedente",
     "selectPastFlight": "— seleziona un volo precedente —",
     "loadedFrom": "Caricato da {{loadedFrom}} — data/ora di partenza non ripristinata, poiché è sempre l'unica cosa che conviene impostare di nuovo.",
@@ -559,7 +560,7 @@
   },
   "closeConfirm": {
     "title": "Chiudere WingLog?",
-    "description": "Un volo è in corso. Se chiudi WingLog ora, il tracciamento si interrompe, ma il volo viene conservato e potrai riprenderlo o scartarlo alla prossima apertura di WingLog. Per togliere di mezzo la finestra, riducila a icona.",
+    "description": "Un volo è in corso. Se chiudi WingLog il tracciamento si ferma ma il volo viene conservato; riprendilo o scartalo alla riapertura. Per togliere la finestra di mezzo, riducila a icona.",
     "close": "Chiudi WingLog",
     "keepOpen": "Lascia aperto"
   },
@@ -609,7 +610,7 @@
     "fly": "Vola",
     "discardPlan": "Scarta piano",
     "planOrFetchPrompt": "Pianifica o recupera un volo per vederne qui i dettagli.",
-    "usedDefaultAirframe": "Questo piano ha usato il valore predefinito di SimBrief, non il profilo salvato di {{registration}} ({{airframeId}}) — l'ID salvato potrebbe essere errato.",
+    "usedDefaultAirframe": "Questo piano ha usato il velivolo predefinito di SimBrief, non il profilo salvato di {{registration}} ({{airframeId}}). L’ID salvato potrebbe essere sbagliato.",
     "planGenerated": "Piano generato.",
     "savedAirframeTo": "Questa cellula è stata salvata su {{registration}}.",
     "willDeleteTracked": "Questo eliminerà il volo attualmente tracciato, {{label}}.",
