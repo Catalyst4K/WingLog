@@ -2,7 +2,6 @@
 
 import { winglogApi } from './data/winglog-api'
 import { useEffect, useState } from 'react'
-import { Plus } from 'lucide-react'
 import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
 import { isRetired } from '@shared/aircraft'
@@ -299,8 +298,8 @@ export function FleetView(props: {
   )
 
   const newAircraftButton = (
-    <Button type="button" onClick={() => setView({ kind: 'new' })}>
-      <Plus />
+    // The filled button as on the canvas (r3-fleet-list), like Fly and Finish and save: the words, semibold, no icon.
+    <Button type="button" className="font-semibold" onClick={() => setView({ kind: 'new' })}>
       {t('fleetView.newAircraft')}
     </Button>
   )
