@@ -106,6 +106,19 @@ describe('wireFlightNavdata', () => {
     expect(calls).toContain('taxi EGLL')
   })
 
+  it('fetches the taxi networks again when tracking starts, as the flight is loaded with its scenery by then', async () => {
+    const { db, aircraftId, sim, calls, provider } = setup()
+    sim.status = { state: 'connected', simConnectVersion: '12.2' }
+    createFlight(db, { aircraftId, depIcao: 'ZSPD', arrIcao: 'EGLL' })
+    const controller = tracking()
+    const fetcher = wireFlightNavdata({ db, sim, trackingController: controller as never, provider })
+    await fetcher.idle()
+    calls.length = 0
+    controller.emit('started')
+    await fetcher.idle()
+    expect(calls).toEqual(['taxi EGLL', 'taxi ZSPD'])
+  })
+
   it('fetches at start-up for a flight planned before the app was last closed, if the sim is up', async () => {
     const { db, aircraftId, sim, calls, provider } = setup()
     sim.status = { state: 'connected', simConnectVersion: '12.2' }
