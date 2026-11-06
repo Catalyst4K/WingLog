@@ -631,6 +631,19 @@ describe('LogbookView list', () => {
     expect(screen.queryByText(/ZZZZ/)).not.toBeInTheDocument()
   })
 
+  it('lists the flights flat: the figures in the mono face, taller rows, quiet column headings', async () => {
+    setWinglog({
+      logbookListCompletedFlights: vi.fn().mockResolvedValue([makeFlight({ id: 1, flightNumber: 'FLAT1' })])
+    })
+    render(<LogbookView weightUnit="kg" landingDistanceUnit="ft" />)
+    const row = (await screen.findByText('FLAT1')).closest('tr') as HTMLElement
+    const cells = within(row).getAllByRole('cell')
+    expect(cells[0]).toHaveClass('font-mono')
+    expect(cells[4]).toHaveClass('font-mono')
+    expect(cells[5]).toHaveClass('font-mono')
+    expect(row.closest('table')?.parentElement?.parentElement?.className).toContain('[&_tbody_tr]:h-11')
+  })
+
   it('lights a flight in the list only for its worst firm or hard touchdown', async () => {
     setWinglog({
       logbookListCompletedFlights: vi

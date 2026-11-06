@@ -87,7 +87,9 @@ export function FlightsTable(props: {
     return <p className="text-sm text-muted-foreground">{t('logbookView.noCompletedFlights')}</p>
   }
   return (
-    <div className="flex flex-col gap-6">
+    // v2: a flat list, not a card: quiet column headings, hairlines between taller rows, the figures in the mono face, and a row
+    // that lights up under the pointer (winglog-backend docs/plans/v2-design.md, "Logbook list").
+    <div className="flex flex-col gap-6 [&_tbody_tr]:h-11 [&_tbody_tr:hover]:bg-card [&_th]:text-xs [&_th]:font-normal [&_th]:text-muted-foreground">
       <Table>
         <TableHeader>
           <TableRow>
@@ -109,7 +111,7 @@ export function FlightsTable(props: {
             const landingCount = props.landingCountFor(f.id)
             return (
               <TableRow key={f.id} onClick={() => props.onOpen(f.id)} className="cursor-pointer">
-                <TableCell>{formatDate(f.actualOutUtc)}</TableCell>
+                <TableCell className="font-mono text-sm">{formatDate(f.actualOutUtc)}</TableCell>
                 <TableCell>
                   <span className="inline-flex items-center gap-1.5">
                     {f.flightNumber ?? '—'}
@@ -133,8 +135,10 @@ export function FlightsTable(props: {
                   {displayIcao(f.depIcao)} → {displayIcao(f.arrIcao)}
                 </TableCell>
                 <TableCell>{props.registrationFor(f)}</TableCell>
-                <TableCell>{formatMinutes(f.blockMinutes)}</TableCell>
-                <TableCell>{formatWeight(f.fuelBurnKg, props.weightUnit)}</TableCell>
+                <TableCell className="font-mono text-sm">{formatMinutes(f.blockMinutes)}</TableCell>
+                <TableCell className="font-mono text-sm">
+                  {formatWeight(f.fuelBurnKg, props.weightUnit)}
+                </TableCell>
                 <TableCell className="text-center">
                   <span className="inline-flex items-center gap-1.5">
                     <LandingScoreBadge score={props.scoreFor(f.id)} />
