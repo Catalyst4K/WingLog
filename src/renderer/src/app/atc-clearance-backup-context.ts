@@ -1,3 +1,5 @@
+/** The context carrying the procedure-update question that is waiting on the BeyondATC page after its pop-up closed. */
+
 import { createContext } from 'react'
 import type { ProcedureSelection } from '@shared/ipc'
 import type { PendingAtcClearance } from './atc-clearance'
