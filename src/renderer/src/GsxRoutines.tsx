@@ -5,14 +5,12 @@
 
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Pencil, Plus } from 'lucide-react'
 import type { GsxRoutine, GsxRoutineService } from '@shared/gsx-routines'
 import type {
   GsxRoutineCancelChoice,
   GsxRoutineProgress,
   GsxRoutineServiceProgress
 } from '@shared/gsx-routine-progress'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { winglogApi } from './data/winglog-api'
 import { GsxRoutineEditor } from './GsxRoutineEditor'
@@ -23,13 +21,13 @@ import { asyncHandler, runAsync } from './report-error'
 
 const NO_ROUTINES: GsxRoutine[] = []
 
-/** The look of each service in the progress list. */
-const CHIP_VARIANT: Record<GsxRoutineServiceProgress, 'default' | 'secondary' | 'outline'> = {
-  waiting: 'outline',
-  asking: 'secondary',
-  running: 'secondary',
-  done: 'default',
-  skipped: 'outline'
+/** The light of each service in the progress list: filled green when done, a ring while it is being asked for or under way, off otherwise. */
+const STEP_DOT: Record<GsxRoutineServiceProgress, string> = {
+  waiting: 'bg-light-off',
+  asking: 'box-border border-2 border-light-green',
+  running: 'box-border border-2 border-light-green',
+  done: 'bg-light-green',
+  skipped: 'bg-light-off'
 }
 
 /**
@@ -92,28 +90,27 @@ function RoutineProgress(props: {
   const isEnding = progress.note.code === 'ending'
   return (
     <div
-      className="flex flex-col gap-2 rounded-md border border-border bg-muted/40 p-3"
+      className="mt-4 flex flex-col gap-2 border-t border-border pt-3.5"
       data-testid="gsx-routine-progress"
     >
-      <div className="flex items-baseline justify-between gap-2">
-        <span className="text-sm font-medium text-foreground">
+      <div className="flex items-baseline justify-between gap-3">
+        <span className="font-semibold text-foreground">
           {routineName(t, { id: progress.routineId, name: progress.routineName })}
         </span>
-        <span className="text-xs text-muted-foreground">
+        <span className="text-[13px] text-muted-foreground">
           {t('gsxRoutines.stageOf', { stage: progress.stage, count: progress.stageCount })}
         </span>
       </div>
-      <ul className="flex flex-wrap gap-1.5">
+      <ul className="m-0 flex list-none flex-wrap gap-x-[18px] gap-y-1.5 p-0">
         {progress.services.map(({ service, progress: state }) => (
-          <li key={service}>
-            <Badge variant={CHIP_VARIANT[state]} className="h-auto gap-1 py-0.5 text-[11px] font-normal">
-              {serviceLabel(t, service)}
-              <span className="text-[10px] opacity-80">{t(`gsxRoutines.state.${state}`)}</span>
-            </Badge>
+          <li key={service} className="flex items-center gap-[7px] text-sm">
+            <span aria-hidden="true" className={`size-[9px] shrink-0 rounded-full ${STEP_DOT[state]}`} />
+            {serviceLabel(t, service)}
+            <span className="text-muted-foreground">{t(`gsxRoutines.state.${state}`)}</span>
           </li>
         ))}
       </ul>
-      <p role="status" aria-live="polite" className="text-xs text-muted-foreground">
+      <p role="status" aria-live="polite" className="m-0 text-sm text-muted-foreground">
         {describeNote(t, progress.note)}
       </p>
       {progress.state === 'running' && !isEnding && isAsking && (
@@ -131,7 +128,6 @@ function RoutineProgress(props: {
           <Button
             type="button"
             variant="outline"
-            size="sm"
             onClick={() => (underWay.length > 0 ? setIsAsking(true) : props.onCancel())}
           >
             {t('gsxRoutines.cancel')}
@@ -163,25 +159,46 @@ export function GsxRoutines(props: { canEdit: boolean }): React.JSX.Element {
   }, [])
 
   return (
-    <div className="flex flex-col gap-1.5">
-      <p className="text-sm font-medium text-foreground">{t('gsxRoutines.title')}</p>
-      {progress && (
-        <RoutineProgress
-          progress={progress}
-          onCancel={(choice) =>
-            asyncHandler('GsxRoutines gsx.cancelRoutine', () =>
-              live.command('gsx.cancelRoutine', ...(choice === undefined ? [] : [choice]))
-            )()
-          }
-        />
-      )}
-      <ul className="flex flex-wrap items-center gap-1.5" aria-label={t('gsxRoutines.title')}>
+    <section
+      className="flex flex-col rounded-md bg-card px-5 pt-4 pb-[18px]"
+      aria-label={t('gsxRoutines.title')}
+    >
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <h3 className="m-0 text-[17px] font-semibold text-foreground">{t('gsxRoutines.title')}</h3>
+        {props.canEdit && (
+          <span className="flex gap-1">
+            <Button
+              type="button"
+              variant="ghost"
+              className="text-muted-foreground"
+              onClick={() =>
+                setEditing({
+                  routine: blankRoutine(newRoutineId(), t('gsxRoutines.newName')),
+                  isStored: false
+                })
+              }
+            >
+              {t('gsxRoutines.new')}
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              className={isEditMode ? 'bg-muted text-foreground' : 'text-muted-foreground'}
+              aria-pressed={isEditMode}
+              onClick={() => setIsEditMode(!isEditMode)}
+            >
+              {t('gsxRoutines.editButton')}
+            </Button>
+          </span>
+        )}
+      </div>
+      <ul className="m-0 flex list-none flex-wrap items-center gap-2 p-0" aria-label={t('gsxRoutines.title')}>
         {routines.map((routine) => (
           <li key={routine.id}>
             <Button
               type="button"
               variant="outline"
-              size="sm"
+              className={`h-12 px-4 ${progress?.routineId === routine.id ? 'border-foreground font-semibold' : ''}`}
               disabled={isRunning && !isEditMode}
               aria-label={isEditMode ? t('gsxRoutines.edit', { name: routineName(t, routine) }) : undefined}
               onClick={
@@ -196,44 +213,21 @@ export function GsxRoutines(props: { canEdit: boolean }): React.JSX.Element {
                     )
               }
             >
-              {isEditMode && <Pencil aria-hidden="true" className="size-3.5" />}
               {routineName(t, routine)}
             </Button>
           </li>
         ))}
-        {props.canEdit && (
-          <>
-            <li className="ml-auto">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() =>
-                  setEditing({
-                    routine: blankRoutine(newRoutineId(), t('gsxRoutines.newName')),
-                    isStored: false
-                  })
-                }
-              >
-                <Plus aria-hidden="true" className="size-3.5" />
-                {t('gsxRoutines.new')}
-              </Button>
-            </li>
-            <li>
-              <Button
-                type="button"
-                variant={isEditMode ? 'default' : 'outline'}
-                size="sm"
-                aria-pressed={isEditMode}
-                onClick={() => setIsEditMode(!isEditMode)}
-              >
-                <Pencil aria-hidden="true" className="size-3.5" />
-                {t('gsxRoutines.editButton')}
-              </Button>
-            </li>
-          </>
-        )}
       </ul>
+      {progress && (
+        <RoutineProgress
+          progress={progress}
+          onCancel={(choice) =>
+            asyncHandler('GsxRoutines gsx.cancelRoutine', () =>
+              live.command('gsx.cancelRoutine', ...(choice === undefined ? [] : [choice]))
+            )()
+          }
+        />
+      )}
       {editing && (
         <GsxRoutineEditor
           routine={editing.routine}
@@ -242,6 +236,6 @@ export function GsxRoutines(props: { canEdit: boolean }): React.JSX.Element {
           onChanged={setRoutines}
         />
       )}
-    </div>
+    </section>
   )
 }

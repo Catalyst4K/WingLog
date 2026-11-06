@@ -849,7 +849,12 @@
     "showMoreServices_other": "Afficher {{count}} services de plus",
     "waitingFor": "En attente : {{reason}}",
     "ok": "OK",
-    "cancel": "Annuler"
+    "cancel": "Annuler",
+    "connected": "GSX connecté",
+    "servicesLegend": "Plein : terminé · anneau : en cours · éteint : pas commencé",
+    "stateDone": "terminé",
+    "stateInProgress": "en cours",
+    "stateNotStarted": "pas commencé"
   },
   "gsxRoutines": {
     "title": "Routines",

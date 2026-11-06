@@ -481,9 +481,8 @@ describe('GsxRemotePanel', () => {
 
     expect(await screen.findByText('Gate N6')).toBeInTheDocument()
     expect(screen.getByText('VHHH · Hong Kong Intl · (N) T1 North')).toBeInTheDocument()
-    // gateProperties is GSX's own free-text amenity-tag list, rendered as plain badges.
-    expect(screen.getByText('Gate Heavy')).toBeInTheDocument()
-    expect(screen.getByText('jetway')).toBeInTheDocument()
+    // gateProperties is GSX's own free-text amenity-tag list, rendered as one quiet line.
+    expect(screen.getByText('Gate Heavy · jetway')).toBeInTheDocument()
   })
 
   it('shows no amenity badges when GSX reports none for the gate', async () => {

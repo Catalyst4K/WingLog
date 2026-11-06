@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { BeyondAtcFrequencyOption } from '@shared/ipc'
 import { EMPTY_BEYONDATC_STATE } from '@shared/beyondatc-state'
@@ -74,7 +74,9 @@ describe('BeyondAtcRadios while the pilot is online', () => {
     const onSetAutoTune = vi.fn()
     render(<BeyondAtcRadios {...makeRadiosProps({ autoTune: true, onSetAutoTune })} />)
     expect(await screen.findByRole('alert')).toHaveTextContent("BeyondATC's auto-tune is on")
-    expect(screen.getByRole('button', { name: 'Auto-tune: On' })).toBeInTheDocument()
+    expect(
+      within(screen.getByRole('group', { name: 'Auto-tune' })).getByRole('button', { name: 'On' })
+    ).toHaveAttribute('aria-pressed', 'true')
     expect(onSetAutoTune).not.toHaveBeenCalled()
   })
 
@@ -84,7 +86,7 @@ describe('BeyondAtcRadios while the pilot is online', () => {
     expect(await screen.findByText(/BeyondATC is hidden while you are online on IVAO/)).toBeInTheDocument()
     expect(screen.queryByText('COM1')).not.toBeInTheDocument()
     expect(screen.queryByText('COM2')).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Auto-tune/ })).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: 'Auto-tune' })).toBeInTheDocument()
   })
 
   it('shows COM1 and COM2 as usual when the pilot is offline', async () => {
@@ -98,7 +100,8 @@ describe('BeyondAtcRadios while the pilot is online', () => {
 describe('BeyondAtcRadios', () => {
   it('shows "—" for COM1/COM2 while nothing is tuned', () => {
     render(<BeyondAtcRadios {...makeRadiosProps()} />)
-    expect(screen.getAllByText('—')).toHaveLength(2)
+    // COM1 and COM2, and the two toggles BeyondATC has not reported yet.
+    expect(screen.getAllByText('—')).toHaveLength(4)
   })
 
   it('shows the tuned station name beside the radio and its frequency in the field, not both in the text', () => {
@@ -331,11 +334,19 @@ describe('BeyondAtcRadios', () => {
       />
     )
 
-    expect(screen.getByRole('button', { name: 'Auto-tune: On' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Auto-respond: Off' })).toBeInTheDocument()
+    expect(
+      within(screen.getByRole('group', { name: 'Auto-tune' })).getByRole('button', { name: 'On' })
+    ).toHaveAttribute('aria-pressed', 'true')
+    expect(
+      within(screen.getByRole('group', { name: 'Auto-respond' })).getByRole('button', { name: 'Off' })
+    ).toHaveAttribute('aria-pressed', 'true')
 
-    await user.click(screen.getByRole('button', { name: 'Auto-tune: On' }))
-    await user.click(screen.getByRole('button', { name: 'Auto-respond: Off' }))
+    await user.click(
+      within(screen.getByRole('group', { name: 'Auto-tune' })).getByRole('button', { name: 'Off' })
+    )
+    await user.click(
+      within(screen.getByRole('group', { name: 'Auto-respond' })).getByRole('button', { name: 'On' })
+    )
 
     expect(onSetAutoTune).toHaveBeenCalledWith(false)
     expect(onSetAutoRespond).toHaveBeenCalledWith(true)
@@ -356,7 +367,11 @@ describe('BeyondAtcRadios — auto step climb', () => {
     const onSetStepClimb = vi.fn()
     render(<BeyondAtcRadios {...makeRadiosProps({ stepClimb: OFF, onSetStepClimb })} />)
 
-    await userEvent.setup().click(screen.getByRole('button', { name: 'Auto step climb: Off' }))
+    await userEvent
+      .setup()
+      .click(
+        within(screen.getByRole('group', { name: 'Auto step climb' })).getByRole('button', { name: 'On' })
+      )
     expect(onSetStepClimb).toHaveBeenCalledWith(true)
   })
 
@@ -372,10 +387,9 @@ describe('BeyondAtcRadios — auto step climb', () => {
         })}
       />
     )
-    expect(screen.getByRole('button', { name: 'Auto step climb: On' })).toHaveAttribute(
-      'aria-pressed',
-      'true'
-    )
+    expect(
+      within(screen.getByRole('group', { name: 'Auto step climb' })).getByRole('button', { name: 'On' })
+    ).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getByText('Next step: FL350 at DENAK, 42 nm')).toBeInTheDocument()
   })
 

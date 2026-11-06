@@ -14,24 +14,14 @@ import type {
   GsxRemoteServiceStatus,
   GsxRemoteSettings
 } from '@shared/ipc'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { useAtcAssignedStand } from './use-atc-assigned-stand'
 import { useLiveClient, useLiveTopic } from './live/LiveClient'
 import { StatusLight } from '@/components/StatusLight'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import {
-  formatCargoProgress,
-  formatFuelProgress,
-  formatGsxBill,
-  formatPaxProgress,
-  gateSubtitle,
-  hiddenServices,
-  parseGsxParking,
-  serviceLight,
-  visibleServices
-} from './gsx-remote-format'
+import { gateSubtitle, parseGsxParking } from './gsx-remote-format'
+import { ServicesList } from './GsxServices'
 import { asyncHandler, runAsync } from './report-error'
 import { GsxRoutines } from './GsxRoutines'
 
@@ -77,11 +67,11 @@ function MenuHeader(props: { menu: GsxRemoteMenuState; onToggle: () => void }): 
     <button
       type="button"
       onClick={props.onToggle}
-      className="flex items-center justify-between gap-2 border-y border-border px-1 py-2.5 text-left transition-colors hover:bg-muted/60"
+      className="flex min-h-[72px] items-center justify-between gap-4 rounded-md border border-input bg-card px-5 text-left transition-colors hover:bg-muted/60"
     >
-      <span className="flex flex-col items-start gap-0.5">
-        <span className="text-sm font-semibold text-foreground">{title}</span>
-        {subtitle && <span className="text-xs text-muted-foreground">{subtitle}</span>}
+      <span className="flex flex-col items-start">
+        <span className="text-lg font-semibold text-foreground">{title}</span>
+        {subtitle && <span className="text-sm text-muted-foreground">{subtitle}</span>}
       </span>
       <ChevronRight
         aria-hidden="true"
@@ -99,23 +89,36 @@ function MenuHeader(props: { menu: GsxRemoteMenuState; onToggle: () => void }): 
  * @param props The gate GSX resolved, or null.
  * @returns The element, or null when there is nothing to show.
  */
-function GateHeader(props: { gate: GsxRemoteGateInfo | null }): React.JSX.Element | null {
-  if (!props.gate) return null
-  const { gateLabel, area } = parseGsxParking(props.gate.parking)
+function GateHeader(props: { gate: GsxRemoteGateInfo | null; connected: boolean }): React.JSX.Element | null {
+  const { t } = useTranslation()
+  if (!props.gate && !props.connected) return null
+  const parking = props.gate ? parseGsxParking(props.gate.parking) : null
   return (
-    <div className="flex flex-col gap-1">
-      <span className="text-sm font-medium text-foreground">{gateLabel}</span>
-      <span className="text-xs text-muted-foreground">{gateSubtitle(props.gate, area)}</span>
-      {props.gate.gateProperties.length > 0 && (
-        <div className="flex flex-wrap gap-1">
-          {props.gate.gateProperties.map((property) => (
-            <Badge key={property} variant="outline" className="h-auto py-0 text-[10px] font-normal">
-              {property}
-            </Badge>
-          ))}
-        </div>
+    <header className="flex flex-wrap items-start justify-between gap-x-6 gap-y-2 border-b border-border pb-4">
+      <div className="min-w-0">
+        {props.gate && parking && (
+          <>
+            <h2 className="m-0 text-[26px] leading-tight font-semibold text-foreground">
+              {parking.gateLabel}
+            </h2>
+            <p className="m-0 mt-0.5 text-[15px] text-muted-foreground">
+              {gateSubtitle(props.gate, parking.area)}
+            </p>
+            {props.gate.gateProperties.length > 0 && (
+              <p className="m-0 mt-1.5 text-[13px] text-muted-foreground">
+                {props.gate.gateProperties.join(' · ')}
+              </p>
+            )}
+          </>
+        )}
+      </div>
+      {props.connected && (
+        <span className="inline-flex items-center gap-2 pt-1.5 text-sm text-muted-foreground">
+          <StatusLight state="green" />
+          {t('gsxRemotePanel.connected')}
+        </span>
       )}
-    </div>
+    </header>
   )
 }
 
@@ -123,6 +126,41 @@ const RESTART_CONFIRM_MS = 4000
 // GSX's own real timeout for its optimistic "downloading" state (menu.js's SB_TIMEOUT_MS) —
 // matched, not invented, so a stuck reload clears at the same point GSX's own client would.
 const SIMBRIEF_TIMEOUT_MS = 30000
+
+/**
+ * The Reload SimBrief button: GSX's own label, and under way or done in its words, with a light once the plan is loaded.
+ *
+ * @param props The plan's status, GSX's icon, whether a reload is under way, the words beside the button, and the click handler.
+ * @returns The element.
+ */
+function SimbriefButton(props: {
+  status: string | undefined
+  iconUri: string | null
+  loading: boolean
+  subText: string | null
+  onClick: () => void
+}): React.JSX.Element {
+  return (
+    <Button
+      type="button"
+      variant="outline"
+      disabled={props.loading}
+      className="h-12 w-full justify-between gap-1.5 px-3.5 font-medium"
+      onClick={props.onClick}
+    >
+      <span className="flex items-center gap-1.5">
+        {props.iconUri && <img src={props.iconUri} alt="" className="size-4" />}
+        {RELOAD_SIMBRIEF_LABEL}
+      </span>
+      {props.subText && (
+        <span className="inline-flex items-center gap-1.5 text-[13px] font-normal text-muted-foreground">
+          {props.status === 'loaded' && !props.loading && <StatusLight state="green" />}
+          {props.subText}
+        </span>
+      )}
+    </Button>
+  )
+}
 
 /**
  * The three remotely-triggerable command-bar buttons (Customize Airport/Aircraft, Restart Couatl) plus the separate,
@@ -196,16 +234,27 @@ function CommandBar(props: {
         : null
 
   return (
-    <div className="flex flex-col gap-1.5">
-      <p className="text-sm font-medium text-foreground">{t('gsxRemotePanel.commands')}</p>
-      <div className="flex flex-wrap gap-1.5">
+    <section
+      className="flex flex-col gap-3 rounded-md bg-card px-5 pt-4 pb-[18px]"
+      aria-label={t('gsxRemotePanel.commands')}
+    >
+      <h3 className="m-0 text-[17px] font-semibold text-foreground">{t('gsxRemotePanel.commands')}</h3>
+      <div className="flex flex-col gap-2">
+        {simbrief && (
+          <SimbriefButton
+            status={simbrief.status}
+            iconUri={props.commandBar.simbriefIconUri}
+            loading={simbriefLoading}
+            subText={simbriefSub}
+            onClick={handleSimbriefClick}
+          />
+        )}
         {props.commandBar.commands.map((c) => (
           <Button
             key={c.id}
             type="button"
-            variant="outline"
-            size="sm"
-            className="h-auto gap-1.5 py-1.5 text-xs"
+            variant={c.id === 'RESTART_COUATL' ? 'destructive' : 'outline'}
+            className="h-12 w-full justify-start gap-1.5 px-3.5 font-medium"
             onClick={() => handleCommandClick(c.id, c.confirm)}
           >
             {c.iconUri && <img src={c.iconUri} alt="" className="size-4" />}
@@ -213,27 +262,7 @@ function CommandBar(props: {
           </Button>
         ))}
       </div>
-      {simbrief && (
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled={simbriefLoading}
-          className="h-auto w-full justify-start gap-1.5 py-1.5 text-xs"
-          onClick={handleSimbriefClick}
-        >
-          {props.commandBar.simbriefIconUri && (
-            <img src={props.commandBar.simbriefIconUri} alt="" className="size-4" />
-          )}
-          <span className="flex flex-col items-start">
-            <span>{RELOAD_SIMBRIEF_LABEL}</span>
-            {simbriefSub && (
-              <span className="text-[10px] font-normal text-muted-foreground">{simbriefSub}</span>
-            )}
-          </span>
-        </Button>
-      )}
-    </div>
+    </section>
   )
 }
 
@@ -337,134 +366,6 @@ function GateSearchBox(props: {
 }
 
 /**
- * Structured `detail` fields (fuel current/target, pax/cargo counts) render as formatted numbers instead of `statusText`'s free
- * text (docs/gsx-notes.md, rounds 6/7), falling back to `statusText`/`stateText` for every other service. `detail.waitingFor`
- * (a vehicle-pathing stall, round 11) renders alongside whichever branch is active rather than replacing it: GSX keeps
- * reporting real pax/cargo counts while stuck, and the counts alone don't explain why they stopped moving.
- *
- * @param props The service.
- * @returns The element, or null when there is nothing to show.
- */
-/**
- * A progress line, "15,357 / 81,488 kg": what is done in ink, the target (what the plan asked for) in magenta.
- *
- * @param props The line as the format functions write it.
- * @returns The element.
- */
-function ProgressText(props: { text: string }): React.JSX.Element {
-  const at = props.text.indexOf(' / ')
-  if (at < 0) return <span>{props.text}</span>
-  return (
-    <span>
-      {props.text.slice(0, at)} / <span className="text-plan">{props.text.slice(at + 3)}</span>
-    </span>
-  )
-}
-
-function ServiceProgress(props: { service: GsxRemoteServiceStatus }): React.JSX.Element | null {
-  const { t } = useTranslation()
-  const detail = props.service.detail
-  const waitingFor = detail?.waitingFor
-  const waitingLine =
-    waitingFor && waitingFor.length > 0 ? (
-      <span className="text-amber-600 dark:text-amber-500">
-        {t('gsxRemotePanel.waitingFor', { reason: waitingFor.join('; ') })}
-      </span>
-    ) : null
-
-  if (detail?.fuel) {
-    return (
-      <span className="flex flex-col text-muted-foreground">
-        {waitingLine}
-        <ProgressText text={formatFuelProgress(detail.fuel)} />
-      </span>
-    )
-  }
-  if (detail?.pax) {
-    return (
-      <span className="flex flex-col text-muted-foreground">
-        {waitingLine}
-        <ProgressText text={formatPaxProgress(detail.pax)} />
-        {detail.cargo?.map((cargo) => (
-          <ProgressText key={cargo.hold} text={formatCargoProgress(cargo)} />
-        ))}
-      </span>
-    )
-  }
-  const fallback = props.service.statusText || props.service.stateText
-  if (!fallback && !waitingLine) return null
-  return (
-    <span className="flex flex-col text-muted-foreground">
-      {waitingLine}
-      {fallback && <span className="whitespace-pre-line">{fallback}</span>}
-    </span>
-  )
-}
-
-function ServiceRow(props: { service: GsxRemoteServiceStatus }): React.JSX.Element {
-  const { t } = useTranslation()
-  const bill = props.service.detail?.bill
-  return (
-    <li className="flex flex-col gap-0.5 border-b border-border/60 px-1 py-2 text-xs last:border-b-0">
-      <div className="flex items-baseline justify-between gap-2">
-        <span className="flex items-center gap-2 font-medium text-foreground">
-          <StatusLight state={serviceLight(props.service)} />
-          {props.service.displayName}
-        </span>
-        <span className="flex items-baseline gap-1.5 text-right text-muted-foreground">
-          {props.service.operator && (
-            <span>{t('gsxRemotePanel.provider', { name: props.service.operator })}</span>
-          )}
-          {typeof bill === 'number' && (
-            <span className="font-medium text-foreground">{formatGsxBill(bill)}</span>
-          )}
-        </span>
-      </div>
-      <ServiceProgress service={props.service} />
-    </li>
-  )
-}
-
-/**
- * The GSX services, with the ones that matter now shown and the rest collapsed.
- *
- * @param props The services.
- * @returns The list, or nothing when there are no services.
- */
-function ServicesList(props: { services: GsxRemoteServiceStatus[] }): React.JSX.Element | null {
-  const { t } = useTranslation()
-  if (props.services.length === 0) return null
-  const visible = visibleServices(props.services)
-  const hidden = hiddenServices(props.services)
-  return (
-    <div className="flex flex-col gap-1.5">
-      <p className="text-sm font-medium text-foreground">{t('gsxRemotePanel.services')}</p>
-      <ul className="flex flex-col gap-1.5">
-        {visible.map((service) => (
-          <ServiceRow key={service.id} service={service} />
-        ))}
-      </ul>
-      {hidden.length > 0 && (
-        <details className="group">
-          <summary className="flex cursor-pointer list-none items-center gap-1 text-xs text-muted-foreground">
-            <ChevronRight
-              aria-hidden="true"
-              className="size-3.5 shrink-0 transition-transform group-open:rotate-90"
-            />
-            {t('gsxRemotePanel.showMoreServices', { count: hidden.length })}
-          </summary>
-          <ul className="mt-1.5 flex flex-col gap-1.5">
-            {hidden.map((service) => (
-              <ServiceRow key={service.id} service={service} />
-            ))}
-          </ul>
-        </details>
-      )}
-    </div>
-  )
-}
-
-/**
  * The dialog for a GSX prompt that asks for text.
  *
  * @param props The prompt, and what to do with the answer or a cancel.
@@ -544,9 +445,9 @@ export function GsxRemotePanel(props: { canEditRoutines?: boolean }): React.JSX.
   }
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="@container flex flex-col gap-5">
       {status.state !== 'connected' && (
-        <p className="text-xs text-muted-foreground">
+        <p className="text-sm text-muted-foreground">
           {status.state === 'connecting' ? t('gsxRemotePanel.connecting') : t('gsxRemotePanel.disconnected')}
         </p>
       )}
@@ -561,23 +462,32 @@ export function GsxRemotePanel(props: { canEditRoutines?: boolean }): React.JSX.
           )}
         />
       )}
-      <GateHeader gate={gate} />
-      <ServicesList services={services} />
-      <GsxRoutines canEdit={props.canEditRoutines ?? true} />
-      <MenuHeader
-        menu={menu}
-        onToggle={asyncHandler('GsxRemotePanel gsx.toggleMenu', () => live.command('gsx.toggleMenu'))}
-      />
-      <MenuEntries
-        menu={menu}
-        onPick={asyncHandler('GsxRemotePanel gsx.pickMenu', (index) => live.command('gsx.pickMenu', index))}
-        onSearch={asyncHandler('GsxRemotePanel gsx.search', (text) => live.command('gsx.search', text))}
-        atcStand={atcStand}
-      />
-      <CommandBar
-        commandBar={commandBar}
-        onRun={asyncHandler('GsxRemotePanel gsx.runCommand', (id) => live.command('gsx.runCommand', id))}
-      />
+      <GateHeader gate={gate} connected={status.state === 'connected'} />
+      {/* As on the canvas (r3-gsx): the menu and the services on the left, the routines and the commands on the right; one column when narrow. */}
+      <div className="flex flex-col items-start gap-6 @3xl:flex-row">
+        <div className="flex w-full min-w-0 flex-col gap-5 @3xl:flex-[1.4_1_0]">
+          <MenuHeader
+            menu={menu}
+            onToggle={asyncHandler('GsxRemotePanel gsx.toggleMenu', () => live.command('gsx.toggleMenu'))}
+          />
+          <MenuEntries
+            menu={menu}
+            onPick={asyncHandler('GsxRemotePanel gsx.pickMenu', (index) =>
+              live.command('gsx.pickMenu', index)
+            )}
+            onSearch={asyncHandler('GsxRemotePanel gsx.search', (text) => live.command('gsx.search', text))}
+            atcStand={atcStand}
+          />
+          <ServicesList services={services} />
+        </div>
+        <div className="flex w-full min-w-0 flex-col gap-5 @3xl:flex-1">
+          <GsxRoutines canEdit={props.canEditRoutines ?? true} />
+          <CommandBar
+            commandBar={commandBar}
+            onRun={asyncHandler('GsxRemotePanel gsx.runCommand', (id) => live.command('gsx.runCommand', id))}
+          />
+        </div>
+      </div>
     </div>
   )
 }

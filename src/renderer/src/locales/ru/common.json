@@ -872,7 +872,12 @@
     "showMoreServices_other": "Показать ещё {{count}} услуг",
     "waitingFor": "Ожидание: {{reason}}",
     "ok": "ОК",
-    "cancel": "Отмена"
+    "cancel": "Отмена",
+    "connected": "GSX подключён",
+    "servicesLegend": "Залитый: готово · кольцо: идёт · погашен: ещё не начато",
+    "stateDone": "готово",
+    "stateInProgress": "идёт",
+    "stateNotStarted": "не начато"
   },
   "gsxRoutines": {
     "title": "Сценарии",

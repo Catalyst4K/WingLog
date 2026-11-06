@@ -839,7 +839,12 @@
     "showMoreServices_other": "顯示另外 {{count}} 項服務",
     "waitingFor": "等待：{{reason}}",
     "ok": "確定",
-    "cancel": "取消"
+    "cancel": "取消",
+    "connected": "GSX 已連線",
+    "servicesLegend": "實心：已完成 · 圓環：進行中 · 熄滅：未開始",
+    "stateDone": "已完成",
+    "stateInProgress": "進行中",
+    "stateNotStarted": "未開始"
   },
   "gsxRoutines": {
     "title": "流程",

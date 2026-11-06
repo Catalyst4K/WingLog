@@ -82,11 +82,11 @@ describe('BeyondAtcPanel on a phone (compact)', () => {
     render(<BeyondAtcPanel compact />)
     const button = await screen.findByRole('button', { name: 'Radios…' })
     expect(await screen.findByText('Singapore Delivery · 118.850')).toBeInTheDocument()
-    expect(screen.queryByText('Auto-tune: On')).not.toBeInTheDocument()
+    expect(screen.queryByRole('group', { name: 'Auto-tune' })).not.toBeInTheDocument()
     await userEvent.click(button)
     const dialog = await screen.findByRole('dialog')
-    expect(within(dialog).getByText('Auto-tune: On')).toBeInTheDocument()
-    expect(within(dialog).getByText('Auto-respond: Off')).toBeInTheDocument()
+    expect(within(dialog).getByRole('group', { name: 'Auto-tune' })).toBeInTheDocument()
+    expect(within(dialog).getByRole('group', { name: 'Auto-respond' })).toBeInTheDocument()
   })
 
   it('opens the radios without putting the cursor in a frequency box, so no keyboard appears until one is tapped', async () => {
@@ -181,8 +181,8 @@ describe('BeyondAtcPanel', () => {
     expect(await screen.findByText('Cathay 116 Heavy, radio check.')).toBeInTheDocument()
     // Twice: in the transcript, and as the Latest instruction card's full text.
     expect(screen.getAllByText('Cathay 116 Heavy, readability 5.')).toHaveLength(2)
-    expect(screen.getByText('You:')).toBeInTheDocument()
-    expect(screen.getByText('ATC:')).toBeInTheDocument()
+    expect(screen.getByText('You')).toBeInTheDocument()
+    expect(screen.getByText('ATC')).toBeInTheDocument()
   })
 
   /** Renders the panel with one transcript entry and a list whose scroll position the test controls. */
@@ -335,9 +335,9 @@ describe('BeyondAtcPanel', () => {
     render(<BeyondAtcPanel />)
 
     const card = (await screen.findByText('Latest instruction')).closest('[data-slot="card"]') as HTMLElement
-    expect(await within(card).findByText('Turn left:')).toBeInTheDocument()
+    expect(await within(card).findByText('Turn left')).toBeInTheDocument()
     expect(within(card).getByText('140°')).toBeInTheDocument()
-    expect(within(card).getByText('Descend:')).toBeInTheDocument()
+    expect(within(card).getByText('Descend')).toBeInTheDocument()
     expect(within(card).getByText('4,000')).toBeInTheDocument()
   })
 
@@ -369,7 +369,7 @@ describe('BeyondAtcPanel', () => {
       const header = await headerOf()
       expect(await within(header).findByText('LOGA2H')).toBeInTheDocument()
       expect(within(header).getByText('27R')).toBeInTheDocument()
-      expect(within(header).getByText('STAR:', { exact: false })).toBeInTheDocument()
+      expect(within(header).getByText('STAR', { exact: false })).toBeInTheDocument()
       // The body is still the latest line, not the STAR clearance.
       const card = header.closest('[data-slot="card"]') as HTMLElement
       expect(
@@ -636,7 +636,9 @@ describe('BeyondAtcPanel', () => {
     const user = userEvent.setup()
     render(<BeyondAtcPanel />)
 
-    await user.click(await screen.findByRole('button', { name: 'Auto-tune: On' }))
+    await user.click(
+      within(await screen.findByRole('group', { name: 'Auto-tune' })).getByRole('button', { name: 'Off' })
+    )
 
     expect(beyondAtcSetAutoTune).toHaveBeenCalledWith(false)
   })

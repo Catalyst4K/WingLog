@@ -21,6 +21,7 @@ import { latestAtcInstruction, type AtcInstruction, type InstructionFieldKey } f
 import { useLiveClient, useLiveTopic } from './live/LiveClient'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { StatusLight } from '@/components/StatusLight'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { asyncHandler, runAsync } from './report-error'
@@ -41,12 +42,19 @@ const SPEAKER_KEY: Record<BeyondAtcTranscriptEntry['speaker'], string> = {
   atcTraffic: 'beyondAtcPanel.speaker.atcTraffic'
 }
 
+/** A panel of the page (the canvas's r3-beyondatc): the card colour, a 6 px corner, 20 px inside. */
+const PANEL = 'rounded-md [--card-spacing:--spacing(5)]'
+/** A panel's title. */
+const PANEL_TITLE = 'text-[17px] leading-snug font-semibold'
+
 function InfoField(props: { label: string; value: string; plan?: React.ReactNode }): React.JSX.Element {
   return (
-    <span className="whitespace-nowrap text-xs">
-      <span className="text-muted-foreground">{props.label}: </span>
-      <span className="font-medium text-foreground">{props.value}</span>
-      {props.plan}
+    <span className="flex flex-col">
+      <span className="text-[13px] text-muted-foreground">{props.label}</span>
+      <span className="font-mono text-lg whitespace-nowrap text-foreground">
+        {props.value}
+        {props.plan}
+      </span>
     </span>
   )
 }
@@ -76,7 +84,7 @@ function planNote(
   const planned = field && selection ? selection[field] : null
   if (typeof planned !== 'string' || planned === '') return null
   const same = cleared.trim().toUpperCase() === planned.trim().toUpperCase()
-  return <span className="ml-1.5 text-plan">{same ? '= plan' : `plan ${planned}`}</span>
+  return <span className="ml-2 font-sans text-[13px] text-plan">{same ? '= plan' : `plan ${planned}`}</span>
 }
 
 /**
@@ -88,26 +96,27 @@ function planNote(
  * @param props BeyondATC's state.
  * @returns The element.
  */
-function InfoCard(props: { state: BeyondAtcState }): React.JSX.Element {
+function InfoCard(props: { state: BeyondAtcState; statusLine: React.ReactNode }): React.JSX.Element {
   const { t } = useTranslation()
   const { callsign, progress } = props.state
   return (
-    <Card size="sm">
-      <CardContent className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+    <header className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 border-b border-border pb-4">
+      <div className="flex flex-wrap items-baseline gap-x-5 gap-y-1.5">
         {!callsign && !progress && (
-          <span className="text-xs text-muted-foreground">{t('beyondAtcPanel.noStatus')}</span>
+          <span className="text-sm text-muted-foreground">{t('beyondAtcPanel.noStatus')}</span>
         )}
-        {callsign && <span className="text-sm font-semibold text-foreground">{callsign.full}</span>}
+        {callsign && <h2 className="m-0 text-2xl font-semibold text-foreground">{callsign.full}</h2>}
         {progress && (
-          <span className="text-xs text-muted-foreground">
+          <span className="font-mono text-muted-foreground">
             {t('beyondAtcPanel.progress', { from: progress.from, to: progress.to, pct: progress.pct })}
           </span>
         )}
-        <span className="ml-auto">
-          <BeyondAtcAtisButton />
-        </span>
-      </CardContent>
-    </Card>
+      </div>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        {props.statusLine}
+        <BeyondAtcAtisButton />
+      </div>
+    </header>
   )
 }
 
@@ -132,7 +141,7 @@ function InstructionFields(props: { instruction: AtcInstruction }): React.JSX.El
   const fields = instruction.fields.filter((f) => f.key !== 'station')
   if (instruction.actions.length === 0 && fields.length === 0) return null
   return (
-    <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+    <div className="flex flex-wrap items-end gap-x-9 gap-y-3">
       {instruction.actions.map((action) => (
         <Badge key={action} variant="secondary">
           {t(`beyondAtcPanel.instruction.action.${action}`)}
@@ -159,10 +168,10 @@ function LatestInstructionCard(props: {
   const arrival = props.arrival
   const station = instruction?.fields.find((f) => f.key === 'station')?.value
   return (
-    <Card size="sm">
+    <Card className={PANEL}>
       <CardHeader className="flex flex-row flex-wrap items-baseline justify-between gap-2">
-        <CardTitle>{t('beyondAtcPanel.instruction.title')}</CardTitle>
-        <div className="flex flex-wrap items-baseline justify-end gap-x-4 gap-y-1">
+        <CardTitle className={PANEL_TITLE}>{t('beyondAtcPanel.instruction.title')}</CardTitle>
+        <div className="flex flex-wrap items-end justify-end gap-x-6 gap-y-1">
           {arrival?.approachIdent ? (
             <span data-testid="arrival-clearance" className="flex flex-wrap gap-x-4 gap-y-1">
               <InfoField
@@ -186,16 +195,16 @@ function LatestInstructionCard(props: {
               </span>
             )
           )}
-          {station && <span className="text-xs text-muted-foreground">{station}</span>}
+          {station && <span className="text-sm text-muted-foreground">{station}</span>}
         </div>
       </CardHeader>
-      <CardContent className="flex flex-col gap-2">
+      <CardContent className="flex flex-col gap-3">
         {!instruction ? (
-          <p className="text-xs text-muted-foreground">{t('beyondAtcPanel.instruction.none')}</p>
+          <p className="text-sm text-muted-foreground">{t('beyondAtcPanel.instruction.none')}</p>
         ) : (
           <>
             <InstructionFields instruction={instruction} />
-            <p className="text-xs text-muted-foreground">{instruction.text}</p>
+            <p className="m-0 text-sm leading-normal text-muted-foreground">{instruction.text}</p>
           </>
         )}
         <AtcClearanceBackupLine />
@@ -246,12 +255,12 @@ function ActionsCard(props: {
   const { t } = useTranslation()
   const line = commsLine(t, props.pendingLabel, props.commsState)
   return (
-    <Card size="sm">
+    <Card className={PANEL}>
       <CardHeader>
-        <CardTitle>{t('beyondAtcPanel.actions')}</CardTitle>
+        <CardTitle className={PANEL_TITLE}>{t('beyondAtcPanel.actions')}</CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-2">
-        <p role="status" className="text-xs text-muted-foreground empty:hidden">
+        <p role="status" className="text-sm text-muted-foreground empty:hidden">
           {line}
         </p>
         {props.actions.length === 0 ? (
@@ -271,9 +280,9 @@ function ActionsCard(props: {
 function RadiosCard(props: React.ComponentProps<typeof BeyondAtcRadios>): React.JSX.Element {
   const { t } = useTranslation()
   return (
-    <Card size="sm">
+    <Card className={PANEL}>
       <CardHeader>
-        <CardTitle>{t('beyondAtcPanel.radios')}</CardTitle>
+        <CardTitle className={PANEL_TITLE}>{t('beyondAtcPanel.radios')}</CardTitle>
       </CardHeader>
       <CardContent>
         <BeyondAtcRadios {...props} />
@@ -313,9 +322,9 @@ function TranscriptCard(props: { entries: BeyondAtcTranscriptEntry[] }): React.J
   }, [props.entries])
 
   return (
-    <Card size="sm" className="min-h-0 flex-1">
+    <Card className={`${PANEL} min-h-0 flex-1`}>
       <CardHeader>
-        <CardTitle>{t('beyondAtcPanel.transcript')}</CardTitle>
+        <CardTitle className={PANEL_TITLE}>{t('beyondAtcPanel.transcript')}</CardTitle>
       </CardHeader>
       <CardContent className="flex min-h-0 flex-1 flex-col">
         <ul
@@ -324,12 +333,18 @@ function TranscriptCard(props: { entries: BeyondAtcTranscriptEntry[] }): React.J
             const list = event.currentTarget
             following.current = list.scrollHeight - list.scrollTop - list.clientHeight < FOLLOW_SLACK_PX
           }}
-          className="flex h-full min-h-0 flex-col gap-1 overflow-y-auto text-xs"
+          className="m-0 flex h-full min-h-0 list-none flex-col overflow-y-auto p-0 text-sm"
         >
           {props.entries.map((entry, index) => (
-            <li key={index} className="flex gap-1.5">
-              <span className="shrink-0 font-medium text-foreground">{t(SPEAKER_KEY[entry.speaker])}:</span>
-              <span className="text-muted-foreground">{entry.text}</span>
+            <li key={index} className="grid grid-cols-[3rem_minmax(0,1fr)] gap-3 border-b border-border py-2">
+              <span className="pt-px text-[13px] font-semibold text-muted-foreground">
+                {t(SPEAKER_KEY[entry.speaker])}
+              </span>
+              <span
+                className={`leading-normal ${entry.speaker === 'player' ? 'text-muted-foreground' : 'text-foreground'}`}
+              >
+                {entry.text}
+              </span>
             </li>
           ))}
         </ul>
@@ -391,8 +406,7 @@ function CompactLayout(props: {
 }): React.JSX.Element {
   return (
     <div className="flex flex-col gap-3">
-      {props.statusLine}
-      <InfoCard state={props.state} />
+      <InfoCard state={props.state} statusLine={props.statusLine} />
       <LatestInstructionCard instruction={props.instruction} arrival={props.arrival} />
       <ActionsCard {...props.actions} />
       <RadiosButton {...props.radios} />
@@ -476,13 +490,14 @@ export function BeyondAtcPanel(props: { compact?: boolean } = {}): React.JSX.Ele
   }
 
   const statusLine = (
-    <p className="text-xs text-muted-foreground">
+    <span className="inline-flex items-center gap-2 text-sm text-muted-foreground">
+      <StatusLight state={status.state === 'connected' ? 'green' : 'amber'} />
       {status.state === 'connected'
         ? t('beyondAtcPanel.connected')
         : status.state === 'connecting'
           ? t('beyondAtcPanel.connecting')
           : t('beyondAtcPanel.disconnected')}
-    </p>
+    </span>
   )
   const actionsProps = {
     actions: state.actions,
@@ -530,11 +545,9 @@ export function BeyondAtcPanel(props: { compact?: boolean } = {}): React.JSX.Ele
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-4">
-      {/* Always shown, including while connected, so an idle session still confirms the
-       * link is live (real gap found live). */}
-      {statusLine}
-      <InfoCard state={state} />
+    <div className="flex min-h-0 flex-1 flex-col gap-5">
+      {/* The connection sits in the header, shown while connected too, so an idle session still confirms the link is live (real gap found live). */}
+      <InfoCard state={state} statusLine={statusLine} />
       <LatestInstructionCard instruction={latestInstruction} arrival={arrival} />
       <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 sm:grid-cols-[minmax(18rem,28rem)_minmax(18rem,1fr)]">
         <div className="flex min-h-0 flex-col gap-4 self-start">

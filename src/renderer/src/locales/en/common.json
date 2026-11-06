@@ -847,7 +847,12 @@
     "showMoreServices_other": "Show {{count}} more services",
     "waitingFor": "Waiting: {{reason}}",
     "ok": "OK",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "connected": "GSX connected",
+    "servicesLegend": "Filled light done · ring in progress · off not started",
+    "stateDone": "done",
+    "stateInProgress": "in progress",
+    "stateNotStarted": "not started"
   },
   "gsxRoutines": {
     "title": "Routines",

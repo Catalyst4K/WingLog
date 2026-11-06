@@ -14,6 +14,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { SegmentButton, SegmentedGroup } from './settings/ui/SettingsCard'
 import { AutoTuneOnlineWarning } from './online/AutoTuneOnlineWarning'
 import { BeyondAtcHiddenNote } from './online/BeyondAtcHiddenNote'
 import { useBeyondAtcHidden } from './live/use-online-status'
@@ -57,7 +58,7 @@ export interface BeyondAtcActionsProps {
 export function BeyondAtcActions(props: BeyondAtcActionsProps): React.JSX.Element | null {
   if (props.actions.length === 0) return null
   return (
-    <div className="flex flex-wrap gap-1.5">
+    <div className="flex flex-wrap gap-2">
       {props.actions.map((label) => {
         const pending = label === props.pendingLabel
         return (
@@ -65,8 +66,7 @@ export function BeyondAtcActions(props: BeyondAtcActionsProps): React.JSX.Elemen
             key={label}
             type="button"
             variant={pending ? 'secondary' : 'outline'}
-            size="sm"
-            className="h-auto py-1.5 text-xs"
+            className="font-medium"
             aria-busy={pending || undefined}
             onClick={() => props.onSelectAction(label)}
           >
@@ -231,14 +231,8 @@ function FrequencyPicker(props: {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          // Same look as GsxRemotePanel's MenuHeader: primary-tinted outline and fill.
-          className="h-7 gap-1 border-primary/40 bg-primary/5 px-2 text-xs text-foreground shadow-sm hover:bg-primary/10"
-        >
-          <Headset className="size-3.5 text-primary" aria-hidden />
+        <Button type="button" variant="outline" size="sm" className="h-10 gap-1.5 px-3 text-sm">
+          <Headset className="size-4 text-muted-foreground" aria-hidden />
           {t('beyondAtcPanel.frequenciesButton')}
         </Button>
       </DialogTrigger>
@@ -289,16 +283,16 @@ function FrequencyRow(props: {
   }
 
   return (
-    <div className="flex flex-col gap-1">
-      <div className="flex items-baseline justify-between gap-2 text-xs">
-        <span className="font-medium text-foreground">{props.label}</span>
-        <span className="truncate text-muted-foreground">
+    <div className="flex flex-col gap-1 border-b border-border py-2.5">
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="text-sm text-muted-foreground">{props.label}</span>
+        <span className="truncate text-sm text-muted-foreground">
           {props.stationName ?? t('beyondAtcPanel.frequencyUnknown')}
         </span>
       </div>
       {/* Moving between the field and this row's own buttons keeps what was typed; leaving the row abandons it. */}
       <div
-        className="flex items-center gap-1.5"
+        className="flex flex-wrap items-center gap-2"
         onBlur={(e) => {
           if (!e.currentTarget.contains(e.relatedTarget)) setDraft(null)
         }}
@@ -321,9 +315,9 @@ function FrequencyRow(props: {
           onKeyDown={(e) => {
             if (e.key === 'Enter') commit()
           }}
-          className="h-7 w-24 font-mono text-xs"
+          className="h-10 w-28 font-mono text-lg"
         />
-        <Button type="button" variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={commit}>
+        <Button type="button" variant="outline" size="sm" className="h-10 px-3 text-sm" onClick={commit}>
           {t('beyondAtcPanel.setFrequency')}
         </Button>
       </div>
@@ -338,22 +332,21 @@ function AutoToggle(props: {
 }): React.JSX.Element {
   const { t } = useTranslation()
   return (
-    <Button
-      type="button"
-      variant={props.value ? 'default' : 'outline'}
-      size="sm"
-      className="h-auto py-1.5 text-xs"
-      disabled={props.value === null}
-      aria-pressed={props.value === true}
-      onClick={() => props.onSet(!props.value)}
-    >
-      {props.label}:{' '}
-      {props.value === null
-        ? t('beyondAtcPanel.settings.unknown')
-        : props.value
-          ? t('beyondAtcPanel.settings.on')
-          : t('beyondAtcPanel.settings.off')}
-    </Button>
+    <div className="flex items-center justify-between gap-3 py-2">
+      <span>{props.label}</span>
+      {props.value === null ? (
+        <span className="text-sm text-muted-foreground">{t('beyondAtcPanel.settings.unknown')}</span>
+      ) : (
+        <SegmentedGroup label={props.label}>
+          <SegmentButton pressed={!props.value} onClick={() => props.onSet(false)}>
+            {t('beyondAtcPanel.settings.off')}
+          </SegmentButton>
+          <SegmentButton pressed={props.value} onClick={() => props.onSet(true)}>
+            {t('beyondAtcPanel.settings.on')}
+          </SegmentButton>
+        </SegmentedGroup>
+      )}
+    </div>
   )
 }
 
@@ -457,7 +450,7 @@ function FrequencyRowPair(props: BeyondAtcRadiosProps): React.JSX.Element {
   const progressPct = props.progress?.pct ?? null
   return (
     <>
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col">
         <FrequencyRow
           label="COM1"
           stationName={props.facility?.name ?? null}
@@ -498,7 +491,7 @@ export function BeyondAtcRadios(props: BeyondAtcRadiosProps): React.JSX.Element 
     <div className="flex flex-col gap-3">
       <FrequencyRows {...props} />
       <AutoTuneOnlineWarning />
-      <div className="flex flex-wrap gap-1.5">
+      <div className="flex flex-col">
         <AutoToggle
           label={t('beyondAtcPanel.settings.autoTune')}
           value={props.autoTune}
