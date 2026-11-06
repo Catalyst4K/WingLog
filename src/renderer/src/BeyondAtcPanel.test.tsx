@@ -60,6 +60,8 @@ function withWinglog(overrides: Partial<WingLogApi> = {}): void {
     }),
     onBeyondAtcStepClimb: vi.fn(() => () => {}),
     beyondAtcGetArrival: vi.fn().mockResolvedValue(null),
+    getPlannedRoute: vi.fn().mockResolvedValue(null),
+    onPlannedRoute: vi.fn(() => () => {}),
     onBeyondAtcArrival: vi.fn(() => () => {}),
     beyondAtcSetStepClimb: vi.fn().mockResolvedValue(undefined),
     ...overrides
@@ -408,6 +410,59 @@ describe('BeyondAtcPanel', () => {
       render(<BeyondAtcPanel />)
       const header = await headerOf()
       expect(within(header).queryByTestId('arrival-clearance')).not.toBeInTheDocument()
+    })
+  })
+
+  describe('the plan beside what ATC cleared', () => {
+    const CLEARANCE: BeyondAtcTranscriptEntry[] = [
+      {
+        speaker: 'atc',
+        text: 'Cathay 168 Heavy, Brisbane Delivery, information A current, cleared to Hong Kong airport via the BIXAD2 departure, runway 01R, climb via SID to 10000 feet, squawk 6022.',
+        ts: 1
+      }
+    ]
+    const withPlan = (sidIdent: string | null): void =>
+      withWinglog({
+        beyondAtcGetTranscript: vi.fn().mockResolvedValue(CLEARANCE),
+        beyondAtcGetState: vi
+          .fn()
+          .mockResolvedValue(makeState({ infoBoxes: [{ title: 'SID', info: 'BIXAD2' }], infoBoxesAt: 1 })),
+        getPlannedRoute: vi.fn().mockResolvedValue({
+          flightId: 1,
+          revision: 1,
+          waypoints: [],
+          selection: {
+            departureRunway: null,
+            sidIdent,
+            sidTransition: null,
+            starIdent: null,
+            starTransition: null,
+            approachIdent: null,
+            approachTransition: null,
+            arrivalIcao: null
+          }
+        })
+      })
+
+    it('says the clearance matches the plan, in magenta, when it does', async () => {
+      withPlan('BIXAD2')
+      render(<BeyondAtcPanel />)
+      const note = await screen.findByText('= plan')
+      expect(note).toHaveClass('text-plan')
+    })
+
+    it('shows the plan’s own procedure, in magenta, when ATC cleared another', async () => {
+      withPlan('BIXAD1')
+      render(<BeyondAtcPanel />)
+      const note = await screen.findByText('plan BIXAD1')
+      expect(note).toHaveClass('text-plan')
+    })
+
+    it('says nothing when the plan has no choice for it', async () => {
+      withPlan(null)
+      render(<BeyondAtcPanel />)
+      await screen.findByText('BIXAD2')
+      expect(screen.queryByText(/plan/)).not.toBeInTheDocument()
     })
   })
 

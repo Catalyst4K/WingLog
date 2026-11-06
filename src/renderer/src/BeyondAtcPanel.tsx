@@ -10,13 +10,14 @@ import type {
   BeyondAtcSettings,
   BeyondAtcState,
   BeyondAtcStepClimbStatus,
-  BeyondAtcTranscriptEntry
+  BeyondAtcTranscriptEntry,
+  ProcedureSelection
 } from '@shared/ipc'
 import { EMPTY_BEYONDATC_STATE } from '@shared/beyondatc-state'
 import { BeyondAtcAtisButton } from './BeyondAtcAtis'
 import { BeyondAtcActions, BeyondAtcRadios } from './BeyondAtcControls'
 import { AtcClearanceBackupLine } from './app/AtcClearanceBackup'
-import { latestAtcInstruction, type AtcInstruction } from './beyond-atc-instruction'
+import { latestAtcInstruction, type AtcInstruction, type InstructionFieldKey } from './beyond-atc-instruction'
 import { useLiveClient, useLiveTopic } from './live/LiveClient'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -40,13 +41,42 @@ const SPEAKER_KEY: Record<BeyondAtcTranscriptEntry['speaker'], string> = {
   atcTraffic: 'beyondAtcPanel.speaker.atcTraffic'
 }
 
-function InfoField(props: { label: string; value: string }): React.JSX.Element {
+function InfoField(props: { label: string; value: string; plan?: React.ReactNode }): React.JSX.Element {
   return (
     <span className="whitespace-nowrap text-xs">
       <span className="text-muted-foreground">{props.label}: </span>
       <span className="font-medium text-foreground">{props.value}</span>
+      {props.plan}
     </span>
   )
+}
+
+/** The plan's choice for the instruction fields that name a procedure. */
+const PLAN_FIELDS: Partial<Record<InstructionFieldKey, keyof ProcedureSelection>> = {
+  sid: 'sidIdent',
+  star: 'starIdent',
+  approach: 'approachIdent'
+}
+
+/**
+ * What the pilot's plan says beside what ATC cleared (winglog-backend docs/plans/v2-design.md, "BeyondATC"): the plan is magenta. The
+ * same as the plan is just "= plan"; a different one shows the plan's.
+ *
+ * @param key The instruction field.
+ * @param cleared What ATC cleared.
+ * @param selection The procedures the pilot chose for the flight, or null when none are.
+ * @returns The note, or nothing when the plan has no choice for this field.
+ */
+function planNote(
+  key: InstructionFieldKey,
+  cleared: string,
+  selection: ProcedureSelection | null
+): React.ReactNode {
+  const field = PLAN_FIELDS[key]
+  const planned = field && selection ? selection[field] : null
+  if (typeof planned !== 'string' || planned === '') return null
+  const same = cleared.trim().toUpperCase() === planned.trim().toUpperCase()
+  return <span className="ml-1.5 text-plan">{same ? '= plan' : `plan ${planned}`}</span>
 }
 
 /**
@@ -94,6 +124,32 @@ function InfoCard(props: { state: BeyondAtcState }): React.JSX.Element {
  * @param props The latest instruction and the arrival clearance, if any.
  * @returns The element.
  */
+function InstructionFields(props: { instruction: AtcInstruction }): React.JSX.Element | null {
+  const { t } = useTranslation()
+  // The procedures the pilot chose, shown beside what ATC cleared.
+  const plan = useLiveTopic('plannedRoute', null)?.selection ?? null
+  const { instruction } = props
+  const fields = instruction.fields.filter((f) => f.key !== 'station')
+  if (instruction.actions.length === 0 && fields.length === 0) return null
+  return (
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+      {instruction.actions.map((action) => (
+        <Badge key={action} variant="secondary">
+          {t(`beyondAtcPanel.instruction.action.${action}`)}
+        </Badge>
+      ))}
+      {fields.map((f) => (
+        <InfoField
+          key={f.key}
+          label={t(`beyondAtcPanel.instruction.field.${f.key}`)}
+          value={f.value}
+          plan={planNote(f.key, f.value, plan)}
+        />
+      ))}
+    </div>
+  )
+}
+
 function LatestInstructionCard(props: {
   instruction: AtcInstruction | null
   arrival: BeyondAtcArrivalClearance | null
@@ -102,9 +158,8 @@ function LatestInstructionCard(props: {
   const instruction = props.instruction
   const arrival = props.arrival
   const station = instruction?.fields.find((f) => f.key === 'station')?.value
-  const fields = instruction?.fields.filter((f) => f.key !== 'station') ?? []
   return (
-    <Card size="sm" className="border-primary/40">
+    <Card size="sm">
       <CardHeader className="flex flex-row flex-wrap items-baseline justify-between gap-2">
         <CardTitle>{t('beyondAtcPanel.instruction.title')}</CardTitle>
         <div className="flex flex-wrap items-baseline justify-end gap-x-4 gap-y-1">
@@ -139,22 +194,7 @@ function LatestInstructionCard(props: {
           <p className="text-xs text-muted-foreground">{t('beyondAtcPanel.instruction.none')}</p>
         ) : (
           <>
-            {(instruction.actions.length > 0 || fields.length > 0) && (
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
-                {instruction.actions.map((action) => (
-                  <Badge key={action} className="bg-primary/15 text-primary">
-                    {t(`beyondAtcPanel.instruction.action.${action}`)}
-                  </Badge>
-                ))}
-                {fields.map((f) => (
-                  <InfoField
-                    key={f.key}
-                    label={t(`beyondAtcPanel.instruction.field.${f.key}`)}
-                    value={f.value}
-                  />
-                ))}
-              </div>
-            )}
+            <InstructionFields instruction={instruction} />
             <p className="text-xs text-muted-foreground">{instruction.text}</p>
           </>
         )}
