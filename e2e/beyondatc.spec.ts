@@ -73,7 +73,7 @@ test.describe('BeyondATC integration', () => {
       // Picker moved from a Select dropdown to a centered dialog (Callum's own call)
       // — every button leads with its real category, not just BeyondATC's own
       // station name (docs/plans/beyondatc-panel-redesign.md).
-      await page.getByRole('button', { name: 'Change', exact: true }).first().click()
+      await page.getByRole('button', { name: 'Frequencies', exact: true }).first().click()
       await page.getByRole('button', { name: /Singapore Approach.*RWY 02L.*124\.050/ }).click()
       await expect.poll(() => server.receivedCommands.at(-1)).toBe('set_frequency: 124.050')
 

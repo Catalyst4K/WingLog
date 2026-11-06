@@ -231,7 +231,7 @@ function FrequencyPicker(props: {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button type="button" variant="outline" size="sm" className="h-10 px-3 text-sm">
+        <Button type="button" variant="outline" size="sm" className="h-8 px-2.5 text-[13px]">
           {t('beyondAtcPanel.changeFrequency')}
         </Button>
       </DialogTrigger>
@@ -311,7 +311,7 @@ function FrequencyRow(props: {
       </span>
       <span className="flex items-center gap-2">
         {draft !== null && (
-          <Button type="button" size="sm" className="h-10 px-3 text-sm" onClick={commit}>
+          <Button type="button" size="sm" className="h-8 px-2.5 text-[13px]" onClick={commit}>
             {t('beyondAtcPanel.setFrequency')}
           </Button>
         )}
@@ -341,10 +341,10 @@ function AutoToggle(props: {
         <span className="text-sm text-muted-foreground">{t('beyondAtcPanel.settings.unknown')}</span>
       ) : (
         <SegmentedGroup label={props.label}>
-          <SegmentButton pressed={!props.value} onClick={() => props.onSet(false)}>
+          <SegmentButton small pressed={!props.value} onClick={() => props.onSet(false)}>
             {t('beyondAtcPanel.settings.off')}
           </SegmentButton>
-          <SegmentButton pressed={props.value} onClick={() => props.onSet(true)}>
+          <SegmentButton small pressed={props.value} onClick={() => props.onSet(true)}>
             {t('beyondAtcPanel.settings.on')}
           </SegmentButton>
         </SegmentedGroup>

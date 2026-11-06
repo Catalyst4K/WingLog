@@ -230,7 +230,7 @@ describe('BeyondAtcRadios', () => {
   it('does not show a frequency picker button when no options are known, only manual entry', () => {
     render(<BeyondAtcRadios {...makeRadiosProps()} />)
 
-    expect(screen.queryByRole('button', { name: 'Change' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Frequencies' })).not.toBeInTheDocument()
   })
 
   describe('the frequency dialog', () => {
@@ -267,7 +267,7 @@ describe('BeyondAtcRadios', () => {
           })}
         />
       )
-      await user.click(screen.getAllByRole('button', { name: 'Change' })[0])
+      await user.click(screen.getAllByRole('button', { name: 'Frequencies' })[0])
       return user
     }
 

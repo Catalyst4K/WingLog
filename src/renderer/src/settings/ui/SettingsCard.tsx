@@ -140,10 +140,12 @@ export function SegmentedGroup(props: { label: string; children: ReactNode }): R
 /**
  * One choice of a SegmentedGroup.
  *
- * @param props Whether it is the chosen one, whether it is disabled, the click handler and its text.
+ * @param props Whether it is the chosen one, whether it is disabled, the click handler and its text; `small` for a control that
+ *   sits among other things on a page rather than being the setting of a row.
  * @returns The element.
  */
 export function SegmentButton(props: {
+  small?: boolean
   pressed: boolean
   disabled?: boolean
   onClick: () => void
@@ -157,7 +159,8 @@ export function SegmentButton(props: {
       disabled={props.disabled}
       onClick={props.onClick}
       className={cn(
-        'h-10 min-w-16 rounded-none px-3 text-sm font-normal',
+        props.small ? 'h-8 min-w-12 px-2.5 text-[13px]' : 'h-10 min-w-16 px-3 text-sm',
+        'rounded-none font-normal',
         props.pressed
           ? 'bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground'
           : 'text-muted-foreground'

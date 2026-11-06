@@ -1077,7 +1077,7 @@
       "runways": "跑道 {{runways}}",
       "enroute": "航路"
     },
-    "changeFrequency": "變更"
+    "changeFrequency": "頻率"
   },
   "storage": {
     "label": "磁碟空間不足",

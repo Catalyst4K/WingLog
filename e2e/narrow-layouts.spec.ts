@@ -89,7 +89,7 @@ for (const [width, height] of [
 
       await openFromMore(page, 'BeyondATC')
       await expect(page.getByRole('button', { name: 'Request IFR Clearance' })).toBeInViewport()
-      await expect(page.getByRole('button', { name: 'Change' }).first()).toBeVisible()
+      await expect(page.getByRole('button', { name: 'Frequencies' }).first()).toBeVisible()
       await expectNoHorizontalScroll(page)
 
       await openFromMore(page, 'Ground services')

@@ -1085,7 +1085,7 @@
       "runways": "Piste {{runways}}",
       "enroute": "Streckenflug"
     },
-    "changeFrequency": "Ändern"
+    "changeFrequency": "Frequenzen"
   },
   "storage": {
     "label": "Wenig Speicherplatz",

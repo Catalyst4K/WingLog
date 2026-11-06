@@ -1087,7 +1087,7 @@
       "runways": "Piste {{runways}}",
       "enroute": "En route"
     },
-    "changeFrequency": "Modifier"
+    "changeFrequency": "Fréquences"
   },
   "storage": {
     "label": "Espace disque faible",
