@@ -5,6 +5,10 @@
  */
 
 export interface MapPalette {
+  /** The base map: land, water, and land-use areas (parks, woods) a shade apart from the land. */
+  land: string
+  sea: string
+  area: string
   /** What happened: the flown track, the own aircraft. Near-black on the light map, paper on the dark one. */
   ink: string
   /** The map's ground colour, for outlines that must read as a gap (the aircraft's edge). */
@@ -26,6 +30,9 @@ export interface MapPalette {
 }
 
 const LIGHT: MapPalette = {
+  land: '#efede6',
+  sea: '#dce6ec',
+  area: '#e6e3da',
   ink: '#1c1b19',
   ground: '#f3f1eb',
   plan: '#a61e6b',
@@ -39,6 +46,9 @@ const LIGHT: MapPalette = {
 }
 
 const DARK: MapPalette = {
+  land: '#1d1d1b',
+  sea: '#121416',
+  area: '#242422',
   ink: '#ece9e1',
   ground: '#141413',
   plan: '#e26aae',

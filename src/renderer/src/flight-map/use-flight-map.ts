@@ -13,6 +13,7 @@ import { updateSourceData } from '../map-source'
 import { runAsync } from '../report-error'
 import type { Waypoint } from '@shared/route'
 import { uiMemory } from '../ui-memory'
+import { recolourBasemap } from './basemap-style'
 import { animateLatestLeg, clearLiveTrail, jumpAcrossGap, showFirstPoint } from './live-trail'
 import {
   addFlightLayers,
@@ -139,6 +140,7 @@ export function useMapInstance(live: boolean, mapLanguage: MapLanguage): MapInst
         // in manual testing here, 'style.load' fires almost immediately).
         map.on('style.load', () => {
           // A theme switch reloads the style and drops these, so re-apply on every load.
+          recolourBasemap(map, dark)
           applyLabelStyle(map, mapLanguageRef.current)
           markerRef.current = addFlightLayers(map, dark)
           setMapReady(true)
