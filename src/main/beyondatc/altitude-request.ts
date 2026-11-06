@@ -52,7 +52,14 @@ export interface AltitudeRequestTimeouts {
   answerMs: number
 }
 
-const DEFAULT_TIMEOUTS: AltitudeRequestTimeouts = { menuMs: 20_000, answerMs: 30_000 }
+/**
+ * The menu waits for a quiet frequency: BeyondATC queues the request until the controller has finished with other traffic
+ * (flight 262, 2026-11-06: queued 01:57:56, the pilot's call went out at 01:58:14, the list appeared at 01:58:22, 26 s on). A
+ * wait that gave up at 20 s left the list open for seven hours.
+ */
+const DEFAULT_TIMEOUTS: AltitudeRequestTimeouts = { menuMs: 60_000, answerMs: 30_000 }
+/** After giving up on the list, how long to keep watching for it, to close it if it still turns up. */
+const LATE_MENU_WATCH_MS = 180_000
 
 /** "FL380" → 38000; "11300m" / "11,300 m" → feet (for China's metric levels, whose exact
  *  label BeyondATC uses hasn't been captured yet — both notations accepted). Null for any
@@ -142,22 +149,47 @@ function waitFor<T>(
 }
 
 /**
+ * A request gave up waiting for the level list, but the request is still queued in BeyondATC: if the list turns up later, nobody
+ * is there to choose from it, and BeyondATC keeps asking "say again altitude" until someone does. Cancels it when it appears.
+ *
+ * @param session BeyondATC's connection.
+ * @returns Stops the watch; the caller stops it when a newer request starts, so that one is never cancelled out from under itself.
+ */
+function watchForLateMenu(session: AltitudeRequestSession): () => void {
+  const stop = (): void => {
+    clearTimeout(timer)
+    session.off('state', listener)
+  }
+  const listener = (): void => {
+    if (!session.getState().actions.includes(CANCEL_ALTITUDE_ACTION)) return
+    stop()
+    session.setAction(CANCEL_ALTITUDE_ACTION)
+  }
+  const timer = setTimeout(stop, LATE_MENU_WATCH_MS)
+  session.on('state', listener)
+  return stop
+}
+
+/**
  * Requests a level from BeyondATC and waits for the clearance.
  *
  * @param session BeyondATC's connection.
  * @param targetFt The level wanted, feet.
  * @param timeouts How long to wait for the menu and the clearance.
- * @returns What happened, and the level label used.
+ * @returns What happened, and the level label used. With no list ('noMenu'), also how to stop the watch for it turning up late.
  */
 export async function requestAltitude(
   session: AltitudeRequestSession,
   targetFt: number,
   timeouts: AltitudeRequestTimeouts = DEFAULT_TIMEOUTS
-): Promise<{ outcome: AltitudeRequestOutcome; label: string | null }> {
-  if (!session.getState().actions.includes(REQUEST_ALTITUDE_ACTION))
+): Promise<{ outcome: AltitudeRequestOutcome; label: string | null; stopWatching?: () => void }> {
+  // A level list already open (an earlier request's, or the pilot's) is used as it is: BeyondATC offers no second request while
+  // it waits for a level, and would keep asking for one.
+  const listOpen = session.getState().actions.includes(CANCEL_ALTITUDE_ACTION)
+  if (!listOpen && !session.getState().actions.includes(REQUEST_ALTITUDE_ACTION))
     return { outcome: 'unavailable', label: null }
 
-  session.setAction(REQUEST_ALTITUDE_ACTION)
+  if (!listOpen) session.setAction(REQUEST_ALTITUDE_ACTION)
   const levels = await waitFor(
     session,
     'state',
@@ -167,7 +199,7 @@ export async function requestAltitude(
     },
     timeouts.menuMs
   )
-  if (!levels) return { outcome: 'noMenu', label: null }
+  if (!levels) return { outcome: 'noMenu', label: null, stopWatching: watchForLateMenu(session) }
 
   const label = pickLevelLabel(levels, targetFt)
   if (!label) {
