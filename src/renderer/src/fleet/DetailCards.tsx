@@ -6,7 +6,6 @@ import { useTranslation } from 'react-i18next'
 import type { Aircraft, AircraftLanding, Flight } from '@shared/ipc'
 import { Button } from '@/components/ui/button'
 import { AirlineLogo } from '../AirlineLogo'
-import { LandingBadge } from '../LandingBadge'
 import { LandingScoreBadge } from '../LandingScoreBadge'
 import { formatMinutes, msToFpm, msToKt } from '../units'
 import { formatDate } from './fleet-format'
@@ -166,7 +165,6 @@ export function LandingHistoryCard(props: { aircraftId: number }): React.JSX.Ele
                     : '—'}
                 </span>
                 <span className="flex items-center justify-end gap-2">
-                  <LandingBadge severity={l.severity} />
                   <LandingScoreBadge score={l.score} />
                 </span>
               </div>

@@ -21,7 +21,10 @@
     "cleanedUp": "Track cleaned up: {{parts}}."
   },
   "touchdownDiagram": {
-    "ariaLabel": "Touchdown diagram for runway {{ident}}"
+    "ariaLabel": "Touchdown diagram for runway {{ident}}",
+    "threshold": "Threshold",
+    "aimPoint": "Aim point",
+    "touchdownZone": "Touchdown zone"
   },
   "aircraftPhoto": {
     "credit": "Photo via airport-data.com",
@@ -824,10 +827,11 @@
       "online": "Online"
     },
     "trackTools": "Track tools",
-    "lightNote": "A light appears only on a firm or hard landing.",
     "route": "Route",
     "planned": "Planned",
-    "flown": "Flown"
+    "flown": "Flown",
+    "airportsTo": "{{dep}} to {{arr}}",
+    "speedMode": "Speed shown as"
   },
   "gsxRemoteView": {
     "title": "Ground services"

@@ -19,7 +19,10 @@
     "cleanedUp": "航迹已清理：{{parts}}。"
   },
   "touchdownDiagram": {
-    "ariaLabel": "跑道 {{ident}} 的接地示意图"
+    "ariaLabel": "跑道 {{ident}} 的接地示意图",
+    "threshold": "入口",
+    "aimPoint": "瞄准点",
+    "touchdownZone": "接地区"
   },
   "aircraftPhoto": {
     "credit": "照片来自 airport-data.com",
@@ -817,10 +820,11 @@
       "online": "在线"
     },
     "trackTools": "航迹工具",
-    "lightNote": "只有较重或重着陆才会出现指示灯。",
     "route": "航路",
     "planned": "计划",
-    "flown": "实飞"
+    "flown": "实飞",
+    "airportsTo": "{{dep}}至{{arr}}",
+    "speedMode": "速度显示为"
   },
   "gsxRemoteView": {
     "title": "地面服务"

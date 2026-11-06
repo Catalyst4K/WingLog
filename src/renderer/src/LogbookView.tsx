@@ -10,7 +10,6 @@ import type {
   LandingDistanceUnit,
   MapLanguage,
   LandingListRow,
-  LandingSeverity,
   LandingScoreSummary,
   LogbookStats,
   WeightUnit
@@ -134,16 +133,6 @@ export function LogbookView(props: {
     return scores.find((s) => s.flightId === flightId)?.landingCount ?? 0
   }
 
-  /**
-   * @param flightId The flight.
-   * @returns The worst severity of its touchdowns (hard, then firm), or none: the list shows a light only for a firm or hard one.
-   */
-  function severityFor(flightId: number): LandingSeverity {
-    const own = (allLandings ?? []).filter((landing) => landing.flightId === flightId)
-    if (own.some((landing) => landing.severity === 'hard')) return 'hard'
-    return own.some((landing) => landing.severity === 'firm') ? 'firm' : 'none'
-  }
-
   const comparators = Object.fromEntries(
     SORT_KEYS.map((key) => [
       key,
@@ -241,7 +230,6 @@ export function LogbookView(props: {
             registrationFor={registrationFor}
             scoreFor={scoreFor}
             landingCountFor={landingCountFor}
-            severityFor={severityFor}
             weightUnit={props.weightUnit}
             onOpen={(id) => setView({ kind: 'detail', id })}
           />

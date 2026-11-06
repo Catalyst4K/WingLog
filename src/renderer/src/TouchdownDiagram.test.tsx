@@ -28,6 +28,21 @@ describe('TouchdownDiagram', () => {
     expect(screen.getByRole('img', { name: 'Aufsetzdiagramm für Landebahn 27L' })).toBeInTheDocument()
   })
 
+  it('lies across the page when asked, naming the threshold, the aim point and the touchdown zone; running up the page it names none', () => {
+    const touchdown = { distanceFromThresholdM: 350, centrelineOffsetM: 4, groundSpeedMs: 60 }
+    const { container, rerender } = render(<TouchdownDiagram runway={RUNWAY} touchdown={touchdown} />)
+    expect(screen.queryByText('Threshold')).not.toBeInTheDocument()
+    const upright = container.querySelector('svg')?.getAttribute('viewBox')?.split(' ').map(Number) ?? []
+    expect(upright[3]).toBeGreaterThan(upright[2])
+
+    rerender(<TouchdownDiagram horizontal runway={RUNWAY} touchdown={touchdown} />)
+    expect(screen.getByText('Threshold')).toBeInTheDocument()
+    expect(screen.getByText('Aim point')).toBeInTheDocument()
+    expect(screen.getByText('Touchdown zone')).toBeInTheDocument()
+    const lying = container.querySelector('svg')?.getAttribute('viewBox')?.split(' ').map(Number) ?? []
+    expect(lying[2]).toBeGreaterThan(lying[3])
+  })
+
   it('renders an accessible label naming the runway', () => {
     render(
       <TouchdownDiagram

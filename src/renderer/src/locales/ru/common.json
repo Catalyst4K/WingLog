@@ -25,7 +25,10 @@
     "cleanedUp": "Трек очищен: {{parts}}."
   },
   "touchdownDiagram": {
-    "ariaLabel": "Схема приземления для ВПП {{ident}}"
+    "ariaLabel": "Схема приземления для ВПП {{ident}}",
+    "threshold": "Порог",
+    "aimPoint": "Точка прицеливания",
+    "touchdownZone": "Зона приземления"
   },
   "aircraftPhoto": {
     "credit": "Фото с сайта airport-data.com",
@@ -847,10 +850,11 @@
       "online": "Онлайн"
     },
     "trackTools": "Инструменты трека",
-    "lightNote": "Индикатор появляется только при жёсткой или грубой посадке.",
     "route": "Маршрут",
     "planned": "По плану",
-    "flown": "Пролетено"
+    "flown": "Пролетено",
+    "airportsTo": "{{dep}} — {{arr}}",
+    "speedMode": "Скорость в виде"
   },
   "gsxRemoteView": {
     "title": "Наземное обслуживание"

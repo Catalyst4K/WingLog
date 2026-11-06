@@ -21,7 +21,10 @@
     "cleanedUp": "Track bereinigt: {{parts}}."
   },
   "touchdownDiagram": {
-    "ariaLabel": "Aufsetzdiagramm für Landebahn {{ident}}"
+    "ariaLabel": "Aufsetzdiagramm für Landebahn {{ident}}",
+    "threshold": "Schwelle",
+    "aimPoint": "Aufsetzpunkt",
+    "touchdownZone": "Aufsetzzone"
   },
   "aircraftPhoto": {
     "credit": "Foto via airport-data.com",
@@ -824,10 +827,11 @@
       "online": "Online"
     },
     "trackTools": "Spur-Werkzeuge",
-    "lightNote": "Ein Licht erscheint nur bei einer festen oder harten Landung.",
     "route": "Strecke",
     "planned": "Geplant",
-    "flown": "Geflogen"
+    "flown": "Geflogen",
+    "airportsTo": "{{dep}} nach {{arr}}",
+    "speedMode": "Geschwindigkeit als"
   },
   "gsxRemoteView": {
     "title": "Bodendienste"

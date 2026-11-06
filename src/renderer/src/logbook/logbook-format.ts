@@ -8,6 +8,18 @@ import type { Flight, LogbookFlight } from '@shared/ipc'
  * @param iso An ISO timestamp, or null.
  * @returns The formatted text, or a dash when there is none.
  */
+export function formatFlightDate(iso: string | null): string {
+  if (!iso) return '—'
+  const date = new Date(iso)
+  const day = date.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })
+  const time = date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
+  return `${day} · ${time}`
+}
+
+/**
+ * @param iso An ISO timestamp, or null.
+ * @returns The date and time in the user's own format, or a dash when there is none.
+ */
 export function formatDate(iso: string | null): string {
   return iso ? new Date(iso).toLocaleString() : '—'
 }

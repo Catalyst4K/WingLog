@@ -21,7 +21,10 @@
     "cleanedUp": "Trajectoire nettoyée : {{parts}}."
   },
   "touchdownDiagram": {
-    "ariaLabel": "Schéma d'atterrissage pour la piste {{ident}}"
+    "ariaLabel": "Schéma d'atterrissage pour la piste {{ident}}",
+    "threshold": "Seuil",
+    "aimPoint": "Point de visée",
+    "touchdownZone": "Zone de toucher"
   },
   "aircraftPhoto": {
     "credit": "Photo via airport-data.com",
@@ -826,10 +829,11 @@
       "online": "En ligne"
     },
     "trackTools": "Outils de trace",
-    "lightNote": "Un voyant n’apparaît que pour un atterrissage ferme ou dur.",
     "route": "Route",
     "planned": "Planifiée",
-    "flown": "Volée"
+    "flown": "Volée",
+    "airportsTo": "{{dep}} à {{arr}}",
+    "speedMode": "Vitesse affichée en"
   },
   "gsxRemoteView": {
     "title": "Services au sol"

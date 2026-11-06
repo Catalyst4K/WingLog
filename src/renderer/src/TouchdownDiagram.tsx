@@ -41,6 +41,7 @@ const MIN_MARK_LENGTH_PX = 6
  * @param lateralCenterPx Centre across the runway.
  * @param lateralThicknessPx Thickness across the runway.
  * @param widthPx The diagram's width.
+ * @param horizontal Whether the runway lies across the page (landing at the left) instead of running up it.
  * @returns The rectangle in SVG coordinates.
  */
 function rotatedRect(
@@ -48,8 +49,17 @@ function rotatedRect(
   alongLengthPx: number,
   lateralCenterPx: number,
   lateralThicknessPx: number,
-  widthPx: number
+  widthPx: number,
+  horizontal = false
 ): { x: number; y: number; width: number; height: number } {
+  if (horizontal) {
+    return {
+      x: alongStartPx,
+      y: lateralCenterPx - lateralThicknessPx / 2,
+      width: alongLengthPx,
+      height: lateralThicknessPx
+    }
+  }
   return {
     x: lateralCenterPx - lateralThicknessPx / 2,
     y: widthPx - alongStartPx - alongLengthPx,
@@ -58,8 +68,68 @@ function rotatedRect(
   }
 }
 
-function rotatedPoint(alongPx: number, lateralPx: number, widthPx: number): { x: number; y: number } {
-  return { x: lateralPx, y: widthPx - alongPx }
+function rotatedPoint(
+  alongPx: number,
+  lateralPx: number,
+  widthPx: number,
+  horizontal = false
+): { x: number; y: number } {
+  return horizontal ? { x: alongPx, y: lateralPx } : { x: lateralPx, y: widthPx - alongPx }
+}
+
+/**
+ * A line along the runway's centre between two distances from the runway's start, in the frame the diagram is drawn in.
+ *
+ * @param fromPx Where it starts along the runway.
+ * @param toPx Where it ends along the runway.
+ * @param lateralPx Its distance across the runway.
+ * @param widthPx The diagram's width.
+ * @param horizontal Whether the runway lies across the page.
+ * @returns The line's end points as SVG attributes.
+ */
+function alongLine(
+  fromPx: number,
+  toPx: number,
+  lateralPx: number,
+  widthPx: number,
+  horizontal: boolean
+): { x1: number; y1: number; x2: number; y2: number } {
+  const from = rotatedPoint(fromPx, lateralPx, widthPx, horizontal)
+  const to = rotatedPoint(toPx, lateralPx, widthPx, horizontal)
+  return { x1: from.x, y1: from.y, x2: to.x, y2: to.y }
+}
+
+/**
+ * The names of the marks along a runway lying across the page: the threshold and aim point above it, the touchdown zone under it.
+ *
+ * @param props The layout and the aim point's length.
+ * @returns The element.
+ */
+function MarkNames(props: {
+  layout: ReturnType<typeof computeTouchdownDiagramLayout>
+  aimingPointLengthPx: number
+}): React.JSX.Element {
+  const { t } = useTranslation()
+  const { layout } = props
+  const under = layout.heightPx
+  return (
+    <g fontSize={15} fill="var(--color-muted-foreground)" aria-hidden="true">
+      <text x={layout.thresholdXPx} y={-9}>
+        {t('touchdownDiagram.threshold')}
+      </text>
+      <text x={layout.aimingPointXPx + props.aimingPointLengthPx / 2} y={-9} textAnchor="middle">
+        {t('touchdownDiagram.aimPoint')}
+      </text>
+      <text x={layout.touchdownZoneStartXPx} y={under + 22}>
+        {t('touchdownDiagram.touchdownZone')}
+      </text>
+      <path
+        d={`M${layout.touchdownZoneStartXPx} ${under + 8} V${under + 12} H${layout.touchdownZoneEndXPx} V${under + 8}`}
+        fill="none"
+        stroke="var(--color-muted-foreground)"
+      />
+    </g>
+  )
 }
 
 /**
@@ -74,6 +144,7 @@ function ThresholdStripes(props: {
   lateralExtentPx: number
   alongLengthPx: number
   widthPx: number
+  horizontal: boolean
 }): React.JSX.Element {
   const stripeThicknessPx = (props.lateralExtentPx / props.count) * 0.6
   const lanes = evenlySpacedYsPx(props.count, props.lateralExtentPx)
@@ -85,7 +156,8 @@ function ThresholdStripes(props: {
           props.alongLengthPx,
           laneCenterPx,
           stripeThicknessPx,
-          props.widthPx
+          props.widthPx,
+          props.horizontal
         )
         return <rect key={i} {...rect} fill={MARKING_COLOR} />
       })}
@@ -112,6 +184,7 @@ function TouchdownZoneGroup(props: {
   centreGapPx: number
   lateralExtentPx: number
   widthPx: number
+  horizontal: boolean
 }): React.JSX.Element {
   const bars: { rect: { x: number; y: number; width: number; height: number }; key: string }[] = []
   const centreY = props.lateralExtentPx / 2
@@ -126,7 +199,8 @@ function TouchdownZoneGroup(props: {
           props.alongLengthPx,
           laneCenterPx,
           props.barThicknessPx,
-          props.widthPx
+          props.widthPx,
+          props.horizontal
         )
       })
     }
@@ -157,7 +231,10 @@ function TouchdownZoneGroup(props: {
 export function TouchdownDiagram(props: {
   runway: LandingRunway
   touchdown: DiagramTouchdown
+  /** The runway lies across the page, landing at the left, as on the canvas (r3-flight), instead of running up it. */
+  horizontal?: boolean
 }): React.JSX.Element {
+  const horizontal = props.horizontal ?? false
   const { t } = useTranslation()
   const layout = useMemo(
     () => computeTouchdownDiagramLayout(props.runway, props.touchdown, VIEWPORT_WIDTH_PX),
@@ -178,24 +255,28 @@ export function TouchdownDiagram(props: {
   // (layout.widthPx) becomes the SVG's height.
   const svgWidthPx = layout.heightPx
   const svgHeightPx = layout.widthPx
+  // Lying down, the page is as wide as the runway is long, with room above and below for the names of the marks.
+  const frame = horizontal
+    ? { top: -26, width: layout.widthPx, height: layout.heightPx + 52, svgWidth: '100%', svgHeight: 'auto' }
+    : { top: 0, width: svgWidthPx, height: svgHeightPx, svgWidth: 'auto', svgHeight: '100%' }
 
   const runwayBandLengthPx = Math.max(0, layout.runwayEndXPx - layout.runwayStartXPx)
   const tdzShadingLengthPx = Math.max(0, layout.touchdownZoneEndXPx - layout.touchdownZoneStartXPx)
 
-  const tail = rotatedPoint(layout.touchdown.tailStartXPx, layout.touchdown.yPx, layout.widthPx)
-  const dot = rotatedPoint(layout.touchdown.xPx, layout.touchdown.yPx, layout.widthPx)
+  const tail = rotatedPoint(layout.touchdown.tailStartXPx, layout.touchdown.yPx, layout.widthPx, horizontal)
+  const dot = rotatedPoint(layout.touchdown.xPx, layout.touchdown.yPx, layout.widthPx, horizontal)
 
   return (
     <svg
-      viewBox={`0 0 ${svgWidthPx} ${svgHeightPx}`}
+      viewBox={`0 ${frame.top} ${frame.width} ${frame.height}`}
       // Sized off height, not width (the diagram should be no bigger
       // than the text list it sits alongside, not its own separately-sized block) — the
       // parent column fixes the height (LogbookView.tsx) and this derives its own width
       // from that via the aspect-ratio, rather than the old width:100%/height:auto which
       // let a long runway's tall, narrow window grow past the field list's height.
-      width="auto"
-      height="100%"
-      style={{ aspectRatio: `${svgWidthPx} / ${svgHeightPx}`, display: 'block' }}
+      width={frame.svgWidth}
+      height={frame.svgHeight}
+      style={{ aspectRatio: `${frame.width} / ${frame.height}`, display: 'block' }}
       preserveAspectRatio="xMidYMid meet"
       role="img"
       aria-label={t('touchdownDiagram.ariaLabel', { ident: props.runway.ident })}
@@ -215,7 +296,8 @@ export function TouchdownDiagram(props: {
           runwayBandLengthPx,
           svgWidthPx / 2,
           svgWidthPx,
-          layout.widthPx
+          layout.widthPx,
+          horizontal
         )}
         fill={ASPHALT_COLOR}
       />
@@ -228,7 +310,8 @@ export function TouchdownDiagram(props: {
           tdzShadingLengthPx,
           svgWidthPx / 2,
           svgWidthPx,
-          layout.widthPx
+          layout.widthPx,
+          horizontal
         )}
         fill="var(--color-primary)"
         opacity={0.12}
@@ -238,10 +321,13 @@ export function TouchdownDiagram(props: {
             threshold bar. */}
       {layout.displaced && (
         <line
-          x1={svgWidthPx / 2}
-          y1={layout.widthPx - layout.displaced.startXPx}
-          x2={svgWidthPx / 2}
-          y2={layout.widthPx - layout.displaced.endXPx}
+          {...alongLine(
+            layout.displaced.startXPx,
+            layout.displaced.endXPx,
+            svgWidthPx / 2,
+            layout.widthPx,
+            horizontal
+          )}
           stroke={DISPLACED_ARROW_COLOR}
           strokeWidth={Math.max(2, svgWidthPx * 0.04)}
           strokeDasharray="6 4"
@@ -255,7 +341,8 @@ export function TouchdownDiagram(props: {
           2,
           svgWidthPx / 2,
           svgWidthPx,
-          layout.widthPx
+          layout.widthPx,
+          horizontal
         )}
         fill={MARKING_COLOR}
       />
@@ -267,6 +354,7 @@ export function TouchdownDiagram(props: {
         lateralExtentPx={svgWidthPx}
         alongLengthPx={stripeLengthPx}
         widthPx={layout.widthPx}
+        horizontal={horizontal}
       />
 
       {/* Touchdown-zone marking groups — the real 3/2/1 "countdown" bar pattern. */}
@@ -281,6 +369,7 @@ export function TouchdownDiagram(props: {
           centreGapPx={svgWidthPx * 0.1}
           lateralExtentPx={svgWidthPx}
           widthPx={layout.widthPx}
+          horizontal={horizontal}
         />
       ))}
 
@@ -295,18 +384,18 @@ export function TouchdownDiagram(props: {
         centreGapPx={svgWidthPx * 0.11}
         lateralExtentPx={svgWidthPx}
         widthPx={layout.widthPx}
+        horizontal={horizontal}
       />
 
       {/* Centreline. */}
       <line
-        x1={svgWidthPx / 2}
-        y1={layout.widthPx - layout.runwayStartXPx}
-        x2={svgWidthPx / 2}
-        y2={layout.widthPx - layout.runwayEndXPx}
+        {...alongLine(layout.runwayStartXPx, layout.runwayEndXPx, svgWidthPx / 2, layout.widthPx, horizontal)}
         stroke={CENTRELINE_COLOR}
         strokeWidth={Math.max(1, svgWidthPx * 0.015)}
         strokeDasharray="10 6"
       />
+
+      {horizontal && <MarkNames layout={layout} aimingPointLengthPx={aimingPointLengthPx} />}
 
       {/* Touchdown tail (the one-second capture window) and dot. */}
       <line

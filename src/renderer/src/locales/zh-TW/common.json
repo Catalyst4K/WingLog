@@ -19,7 +19,10 @@
     "cleanedUp": "航跡已清理：{{parts}}。"
   },
   "touchdownDiagram": {
-    "ariaLabel": "跑道 {{ident}} 的接地示意圖"
+    "ariaLabel": "跑道 {{ident}} 的接地示意圖",
+    "threshold": "入口",
+    "aimPoint": "瞄準點",
+    "touchdownZone": "接地區"
   },
   "aircraftPhoto": {
     "credit": "照片來自 airport-data.com",
@@ -817,10 +820,11 @@
       "online": "線上"
     },
     "trackTools": "航跡工具",
-    "lightNote": "只有較重或重降落才會出現指示燈。",
     "route": "航路",
     "planned": "計畫",
-    "flown": "實飛"
+    "flown": "實飛",
+    "airportsTo": "{{dep}}至{{arr}}",
+    "speedMode": "速度顯示為"
   },
   "gsxRemoteView": {
     "title": "地面服務"

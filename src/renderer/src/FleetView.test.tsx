@@ -1043,7 +1043,7 @@ describe('FleetView', () => {
       expect(screen.getAllByText('—').length).toBeGreaterThan(0)
     })
 
-    it('shows a severity badge for a firm/hard landing, from the server-resolved severity', async () => {
+    it('shows a landing by its score alone, with no light beside it for a hard one', async () => {
       // Severity is resolved server-side against the aircraft's own wake category
       // the client renders whatever fleetListLandings
       // returns rather than re-classifying verticalSpeedMs itself.
@@ -1052,8 +1052,8 @@ describe('FleetView', () => {
         fleetListLandings: vi.fn().mockResolvedValue([makeLanding({ severity: 'hard', score: 15 })])
       })
       render(<FleetView onOpenFlightInLogbook={vi.fn()} initialAircraftId={1} />)
-      expect(await screen.findByText('Hard')).toBeInTheDocument()
-      expect(screen.getByText('15')).toBeInTheDocument()
+      expect(await screen.findByText('15')).toBeInTheDocument()
+      expect(screen.queryByText('Hard')).not.toBeInTheDocument()
     })
   })
 

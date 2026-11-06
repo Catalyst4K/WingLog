@@ -1,29 +1,18 @@
-/** The flight detail page's charts: altitude, speed, and planned versus actual fuel. */
+/** The flight detail page's charts: altitude, speed, and planned versus actual fuel (the canvas's r3-flight). */
 
 import { useTranslation } from 'react-i18next'
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Line,
-  LineChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis
-} from 'recharts'
+import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import type { WeightUnit } from '@shared/ipc'
-import { Button } from '@/components/ui/button'
-import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { SegmentButton, SegmentedGroup } from '../settings/ui/SettingsCard'
 import { formatWeight } from '../units'
 import type { FlightProfile } from './use-flight-detail'
 
-// Recharts SVG props take any CSS color, including our design-token custom properties —
-// this keeps the charts on the same palette as the rest of the app instead of hardcoded hex.
+// Recharts SVG props take any CSS color, including our design-token custom properties — this keeps the charts on the same palette as the
+// rest of the app: what was flown in the text colour, a thick line, with hairline gridlines and the axes in the mono face.
 const CHART_GRID_COLOR = 'var(--color-border)'
 const CHART_AXIS_COLOR = 'var(--color-muted-foreground)'
-const CHART_SERIES_1 = 'var(--color-primary)'
-const CHART_SERIES_2 = 'var(--color-success)'
+const CHART_FLOWN_COLOR = 'var(--color-foreground)'
+const CHART_TICK = { fill: CHART_AXIS_COLOR, fontSize: 11, fontFamily: 'var(--font-mono)' }
 const CHART_TOOLTIP_STYLE = {
   background: 'var(--color-popover)',
   border: '1px solid var(--color-border)',
@@ -58,6 +47,81 @@ function ValueTooltip(props: {
 }
 
 /**
+ * A chart's section: its title (with something on the right of it, when there is something), then the chart under it.
+ *
+ * @param props The title, what sits on the right of it, and the chart.
+ * @returns The element.
+ */
+function ChartSection(props: {
+  title: string
+  aside?: React.ReactNode
+  children: React.ReactNode
+}): React.JSX.Element {
+  return (
+    <section className="min-w-0 flex-[1_1_28rem]" aria-label={props.title}>
+      <div className="flex min-h-9 items-center justify-between gap-3 pb-2">
+        <h3 className="m-0 text-[17px] font-semibold">{props.title}</h3>
+        {props.aside}
+      </div>
+      <div className="h-[230px]">{props.children}</div>
+    </section>
+  )
+}
+
+/**
+ * One flown line against elapsed time.
+ *
+ * @param props The profile, the value each point has, the axis label and format, and the tooltip's format.
+ * @returns The element.
+ */
+function FlownLineChart(props: {
+  profile: FlightProfile
+  dataKey: string
+  name: string
+  yUnit: string
+  yWidth: number
+  formatTick: (value: number) => string
+  formatValue: (value: number) => string
+}): React.JSX.Element {
+  const { profile, ticksMin, timeAxisUnit, formatTimeTick } = props.profile
+  return (
+    <ResponsiveContainer width="100%" height="100%">
+      <LineChart data={profile}>
+        <CartesianGrid vertical={false} stroke={CHART_GRID_COLOR} />
+        <XAxis
+          dataKey="tMin"
+          type="number"
+          domain={[0, 'dataMax']}
+          ticks={ticksMin}
+          tickFormatter={formatTimeTick}
+          unit={timeAxisUnit}
+          stroke={CHART_GRID_COLOR}
+          tick={CHART_TICK}
+        />
+        <YAxis
+          unit={props.yUnit}
+          width={props.yWidth}
+          axisLine={false}
+          tickLine={false}
+          tick={CHART_TICK}
+          tickFormatter={props.formatTick}
+        />
+        <Tooltip content={<ValueTooltip formatValue={props.formatValue} />} />
+        <Line
+          type="monotone"
+          dataKey={props.dataKey}
+          stroke={CHART_FLOWN_COLOR}
+          strokeWidth={2.4}
+          dot={false}
+          name={props.name}
+          isAnimationActive={false}
+        />
+      </LineChart>
+    </ResponsiveContainer>
+  )
+}
+
+/**
  * Altitude against elapsed time.
  *
  * @param props The profile with its time axis.
@@ -65,48 +129,22 @@ function ValueTooltip(props: {
  */
 export function AltitudeChart(props: { profile: FlightProfile }): React.JSX.Element {
   const { t } = useTranslation()
-  const { profile, altitudeChartLabel, ticksMin, timeAxisUnit, formatTimeTick } = props.profile
+  const title =
+    props.profile.altitudeChartLabel === 'True altitude'
+      ? t('logbookView.trueAltitude')
+      : t('logbookView.altitude')
   return (
-    <Card className="min-w-72 flex-1">
-      <CardHeader>
-        <CardTitle className="text-sm">
-          {altitudeChartLabel === 'True altitude' ? t('logbookView.trueAltitude') : t('logbookView.altitude')}
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="h-[220px]">
-        <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={profile}>
-            <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID_COLOR} />
-            <XAxis
-              dataKey="tMin"
-              type="number"
-              domain={[0, 'dataMax']}
-              ticks={ticksMin}
-              tickFormatter={formatTimeTick}
-              unit={timeAxisUnit}
-              stroke={CHART_AXIS_COLOR}
-              tick={{ fill: CHART_AXIS_COLOR }}
-            />
-            <YAxis
-              unit=" ft"
-              width={70}
-              stroke={CHART_AXIS_COLOR}
-              tick={{ fill: CHART_AXIS_COLOR }}
-              tickFormatter={(v: number) => v.toLocaleString()}
-            />
-            <Tooltip content={<ValueTooltip formatValue={(v) => `${Math.round(v).toLocaleString()} ft`} />} />
-            <Line
-              type="monotone"
-              dataKey="altFt"
-              stroke={CHART_SERIES_1}
-              dot={false}
-              name="Altitude"
-              isAnimationActive={false}
-            />
-          </LineChart>
-        </ResponsiveContainer>
-      </CardContent>
-    </Card>
+    <ChartSection title={title}>
+      <FlownLineChart
+        profile={props.profile}
+        dataKey="altFt"
+        name="Altitude"
+        yUnit=" ft"
+        yWidth={70}
+        formatTick={(v) => v.toLocaleString()}
+        formatValue={(v) => `${Math.round(v).toLocaleString()} ft`}
+      />
+    </ChartSection>
   )
 }
 
@@ -122,85 +160,38 @@ export function SpeedChart(props: {
   onSpeedModeChange: (mode: 'ias' | 'mach') => void
 }): React.JSX.Element {
   const { t } = useTranslation()
-  const { profile, ticksMin, timeAxisUnit, formatTimeTick } = props.profile
   const { speedMode } = props
-  const speedDataKey = speedMode === 'ias' ? 'iasKt' : 'mach'
   return (
-    <Card className="min-w-72 flex-1">
-      <CardHeader>
-        <CardTitle className="text-sm">
-          {t('logbookView.speedTitle', { mode: speedMode === 'ias' ? 'IAS' : 'Mach' })}
-        </CardTitle>
-        <CardAction>
-          <div className="flex gap-1">
-            <Button
-              type="button"
-              variant={speedMode === 'ias' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => props.onSpeedModeChange('ias')}
-            >
-              IAS
-            </Button>
-            <Button
-              type="button"
-              variant={speedMode === 'mach' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => props.onSpeedModeChange('mach')}
-            >
-              Mach
-            </Button>
-          </div>
-        </CardAction>
-      </CardHeader>
-      <CardContent className="h-[220px]">
-        <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={profile}>
-            <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID_COLOR} />
-            <XAxis
-              dataKey="tMin"
-              type="number"
-              domain={[0, 'dataMax']}
-              ticks={ticksMin}
-              tickFormatter={formatTimeTick}
-              unit={timeAxisUnit}
-              stroke={CHART_AXIS_COLOR}
-              tick={{ fill: CHART_AXIS_COLOR }}
-            />
-            <YAxis
-              unit={speedMode === 'ias' ? ' kt' : ''}
-              width={60}
-              stroke={CHART_AXIS_COLOR}
-              tick={{ fill: CHART_AXIS_COLOR }}
-              tickFormatter={
-                speedMode === 'mach' ? (v: number) => v.toFixed(2) : (v: number) => v.toLocaleString()
-              }
-            />
-            <Tooltip
-              content={
-                <ValueTooltip
-                  formatValue={(v) =>
-                    speedMode === 'ias' ? `${Math.round(v).toLocaleString()} kt` : `M${v.toFixed(2)}`
-                  }
-                />
-              }
-            />
-            <Line
-              type="monotone"
-              dataKey={speedDataKey}
-              stroke={CHART_SERIES_2}
-              dot={false}
-              name={speedMode === 'ias' ? 'IAS' : 'Mach'}
-              isAnimationActive={false}
-            />
-          </LineChart>
-        </ResponsiveContainer>
-      </CardContent>
-    </Card>
+    <ChartSection
+      title={t('logbookView.speedTitle', { mode: speedMode === 'ias' ? 'IAS' : 'Mach' })}
+      aside={
+        <SegmentedGroup label={t('logbookView.speedMode')}>
+          <SegmentButton pressed={speedMode === 'ias'} onClick={() => props.onSpeedModeChange('ias')}>
+            IAS
+          </SegmentButton>
+          <SegmentButton pressed={speedMode === 'mach'} onClick={() => props.onSpeedModeChange('mach')}>
+            Mach
+          </SegmentButton>
+        </SegmentedGroup>
+      }
+    >
+      <FlownLineChart
+        profile={props.profile}
+        dataKey={speedMode === 'ias' ? 'iasKt' : 'mach'}
+        name={speedMode === 'ias' ? 'IAS' : 'Mach'}
+        yUnit={speedMode === 'ias' ? ' kt' : ''}
+        yWidth={60}
+        formatTick={speedMode === 'mach' ? (v) => v.toFixed(2) : (v) => v.toLocaleString()}
+        formatValue={(v) =>
+          speedMode === 'ias' ? `${Math.round(v).toLocaleString()} kt` : `M${v.toFixed(2)}`
+        }
+      />
+    </ChartSection>
   )
 }
 
 /**
- * Planned against actual fuel burn, as two bars.
+ * Planned against actual fuel burn, as two bars: the plan's in magenta, what was burned in the text colour.
  *
  * @param props The fuel figures and the weight unit.
  * @returns The element.
@@ -210,25 +201,30 @@ export function FuelChart(props: {
   weightUnit: WeightUnit
 }): React.JSX.Element {
   const { t } = useTranslation()
+  const most = Math.max(...props.data.map((d) => d.kg), 1)
   return (
-    <Card className="min-w-72 max-w-96 flex-1">
-      <CardHeader>
-        <CardTitle className="text-sm">{t('logbookView.fuelPlannedVsActual')}</CardTitle>
-      </CardHeader>
-      <CardContent className="h-[200px]">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={props.data}>
-            <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID_COLOR} />
-            <XAxis dataKey="name" stroke={CHART_AXIS_COLOR} tick={{ fill: CHART_AXIS_COLOR }} />
-            <YAxis width={60} stroke={CHART_AXIS_COLOR} tick={{ fill: CHART_AXIS_COLOR }} />
-            <Tooltip
-              formatter={(value) => formatWeight(Number(value), props.weightUnit)}
-              contentStyle={CHART_TOOLTIP_STYLE}
-            />
-            <Bar dataKey="kg" fill={CHART_SERIES_1} name="Fuel" />
-          </BarChart>
-        </ResponsiveContainer>
-      </CardContent>
-    </Card>
+    <section className="min-w-0 flex-[1_1_26rem]" aria-label={t('logbookView.fuelPlannedVsActual')}>
+      <h3 className="m-0 pb-2 text-[17px] font-semibold">{t('logbookView.fuelPlannedVsActual')}</h3>
+      {props.data.map((row, index) => {
+        const planned = index === 0
+        return (
+          <div
+            key={row.name}
+            className={`grid min-h-9 grid-cols-[5rem_minmax(0,1fr)_6rem] items-center gap-3 border-t border-border ${planned ? 'text-plan' : ''}`}
+          >
+            <span className="text-muted-foreground">{row.name}</span>
+            <span className="h-2 rounded-sm bg-border" aria-hidden="true">
+              <span
+                className={`block h-2 rounded-sm ${planned ? 'bg-plan' : 'bg-foreground'}`}
+                style={{ width: `${(row.kg / most) * 100}%` }}
+              />
+            </span>
+            <span className={`text-right font-mono ${planned ? 'text-plan' : 'text-foreground'}`}>
+              {formatWeight(row.kg, props.weightUnit)}
+            </span>
+          </div>
+        )
+      })}
+    </section>
   )
 }

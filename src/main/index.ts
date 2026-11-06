@@ -32,6 +32,7 @@ import { migrateLegacyUserData } from './db/legacy-userdata'
 import { getFlight, getInProgressFlight, getLiveFlight, setParkedStand } from './db/flight-repo'
 import {
   getAppLanguage,
+  getTheme,
   getMinimizeToTray,
   getSkippedUpdateVersion,
   getTrackingSettings,
@@ -47,6 +48,7 @@ import { registerLogbookHandlers } from './ipc/logbook-handlers'
 import { registerLookupHandlers } from './ipc/lookup-handlers'
 import { registerAppHandlers } from './ipc/app-handlers'
 import { registerSettingsHandlers } from './ipc/settings-handlers'
+import { keepWindowEdgesInStep } from './window-edge'
 import { registerDispatchHandlers } from './ipc/dispatch-handlers'
 import { registerNavdataHandlers } from './ipc/navdata-handlers'
 import { createNavdataSignatureReader, signatureFilesFor } from './navdata/sim-navdata-signature'
@@ -443,6 +445,9 @@ function startApp(cloudSession: StoredSession | null): void {
   // way to move around; a bare File/Edit/Window bar above it was clutter, not useful.
   Menu.setApplicationMenu(null)
   const window = createWindow()
+  // The window's edge takes the page's ground colour instead of the system accent (window-edge.ts).
+  const refreshWindowEdges = keepWindowEdgesInStep(() => getTheme(db))
+  refreshWindowEdges()
   startStorageMaintenance(sqlite, backedUp)
   // Live state (sim, tracking, GSX Remote, BeyondATC) goes through one hub, and the window
   // is its first subscriber (winglog-backend's docs/plans/live-data-seam.md, part A).
@@ -545,7 +550,12 @@ function startApp(cloudSession: StoredSession | null): void {
   const updateService = startUpdates(db, window, () => trackingController.getActive() !== undefined)
   app.on('before-quit', () => updateService.stop())
   const trayController = startWindowBehaviour(db, window, trackingController)
-  registerSettingsHandlers(ipcMain, { db, trackingController, trayController })
+  registerSettingsHandlers(ipcMain, {
+    db,
+    trackingController,
+    trayController,
+    onThemeChanged: refreshWindowEdges
+  })
   registerAppHandlers(ipcMain, { updateService })
 
   registerNavdataHandlers(ipcMain, { navdataProvider, readSignature: readNavdataSignature })

@@ -3,69 +3,56 @@
 import { useTranslation } from 'react-i18next'
 import type { Aircraft, Flight, WeightUnit } from '@shared/ipc'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import { StatCell, StatStrip } from '@/components/StatStrip'
 import { displayIcao } from '../display-icao'
-import { asyncHandler } from '../report-error'
+import { useAirportName } from '../use-airport-name'
 import { formatMinutes, formatWeight } from '../units'
-import { formatDate, isFreeFlight } from './logbook-format'
+import { formatFlightDate, isFreeFlight } from './logbook-format'
 
 /**
- * The flight's heading as on the canvas (r3-flight): its number large with the route in the mono face and a quiet line of date, aircraft
- * and type under them, the OFP and add-to-fleet buttons beside it, then a thin box of figures: block and air time, fuel burn with the
- * plan's figure under it in magenta, and whether it was flown online.
+ * The flight's heading as on the canvas (r3-flight): its number large with the route in the mono face and a quiet line of the airports'
+ * names, date, aircraft and type under them, then a thin box of figures: block and air time, fuel burn with the plan's figure under it in
+ * magenta, and whether it was flown online.
  *
- * @param props The flight, its fleet aircraft, the weight unit, and the two button handlers.
+ * @param props The flight, its fleet aircraft and the weight unit.
  * @returns The element.
  */
 export function FlightSummary(props: {
   flight: Flight
   aircraft: Aircraft | undefined
   weightUnit: WeightUnit
-  onViewOfpPdf: () => Promise<void>
-  onAddToFleet: () => void
 }): React.JSX.Element {
   const { t } = useTranslation()
   const { flight, aircraft, weightUnit } = props
   const freeFlight = isFreeFlight(flight)
+  const depName = useAirportName(flight.depIcao)
+  const arrName = useAirportName(flight.arrIcao)
   const subtitle = [
-    formatDate(flight.actualOutUtc),
+    depName && arrName ? t('logbookView.airportsTo', { dep: depName, arr: arrName }) : null,
+    formatFlightDate(flight.actualOutUtc),
     aircraft?.registration ?? flight.simRegistration,
     aircraft?.icaoType ?? flight.simIcaoType
   ]
     .filter(Boolean)
     .join(' · ')
+  const route = `${displayIcao(flight.depIcao)} → ${displayIcao(flight.arrIcao)}`
   return (
     <section className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
-        <div className="flex flex-wrap items-baseline gap-x-[18px] gap-y-1">
-          <h2 className="m-0 text-[28px] font-semibold">{flight.flightNumber ?? '—'}</h2>
-          <span className="font-mono text-lg">
-            {displayIcao(flight.depIcao)} → {displayIcao(flight.arrIcao)}
-          </span>
-          {freeFlight && (
-            <Badge variant="outline" className="text-xs font-normal">
-              {t('logbookView.freeFlight')}
-            </Badge>
-          )}
-          <span className="text-muted-foreground">{subtitle}</span>
-        </div>
-        <div className="flex items-center gap-2">
-          {flight.ofpJson && (
-            <Button
-              type="button"
-              variant="outline"
-              onClick={asyncHandler('LogbookView handleViewOfpPdf', props.onViewOfpPdf)}
-            >
-              {t('logbookView.viewOfpPdf')}
-            </Button>
-          )}
-          {freeFlight && flight.aircraftId == null && (
-            <Button type="button" variant="outline" onClick={props.onAddToFleet}>
-              {t('logbookView.addToFleet')}
-            </Button>
-          )}
-        </div>
+      <div className="flex flex-wrap items-baseline gap-x-[18px] gap-y-1">
+        {flight.flightNumber ? (
+          <>
+            <h2 className="m-0 text-[28px] font-semibold">{flight.flightNumber}</h2>
+            <span className="font-mono text-lg">{route}</span>
+          </>
+        ) : (
+          <h2 className="m-0 font-mono text-[28px] font-semibold">{route}</h2>
+        )}
+        {freeFlight && (
+          <Badge variant="outline" className="text-xs font-normal">
+            {t('logbookView.freeFlight')}
+          </Badge>
+        )}
+        <span className="text-muted-foreground">{subtitle}</span>
       </div>
       <StatStrip>
         <StatCell label={t('logbookView.fields.blockTime')}>{formatMinutes(flight.blockMinutes)}</StatCell>

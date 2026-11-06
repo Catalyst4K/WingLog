@@ -646,32 +646,16 @@ describe('LogbookView list', () => {
     expect(row.closest('table')?.parentElement?.parentElement?.className).toContain('[&_tbody_tr]:h-11')
   })
 
-  it('lights a flight in the list only for its worst firm or hard touchdown', async () => {
+  it('marks a landing in the list by its tinted score alone: no light beside it, even for a firm or hard touchdown', async () => {
     setWinglog({
-      logbookListCompletedFlights: vi
-        .fn()
-        .mockResolvedValue([
-          makeFlight({ id: 1, flightNumber: 'SOFT1' }),
-          makeFlight({ id: 2, flightNumber: 'FIRM1' }),
-          makeFlight({ id: 3, flightNumber: 'HARD1' })
-        ]),
+      logbookListCompletedFlights: vi.fn().mockResolvedValue([makeFlight({ id: 2, flightNumber: 'FIRM1' })]),
       logbookListAllLandings: vi
         .fn()
-        .mockResolvedValue([
-          makeLandingListRow({ id: 1, flightId: 1, severity: 'none' }),
-          makeLandingListRow({ id: 2, flightId: 2, severity: 'firm' }),
-          makeLandingListRow({ id: 3, flightId: 3, seq: 1, severity: 'firm' }),
-          makeLandingListRow({ id: 4, flightId: 3, seq: 2, severity: 'hard' })
-        ])
+        .mockResolvedValue([makeLandingListRow({ id: 2, flightId: 2, severity: 'hard' })])
     })
     render(<LogbookView weightUnit="kg" landingDistanceUnit="ft" />)
-    const lightIn = async (flightNumber: string): Promise<string | null | undefined> => {
-      const row = (await screen.findByText(flightNumber)).closest('tr')!
-      return row.querySelector('[data-slot="status-light"]')?.getAttribute('data-state')
-    }
-    expect(await lightIn('SOFT1')).toBeUndefined()
-    await waitFor(async () => expect(await lightIn('FIRM1')).toBe('amber'))
-    expect(await lightIn('HARD1')).toBe('red')
+    const row = (await screen.findByText('FIRM1')).closest('tr')!
+    expect(row.querySelector('[data-slot="status-light"]')).toBeNull()
   })
 
   it('offers a Flights | Landings tab switcher, and the Landings tab shows logbookListAllLandings data', async () => {

@@ -58,6 +58,8 @@ export interface SettingsHandlerDeps {
   trackingController: Pick<TrackingController, 'setAutoFinish'>
   /** The tray icon follows the "minimise to the tray" setting as soon as it changes. */
   trayController: Pick<TrayController, 'sync' | 'isAvailable'>
+  /** The window's edge takes the new theme's colour as soon as the theme changes. */
+  onThemeChanged?: () => void
 }
 
 /**
@@ -68,7 +70,7 @@ export interface SettingsHandlerDeps {
  */
 export function registerSettingsHandlers(
   ipcMain: IpcMain,
-  { db, trackingController, trayController }: SettingsHandlerDeps
+  { db, trackingController, trayController, onThemeChanged }: SettingsHandlerDeps
 ): void {
   ipcMain.handle(IpcChannels.settingsGetSimbriefUsername, () => getSimbriefUsername(db) ?? null)
 
@@ -117,7 +119,10 @@ export function registerSettingsHandlers(
 
   ipcMain.handle(IpcChannels.settingsGetTheme, () => getTheme(db))
 
-  ipcMain.handle(IpcChannels.settingsSetTheme, (_event, theme: Theme) => setTheme(db, theme))
+  ipcMain.handle(IpcChannels.settingsSetTheme, (_event, theme: Theme) => {
+    setTheme(db, theme)
+    onThemeChanged?.()
+  })
 
   ipcMain.handle(IpcChannels.settingsGetTracking, () => getTrackingSettings(db))
 

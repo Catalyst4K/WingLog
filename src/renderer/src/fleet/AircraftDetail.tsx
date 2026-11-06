@@ -168,7 +168,7 @@ export function AircraftDetail(props: {
       <RetirementNote aircraft={a} replacedBy={props.replacedBy} onViewAircraft={props.onViewAircraft} />
 
       <div className="flex flex-wrap items-start gap-7">
-        <section className="min-w-72 flex-[1.25_1_35rem]" aria-label={a.registration}>
+        <section className="@container min-w-0 flex-[1.25_1_16rem]" aria-label={a.registration}>
           <AircraftPhoto sources={photoSourcesOf(a)} alt={`${a.registration} ${a.icaoType}`} />
           <div className="mt-4 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
             <h2 className="m-0">
@@ -177,7 +177,7 @@ export function AircraftDetail(props: {
             </h2>
             <AirlineLabel operator={a.operator} operatorIata={a.operatorIata} />
           </div>
-          <dl className="mt-4 mb-0 grid grid-cols-2 gap-x-5 gap-y-3 border-y border-border py-3.5 sm:grid-cols-4">
+          <dl className="mt-4 mb-0 grid grid-cols-2 gap-x-5 gap-y-3 border-y border-border py-3.5 @lg:grid-cols-4">
             <Figure label={t('fleetView.detail.fields.currentAirport')}>
               {locationLabel(currentIcao, props.lastParked)}
             </Figure>
@@ -192,7 +192,7 @@ export function AircraftDetail(props: {
           <SimBriefProfileCard aircraft={a} />
         </section>
         <section
-          className="flex min-w-72 flex-[1_1_27rem] flex-col gap-6"
+          className="flex min-w-0 flex-[1_1_20rem] flex-col gap-6"
           aria-label={t('fleetView.flights.cardTitle')}
         >
           <AircraftFlightsCard aircraftId={a.id} onOpenFlight={props.onOpenFlight} />

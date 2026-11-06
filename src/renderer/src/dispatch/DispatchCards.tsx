@@ -18,7 +18,7 @@ import { asyncHandler } from '../report-error'
 import { winglogApi } from '../data/winglog-api'
 import { PrefileButtons } from '../online/PrefileButtons'
 import type { PlanForm } from './use-dispatch-state'
-import { useAirportName } from './use-airport-name'
+import { useAirportName } from '../use-airport-name'
 
 /** A panel of the tab: the card colour, a 6 px corner, 20 px inside. */
 const PANEL_CLASS = 'rounded-md [--card-spacing:--spacing(5)]'

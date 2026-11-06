@@ -8,7 +8,6 @@ import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
 import type { FlightInvoice, GsxNotailCandidate } from '@shared/ipc'
 import { Button } from '@/components/ui/button'
-import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { asyncHandler, runAsync } from './report-error'
 
 function serviceGroupLabel(group: FlightInvoice['serviceGroup'], t: TFunction): string {
@@ -93,7 +92,7 @@ function InvoiceRow(props: {
   const detail = parseDetail(inv.receiptJson)
 
   return (
-    <details className="group rounded-md border border-border p-2.5 text-sm">
+    <details className="group border-t border-border py-2 text-sm">
       <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
         <span className="flex items-center gap-1.5 text-foreground">
           <ChevronRight
@@ -266,22 +265,20 @@ export function GsxInvoicesCard(props: { flightId: number }): React.JSX.Element 
   }
 
   return (
-    <Card className="min-w-72 max-w-2xl flex-1">
-      <CardHeader>
-        <CardTitle className="text-sm">{t('gsxInvoicesCard.title')}</CardTitle>
-        <CardAction>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={asyncHandler('GsxInvoicesCard handleRescan', handleRescan)}
-            disabled={rescanning}
-          >
-            {rescanning ? t('gsxInvoicesCard.scanning') : t('gsxInvoicesCard.rescan')}
-          </Button>
-        </CardAction>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-2">
+    <section className="min-w-0 flex-[1_1_26rem]" aria-label={t('gsxInvoicesCard.title')}>
+      <div className="flex items-center justify-between gap-3 pb-2">
+        <h3 className="m-0 text-[17px] font-semibold">{t('gsxInvoicesCard.title')}</h3>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={asyncHandler('GsxInvoicesCard handleRescan', handleRescan)}
+          disabled={rescanning}
+        >
+          {rescanning ? t('gsxInvoicesCard.scanning') : t('gsxInvoicesCard.rescan')}
+        </Button>
+      </div>
+      <div className="flex flex-col">
         {invoices.length === 0 ? (
           <p className="text-sm text-muted-foreground">{t('gsxInvoicesCard.empty')}</p>
         ) : (
@@ -320,7 +317,7 @@ export function GsxInvoicesCard(props: { flightId: number }): React.JSX.Element 
             ))}
           </div>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </section>
   )
 }

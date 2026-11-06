@@ -148,12 +148,32 @@ function FlightDetail(props: {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
-        <Button type="button" variant="ghost" size="sm" onClick={props.onBack} className="w-fit">
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={props.onBack}
+          className="w-fit text-muted-foreground"
+        >
           <ArrowLeft />
           {props.backToAircraft ? t('logbookView.backToAircraft') : t('logbookView.backToLogbook')}
         </Button>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {flight.ofpJson && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={asyncHandler('LogbookView handleViewOfpPdf', handleViewOfpPdf)}
+            >
+              {t('logbookView.viewOfpPdf')}
+            </Button>
+          )}
+          {isFreeFlight(flight) && flight.aircraftId == null && (
+            <Button type="button" variant="outline" onClick={() => setAddToFleetOpen(true)}>
+              {t('logbookView.addToFleet')}
+            </Button>
+          )}
           <TrackToolsMenu
             flightId={flight.id}
             onCleaned={setTrackPoints}
@@ -163,7 +183,6 @@ function FlightDetail(props: {
           <Button
             type="button"
             variant="destructive"
-            size="sm"
             onClick={asyncHandler('LogbookView handleDelete', handleDelete)}
           >
             <Trash2 />
@@ -172,13 +191,7 @@ function FlightDetail(props: {
         </div>
       </div>
 
-      <FlightSummary
-        flight={flight}
-        aircraft={props.aircraft}
-        weightUnit={weightUnit}
-        onViewOfpPdf={handleViewOfpPdf}
-        onAddToFleet={() => setAddToFleetOpen(true)}
-      />
+      <FlightSummary flight={flight} aircraft={props.aircraft} weightUnit={weightUnit} />
 
       <div className="flex flex-wrap items-start gap-6">
         <section className="min-w-72 flex-[1.5_1_35rem]" aria-label={t('logbookView.route')}>
@@ -223,13 +236,13 @@ function FlightDetail(props: {
       </div>
 
       {profile.profile.length > 1 && (
-        <div className="flex flex-wrap gap-4">
+        <div className="flex flex-wrap items-start gap-6">
           <AltitudeChart profile={profile} />
           <SpeedChart profile={profile} speedMode={speedMode} onSpeedModeChange={setSpeedMode} />
         </div>
       )}
 
-      <div className="flex flex-wrap gap-4">
+      <div className="flex flex-wrap items-start gap-6">
         {fuelData && <FuelChart data={fuelData} weightUnit={weightUnit} />}
 
         <GsxInvoicesCard flightId={flight.id} />

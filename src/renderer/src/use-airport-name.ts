@@ -1,7 +1,7 @@
 /** The name of the airport typed into a Dispatch field, shown quietly under it. */
 
 import { useEffect, useState } from 'react'
-import { winglogApi } from '../data/winglog-api'
+import { winglogApi } from './data/winglog-api'
 
 /**
  * Looks the airport up once the code is four letters long.

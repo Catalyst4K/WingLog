@@ -266,22 +266,21 @@ export function LandingCard(props: {
           </span>
         )}
       </div>
-      <div className="flex flex-col gap-4 @lg:flex-row @lg:items-start">
-        <LandingFields landing={landing} scoreResult={scoreResult} unit={unit} />
-        {scoreResult && runway && landing.distanceFromThresholdM != null && (
-          // Fixed height, the width follows from the diagram's own aspect ratio (TouchdownDiagram.tsx).
-          <div className="flex h-56 w-full flex-shrink-0 justify-center @lg:w-32">
-            <TouchdownDiagram
-              runway={runway}
-              touchdown={{
-                distanceFromThresholdM: landing.distanceFromThresholdM,
-                centrelineOffsetM: landing.centrelineOffsetM ?? 0,
-                groundSpeedMs: landing.groundSpeedMs
-              }}
-            />
-          </div>
-        )}
-      </div>
+      {/* As on the canvas (r3-flight): the runway lies across the page under the score, then the measurements. */}
+      {scoreResult && runway && landing.distanceFromThresholdM != null && (
+        <div className="pb-2.5">
+          <TouchdownDiagram
+            horizontal
+            runway={runway}
+            touchdown={{
+              distanceFromThresholdM: landing.distanceFromThresholdM,
+              centrelineOffsetM: landing.centrelineOffsetM ?? 0,
+              groundSpeedMs: landing.groundSpeedMs
+            }}
+          />
+        </div>
+      )}
+      <LandingFields landing={landing} scoreResult={scoreResult} unit={unit} />
     </section>
   )
 }
