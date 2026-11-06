@@ -4,25 +4,11 @@ import { useTranslation } from 'react-i18next'
 import type { Aircraft, Flight, WeightUnit } from '@shared/ipc'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { StatCell as StripCell, StatStrip } from '@/components/StatStrip'
 import { displayIcao } from '../display-icao'
 import { asyncHandler } from '../report-error'
 import { formatMinutes, formatWeight } from '../units'
 import { formatDate, isFreeFlight } from './logbook-format'
-
-/**
- * One cell of the strip: a quiet label over a figure in the mono face.
- *
- * @param props The label and what goes under it.
- * @returns The element.
- */
-function StripCell(props: { label: string; children: React.ReactNode }): React.JSX.Element {
-  return (
-    <div className="flex min-w-36 flex-1 flex-col gap-0.5 border-l border-border px-3 py-2 first:border-l-0">
-      <dt className="text-xs text-muted-foreground">{props.label}</dt>
-      <dd className="min-w-0 font-mono text-sm break-words text-foreground">{props.children}</dd>
-    </div>
-  )
-}
 
 /**
  * The flight's heading (its number, route and free-flight badge, with the OFP and add-to-fleet buttons) and a strip under it:
@@ -72,7 +58,7 @@ export function FlightSummary(props: {
           )}
         </div>
       </div>
-      <dl className="flex flex-wrap overflow-hidden rounded-md bg-card">
+      <StatStrip>
         <StripCell label={t('logbookView.fields.aircraft')}>
           {aircraft?.registration ?? flight.simRegistration ?? '—'}
         </StripCell>
@@ -92,7 +78,7 @@ export function FlightSummary(props: {
             {`${flight.onlineNetwork === 'ivao' ? 'IVAO' : 'VATSIM'} · ${flight.onlineCallsign ?? '—'}`}
           </StripCell>
         )}
-      </dl>
+      </StatStrip>
     </section>
   )
 }

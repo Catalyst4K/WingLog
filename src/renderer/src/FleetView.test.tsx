@@ -573,6 +573,24 @@ describe('FleetView', () => {
     expect(await screen.findByText('Fleet')).toBeInTheDocument()
   })
 
+  it('lays the detail page out like a Logbook flight: a heading, then a strip of its figures in the mono face', async () => {
+    setWinglog({
+      aircraftList: vi.fn().mockResolvedValue([makeAircraft()]),
+      logbookFleetStats: vi.fn().mockResolvedValue([makeStats()])
+    })
+    render(<FleetView onOpenFlightInLogbook={vi.fn()} initialAircraftId={1} />)
+    expect(await screen.findByRole('heading', { name: 'G-ONE — A320' })).toBeInTheDocument()
+    const strip = screen.getByText('Total hours').closest('dl') as HTMLElement
+    expect([...strip.querySelectorAll('dt')].map((label) => label.textContent)).toEqual([
+      'Airline',
+      'Current airport',
+      'Total hours',
+      'Flights',
+      'Last flight'
+    ])
+    expect(screen.getByText('12.5')).toHaveClass('font-mono')
+  })
+
   it('detail page falls back to the stats’ lastArrIcao for current airport when unset', async () => {
     setWinglog({
       aircraftList: vi.fn().mockResolvedValue([makeAircraft({ currentIcao: null })]),

@@ -124,6 +124,10 @@ test('fleet, logbook and settings on a seeded profile', async () => {
     await page.getByRole('tab', { name: 'Fleet' }).click()
     await expect(page.getByText('G-WLHV')).toBeVisible()
     await shot(page, 'fleet')
+    await page.getByText('G-TEST').click()
+    await expect(page.getByRole('heading', { name: /G-TEST/ })).toBeVisible()
+    await shot(page, 'fleet-aircraft')
+    await page.getByRole('button', { name: /Back to fleet/ }).click()
 
     await page.getByRole('tab', { name: 'Logbook' }).click()
     const row = page.getByRole('row', { name: /EGLL.*EGCC/ })

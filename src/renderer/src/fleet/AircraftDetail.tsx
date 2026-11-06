@@ -5,16 +5,10 @@ import { useTranslation } from 'react-i18next'
 import { isRetired } from '@shared/aircraft'
 import type { Aircraft, AircraftLastParked, FleetStats } from '@shared/ipc'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { StatCell, StatStrip } from '@/components/StatStrip'
 import { photoSourcesOf } from '@shared/aircraft-photo'
 import { AircraftPhoto } from '../AircraftPhoto'
-import {
-  AircraftFlightsCard,
-  AirlineLabel,
-  DetailField,
-  LandingHistoryCard,
-  SimBriefProfileCard
-} from './DetailCards'
+import { AircraftFlightsCard, AirlineLabel, LandingHistoryCard, SimBriefProfileCard } from './DetailCards'
 import { formatDate, useLocationLabel } from './fleet-format'
 
 /**
@@ -118,8 +112,9 @@ function RetirementNote(props: {
 }
 
 /**
- * An aircraft's detail page: actions, the retired / replaced note, the identity card opening with its
- * large photo, then its totals, the SimBrief profile, its flights and its landing history.
+ * An aircraft's detail page, laid out like a Logbook flight's (winglog-backend docs/plans/v2-design.md): actions, the retired / replaced
+ * note, the registration and type as a heading, a strip of its figures, then the photo and SimBrief profile beside its flights and
+ * its landing history.
  *
  * @param props The aircraft, its stats, where it last parked, what replaced it, and the handlers.
  * @returns The element.
@@ -158,37 +153,28 @@ export function AircraftDetail(props: {
 
       <RetirementNote aircraft={a} replacedBy={props.replacedBy} onViewAircraft={props.onViewAircraft} />
 
+      <h2 className="text-lg font-medium">
+        {a.registration} — {a.icaoType}
+      </h2>
+      <StatStrip>
+        <StatCell label={t('fleetView.detail.fields.airline')}>
+          <AirlineLabel operator={a.operator} operatorIata={a.operatorIata} />
+        </StatCell>
+        <StatCell label={t('fleetView.detail.fields.currentAirport')}>
+          {locationLabel(currentIcao, props.lastParked)}
+        </StatCell>
+        <StatCell label={t('fleetView.detail.fields.totalHours')}>
+          {s ? s.totalHours.toFixed(1) : '0.0'}
+        </StatCell>
+        <StatCell label={t('fleetView.detail.fields.flights')}>{s?.totalCycles ?? 0}</StatCell>
+        <StatCell label={t('fleetView.detail.fields.lastFlight')}>
+          {formatDate(s?.lastFlightInUtc ?? null)}
+        </StatCell>
+      </StatStrip>
+
       <div className="flex flex-wrap gap-4">
         <div className="flex min-w-72 flex-1 flex-col gap-4">
-          <Card>
-            <AircraftPhoto sources={photoSourcesOf(a)} alt={`${a.registration} ${a.icaoType}`} />
-            <CardHeader>
-              <CardTitle className="text-xl">
-                {a.registration} — {a.icaoType}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-4">
-              <dl className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-sm">
-                <DetailField
-                  label={t('fleetView.detail.fields.airline')}
-                  value={<AirlineLabel operator={a.operator} operatorIata={a.operatorIata} />}
-                />
-                <DetailField
-                  label={t('fleetView.detail.fields.currentAirport')}
-                  value={locationLabel(currentIcao, props.lastParked)}
-                />
-                <DetailField
-                  label={t('fleetView.detail.fields.totalHours')}
-                  value={s ? s.totalHours.toFixed(1) : '0.0'}
-                />
-                <DetailField label={t('fleetView.detail.fields.flights')} value={s?.totalCycles ?? 0} />
-                <DetailField
-                  label={t('fleetView.detail.fields.lastFlight')}
-                  value={formatDate(s?.lastFlightInUtc ?? null)}
-                />
-              </dl>
-            </CardContent>
-          </Card>
+          <AircraftPhoto sources={photoSourcesOf(a)} alt={`${a.registration} ${a.icaoType}`} />
           <SimBriefProfileCard aircraft={a} />
         </div>
         <div className="flex min-w-72 flex-1 flex-col gap-4">
