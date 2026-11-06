@@ -100,7 +100,7 @@ function InfoCard(props: { state: BeyondAtcState; statusLine: React.ReactNode })
   const { t } = useTranslation()
   const { callsign, progress } = props.state
   return (
-    <header className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 border-b border-border pb-4">
+    <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 border-b border-border pb-4">
       <div className="flex flex-wrap items-baseline gap-x-5 gap-y-1.5">
         {!callsign && !progress && (
           <span className="text-sm text-muted-foreground">{t('beyondAtcPanel.noStatus')}</span>
@@ -116,7 +116,7 @@ function InfoCard(props: { state: BeyondAtcState; statusLine: React.ReactNode })
         {props.statusLine}
         <BeyondAtcAtisButton />
       </div>
-    </header>
+    </div>
   )
 }
 

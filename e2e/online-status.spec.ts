@@ -92,7 +92,7 @@ async function startOnlineFlight(window: Page): Promise<void> {
   await window.getByRole('tab', { name: 'Track' }).click()
   await window.getByRole('button', { name: 'Free flight' }).click()
   await window.getByRole('button', { name: 'Start tracking' }).click()
-  await expect(window.getByText(/Phase:/)).toBeVisible()
+  await expect(window.getByTestId('phase-lights')).toBeVisible()
   await expect
     .poll(() =>
       window.evaluate(() => (globalThis as unknown as { winglog: Winglog }).winglog.getOnlineStatus())
@@ -245,10 +245,7 @@ test("warns while BeyondATC's auto-tune is on and the pilot is online, and leave
     // map's speed line sits at its bottom edge. Once, the map's box shrank under the map: its overlays floated mid-map and the
     // attribution covered Zoom out; and a card squeezed instead cut off the airports.
     const clearDeparture = window.getByRole('button', { name: 'Clear departure' })
-    const flightCard = await window
-      .locator('[data-slot="card"]')
-      .filter({ has: clearDeparture })
-      .boundingBox()
+    const flightCard = await window.locator('section').filter({ has: clearDeparture }).boundingBox()
     const airportRow = await clearDeparture.boundingBox()
     expect(
       flightCard && airportRow && flightCard.y + flightCard.height - (airportRow.y + airportRow.height)
@@ -260,7 +257,9 @@ test("warns while BeyondATC's auto-tune is on and the pilot is online, and leave
 
     await window.getByRole('tab', { name: 'BeyondATC' }).click()
     await expect(warning).toBeVisible()
-    await expect(window.getByRole('button', { name: 'Auto-tune: On' })).toBeVisible()
+    await expect(
+      window.getByRole('group', { name: 'Auto-tune' }).getByRole('button', { name: 'On' })
+    ).toHaveAttribute('aria-pressed', 'true')
 
     // Switched off in BeyondATC, the warning goes.
     beyondAtc.sendLines('AutoTune: false')

@@ -55,7 +55,7 @@ test('browses to a completed flight, sees its landing/track detail, and deletes 
 
     // Flight detail: header, landing card (real captured landing data), and the map
     await expect(window.getByText('EGLL → EGCC')).toBeVisible()
-    await expect(window.getByText('Landing', { exact: true })).toBeVisible()
+    await expect(window.getByRole('heading', { name: /^Landing/ })).toBeVisible()
     await expect(window.getByText('Touchdown rate')).toBeVisible()
     await expect(window.getByText('23R', { exact: true })).toBeVisible()
 
@@ -116,7 +116,7 @@ test("browses the Landings sub-tab and switches between a flight's several landi
     // Clicking a landing opens its flight, same as clicking a flight row does.
     await landingRows.first().click()
     await expect(window.getByText('G-CIRC')).toBeVisible()
-    await expect(window.getByText('Landing', { exact: true })).toBeVisible()
+    await expect(window.getByRole('heading', { name: /^Landing/ })).toBeVisible()
 
     // Several landings on one flight: a tab per touchdown, defaulting to the final one.
     // Scoped to the card's own labeled tablist — the app's top-level nav uses role="tab"

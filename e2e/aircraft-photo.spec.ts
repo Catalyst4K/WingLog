@@ -149,7 +149,7 @@ test('choose your own photo, see it large on the detail page, then remove it', a
     await window.getByRole('button', { name: 'Edit' }).click()
     await window.getByRole('button', { name: 'Remove my photo' }).click()
     await window.getByRole('button', { name: 'Save' }).click()
-    await expect(window.getByText('G-PHOT — A320')).toBeVisible()
+    await expect(window.getByRole('heading', { name: /G-PHOT/ })).toBeVisible()
     await expect(window.getByRole('img', { name: 'G-PHOT A320' })).toHaveCount(0)
   } finally {
     await cleanup()

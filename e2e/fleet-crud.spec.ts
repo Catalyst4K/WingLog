@@ -29,7 +29,7 @@ test('create, view, edit, and delete an aircraft', async () => {
 
     // View detail — the card title is a CardTitle (div), not a semantic heading
     await window.getByRole('row', { name: /G-CRUD/ }).click()
-    await expect(window.getByText('G-CRUD — A320')).toBeVisible()
+    await expect(window.getByRole('heading', { name: /G-CRUD/ })).toBeVisible()
 
     // Edit
     await window.getByRole('button', { name: 'Edit' }).click()
@@ -37,7 +37,7 @@ test('create, view, edit, and delete an aircraft', async () => {
     await window.getByPlaceholder('e.g. British Airways, BAW, or type a name').fill('Test Air')
     await window.getByRole('button', { name: 'Save' }).click()
 
-    await expect(window.getByText('G-CRUD — A320')).toBeVisible()
+    await expect(window.getByRole('heading', { name: /G-CRUD/ })).toBeVisible()
     await expect(window.getByText('Test Air')).toBeVisible()
 
     // Delete

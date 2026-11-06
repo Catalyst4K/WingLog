@@ -71,7 +71,7 @@ test('starts a free flight from Track and finds it, completed, in the Logbook', 
     await window.getByRole('button', { name: 'Start tracking' }).click()
 
     // Now actively tracking, with no planned flight ever having existed for it.
-    await expect(window.getByText(/Phase:/)).toBeVisible()
+    await expect(window.getByTestId('phase-lights')).toBeVisible()
 
     // v1.1.1: a destination can be added after tracking has started (the dialog left it
     // blank). Goes through the real IPC and DB, and the card reads it back.
@@ -133,7 +133,7 @@ test('starts a free flight from Track and finds it, completed, in the Logbook', 
 
     // Linked — the detail page's own Aircraft field now reads from the fleet record rather
     // than the flight's sim-reported fields, and the "Add to fleet" trigger is gone.
-    await expect(window.getByText('G-TEST', { exact: true })).toBeVisible()
+    await expect(window.getByText(/G-TEST · C172/)).toBeVisible()
     await expect(window.getByRole('button', { name: 'Add to fleet' })).toBeHidden()
   } finally {
     await cleanup()
