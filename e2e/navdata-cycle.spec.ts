@@ -36,7 +36,7 @@ async function statusIn(profile: string): Promise<{ status: unknown; text: strin
   const { window: page, cleanup } = await launchApp({ userDataDir: profile })
   try {
     await page.getByRole('tab', { name: 'Settings' }).click()
-    await page.getByRole('tab', { name: '3rd party' }).click()
+    await page.getByRole('tab', { name: 'Navdata' }).click()
     const card = page.locator('[data-slot="card"]').filter({ hasText: 'Navigation data' }).first()
     await expect(card).toContainText(/Navigraph AIRAC|Its cycle cannot be read/)
     const status = await page.evaluate(() =>

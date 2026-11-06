@@ -967,7 +967,7 @@ describe('App', () => {
       await clickTab(user, 'Settings')
       // Settings is lazy-loaded; the first load in a cold test worker can take a while.
       await screen.findByText('Units', undefined, { timeout: 10_000 })
-      await user.click(screen.getByRole('tab', { name: 'About' }))
+      await user.click(screen.getByRole('tab', { name: 'About and updates' }))
       await user.click(await screen.findByRole('button', { name: 'Run setup again' }))
       expect(await screen.findByRole('dialog', { name: 'Welcome to WingLog' })).toBeInTheDocument()
     })
@@ -981,7 +981,7 @@ describe('App', () => {
 
     await clickTab(user, 'Settings')
     await screen.findByText('Units')
-    await user.click(screen.getByRole('tab', { name: 'About' }))
+    await user.click(screen.getByRole('tab', { name: 'About and updates' }))
     await screen.findByText(/WingLog v1\.0\.0/)
 
     await clickTab(user, 'Settings')

@@ -63,4 +63,4 @@ saved to the aircraft yet, Dispatch offers **Save this airframe**.
   app.
 - **Delete** removes the aircraft for good.
 
-To bring in an existing fleet, use **Settings → Data → Fleet → Import**.
+To bring in an existing fleet, use **Settings → Import and export → Fleet → Import**.

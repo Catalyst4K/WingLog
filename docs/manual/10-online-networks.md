@@ -8,7 +8,7 @@ network: with **None** chosen, nothing of VATSIM or IVAO appears anywhere in Win
 
 ## Choosing a network
 
-1. Open **Settings → 3rd party → Online network**.
+1. Open **Settings → Online network**.
 2. Choose **VATSIM** or **IVAO** (one at a time).
 3. Enter your member number: your **CID** on VATSIM, or your **VID** on IVAO.
 
@@ -60,7 +60,7 @@ PC and the phone, and it is remembered.
   (jetway helpers and the like).
 - If the sim isn't running yet, the map says "Sim traffic unavailable" and tries again every 15
   seconds.
-- Don't want the button at all? Turn off **Sim traffic button** in Settings → 3rd party → Online
+- Don't want the button at all? Turn off **Sim traffic button** in Settings → Online
   network, and it leaves the map on the PC and the phone.
 
 ## Filing your flight plan
@@ -78,7 +78,7 @@ A flight you were online for while in the air is saved with the network and your
 
 ## BeyondATC while online
 
-Human controllers are the only voice when you are online, so WingLog hides BeyondATC’s clearance prompt and its taxi line, hides its frequency suggestions, and stops the auto step climb asking for levels. The **Radios** card on the BeyondATC page says why, in place of its frequencies. BeyondATC itself keeps running, and everything comes back when you are offline again. To keep it all anyway, turn on **Keep BeyondATC while online** in Settings → 3rd party → Online network.
+Human controllers are the only voice when you are online, so WingLog hides BeyondATC’s clearance prompt and its taxi line, hides its frequency suggestions, and stops the auto step climb asking for levels. The **Radios** card on the BeyondATC page says why, in place of its frequencies. BeyondATC itself keeps running, and everything comes back when you are offline again. To keep it all anyway, turn on **Keep BeyondATC while online** in Settings → Online network.
 
 BeyondATC’s **Auto-tune** is BeyondATC’s own setting, and WingLog never changes it for you. While it is on, BeyondATC can retune your radios to its own frequencies, away from the network’s controllers. So if BeyondATC is connected with Auto-tune on while you are online, WingLog shows a warning on Track (and the phone’s Track) and above the toggles in the **Radios** card on the BeyondATC page, even with **Keep BeyondATC while online** on. Turn **Auto-tune** off there or in BeyondATC and the warning goes.
 
@@ -93,7 +93,7 @@ The **radio-mast button** on the Track map (on the phone too) shows where the ch
 - Labels and letters come in as you zoom in, so a zoomed-out map shows the centres and the dots, not a wall of text.
 - It is read from the network about **once a minute** while only this layer is on (about 35 MB an hour on VATSIM), and from the same download as the traffic when that is on too.
 
-The shapes are VATSIM's community data. WingLog ships with a copy and, while you have a network chosen, **keeps it up to date by itself**: about once a week it asks GitHub whether the VAT-Spy and SimAware TRACON projects have a newer release, and downloads it (about 5 MB) only if they do. It sends nothing but WingLog's version, and a failed check just leaves what you have. **Settings → 3rd party → Online network** shows the releases in use and when it last checked, and has **Check now** and an off switch. They are used for **IVAO too**: IVAO's own sectors may differ. An airport's approach with no area in the data is marked at its airport (**A**) rather than drawn as a made-up circle. On IVAO the button needs your VID, like the traffic. The areas' credit shows on the map while they are drawn, and in [Licences](14-licences.md).
+The shapes are VATSIM's community data. WingLog ships with a copy and, while you have a network chosen, **keeps it up to date by itself**: about once a week it asks GitHub whether the VAT-Spy and SimAware TRACON projects have a newer release, and downloads it (about 5 MB) only if they do. It sends nothing but WingLog's version, and a failed check just leaves what you have. **Settings → Online network** shows the releases in use and when it last checked, and has **Check now** and an off switch. They are used for **IVAO too**: IVAO's own sectors may differ. An airport's approach with no area in the data is marked at its airport (**A**) rather than drawn as a made-up circle. On IVAO the button needs your VID, like the traffic. The areas' credit shows on the map while they are drawn, and in [Licences](14-licences.md).
 
 ## Who is online at your airports
 

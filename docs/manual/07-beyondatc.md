@@ -13,7 +13,7 @@ doesn't matter. Use a current version of BeyondATC, which shows these fields.
 
 ## Turning it on
 
-**Settings → 3rd party → BeyondATC → On**. Leave the host as `localhost` when BeyondATC runs on the
+**Settings → ATC → On**. Leave the host as `localhost` when BeyondATC runs on the
 same PC. A **BeyondATC** page appears, and the line at the top shows whether WingLog is connected.
 BeyondATC can be started before or after WingLog.
 

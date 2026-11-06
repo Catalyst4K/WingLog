@@ -95,7 +95,7 @@ test('the online demo', async () => {
   }, 1000)
   try {
     await page.getByRole('tab', { name: 'Settings' }).click()
-    await page.getByRole('tab', { name: '3rd party' }).click()
+    await page.getByRole('tab', { name: 'ATC', exact: true }).click()
     const card = page
       .locator('[data-slot="card"]')
       .filter({ hasText: 'BeyondATC' })

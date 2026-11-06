@@ -107,7 +107,7 @@ test('the second screen follows a replayed flight, in portrait and landscape', a
       await keep.click()
 
     await page.getByRole('tab', { name: 'Settings' }).click()
-    await page.getByRole('tab', { name: 'Data' }).click()
+    await page.getByRole('tab', { name: 'Second screen' }).click()
     const card = page.locator('[data-slot="card"]').filter({ hasText: 'Second screen' })
     await card.getByRole('button', { name: 'On', exact: true }).click()
     const portBox = card.getByRole('textbox', { name: 'Port' })

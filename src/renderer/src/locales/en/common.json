@@ -30,10 +30,15 @@
   "settingsView": {
     "title": "Settings",
     "categories": {
-      "ui": "UI",
-      "thirdParty": "3rd party",
-      "data": "Data",
-      "about": "About"
+      "general": "General",
+      "secondScreen": "Second screen",
+      "accounts": "SimBrief and Navigraph",
+      "gsx": "GSX",
+      "beyondAtc": "ATC",
+      "online": "Online network",
+      "navdata": "Navdata",
+      "data": "Import and export",
+      "about": "About and updates"
     },
     "units": {
       "cardTitle": "Units",
@@ -218,6 +223,11 @@
       "atcAreasUpdated": "Updated to VAT-Spy {{vatspy}}, TRACON {{tracon}}.",
       "atcAreasCurrent": "Already the newest.",
       "atcAreasFailed": "Could not check. Try again later."
+    },
+    "groups": {
+      "app": "App",
+      "addons": "Accounts and add-ons",
+      "yourData": "Your data"
     }
   },
   "app": {

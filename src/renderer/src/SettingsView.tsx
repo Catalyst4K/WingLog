@@ -1,4 +1,7 @@
-/** The Settings tab. Each card's state is a hook in settings/use-settings-state.ts; the cards are in settings/. */
+/**
+ * The Settings tab: a list of pages down the side in three groups (winglog-backend's docs/plans/v2-design.md, Part 5), one page open at
+ * a time. Each card's state is a hook in settings/use-settings-state.ts; the cards are in settings/.
+ */
 
 import { winglogApi } from './data/winglog-api'
 import { useEffect, useState } from 'react'
@@ -21,6 +24,7 @@ import { UpdatesCard } from './UpdatesCard'
 import { LanCard } from './settings/LanCard'
 import { WindowCard } from './settings/WindowCard'
 import { SettingsCard } from './settings/ui/SettingsCard'
+import { StatusLight, type LightState } from '@/components/StatusLight'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useResetSignal } from './hooks/use-reset-signal'
@@ -38,21 +42,55 @@ import {
   useSimbriefCredentials
 } from './settings/use-settings-state'
 
-type SettingsCategory = 'ui' | 'thirdParty' | 'data' | 'about'
-const DEFAULT_SETTINGS_CATEGORY: SettingsCategory = 'ui'
-/** Every category panel is one column of equal-width cards (the width is SettingsCard's). */
+type SettingsCategory =
+  'general' | 'secondScreen' | 'accounts' | 'gsx' | 'beyondAtc' | 'online' | 'navdata' | 'data' | 'about'
+const DEFAULT_SETTINGS_CATEGORY: SettingsCategory = 'general'
+/** Every page is one column of equal-width cards (the width is SettingsCard's). */
 const PANEL = 'flex min-w-0 flex-col gap-4'
+
+/** A page in the list down the side. */
+interface SettingsPage {
+  value: SettingsCategory
+  label: string
+  /** A light for add-ons that can be on or off: green on, off when turned off. Absent for pages with nothing to be on. */
+  light?: LightState
+}
 
 /**
  * @param t The translation function.
- * @returns The categories down the side, in order.
+ * @param lights Whether GSX Remote Control and BeyondATC are turned on.
+ * @returns The pages down the side, in their three groups.
  */
-function settingsCategories(t: TFunction): { value: SettingsCategory; label: string }[] {
+function settingsGroups(
+  t: TFunction,
+  lights: { gsxRemote: boolean; beyondAtc: boolean }
+): { label: string; pages: SettingsPage[] }[] {
+  const onOff = (on: boolean): LightState => (on ? 'green' : 'off')
   return [
-    { value: 'ui', label: t('settingsView.categories.ui') },
-    { value: 'thirdParty', label: t('settingsView.categories.thirdParty') },
-    { value: 'data', label: t('settingsView.categories.data') },
-    { value: 'about', label: t('settingsView.categories.about') }
+    {
+      label: t('settingsView.groups.app'),
+      pages: [
+        { value: 'general', label: t('settingsView.categories.general') },
+        { value: 'secondScreen', label: t('settingsView.categories.secondScreen') }
+      ]
+    },
+    {
+      label: t('settingsView.groups.addons'),
+      pages: [
+        { value: 'accounts', label: t('settingsView.categories.accounts') },
+        { value: 'gsx', label: t('settingsView.categories.gsx'), light: onOff(lights.gsxRemote) },
+        { value: 'beyondAtc', label: t('settingsView.categories.beyondAtc'), light: onOff(lights.beyondAtc) },
+        { value: 'online', label: t('settingsView.categories.online') },
+        { value: 'navdata', label: t('settingsView.categories.navdata') }
+      ]
+    },
+    {
+      label: t('settingsView.groups.yourData'),
+      pages: [
+        { value: 'data', label: t('settingsView.categories.data') },
+        { value: 'about', label: t('settingsView.categories.about') }
+      ]
+    }
   ]
 }
 
@@ -75,7 +113,7 @@ interface AppWideSettings {
 }
 
 /**
- * Settings → UI: units and languages, theme, and automatic tracking.
+ * Settings → General: units and languages, theme, the window, and automatic tracking.
  *
  * @param props The app-wide settings and their change handlers.
  * @returns The element.
@@ -223,27 +261,57 @@ export function SettingsView(
         onValueChange={(value) => setCategory(value as SettingsCategory)}
         className="items-start gap-6"
       >
-        <TabsList variant="line" className="w-40 shrink-0 self-stretch border-r border-border/40 pr-3">
-          {settingsCategories(t).map(({ value, label }) => (
-            <TabsTrigger key={value} value={value}>
-              {label}
-              {category === value && (
-                <ChevronRight data-testid="settings-active-chevron" className="ml-auto" />
-              )}
-            </TabsTrigger>
+        <TabsList
+          variant="line"
+          className="w-52 shrink-0 gap-3 self-stretch border-r border-border/40 pr-3 group-data-vertical/tabs:items-stretch"
+        >
+          {settingsGroups(t, {
+            gsxRemote: gsxRemote.settings.enabled,
+            beyondAtc: beyondAtc.settings.enabled
+          }).map((group) => (
+            <div key={group.label} role="presentation" className="flex flex-col gap-0.5">
+              <span aria-hidden="true" className="px-1.5 pb-1 text-xs text-muted-foreground">
+                {group.label}
+              </span>
+              {group.pages.map(({ value, label, light }) => (
+                <TabsTrigger key={value} value={value}>
+                  {label}
+                  {light && <StatusLight state={light} className="ml-1" />}
+                  {category === value && (
+                    <ChevronRight data-testid="settings-active-chevron" className="ml-auto" />
+                  )}
+                </TabsTrigger>
+              ))}
+            </div>
           ))}
         </TabsList>
 
-        <TabsContent value="ui" className={PANEL}>
+        <TabsContent value="general" className={PANEL}>
           <InterfacePanel {...props} />
         </TabsContent>
 
-        <TabsContent value="thirdParty" className={PANEL}>
+        <TabsContent value="secondScreen" className={PANEL}>
+          <LanCard />
+        </TabsContent>
+
+        <TabsContent value="accounts" className={PANEL}>
           <CredentialsCard credentials={credentials} />
+        </TabsContent>
+
+        <TabsContent value="gsx" className={PANEL}>
           <GsxCard gsx={gsx} />
           <GsxRemoteCard gsxRemote={gsxRemote} />
+        </TabsContent>
+
+        <TabsContent value="beyondAtc" className={PANEL}>
           <BeyondAtcCard beyondAtc={beyondAtc} />
+        </TabsContent>
+
+        <TabsContent value="online" className={PANEL}>
           <OnlineNetworkCard />
+        </TabsContent>
+
+        <TabsContent value="navdata" className={PANEL}>
           <NavdataCard />
         </TabsContent>
 
@@ -255,7 +323,6 @@ export function SettingsView(
           {/* v8 ignore next -- vitest.config.ts's `define` fixes the flag at `true`, so the
                 "hidden in a public build" arm of this && can't be exercised in this test run. */}
           {__WINGLOG_CLOUD_SYNC_ENABLED__ && <CloudSyncCard sync={sync} />}
-          <LanCard />
         </TabsContent>
 
         <TabsContent value="about" className={PANEL}>

@@ -11,7 +11,7 @@ settled on the ground at roughly the right place, WingLog starts tracking by its
 If WingLog sees an aircraft moving on the ground, or already airborne, with no flight being tracked,
 a banner offers to start tracking it.
 
-Automatic starting can be switched off in **Settings → UI → Tracking** if it ever misbehaves with
+Automatic starting can be switched off in **Settings → General → Tracking** if it ever misbehaves with
 your setup; the **Start tracking** button always works.
 
 ## Free flights
@@ -40,7 +40,7 @@ behind you.
   pilots on the network around you (see [Online networks](10-online-networks.md)).
 - **Sim traffic** (the aeroplane-taking-off button under it): the sim's own aircraft, such as
   BeyondATC's traffic, with or without a network chosen. It is off while the online traffic is shown,
-  and you can remove the button in Settings → 3rd party → Online network (**Sim traffic button**).
+  and you can remove the button in Settings → Online network (**Sim traffic button**).
 - **Taxi chart** (taxiway button): the full taxiway network at your departure or arrival airport,
   from the sim's own airport data. The first load at a large airport can take a few minutes. With
   BeyondATC on, your cleared taxi route is drawn on it (see [BeyondATC](07-beyondatc.md)).
@@ -73,7 +73,7 @@ When you've landed, parked and shut the engines down, WingLog finishes the fligh
 Logbook by itself. You can also press **Finish & save** at any time. **Cancel flight** throws the
 flight away instead of saving it.
 
-Automatic finishing can be switched off in **Settings → UI → Tracking**.
+Automatic finishing can be switched off in **Settings → General → Tracking**.
 
 ## If WingLog closes mid-flight
 

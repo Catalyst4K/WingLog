@@ -23,7 +23,7 @@ test.describe('GSX Remote Control', () => {
     const { window: page, cleanup } = await launchApp()
     try {
       await page.getByRole('tab', { name: 'Settings' }).click()
-      await page.getByRole('tab', { name: '3rd party' }).click()
+      await page.getByRole('tab', { name: 'GSX' }).click()
 
       // Scoped to this card specifically — the file-based GSX ground-services card above it
       // has its own, differently-purposed "Off"/"On" toggle with the same button text.
@@ -98,7 +98,7 @@ test.describe('GSX Remote Control', () => {
     const { window: page, cleanup } = await launchApp()
     try {
       await page.getByRole('tab', { name: 'Settings' }).click()
-      await page.getByRole('tab', { name: '3rd party' }).click()
+      await page.getByRole('tab', { name: 'GSX' }).click()
       const gsxRemoteCard = page.locator('[data-slot="card"]').filter({ hasText: 'GSX Remote Control' })
       await gsxRemoteCard.getByLabel('Host').fill('127.0.0.1')
       const portInput = gsxRemoteCard.getByLabel('Port')
@@ -148,7 +148,7 @@ test.describe('GSX Remote Control', () => {
     const { window: page, cleanup } = await launchApp()
     try {
       await page.getByRole('tab', { name: 'Settings' }).click()
-      await page.getByRole('tab', { name: '3rd party' }).click()
+      await page.getByRole('tab', { name: 'GSX' }).click()
       const gsxRemoteCard = page.locator('[data-slot="card"]').filter({ hasText: 'GSX Remote Control' })
       await gsxRemoteCard.getByLabel('Host').fill('127.0.0.1')
       const portInput = gsxRemoteCard.getByLabel('Port')

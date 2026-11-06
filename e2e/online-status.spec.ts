@@ -225,7 +225,7 @@ test("warns while BeyondATC's auto-tune is on and the pilot is online, and leave
   try {
     // Switched on in Settings, so the BeyondATC tab appears. The online network card mentions BeyondATC too, but has no host.
     await window.getByRole('tab', { name: 'Settings' }).click()
-    await window.getByRole('tab', { name: '3rd party' }).click()
+    await window.getByRole('tab', { name: 'ATC', exact: true }).click()
     const beyondAtcCard = window
       .locator('[data-slot="card"]')
       .filter({ hasText: 'BeyondATC' })

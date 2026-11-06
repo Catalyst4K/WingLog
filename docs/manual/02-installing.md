@@ -15,7 +15,7 @@ sim by itself and shows the connection in the top-right corner (**SimConnect: co
 ## Updating
 
 WingLog checks GitHub for a newer version shortly after it starts and every few hours (you can
-switch this off in **Settings → About**). When there is one, a banner appears across the top:
+switch this off in **Settings → About and updates**). When there is one, a banner appears across the top:
 
 - **What's new** shows the release notes.
 - **Download and install** downloads the new version in the background, with its progress shown on
@@ -30,7 +30,7 @@ The banner never appears while you're in the air.
 
 Updating never touches your fleet, logbook or settings. You can also update by hand by running the new
 installer over the old one. Nothing installs unless you press the button.
-**Settings → About → Check now** checks straight away.
+**Settings → About and updates → Check now** checks straight away.
 
 ## Where your data lives
 
@@ -43,7 +43,7 @@ open the folder.
 - **Logs.** If something goes wrong, `logs\main.log` in the same folder is what to attach to a bug
   report.
 - **Exports.** To keep a copy of your fleet and logbook in a portable form, use
-  **Settings → Data → Export** (see [Settings](12-settings.md)).
+  **Settings → Import and export → Export** (see [Settings](12-settings.md)).
 
 ## Uninstalling
 

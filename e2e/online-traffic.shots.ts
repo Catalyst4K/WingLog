@@ -130,7 +130,7 @@ test('the traffic layers, their buttons and what they say', async () => {
 
     // The sim button switched off in Settings, as a pilot who never wants it would.
     await page.getByRole('tab', { name: 'Settings' }).click()
-    await page.getByRole('tab', { name: '3rd party' }).click()
+    await page.getByRole('tab', { name: 'Online network' }).click()
     const simRow = page.getByRole('group', { name: 'Sim traffic button' })
     await simRow.getByRole('button', { name: 'Off' }).click()
     await expect(simRow.getByRole('button', { name: 'Off' })).toHaveAttribute('aria-pressed', 'true')
@@ -176,7 +176,7 @@ test('a tracked flight flown online: the BeyondATC note, the ATC pop-up with the
     await page.setViewportSize({ width: 1200, height: 800 }).catch(() => undefined)
     // BeyondATC switched on in Settings, so its tab appears. The online network card mentions BeyondATC too, but has no host.
     await page.getByRole('tab', { name: 'Settings' }).click()
-    await page.getByRole('tab', { name: '3rd party' }).click()
+    await page.getByRole('tab', { name: 'ATC', exact: true }).click()
     const beyondAtcCard = page
       .locator('[data-slot="card"]')
       .filter({ hasText: 'BeyondATC' })

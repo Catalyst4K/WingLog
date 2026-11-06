@@ -2,7 +2,7 @@
 
 The first time you start WingLog, a short setup walks you through the settings that matter. Every
 step is optional: **Next** moves on without changing anything, and closing the window at any point
-finishes the setup. You can run it again any time from **Settings → About → Run setup again**.
+finishes the setup. You can run it again any time from **Settings → About and updates → Run setup again**.
 
 ![The first-launch setup](images/setup-welcome.png)
 
@@ -31,5 +31,5 @@ it found. It never switches an add-on on by itself: each one stays off until you
 ## Upgrading from an earlier version
 
 If you already have aircraft or flights, the setup doesn't appear. Instead, a short note lists
-what's new, and everything else stays as you had it. Run the setup from **Settings → About** if you
+what's new, and everything else stays as you had it. Run the setup from **Settings → About and updates** if you
 want to go through it anyway.

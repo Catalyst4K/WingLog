@@ -64,5 +64,5 @@ because everything else was tidy. A **Firm** or **Hard** badge marks rougher lan
 
 ## Importing an existing logbook
 
-**Settings → Data → Logbook → Import** reads WingLog's own exports and SimToolkitPro CSV files.
+**Settings → Import and export → Logbook → Import** reads WingLog's own exports and SimToolkitPro CSV files.
 Imported flights have no recorded track, so their map shows a great-circle line.

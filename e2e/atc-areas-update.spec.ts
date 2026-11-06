@@ -19,7 +19,7 @@ test('Check now brings newer ATC areas down, keeps them in the data folder, and 
       const page = first.window
       // The row is there only while a network is chosen.
       await page.getByRole('tab', { name: 'Settings' }).click()
-      await page.getByRole('tab', { name: '3rd party' }).click()
+      await page.getByRole('tab', { name: 'Online network' }).click()
       const card = page.locator('[data-slot="card"]').filter({ hasText: 'Online network' }).first()
       await expect(card.getByText('Keep ATC areas up to date')).toHaveCount(0)
       await card.getByRole('button', { name: 'VATSIM' }).click()

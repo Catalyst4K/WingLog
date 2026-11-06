@@ -444,7 +444,7 @@ test.describe('Online network traffic', () => {
     const { window: page, cleanup } = await launchApp()
     try {
       await page.getByRole('tab', { name: 'Settings' }).click()
-      await page.getByRole('tab', { name: '3rd party' }).click()
+      await page.getByRole('tab', { name: 'Online network' }).click()
       const card = page.locator('[data-slot="card"]').filter({ hasText: 'Online network' })
       await card.getByRole('button', { name: 'VATSIM' }).click()
       await card.getByRole('textbox').fill('1234567')

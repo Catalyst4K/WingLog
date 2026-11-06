@@ -18,7 +18,7 @@ import { FakeGsxRemoteServer, VHHH_BOOT_SNAPSHOT } from './gsx-remote-server'
  */
 async function switchOn(page: Page, port: number) {
   await page.getByRole('tab', { name: 'Settings' }).click()
-  await page.getByRole('tab', { name: 'Data' }).click()
+  await page.getByRole('tab', { name: 'Second screen' }).click()
   const card = page.locator('[data-slot="card"]').filter({ hasText: 'Second screen' })
   await card.getByRole('button', { name: 'On', exact: true }).click()
   const portBox = card.getByRole('textbox', { name: 'Port' })
@@ -34,7 +34,7 @@ test.describe('Second screen', () => {
     const { window: page, cleanup } = await launchApp({ env: { WINGLOG_E2E_LAN_ADDRESS: '127.0.0.1' } })
     try {
       await page.getByRole('tab', { name: 'Settings' }).click()
-      await page.getByRole('tab', { name: 'Data' }).click()
+      await page.getByRole('tab', { name: 'Second screen' }).click()
       const card = page.locator('[data-slot="card"]').filter({ hasText: 'Second screen' })
       await expect(card.getByRole('button', { name: 'Off', exact: true })).toHaveAttribute(
         'aria-pressed',

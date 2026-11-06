@@ -28,10 +28,15 @@
   "settingsView": {
     "title": "設定",
     "categories": {
-      "ui": "介面",
-      "thirdParty": "第三方",
-      "data": "資料",
-      "about": "關於"
+      "general": "一般",
+      "secondScreen": "第二螢幕",
+      "accounts": "SimBrief 和 Navigraph",
+      "gsx": "GSX",
+      "beyondAtc": "ATC",
+      "online": "線上網路",
+      "navdata": "導航資料",
+      "data": "匯入和匯出",
+      "about": "關於和更新"
     },
     "units": {
       "cardTitle": "單位",
@@ -213,6 +218,11 @@
       "atcAreasUpdated": "已更新到 VAT-Spy {{vatspy}}，TRACON {{tracon}}。",
       "atcAreasCurrent": "已是最新。",
       "atcAreasFailed": "無法檢查，請稍後再試。"
+    },
+    "groups": {
+      "app": "應用程式",
+      "addons": "帳戶和外掛",
+      "yourData": "你的資料"
     }
   },
   "app": {

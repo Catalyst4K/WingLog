@@ -34,10 +34,15 @@
   "settingsView": {
     "title": "Настройки",
     "categories": {
-      "ui": "UI",
-      "thirdParty": "Сторонние сервисы",
-      "data": "Данные",
-      "about": "О программе"
+      "general": "Основные",
+      "secondScreen": "Второй экран",
+      "accounts": "SimBrief и Navigraph",
+      "gsx": "GSX",
+      "beyondAtc": "ATC",
+      "online": "Онлайн-сеть",
+      "navdata": "Навданные",
+      "data": "Импорт и экспорт",
+      "about": "О программе и обновления"
     },
     "units": {
       "cardTitle": "Единицы измерения",
@@ -234,6 +239,11 @@
       "atcAreasUpdated": "Обновлено до VAT-Spy {{vatspy}}, TRACON {{tracon}}.",
       "atcAreasCurrent": "Уже самая новая версия.",
       "atcAreasFailed": "Не удалось проверить. Повторите позже."
+    },
+    "groups": {
+      "app": "Приложение",
+      "addons": "Аккаунты и дополнения",
+      "yourData": "Ваши данные"
     }
   },
   "app": {

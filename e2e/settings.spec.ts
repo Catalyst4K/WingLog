@@ -38,7 +38,7 @@ test('changes units, theme, SimBrief username, and GSX settings, all persisted',
     await expect(page.locator('html')).toHaveClass(/dark/)
 
     // SimBrief username, 3rd-party tab
-    await page.getByRole('tab', { name: '3rd party' }).click()
+    await page.getByRole('tab', { name: 'SimBrief and Navigraph' }).click()
     await page.getByPlaceholder('Navigraph Alias').fill('e2e-test-pilot')
     await page.getByRole('button', { name: 'Save' }).click()
     await expect(page.getByText('SimBrief username saved.')).toBeVisible()
@@ -49,6 +49,7 @@ test('changes units, theme, SimBrief username, and GSX settings, all persisted',
     // the toggle flips state rather than assuming a fixed starting value. Scoped to this
     // card specifically — the separate GSX Remote Control card (plan/gsx-remote-control)
     // has its own, differently-purposed "Off"/"On" toggle with the same button text.
+    await page.getByRole('tab', { name: 'GSX', exact: true }).click()
     const gsxCard = page
       .locator('[data-slot="card"]')
       .filter({ has: page.getByText('GSX ground services', { exact: true }) })

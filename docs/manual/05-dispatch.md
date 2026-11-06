@@ -10,8 +10,8 @@ and departure time are optional. Then either:
 
 - **Generate…** creates the plan in SimBrief without leaving WingLog: a small SimBrief window opens,
   generates it and closes, and the plan loads into Dispatch. The first time, log in to SimBrief with
-  your Navigraph account (in that window, or with **Log in with Navigraph** under **Settings → 3rd
-  party**). Your SimBrief username must be set too.
+  your Navigraph account (in that window, or with **Log in with Navigraph** under **Settings → SimBrief and
+  Navigraph**). Your SimBrief username must be set too.
 - **Plan on SimBrief…** opens SimBrief's own planner with these details filled in, for when you want
   to adjust everything there.
 - **Fetch latest OFP** loads the most recent plan you made on SimBrief, using your SimBrief username.

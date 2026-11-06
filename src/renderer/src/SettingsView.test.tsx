@@ -191,7 +191,7 @@ describe('SettingsView', () => {
     renderSettings()
     expect(await screen.findByText('Einstellungen')).toBeInTheDocument()
     expect(screen.getByText('Einheiten')).toBeInTheDocument()
-    expect(screen.getByRole('tab', { name: 'Über' })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'Info und Updates' })).toBeInTheDocument()
   })
 
   it('renders in Simplified and Traditional Chinese, two catalogues sharing a language but not a script', async () => {
@@ -216,7 +216,7 @@ describe('SettingsView', () => {
     })
     const user = userEvent.setup()
     renderSettings()
-    await user.click(screen.getByRole('tab', { name: '数据' }))
+    await user.click(screen.getByRole('tab', { name: '导入和导出' }))
     await user.click((await screen.findAllByRole('button', { name: '导入' }))[0])
 
     await waitFor(() =>
@@ -233,7 +233,7 @@ describe('SettingsView', () => {
     })
     const user = userEvent.setup()
     renderSettings()
-    await user.click(screen.getByRole('tab', { name: 'Daten' }))
+    await user.click(screen.getByRole('tab', { name: 'Import und Export' }))
     await user.click((await screen.findAllByRole('button', { name: 'Importieren' }))[0])
 
     await waitFor(() =>
@@ -244,38 +244,69 @@ describe('SettingsView', () => {
   })
 
   describe('category tabs', () => {
-    it('shows the UI category (Units, Theme) by default', async () => {
+    it('lists the pages in three groups, and shows General (Units, Theme) by default', async () => {
       renderSettings()
       expect(await screen.findByText('Units')).toBeInTheDocument()
       expect(screen.getByText('Theme')).toBeInTheDocument()
       expect(screen.queryByText('Credentials')).not.toBeInTheDocument()
+      expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual([
+        'General',
+        'Second screen',
+        'SimBrief and Navigraph',
+        'GSX',
+        'ATC',
+        'Online network',
+        'Navdata',
+        'Import and export',
+        'About and updates'
+      ])
+      for (const group of ['App', 'Accounts and add-ons', 'Your data'])
+        expect(screen.getByText(group)).toBeInTheDocument()
     })
 
-    it('marks only the selected category with a chevron, and moves it on selection', async () => {
-      const user = userEvent.setup()
+    it('lights GSX and ATC when GSX Remote Control and BeyondATC are on, and leaves them off otherwise', async () => {
+      setWinglog({
+        settingsGetGsxRemote: vi.fn().mockResolvedValue(makeGsxRemote({ enabled: true })),
+        settingsGetBeyondAtc: vi.fn().mockResolvedValue({ enabled: false, host: 'localhost' })
+      })
       renderSettings()
-      const uiTab = screen.getByRole('tab', { name: 'UI' })
-      const dataTab = screen.getByRole('tab', { name: 'Data' })
-      expect(within(uiTab).getByTestId('settings-active-chevron')).toBeInTheDocument()
-      expect(within(dataTab).queryByTestId('settings-active-chevron')).not.toBeInTheDocument()
-      expect(screen.getAllByTestId('settings-active-chevron')).toHaveLength(1)
-      await user.click(dataTab)
-      expect(within(dataTab).getByTestId('settings-active-chevron')).toBeInTheDocument()
-      expect(within(uiTab).queryByTestId('settings-active-chevron')).not.toBeInTheDocument()
+      const light = (name: string): Element | null =>
+        screen.getByRole('tab', { name }).querySelector('[data-slot="status-light"]')
+      await waitFor(() => expect(light('GSX')).toHaveAttribute('data-state', 'green'))
+      expect(light('ATC')).toHaveAttribute('data-state', 'off')
+      expect(light('General')).toBeNull()
     })
 
-    it('switches to the 3rd party category', async () => {
+    it('puts each add-on on its own page', async () => {
       const user = userEvent.setup()
       renderSettings()
-      await user.click(screen.getByRole('tab', { name: '3rd party' }))
+      await user.click(screen.getByRole('tab', { name: 'SimBrief and Navigraph' }))
       expect(await screen.findByText('Credentials')).toBeInTheDocument()
-      expect(screen.getByText('GSX ground services')).toBeInTheDocument()
+      expect(screen.queryByText('GSX ground services')).not.toBeInTheDocument()
+      await user.click(screen.getByRole('tab', { name: 'GSX' }))
+      expect(await screen.findByText('GSX ground services')).toBeInTheDocument()
+      expect(screen.getByText('GSX Remote Control')).toBeInTheDocument()
+      await user.click(screen.getByRole('tab', { name: 'ATC' }))
+      expect(await screen.findByText('BeyondATC')).toBeInTheDocument()
     })
 
-    it('switches to the Data category', async () => {
+    it('puts the second screen, the online network and navdata on their own pages', async () => {
       const user = userEvent.setup()
       renderSettings()
-      await user.click(screen.getByRole('tab', { name: 'Data' }))
+      for (const [name, title] of [
+        ['Second screen', 'Second screen'],
+        ['Online network', 'Online network'],
+        ['Navdata', 'Navigation data']
+      ]) {
+        await user.click(screen.getByRole('tab', { name }))
+        expect((await within(screen.getByRole('tabpanel')).findAllByText(title)).length).toBeGreaterThan(0)
+      }
+    })
+
+    it('switches to Import and export', async () => {
+      const user = userEvent.setup()
+      renderSettings()
+      await user.click(screen.getByRole('tab', { name: 'Import and export' }))
       expect(await screen.findByRole('region', { name: 'Fleet data' })).toBeInTheDocument()
       expect(screen.getByRole('region', { name: 'Logbook data' })).toBeInTheDocument()
     })
@@ -283,7 +314,7 @@ describe('SettingsView', () => {
     it('switches to the About category', async () => {
       const user = userEvent.setup()
       renderSettings()
-      await user.click(screen.getByRole('tab', { name: 'About' }))
+      await user.click(screen.getByRole('tab', { name: 'About and updates' }))
       expect(await screen.findByText('WingLog v1.2.3')).toBeInTheDocument()
     })
 
@@ -310,7 +341,7 @@ describe('SettingsView', () => {
           resetSignal={1}
         />
       )
-      await user.click(screen.getByRole('tab', { name: 'About' }))
+      await user.click(screen.getByRole('tab', { name: 'About and updates' }))
       await screen.findByText('WingLog v1.2.3')
 
       rerender(
@@ -438,7 +469,7 @@ describe('SettingsView', () => {
       const winglog = setWinglog({ settingsGetSimbriefUsername: vi.fn().mockResolvedValue('existingalias') })
       const user = userEvent.setup()
       renderSettings()
-      await user.click(screen.getByRole('tab', { name: '3rd party' }))
+      await user.click(screen.getByRole('tab', { name: 'SimBrief and Navigraph' }))
       const input = await screen.findByPlaceholderText('Navigraph Alias')
       expect(input).toHaveValue('existingalias')
 
@@ -457,7 +488,7 @@ describe('SettingsView', () => {
       })
       const user = userEvent.setup()
       renderSettings()
-      await user.click(screen.getByRole('tab', { name: '3rd party' }))
+      await user.click(screen.getByRole('tab', { name: 'SimBrief and Navigraph' }))
       const loginButton = await screen.findByRole('button', { name: 'Log in with Navigraph' })
 
       winglog.dispatchSimbriefLoginStatus = vi.fn().mockResolvedValue(true)
@@ -476,7 +507,7 @@ describe('SettingsView', () => {
       })
       const user = userEvent.setup()
       renderSettings()
-      await user.click(screen.getByRole('tab', { name: '3rd party' }))
+      await user.click(screen.getByRole('tab', { name: 'SimBrief and Navigraph' }))
       const loginButton = await screen.findByRole('button', { name: 'Log in with Navigraph' })
 
       winglog.dispatchSimbriefLoginStatus = vi.fn().mockResolvedValue(true)
@@ -495,7 +526,7 @@ describe('SettingsView', () => {
       winglog.dispatchFetchSimbriefUsername = vi.fn().mockResolvedValue('fetchedalias')
       const user = userEvent.setup()
       renderSettings()
-      await user.click(screen.getByRole('tab', { name: '3rd party' }))
+      await user.click(screen.getByRole('tab', { name: 'SimBrief and Navigraph' }))
       const loginButton = await screen.findByRole('button', { name: 'Log in with Navigraph' })
 
       winglog.dispatchSimbriefLoginStatus = vi.fn().mockResolvedValue(true)
@@ -517,7 +548,7 @@ describe('SettingsView', () => {
       winglog.dispatchLogoutSimbrief = vi.fn(() => new Promise<void>((resolve) => (resolveLogout = resolve)))
       const user = userEvent.setup()
       renderSettings()
-      await user.click(screen.getByRole('tab', { name: '3rd party' }))
+      await user.click(screen.getByRole('tab', { name: 'SimBrief and Navigraph' }))
       await screen.findByText('Logged in')
 
       const logoutClick = user.click(screen.getByRole('button', { name: 'Log out' }))
@@ -533,7 +564,7 @@ describe('SettingsView', () => {
     it("doesn't restate that it's off by default — the Enabled toggle already shows that", async () => {
       const user = userEvent.setup()
       renderSettings()
-      await user.click(screen.getByRole('tab', { name: '3rd party' }))
+      await user.click(screen.getByRole('tab', { name: 'GSX' }))
       expect(await screen.findByText(/nothing is attached until this is turned on/)).toBeInTheDocument()
       expect(screen.queryByText(/off by default/i)).not.toBeInTheDocument()
     })
@@ -542,7 +573,7 @@ describe('SettingsView', () => {
       const winglog = setWinglog({ settingsGetGsx: vi.fn().mockResolvedValue(makeGsx({ enabled: false })) })
       const user = userEvent.setup()
       renderSettings()
-      await user.click(screen.getByRole('tab', { name: '3rd party' }))
+      await user.click(screen.getByRole('tab', { name: 'GSX' }))
       const card = within(
         (await screen.findByText('GSX ground services')).closest('[data-slot="card"]') as HTMLElement
       )
@@ -565,7 +596,7 @@ describe('SettingsView', () => {
       const winglog = setWinglog({ gsxBrowseFolder: vi.fn().mockResolvedValue('C:\\GSX\\Receipts') })
       const user = userEvent.setup()
       renderSettings()
-      await user.click(screen.getByRole('tab', { name: '3rd party' }))
+      await user.click(screen.getByRole('tab', { name: 'GSX' }))
       await user.click(await screen.findByRole('button', { name: 'Browse…' }))
 
       expect(await screen.findByDisplayValue('C:\\GSX\\Receipts')).toBeInTheDocument()
@@ -578,7 +609,7 @@ describe('SettingsView', () => {
       const winglog = setWinglog({ gsxBrowseFolder: vi.fn().mockResolvedValue(null) })
       const user = userEvent.setup()
       renderSettings()
-      await user.click(screen.getByRole('tab', { name: '3rd party' }))
+      await user.click(screen.getByRole('tab', { name: 'GSX' }))
       await user.click(await screen.findByRole('button', { name: 'Browse…' }))
 
       expect(screen.getByPlaceholderText('Not set')).toHaveValue('')
@@ -589,7 +620,7 @@ describe('SettingsView', () => {
       const winglog = setWinglog()
       const user = userEvent.setup()
       renderSettings()
-      await user.click(screen.getByRole('tab', { name: '3rd party' }))
+      await user.click(screen.getByRole('tab', { name: 'GSX' }))
       await user.click(await screen.findByRole('combobox'))
       await user.click(await screen.findByRole('option', { name: /GBP/ }))
 
@@ -610,7 +641,7 @@ describe('SettingsView', () => {
       })
       const user = userEvent.setup()
       renderSettings()
-      await user.click(screen.getByRole('tab', { name: '3rd party' }))
+      await user.click(screen.getByRole('tab', { name: 'GSX' }))
       const card = within(await findCard())
       const toggle = await card.findByRole('button', { name: 'On' })
 
@@ -635,7 +666,7 @@ describe('SettingsView', () => {
       })
       const user = userEvent.setup()
       renderSettings()
-      await user.click(screen.getByRole('tab', { name: '3rd party' }))
+      await user.click(screen.getByRole('tab', { name: 'GSX' }))
       const card = within(await findCard())
 
       const hostInput = await card.findByDisplayValue('localhost')
@@ -656,7 +687,7 @@ describe('SettingsView', () => {
       })
       const user = userEvent.setup()
       renderSettings()
-      await user.click(screen.getByRole('tab', { name: '3rd party' }))
+      await user.click(screen.getByRole('tab', { name: 'GSX' }))
       const card = within(await findCard())
 
       const portInput = card.getByPlaceholderText('8744')
@@ -674,7 +705,7 @@ describe('SettingsView', () => {
       })
       const user = userEvent.setup()
       renderSettings()
-      await user.click(screen.getByRole('tab', { name: '3rd party' }))
+      await user.click(screen.getByRole('tab', { name: 'GSX' }))
       const card = within(await findCard())
 
       const portInput = card.getByPlaceholderText('8744')
@@ -692,7 +723,7 @@ describe('SettingsView', () => {
       })
       const user = userEvent.setup()
       renderSettings()
-      await user.click(screen.getByRole('tab', { name: '3rd party' }))
+      await user.click(screen.getByRole('tab', { name: 'GSX' }))
       const card = within(await findCard())
 
       expect(await card.findByText('Connected')).toBeInTheDocument()
@@ -702,7 +733,7 @@ describe('SettingsView', () => {
       setWinglog({ settingsGetGsxRemote: vi.fn().mockResolvedValue(makeGsxRemote({ enabled: false })) })
       const user = userEvent.setup()
       renderSettings()
-      await user.click(screen.getByRole('tab', { name: '3rd party' }))
+      await user.click(screen.getByRole('tab', { name: 'GSX' }))
       const card = within(await findCard())
 
       expect(card.queryByText('Connected')).not.toBeInTheDocument()
@@ -721,7 +752,7 @@ describe('SettingsView', () => {
       })
       const user = userEvent.setup()
       renderSettings()
-      await user.click(screen.getByRole('tab', { name: '3rd party' }))
+      await user.click(screen.getByRole('tab', { name: 'GSX' }))
       const card = within(await findCard())
       await card.findByText('Connecting…')
 
@@ -776,7 +807,7 @@ describe('SettingsView', () => {
       setWinglog({ aircraftImport: vi.fn().mockResolvedValue({ imported: 4, skipped: [] }) })
       const user = userEvent.setup()
       renderSettings()
-      await user.click(screen.getByRole('tab', { name: 'Data' }))
+      await user.click(screen.getByRole('tab', { name: 'Import and export' }))
       await user.click((await screen.findAllByRole('button', { name: 'Import' }))[0])
       await waitFor(() => expect(toast.success).toHaveBeenCalledWith('Imported 4 aircraft.'))
     })
@@ -789,7 +820,7 @@ describe('SettingsView', () => {
       })
       const user = userEvent.setup()
       renderSettings()
-      await user.click(screen.getByRole('tab', { name: 'Data' }))
+      await user.click(screen.getByRole('tab', { name: 'Import and export' }))
       const importButton = (await screen.findAllByRole('button', { name: 'Import' }))[0]
       await user.click(importButton)
 
@@ -802,7 +833,7 @@ describe('SettingsView', () => {
       setWinglog({ aircraftImport: vi.fn().mockResolvedValue(null) })
       const user = userEvent.setup()
       renderSettings()
-      await user.click(screen.getByRole('tab', { name: 'Data' }))
+      await user.click(screen.getByRole('tab', { name: 'Import and export' }))
       await user.click((await screen.findAllByRole('button', { name: 'Import' }))[0])
       expect(toast.success).not.toHaveBeenCalled()
     })
@@ -811,7 +842,7 @@ describe('SettingsView', () => {
       setWinglog({ aircraftImport: vi.fn().mockRejectedValue(new Error('disk full')) })
       const user = userEvent.setup()
       renderSettings()
-      await user.click(screen.getByRole('tab', { name: 'Data' }))
+      await user.click(screen.getByRole('tab', { name: 'Import and export' }))
       await user.click((await screen.findAllByRole('button', { name: 'Import' }))[0])
       await waitFor(() => expect(toast.error).toHaveBeenCalledWith('disk full'))
     })
@@ -820,7 +851,7 @@ describe('SettingsView', () => {
       setWinglog({ aircraftImport: vi.fn().mockRejectedValue('boom') })
       const user = userEvent.setup()
       renderSettings()
-      await user.click(screen.getByRole('tab', { name: 'Data' }))
+      await user.click(screen.getByRole('tab', { name: 'Import and export' }))
       await user.click((await screen.findAllByRole('button', { name: 'Import' }))[0])
       await waitFor(() => expect(toast.error).toHaveBeenCalledWith('boom'))
     })
@@ -829,7 +860,7 @@ describe('SettingsView', () => {
       setWinglog({ aircraftExport: vi.fn().mockResolvedValue(true) })
       const user = userEvent.setup()
       renderSettings()
-      await user.click(screen.getByRole('tab', { name: 'Data' }))
+      await user.click(screen.getByRole('tab', { name: 'Import and export' }))
       await user.click((await screen.findAllByRole('button', { name: 'Export' }))[0])
       await waitFor(() => expect(toast.success).toHaveBeenCalledWith('Fleet exported.'))
     })
@@ -838,7 +869,7 @@ describe('SettingsView', () => {
       setWinglog({ aircraftExport: vi.fn().mockResolvedValue(false) })
       const user = userEvent.setup()
       renderSettings()
-      await user.click(screen.getByRole('tab', { name: 'Data' }))
+      await user.click(screen.getByRole('tab', { name: 'Import and export' }))
       await user.click((await screen.findAllByRole('button', { name: 'Export' }))[0])
       expect(toast.success).not.toHaveBeenCalled()
     })
@@ -847,7 +878,7 @@ describe('SettingsView', () => {
       setWinglog({ aircraftExport: vi.fn().mockRejectedValue(new Error('permission denied')) })
       const user = userEvent.setup()
       renderSettings()
-      await user.click(screen.getByRole('tab', { name: 'Data' }))
+      await user.click(screen.getByRole('tab', { name: 'Import and export' }))
       await user.click((await screen.findAllByRole('button', { name: 'Export' }))[0])
       await waitFor(() => expect(toast.error).toHaveBeenCalledWith('permission denied'))
     })
@@ -856,7 +887,7 @@ describe('SettingsView', () => {
       setWinglog({ aircraftExport: vi.fn().mockRejectedValue('boom') })
       const user = userEvent.setup()
       renderSettings()
-      await user.click(screen.getByRole('tab', { name: 'Data' }))
+      await user.click(screen.getByRole('tab', { name: 'Import and export' }))
       await user.click((await screen.findAllByRole('button', { name: 'Export' }))[0])
       await waitFor(() => expect(toast.error).toHaveBeenCalledWith('boom'))
     })
@@ -868,7 +899,7 @@ describe('SettingsView', () => {
       })
       const user = userEvent.setup()
       renderSettings()
-      await user.click(screen.getByRole('tab', { name: 'Data' }))
+      await user.click(screen.getByRole('tab', { name: 'Import and export' }))
       const fleet = within(await screen.findByRole('region', { name: 'Fleet data' }))
 
       await user.click(fleet.getByRole('button', { name: 'Import' }))
@@ -888,7 +919,7 @@ describe('SettingsView', () => {
       })
       const user = userEvent.setup()
       renderSettings()
-      await user.click(screen.getByRole('tab', { name: 'Data' }))
+      await user.click(screen.getByRole('tab', { name: 'Import and export' }))
       const logbook = within(await screen.findByRole('region', { name: 'Logbook data' }))
 
       await user.click(logbook.getByRole('button', { name: 'Import' }))
@@ -907,7 +938,7 @@ describe('SettingsView', () => {
       })
       const user = userEvent.setup()
       renderSettings()
-      await user.click(screen.getByRole('tab', { name: 'Data' }))
+      await user.click(screen.getByRole('tab', { name: 'Import and export' }))
       const logbook = within(await screen.findByRole('region', { name: 'Logbook data' }))
 
       await user.click(logbook.getByRole('button', { name: 'Export' }))
@@ -925,7 +956,7 @@ describe('SettingsView', () => {
       setWinglog({ logbookExport: vi.fn().mockRejectedValue(new Error('disk full')) })
       const user = userEvent.setup()
       renderSettings()
-      await user.click(screen.getByRole('tab', { name: 'Data' }))
+      await user.click(screen.getByRole('tab', { name: 'Import and export' }))
       const logbook = within(await screen.findByRole('region', { name: 'Logbook data' }))
       await user.click(logbook.getByRole('button', { name: 'Export' }))
       await waitFor(() => expect(toast.error).toHaveBeenCalledWith('disk full'))
@@ -941,7 +972,7 @@ describe('SettingsView', () => {
       })
       const user = userEvent.setup()
       renderSettings()
-      await user.click(screen.getByRole('tab', { name: 'Data' }))
+      await user.click(screen.getByRole('tab', { name: 'Import and export' }))
       await user.click((await screen.findAllByRole('button', { name: 'Import' }))[1])
 
       await waitFor(() =>
@@ -957,7 +988,7 @@ describe('SettingsView', () => {
       })
       const user = userEvent.setup()
       renderSettings()
-      await user.click(screen.getByRole('tab', { name: 'Data' }))
+      await user.click(screen.getByRole('tab', { name: 'Import and export' }))
       await user.click((await screen.findAllByRole('button', { name: 'Import' }))[1])
       await waitFor(() => expect(toast.success).toHaveBeenCalledWith('Imported 1 flight.'))
     })
@@ -966,7 +997,7 @@ describe('SettingsView', () => {
       setWinglog({ logbookImportCsv: vi.fn().mockResolvedValue(null) })
       const user = userEvent.setup()
       renderSettings()
-      await user.click(screen.getByRole('tab', { name: 'Data' }))
+      await user.click(screen.getByRole('tab', { name: 'Import and export' }))
       await user.click((await screen.findAllByRole('button', { name: 'Import' }))[1])
       expect(toast.success).not.toHaveBeenCalled()
     })
@@ -975,7 +1006,7 @@ describe('SettingsView', () => {
       setWinglog({ logbookImportCsv: vi.fn().mockRejectedValue(new Error('bad csv')) })
       const user = userEvent.setup()
       renderSettings()
-      await user.click(screen.getByRole('tab', { name: 'Data' }))
+      await user.click(screen.getByRole('tab', { name: 'Import and export' }))
       await user.click((await screen.findAllByRole('button', { name: 'Import' }))[1])
       await waitFor(() => expect(toast.error).toHaveBeenCalledWith('bad csv'))
     })
@@ -984,7 +1015,7 @@ describe('SettingsView', () => {
       setWinglog({ logbookImportCsv: vi.fn().mockRejectedValue('boom') })
       const user = userEvent.setup()
       renderSettings()
-      await user.click(screen.getByRole('tab', { name: 'Data' }))
+      await user.click(screen.getByRole('tab', { name: 'Import and export' }))
       await user.click((await screen.findAllByRole('button', { name: 'Import' }))[1])
       await waitFor(() => expect(toast.error).toHaveBeenCalledWith('boom'))
     })
@@ -994,7 +1025,7 @@ describe('SettingsView', () => {
     it('doesn\'t restate that it\'s off by default alongside "until you log in"', async () => {
       const user = userEvent.setup()
       renderSettings()
-      await user.click(screen.getByRole('tab', { name: 'Data' }))
+      await user.click(screen.getByRole('tab', { name: 'Import and export' }))
       expect(await screen.findByText(/nothing leaves this device until you log in/)).toBeInTheDocument()
       expect(screen.queryByText(/off by default/i)).not.toBeInTheDocument()
     })
@@ -1005,7 +1036,7 @@ describe('SettingsView', () => {
       })
       const user = userEvent.setup()
       renderSettings()
-      await user.click(screen.getByRole('tab', { name: 'Data' }))
+      await user.click(screen.getByRole('tab', { name: 'Import and export' }))
       await user.type(screen.getByLabelText('Email'), '  pilot@example.com  ')
       await user.type(screen.getByLabelText('Password'), 'hunter2hunter2')
       // Scoped to the form's own submit button — the mode toggle above it is also labelled
@@ -1022,7 +1053,7 @@ describe('SettingsView', () => {
       setWinglog({ authLogin: vi.fn().mockRejectedValue(new Error('invalid credentials')) })
       const user = userEvent.setup()
       renderSettings()
-      await user.click(screen.getByRole('tab', { name: 'Data' }))
+      await user.click(screen.getByRole('tab', { name: 'Import and export' }))
       await user.type(screen.getByLabelText('Email'), 'pilot@example.com')
       await user.type(screen.getByLabelText('Password'), 'hunter2hunter2')
       const form = screen.getByLabelText('Email').closest('form') as HTMLFormElement
@@ -1034,7 +1065,7 @@ describe('SettingsView', () => {
       setWinglog({ authLogin: vi.fn().mockRejectedValue('boom') })
       const user = userEvent.setup()
       renderSettings()
-      await user.click(screen.getByRole('tab', { name: 'Data' }))
+      await user.click(screen.getByRole('tab', { name: 'Import and export' }))
       await user.type(screen.getByLabelText('Email'), 'pilot@example.com')
       await user.type(screen.getByLabelText('Password'), 'hunter2hunter2')
       const form = screen.getByLabelText('Email').closest('form') as HTMLFormElement
@@ -1048,7 +1079,7 @@ describe('SettingsView', () => {
       })
       const user = userEvent.setup()
       renderSettings()
-      await user.click(screen.getByRole('tab', { name: 'Data' }))
+      await user.click(screen.getByRole('tab', { name: 'Import and export' }))
       const modes = screen.getByRole('group', { name: 'Cloud sync' })
       expect(within(modes).getByRole('button', { name: 'Log in' })).toHaveAttribute('aria-pressed', 'true')
       await user.click(screen.getByRole('button', { name: 'Sign up' }))
@@ -1071,7 +1102,7 @@ describe('SettingsView', () => {
     it('switches back to login mode, hiding the invite code field again', async () => {
       const user = userEvent.setup()
       renderSettings()
-      await user.click(screen.getByRole('tab', { name: 'Data' }))
+      await user.click(screen.getByRole('tab', { name: 'Import and export' }))
       await user.click(screen.getByRole('button', { name: 'Sign up' }))
       expect(screen.getByText('At least 12 characters.')).toBeInTheDocument()
 
@@ -1084,7 +1115,7 @@ describe('SettingsView', () => {
       setWinglog({ authSignup: vi.fn().mockRejectedValue(new Error('invite code invalid')) })
       const user = userEvent.setup()
       renderSettings()
-      await user.click(screen.getByRole('tab', { name: 'Data' }))
+      await user.click(screen.getByRole('tab', { name: 'Import and export' }))
       await user.click(screen.getByRole('button', { name: 'Sign up' }))
       await user.type(screen.getByLabelText('Email'), 'new@example.com')
       await user.type(screen.getByLabelText('Password'), 'twelvecharspw')
@@ -1098,7 +1129,7 @@ describe('SettingsView', () => {
       setWinglog({ authSignup: vi.fn().mockRejectedValue('boom') })
       const user = userEvent.setup()
       renderSettings()
-      await user.click(screen.getByRole('tab', { name: 'Data' }))
+      await user.click(screen.getByRole('tab', { name: 'Import and export' }))
       await user.click(screen.getByRole('button', { name: 'Sign up' }))
       await user.type(screen.getByLabelText('Email'), 'new@example.com')
       await user.type(screen.getByLabelText('Password'), 'twelvecharspw')
@@ -1113,7 +1144,7 @@ describe('SettingsView', () => {
         syncStatus: vi.fn().mockResolvedValue(makeSyncStatus({ loggedIn: true, email: 'pilot@example.com' }))
       })
       renderSettings()
-      const dataTab = screen.getByRole('tab', { name: 'Data' })
+      const dataTab = screen.getByRole('tab', { name: 'Import and export' })
       await userEvent.setup().click(dataTab)
       expect(await screen.findByText('Never synced yet.')).toBeInTheDocument()
     })
@@ -1133,7 +1164,7 @@ describe('SettingsView', () => {
       winglog.syncNow = vi.fn(() => new Promise<SyncStatus>((resolve) => (resolveSync = resolve)))
       const user = userEvent.setup()
       renderSettings()
-      await user.click(screen.getByRole('tab', { name: 'Data' }))
+      await user.click(screen.getByRole('tab', { name: 'Import and export' }))
 
       expect(await screen.findByText('network unreachable')).toBeInTheDocument()
       expect(screen.getByText(/Last synced/)).toBeInTheDocument()
@@ -1154,7 +1185,7 @@ describe('SettingsView', () => {
       })
       const user = userEvent.setup()
       renderSettings()
-      await user.click(screen.getByRole('tab', { name: 'Data' }))
+      await user.click(screen.getByRole('tab', { name: 'Import and export' }))
       await user.click(await screen.findByRole('button', { name: 'Sync now' }))
       await waitFor(() => expect(toast.error).toHaveBeenCalledWith('sync failed'))
     })
@@ -1166,7 +1197,7 @@ describe('SettingsView', () => {
       })
       const user = userEvent.setup()
       renderSettings()
-      await user.click(screen.getByRole('tab', { name: 'Data' }))
+      await user.click(screen.getByRole('tab', { name: 'Import and export' }))
       await user.click(await screen.findByRole('button', { name: 'Log out' }))
       expect(winglog.authLogout).toHaveBeenCalled()
       expect(await screen.findByLabelText('Email')).toBeInTheDocument()
@@ -1178,7 +1209,7 @@ describe('SettingsView', () => {
       setWinglog({ appGetVersion: vi.fn().mockResolvedValue('9.9.9') })
       const user = userEvent.setup()
       renderSettings()
-      await user.click(screen.getByRole('tab', { name: 'About' }))
+      await user.click(screen.getByRole('tab', { name: 'About and updates' }))
       expect(await screen.findByText('WingLog v9.9.9')).toBeInTheDocument()
     })
 
@@ -1186,7 +1217,7 @@ describe('SettingsView', () => {
       setWinglog()
       const user = userEvent.setup()
       renderSettings()
-      await user.click(screen.getByRole('tab', { name: 'About' }))
+      await user.click(screen.getByRole('tab', { name: 'About and updates' }))
       expect(
         await screen.findByText(
           /For flight simulation use only\. WingLog must never be used for real-world navigation/
@@ -1210,7 +1241,7 @@ describe('SettingsView', () => {
       setWinglog({ appOpenManual })
       const user = userEvent.setup()
       renderSettings()
-      await user.click(screen.getByRole('tab', { name: 'About' }))
+      await user.click(screen.getByRole('tab', { name: 'About and updates' }))
       await user.click(await screen.findByRole('button', { name: 'Manual (PDF)' }))
       expect(appOpenManual).toHaveBeenCalledTimes(1)
       expect(toast.error).not.toHaveBeenCalled()
@@ -1224,7 +1255,7 @@ describe('SettingsView', () => {
       const winglog = setWinglog()
       const user = userEvent.setup()
       renderSettings()
-      await user.click(screen.getByRole('tab', { name: 'About' }))
+      await user.click(screen.getByRole('tab', { name: 'About and updates' }))
       await user.click(await screen.findByText('github.com/Catalyst4K/WingLog'))
       expect(winglog.appOpenGithub).toHaveBeenCalled()
     })

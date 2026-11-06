@@ -6,7 +6,7 @@ install on the phone. It's **off** until you turn it on.
 
 ## Turning it on
 
-1. Open **Settings → Data → Second screen** and press **On**.
+1. Open **Settings → Second screen** and press **On**.
 2. Windows will ask whether to let WingLog through its firewall the first time. Choose **Allow**.
    If your home network is set to **Public** in Windows, allow Public networks too (or set the
    network to Private in Windows' network settings).

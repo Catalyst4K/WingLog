@@ -15,14 +15,14 @@ The top-right corner shows **SimConnect: connected** once WingLog can see MSFS. 
 - Check you loaded at the departure airport in Dispatch's plan, and that the aircraft has stopped
   moving.
 - Press **Start tracking** on Track. This always works.
-- If automatic starting keeps misfiring with your setup, switch it off in **Settings → UI →
+- If automatic starting keeps misfiring with your setup, switch it off in **Settings → General →
   Tracking** and use the button.
 
 ## The flight didn't finish
 
 WingLog finishes the flight once you're parked with the engines off after landing. If you shut down
 somewhere unusual, or left an engine running, press **Finish & save**. Automatic finishing can be
-switched off in **Settings → UI → Tracking**.
+switched off in **Settings → General → Tracking**.
 
 ## WingLog closed during a flight
 
@@ -32,19 +32,19 @@ it. Nothing recorded before it closed is lost.
 ## BeyondATC isn't connecting
 
 - BeyondATC must be running, with a flight loaded.
-- **Settings → 3rd party → BeyondATC** must be **On**, with the host `localhost` if BeyondATC runs on
+- **Settings → ATC** must be **On**, with the host `localhost` if BeyondATC runs on
   the same PC.
 - If the **Frequencies** list is empty, it fills in once BeyondATC has your flight plan loaded.
 
 ## GSX Remote Control isn't connecting
 
 - GSX Pro must be running in the sim (Couatl started).
-- Check the port in **Settings → 3rd party → GSX Remote Control** matches **Remote Client** in GSX's
+- Check the port in **Settings → GSX → GSX Remote Control** matches **Remote Client** in GSX's
   own settings (8744 by default).
 
 ## The phone can't open the second screen
 
-- **Settings → Data → Second screen** must be **On**, with no red message under it.
+- **Settings → Second screen** must be **On**, with no red message under it.
 - The phone must be on the same Wi-Fi as this PC, not a guest network, and not on mobile data.
 - When Windows asked whether to let WingLog through its firewall, **Allow** is needed. If you pressed
   Cancel, the phone just times out. Allow WingLog under Windows Security → Firewall & network

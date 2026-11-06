@@ -1,7 +1,7 @@
 # GSX
 
 WingLog works with GSX Pro by FSDreamTeam in two separate ways. Each has its own switch in
-**Settings → 3rd party**.
+**Settings → GSX**.
 
 > GSX Pro is a separate product by FSDreamTeam. WingLog isn't affiliated with them.
 

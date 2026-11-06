@@ -1,8 +1,8 @@
 # Settings
 
-Settings has four sections down the left.
+Settings has nine pages down the left, in three groups: **App** (General, Second screen), **Accounts and add-ons** (SimBrief and Navigraph, GSX, ATC, Online network, Navdata) and **Your data** (Import and export, About and updates).
 
-## UI
+## General
 
 | Setting | What it does |
 |---|---|
@@ -17,25 +17,38 @@ Settings has four sections down the left.
 | **Tracking: Start tracking automatically** | On: WingLog starts tracking when the aircraft settles at the departure. Off: press **Start tracking** on Track (Dispatch's **Fly** still sets the flight up). |
 | **Tracking: Finish flights automatically** | On: the flight is saved once you're parked with the engines off after landing. Off: press **Finish & save**. |
 
-![Settings, UI](images/settings-ui.png)
+![Settings, General](images/settings-ui.png)
 
-## 3rd party
+## Second screen
+
+- **Second screen**: on/off and port, and a button that shows a QR code and pairing code for a phone or tablet. Lists the devices that have paired, each with **Revoke** (see [Second screen](09-second-screen.md)).
+
+## SimBrief and Navigraph
 
 - **SimBrief**: your username, and **Log in with Navigraph** for generating plans from WingLog.
+## GSX
+
 - **GSX ground services**: on/off, receipts folder, display currency (see [GSX](08-gsx.md)).
 - **GSX Remote Control**: on/off, host and port.
+## ATC
+
 - **BeyondATC**: on/off and host (see [BeyondATC](07-beyondatc.md)).
+
+## Online network
+
 - **Online network**: VATSIM, IVAO or None (None hides every VATSIM and IVAO feature) and your member
   number, keeping BeyondATC while online, whether the map offers the sim traffic button, and whether the
   ATC areas keep themselves up to date from GitHub, with the releases in use and **Check now** (see
   [Online networks](10-online-networks.md)).
+## Navdata
+
 - **Navigation data**: which navigation data your sim has. With Navigraph it shows the AIRAC cycle,
   its revision and how long it is valid, and warns when it is behind the current cycle. With the
   sim's own data it says WingLog cannot read the cycle and goes by the AIRAC calendar. WingLog keeps
   what it reads from the sim for each airport, and reads it again when you update the sim's data, so
   install the new cycle in the Navigraph Hub first and then open your airports in WingLog.
 
-## Data
+## Import and export
 
 Import or export your **Fleet** and **Logbook** as CSV or JSON. Choose the file format first.
 
@@ -43,9 +56,7 @@ Import or export your **Fleet** and **Logbook** as CSV or JSON. Choose the file 
 - A logbook export is a summary of each flight and its landing, not a full backup (no route or OFP).
   For a full backup, copy the database (see [Installing and updating](02-installing.md)).
 
-- **Second screen**: on/off and port, and a button that shows a QR code and pairing code for a phone or tablet. Lists the devices that have paired, each with **Revoke** (see [Second screen](09-second-screen.md)).
-
-## About
+## About and updates
 
 - WingLog's version, the simulation-only and not-affiliated notices, and the licence.
 - **Run setup again** reopens the first-launch setup.

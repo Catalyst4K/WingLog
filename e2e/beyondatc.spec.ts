@@ -22,7 +22,7 @@ test.describe('BeyondATC integration', () => {
     const { window: page, cleanup } = await launchApp({ env: server.env })
     try {
       await page.getByRole('tab', { name: 'Settings' }).click()
-      await page.getByRole('tab', { name: '3rd party' }).click()
+      await page.getByRole('tab', { name: 'ATC', exact: true }).click()
 
       // Scoped to this card specifically — the GSX Remote Control card above it has its own,
       // identically-labelled "Off"/"On" toggle (same collision settings.spec.ts already
@@ -103,7 +103,7 @@ test.describe('BeyondATC integration', () => {
     const { window: page, cleanup } = await launchApp({ env: server.env })
     try {
       await page.getByRole('tab', { name: 'Settings' }).click()
-      await page.getByRole('tab', { name: '3rd party' }).click()
+      await page.getByRole('tab', { name: 'ATC', exact: true }).click()
       const beyondAtcCard = page
         .locator('[data-slot="card"]')
         .filter({ hasText: 'BeyondATC' })
@@ -135,7 +135,7 @@ test.describe('BeyondATC integration', () => {
     const { window: page, cleanup } = await launchApp({ env: server.env })
     try {
       await page.getByRole('tab', { name: 'Settings' }).click()
-      await page.getByRole('tab', { name: '3rd party' }).click()
+      await page.getByRole('tab', { name: 'ATC', exact: true }).click()
       const beyondAtcCard = page
         .locator('[data-slot="card"]')
         .filter({ hasText: 'BeyondATC' })
