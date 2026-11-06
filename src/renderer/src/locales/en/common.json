@@ -670,6 +670,7 @@
     "showVfrOverlayTitle": "Show VFR overlay — airfields, range rings, scale, recent track",
     "zoomIn": "Zoom in",
     "zoomOut": "Zoom out",
+    "layers": "Layers",
     "speed": "Speed:",
     "altitude": "Altitude:",
     "heading": "Heading:",

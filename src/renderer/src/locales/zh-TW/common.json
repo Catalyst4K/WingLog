@@ -664,6 +664,7 @@
     "showVfrOverlayTitle": "顯示 VFR 圖層 — 機場、距離環、比例尺、近期航跡",
     "zoomIn": "放大",
     "zoomOut": "縮小",
+    "layers": "圖層",
     "speed": "速度：",
     "altitude": "高度：",
     "heading": "航向：",

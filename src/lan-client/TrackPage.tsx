@@ -287,6 +287,7 @@ function FlightView(props: {
       <div className="min-h-0 flex-1">
         <FlightMap
           mapLanguage={mapLanguage}
+          foldLayers
           live
           route={route}
           waypoints={waypoints}

@@ -374,3 +374,59 @@ describe('the network traffic pills', () => {
     expect(screen.queryByText(/traffic/i)).not.toBeInTheDocument()
   })
 })
+
+describe('the layers on a small screen (the phone)', () => {
+  function folded(): { onToggleVfr: ReturnType<typeof vi.fn>; onToggleTaxiChart: ReturnType<typeof vi.fn> } {
+    const onToggleVfr = vi.fn()
+    const onToggleTaxiChart = vi.fn()
+    render(
+      <MapControls
+        live
+        foldLayers
+        followEnabled
+        onToggleFollow={() => {}}
+        vfrEnabled={false}
+        onToggleVfr={onToggleVfr}
+        networkTraffic={{
+          layers: LAYERS_ON,
+          traffic: traffic('vatsim', 'shown'),
+          atc: null,
+          onToggle: () => {},
+          onToggleSim: () => {},
+          onToggleAtc: () => {}
+        }}
+        taxiChartEnabled={false}
+        onToggleTaxiChart={onToggleTaxiChart}
+        onZoomIn={() => {}}
+        onZoomOut={() => {}}
+      />
+    )
+    return { onToggleVfr, onToggleTaxiChart }
+  }
+
+  it('keeps follow and zoom in the column and puts every layer behind one Layers button', () => {
+    folded()
+    expect(screen.getByRole('button', { name: 'Layers' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /centering|Center/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Zoom in' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /VFR/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /taxi chart/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /VATSIM/ })).not.toBeInTheDocument()
+  })
+
+  it('opens the layer buttons from it, and they work from there', async () => {
+    const { onToggleVfr, onToggleTaxiChart } = folded()
+    await userEvent.click(screen.getByRole('button', { name: 'Layers' }))
+    await userEvent.click(await screen.findByRole('button', { name: /VFR/ }))
+    expect(onToggleVfr).toHaveBeenCalled()
+    await userEvent.click(screen.getByRole('button', { name: /taxi chart/i }))
+    expect(onToggleTaxiChart).toHaveBeenCalled()
+    expect(screen.getByRole('button', { name: /VATSIM/ })).toBeInTheDocument()
+  })
+
+  it('shows the layer buttons in the column when not folded', () => {
+    controls({ layers: LAYERS_ON, traffic: traffic('vatsim', 'shown'), onToggle: () => {} })
+    expect(screen.queryByRole('button', { name: 'Layers' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /VATSIM/ })).toBeInTheDocument()
+  })
+})

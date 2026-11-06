@@ -63,11 +63,13 @@ test('the taxi line on both screens, and a phone that reloads', async () => {
     await world.window.getByRole('tab', { name: 'Track' }).click()
     await world.start()
     await world.window.getByRole('button', { name: 'Show taxi chart' }).click()
+    await phone.getByRole('button', { name: 'Layers' }).click()
     await phone.getByRole('button', { name: 'Show taxi chart' }).click()
     await phone.waitForTimeout(25_000)
     await shoot(world.window, phone, '1-taxi')
     await phone.reload()
     await phone.getByRole('navigation').waitFor()
+    await phone.getByRole('button', { name: 'Layers' }).click()
     await phone.getByRole('button', { name: 'Show taxi chart' }).click()
     // Well after the re-route the recorded taxi makes about 35 s in (the pushback went the wrong way).
     await phone.waitForTimeout(15_000)

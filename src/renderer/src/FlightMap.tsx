@@ -60,6 +60,8 @@ export interface FlightMapProps {
    *  great-circle-fallback-route.md), not a real SimBrief-derived route — styled more
    *  faintly, with a caption, so it can't be mistaken for a genuine planned route. */
   routeIsApproximate?: boolean
+  /** Fold the layer buttons behind one Layers button: the phone's map, where a tall column of buttons covers too much. */
+  foldLayers?: boolean
   /** Language of the base map's place names (Settings → UI → Map language). Defaults to
    *  English. Applied to the hosted style's own labels — see map-labels.ts. */
   mapLanguage?: MapLanguage
@@ -109,6 +111,7 @@ function FlightMapView({
   telemetryPhase: activePhase,
   telemetryTransition = null,
   routeIsApproximate = false,
+  foldLayers = false,
   mapLanguage = 'en',
   depIcao = null,
   arrIcao = null,
@@ -167,6 +170,7 @@ function FlightMapView({
       />
       <MapControls
         live={live}
+        foldLayers={foldLayers}
         followEnabled={followEnabled}
         onToggleFollow={() => setFollowEnabled((v) => !v)}
         vfrEnabled={vfr.enabled}

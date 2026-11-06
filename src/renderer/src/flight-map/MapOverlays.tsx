@@ -1,6 +1,7 @@
 /** What FlightMap draws over the map: its control buttons and its readout pills. */
 
 import {
+  Layers,
   Locate,
   LocateFixed,
   Plane,
@@ -21,6 +22,7 @@ import type {
   TrafficLayers
 } from '@shared/ipc'
 import { Button } from '@/components/ui/button'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { displayAltitude } from '../display-altitude'
 import type { TransitionAltitudes } from '@shared/route'
 import { uiMemory } from '../ui-memory'
@@ -184,23 +186,14 @@ function SimTrafficButton(props: { layers: TrafficLayers | null; onToggle: () =>
   )
 }
 
-/**
- * The column of buttons at the map's top right: follow and VFR (live only), taxi chart, and zoom.
- *
- * @param props Whether live; each toggle's state and handler; and the zoom handlers.
- * @returns The element.
- */
-export function MapControls(props: {
+/** What the layer buttons need (the layers part of MapControls' props). */
+interface LayerControlProps {
   live: boolean
-  followEnabled: boolean
-  onToggleFollow: () => void
   vfrEnabled: boolean
   onToggleVfr: () => void
-  /** The shared network-traffic switch's state; omitted (no button) on a map that is not live. */
   networkTraffic?: {
     layers: TrafficLayers | null
     traffic: NetworkTraffic | null
-    /** The ATC layer's topic, for its button (null before it arrives). */
     atc: NetworkAtc | null
     onToggle: () => void
     onToggleSim: () => void
@@ -208,23 +201,18 @@ export function MapControls(props: {
   }
   taxiChartEnabled: boolean
   onToggleTaxiChart: () => void
-  onZoomIn: () => void
-  onZoomOut: () => void
-}): React.JSX.Element {
+}
+
+/**
+ * The buttons that switch layers on the map: VFR, the network's traffic, the sim's own traffic, ATC and the taxi chart.
+ *
+ * @param props Whether live and each toggle's state and handler.
+ * @returns The buttons, to go in the column or behind the one Layers button.
+ */
+function LayerControls(props: LayerControlProps): React.JSX.Element {
   const { t } = useTranslation()
-  const followLabel = props.followEnabled ? t('flightMap.stopCentering') : t('flightMap.centerOnAircraft')
   return (
-    <div className="absolute top-3 right-3 flex flex-col gap-1.5">
-      {props.live && (
-        <ToggleControl
-          on={props.followEnabled}
-          label={followLabel}
-          title={followLabel}
-          onClick={props.onToggleFollow}
-        >
-          {props.followEnabled ? <LocateFixed /> : <Locate />}
-        </ToggleControl>
-      )}
+    <>
       {props.live && (
         <ToggleControl
           on={props.vfrEnabled}
@@ -260,6 +248,83 @@ export function MapControls(props: {
       >
         <Waypoints />
       </ToggleControl>
+    </>
+  )
+}
+
+/**
+ * One Layers button that opens the layer buttons in a row, for a small screen (the phone): the column stays short.
+ *
+ * @param props The layer buttons' props.
+ * @returns The element.
+ */
+function LayersMenu(props: LayerControlProps): React.JSX.Element {
+  const { t } = useTranslation()
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button
+          type="button"
+          variant="outline"
+          size="icon-sm"
+          className={MAP_CONTROL_BUTTON_CLASS_NAME}
+          aria-label={t('flightMap.layers')}
+          title={t('flightMap.layers')}
+        >
+          <Layers />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent side="left" align="start" className="flex w-auto flex-wrap gap-1.5 p-1.5">
+        <LayerControls {...props} />
+      </PopoverContent>
+    </Popover>
+  )
+}
+
+/**
+ * The column of buttons at the map's top right: follow, the layers (each its own button, or all behind one on a small screen), and zoom.
+ *
+ * @param props Whether live; each toggle's state and handler; and the zoom handlers.
+ * @returns The element.
+ */
+export function MapControls(props: {
+  live: boolean
+  /** Fold the layer buttons behind one Layers button (the phone). */
+  foldLayers?: boolean
+  followEnabled: boolean
+  onToggleFollow: () => void
+  vfrEnabled: boolean
+  onToggleVfr: () => void
+  /** The shared network-traffic switch's state; omitted (no button) on a map that is not live. */
+  networkTraffic?: {
+    layers: TrafficLayers | null
+    traffic: NetworkTraffic | null
+    /** The ATC layer's topic, for its button (null before it arrives). */
+    atc: NetworkAtc | null
+    onToggle: () => void
+    onToggleSim: () => void
+    onToggleAtc: () => void
+  }
+  taxiChartEnabled: boolean
+  onToggleTaxiChart: () => void
+  onZoomIn: () => void
+  onZoomOut: () => void
+}): React.JSX.Element {
+  const { t } = useTranslation()
+  const followLabel = props.followEnabled ? t('flightMap.stopCentering') : t('flightMap.centerOnAircraft')
+  return (
+    <div className="absolute top-3 right-3 flex flex-col gap-1.5">
+      {props.live && (
+        <ToggleControl
+          on={props.followEnabled}
+          label={followLabel}
+          title={followLabel}
+          onClick={props.onToggleFollow}
+        >
+          {props.followEnabled ? <LocateFixed /> : <Locate />}
+        </ToggleControl>
+      )}
+      {props.foldLayers ? <LayersMenu {...props} /> : <LayerControls {...props} />}
       <ZoomControl label={t('flightMap.zoomIn')} onZoom={props.onZoomIn}>
         <ZoomIn />
       </ZoomControl>
