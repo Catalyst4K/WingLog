@@ -17,7 +17,7 @@ import { formatDate, isFreeFlight } from './logbook-format'
  */
 function StripCell(props: { label: string; children: React.ReactNode }): React.JSX.Element {
   return (
-    <div className="flex min-w-0 flex-col gap-0.5 bg-card px-3 py-2">
+    <div className="flex min-w-36 flex-1 flex-col gap-0.5 border-l border-border px-3 py-2 first:border-l-0">
       <dt className="text-xs text-muted-foreground">{props.label}</dt>
       <dd className="min-w-0 font-mono text-sm break-words text-foreground">{props.children}</dd>
     </div>
@@ -72,7 +72,7 @@ export function FlightSummary(props: {
           )}
         </div>
       </div>
-      <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-md bg-border sm:grid-cols-3 lg:grid-cols-6">
+      <dl className="flex flex-wrap overflow-hidden rounded-md bg-card">
         <StripCell label={t('logbookView.fields.aircraft')}>
           {aircraft?.registration ?? flight.simRegistration ?? '—'}
         </StripCell>

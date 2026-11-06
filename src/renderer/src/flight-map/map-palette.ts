@@ -8,6 +8,9 @@ export interface MapPalette {
   /** The base map: land, water, and land-use areas (parks, woods) a shade apart from the land. */
   land: string
   sea: string
+  /** Parks and woods. */
+  green: string
+  /** Other land use (residential, industrial), a shade apart from the land. */
   area: string
   /** What happened: the flown track, the own aircraft. Near-black on the light map, paper on the dark one. */
   ink: string
@@ -32,15 +35,16 @@ export interface MapPalette {
 }
 
 const LIGHT: MapPalette = {
-  land: '#efede6',
-  sea: '#dce6ec',
-  area: '#e6e3da',
+  land: '#f1eee6',
+  sea: '#b4d1e6',
+  green: '#d2e2c0',
+  area: '#e5e0d2',
   ink: '#1c1b19',
-  ground: '#f3f1eb',
+  ground: '#ebe8de',
   plan: '#a61e6b',
   quiet: '#5e594f',
   label: '#1c1b19',
-  halo: '#f3f1eb',
+  halo: '#ebe8de',
   atc: '#2a62a3',
   atcFillOpacity: 0.07,
   taxi: '#f2c200',
@@ -49,15 +53,16 @@ const LIGHT: MapPalette = {
 }
 
 const DARK: MapPalette = {
-  land: '#1d1d1b',
-  sea: '#121416',
-  area: '#242422',
+  land: '#1e1e1b',
+  sea: '#17314a',
+  green: '#1f3322',
+  area: '#2a2925',
   ink: '#ece9e1',
-  ground: '#141413',
+  ground: '#100f0e',
   plan: '#e26aae',
   quiet: '#a29e94',
   label: '#bdb8ad',
-  halo: '#141413',
+  halo: '#100f0e',
   atc: '#7fb0e8',
   atcFillOpacity: 0.09,
   taxi: '#facc15',

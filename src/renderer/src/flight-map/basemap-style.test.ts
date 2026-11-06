@@ -30,22 +30,22 @@ describe('recolourBasemap', () => {
     recolourBasemap(map as unknown as MapLibreMap, false)
     const set = map.setPaintProperty.mock.calls.map(([id, name, value]) => `${id} ${name} ${value}`)
     expect(set).toEqual([
-      'background background-color #efede6',
-      'park fill-color #e6e3da',
-      'water fill-color #dce6ec',
-      'landcover_wood fill-color #e6e3da',
-      'landuse_residential fill-color #e6e3da',
-      'waterway line-color #dce6ec',
+      'background background-color #f1eee6',
+      'park fill-color #d2e2c0',
+      'water fill-color #b4d1e6',
+      'landcover_wood fill-color #d2e2c0',
+      'landuse_residential fill-color #e5e0d2',
+      'waterway line-color #b4d1e6',
       'label_city text-color #5e594f',
-      'label_city text-halo-color #f3f1eb'
+      'label_city text-halo-color #ebe8de'
     ])
   })
 
   it('uses the dark palette in the dark theme', () => {
     const map = fakeMap()
     recolourBasemap(map as unknown as MapLibreMap, true)
-    expect(map.setPaintProperty).toHaveBeenCalledWith('background', 'background-color', '#1d1d1b')
-    expect(map.setPaintProperty).toHaveBeenCalledWith('water', 'fill-color', '#121416')
+    expect(map.setPaintProperty).toHaveBeenCalledWith('background', 'background-color', '#1e1e1b')
+    expect(map.setPaintProperty).toHaveBeenCalledWith('water', 'fill-color', '#17314a')
     expect(map.setPaintProperty).toHaveBeenCalledWith('label_city', 'text-color', '#a29e94')
   })
 

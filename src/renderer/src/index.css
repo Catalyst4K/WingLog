@@ -68,59 +68,59 @@
 }
 
 :root {
-  --background: #f3f1eb; /* Ground */
-  --foreground: #1c1b19; /* Text, and ink: what happened */
-  --card: #fbfaf6; /* Panel: a slightly lighter ground, not a border */
-  --card-foreground: #1c1b19;
-  --popover: #fbfaf6;
-  --popover-foreground: #1c1b19;
-  --primary: #1c1b19; /* The one filled button per screen */
-  --primary-foreground: #fbfaf6;
-  --secondary: #e9e6de; /* Inset */
-  --secondary-foreground: #1c1b19;
-  --muted: #e9e6de;
-  --muted-foreground: #5e594f; /* Quiet text */
-  --accent: #e9e6de;
-  --accent-foreground: #1c1b19;
+  --background: #ebe8de; /* Ground */
+  --foreground: #161512; /* Text, and ink: what happened */
+  --card: #fffefb; /* Panel: lighter than the ground, so it reads without a border */
+  --card-foreground: #161512;
+  --popover: #fffefb;
+  --popover-foreground: #161512;
+  --primary: #161512; /* The one filled button per screen */
+  --primary-foreground: #fffefb;
+  --secondary: #e0dbcd; /* Inset */
+  --secondary-foreground: #161512;
+  --muted: #e0dbcd;
+  --muted-foreground: #4a463d; /* Quiet text */
+  --accent: #e0dbcd;
+  --accent-foreground: #161512;
   --destructive: #b3261e; /* Can't undo: text */
   --destructive-foreground: #ffffff;
   --destructive-line: #e2b8b2; /* Can't undo: outline */
   --success: #1e9653;
   --success-foreground: #ffffff;
-  --border: #ddd9cf; /* Line: hairline rules */
-  --input: #c9c4b8; /* Control outline */
+  --border: #d0cabb; /* Line: hairline rules */
+  --input: #aaa392; /* Control outline */
   --field: #ffffff;
   --ring: #5e594f;
-  --plan: #a61e6b; /* Magenta: the plan */
-  --light-green: #1e9653;
-  --light-amber: #b87400;
-  --light-red: #d23b3b;
-  --light-off: #d3cfc4;
+  --plan: #b3146f; /* Magenta: the plan */
+  --light-green: #129a4b;
+  --light-amber: #e08a00;
+  --light-red: #dc2f2f;
+  --light-off: #c5bfae;
   --radius: 0.5rem;
 }
 
 .dark {
-  --background: #141413;
-  --foreground: #ece9e1;
-  --card: #1b1b19;
-  --card-foreground: #ece9e1;
-  --popover: #1b1b19;
-  --popover-foreground: #ece9e1;
-  --primary: #ece9e1;
-  --primary-foreground: #141413;
-  --secondary: #262522;
-  --secondary-foreground: #ece9e1;
-  --muted: #262522;
-  --muted-foreground: #a29e94;
-  --accent: #262522;
-  --accent-foreground: #ece9e1;
+  --background: #100f0e;
+  --foreground: #f1eee6;
+  --card: #1d1c1a;
+  --card-foreground: #f1eee6;
+  --popover: #1d1c1a;
+  --popover-foreground: #f1eee6;
+  --primary: #f1eee6;
+  --primary-foreground: #100f0e;
+  --secondary: #2c2b28;
+  --secondary-foreground: #f1eee6;
+  --muted: #2c2b28;
+  --muted-foreground: #b3afa4;
+  --accent: #2c2b28;
+  --accent-foreground: #f1eee6;
   --destructive: #ee7d72;
   --destructive-foreground: #141413;
   --destructive-line: #4a3a37;
   --success: #34d37e;
   --success-foreground: #141413;
-  --border: #2c2b28;
-  --input: #3a3935;
+  --border: #34332f;
+  --input: #55534d;
   --field: #1f1f1c;
   --ring: #a29e94;
   --plan: #e26aae;

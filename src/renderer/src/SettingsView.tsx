@@ -285,7 +285,7 @@ export function SettingsView(
                 {group.label}
               </span>
               {group.pages.map(({ value, label, light }) => (
-                <TabsTrigger key={value} value={value}>
+                <TabsTrigger key={value} value={value} className="after:hidden">
                   {label}
                   {light && <StatusLight state={light} className="ml-1" />}
                   {category === value && (

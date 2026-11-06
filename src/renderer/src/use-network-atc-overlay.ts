@@ -22,7 +22,7 @@ import { reportError } from './report-error'
 import { setSourceData } from './map-source'
 import { atcPopupCard, layerData } from './flight-map/atc-features'
 import { openCardPopup, type PopupCard } from './flight-map/map-popup'
-import { mapPalette } from './flight-map/map-palette'
+import { mapPalette, type MapPalette } from './flight-map/map-palette'
 
 /** What a GeoJSON source accepts as data. */
 type GeoData = GeoJSONSourceSpecification['data']
@@ -90,6 +90,34 @@ function firstTrafficLayer(map: MapLibreMap): string | undefined {
 }
 
 /**
+ * The ring round an airport with a tower: a thin dashed line, and a fill that is only there to be clicked.
+ *
+ * @param map The map.
+ * @param palette The map's colours.
+ * @param before The layer to go under, or undefined to go on top.
+ */
+function addTowerRingLayers(map: MapLibreMap, palette: MapPalette, before: string | undefined): void {
+  map.addLayer(
+    {
+      id: ATC_TOWER_FILL_LAYER,
+      type: 'fill',
+      source: ATC_TOWERS_SOURCE,
+      paint: { 'fill-color': palette.atc, 'fill-opacity': palette.atcFillOpacity * 0.4 }
+    },
+    before
+  )
+  map.addLayer(
+    {
+      id: ATC_TOWER_LINE_LAYER,
+      type: 'line',
+      source: ATC_TOWERS_SOURCE,
+      paint: { 'line-color': palette.atc, 'line-width': 1.4, 'line-dasharray': [3, 2] }
+    },
+    before
+  )
+}
+
+/**
  * Adds the three sources and six layers once, and the click handlers that open a popup.
  *
  * @param map The map.
@@ -131,25 +159,7 @@ function ensureAtcLayers(map: MapLibreMap): void {
     },
     before
   )
-  // The ring round an airport with a tower: a thin dashed line, and a fill that is only there to be clicked.
-  map.addLayer(
-    {
-      id: ATC_TOWER_FILL_LAYER,
-      type: 'fill',
-      source: ATC_TOWERS_SOURCE,
-      paint: { 'fill-color': palette.atc, 'fill-opacity': palette.atcFillOpacity * 0.4 }
-    },
-    before
-  )
-  map.addLayer(
-    {
-      id: ATC_TOWER_LINE_LAYER,
-      type: 'line',
-      source: ATC_TOWERS_SOURCE,
-      paint: { 'line-color': palette.atc, 'line-width': 1.4, 'line-dasharray': [3, 2] }
-    },
-    before
-  )
+  addTowerRingLayers(map, palette, before)
   map.addLayer(
     {
       id: ATC_LINE_LAYER,

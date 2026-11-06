@@ -280,7 +280,7 @@ describe('useNetworkAtcOverlay', () => {
     expect(paint('atc-labels-approach')['text-color']).toBe('#2a62a3')
     // The tower is a ring: filled with the ground, outlined in blue.
     expect(paint('atc-airports-dot')).toMatchObject({
-      'circle-color': '#f3f1eb',
+      'circle-color': '#ebe8de',
       'circle-stroke-color': '#2a62a3'
     })
   })
