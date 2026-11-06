@@ -460,14 +460,10 @@ describe('SettingsView', () => {
       // Not shown up front (winglog-backend docs/plans/v1-2.md Part 4 — four of these
       // hints used to be permanent paragraphs; now they're behind an info popover, one per
       // row).
-      expect(
-        screen.queryByText(/System follows Windows/)
-      ).not.toBeInTheDocument()
+      expect(screen.queryByText(/System follows Windows/)).not.toBeInTheDocument()
 
       await user.click(screen.getByRole('button', { name: 'More info about App language' }))
-      expect(
-        await screen.findByText(/System follows Windows/)
-      ).toBeInTheDocument()
+      expect(await screen.findByText(/System follows Windows/)).toBeInTheDocument()
     })
 
     it("keeps the OFP altitudes row's Hybrid explanation always visible, not behind a popover", async () => {
