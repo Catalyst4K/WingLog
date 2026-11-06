@@ -44,10 +44,10 @@ describe('addFixSymbols', () => {
     // En route is the smallest, a procedure fix larger.
     const widths = Object.fromEntries(added.map((a) => [a.id, a.image.width]))
     expect(widths[FIX_ENROUTE_ICON_ID]).toBeLessThan(widths[FIX_PROCEDURE_ICON_ID])
-    // All three are outlines, none filled: an en route fix is a circle, a SID or STAR fix a hexagon (six corners, so five lines and a
-    // close), an approach fix a triangle (two lines and a close).
+    // All three are solid (filled, with a thin edge to round them): an en route fix is a circle, a SID or STAR fix a hexagon (six
+    // corners, so five lines and a close), an approach fix a triangle (two lines and a close).
     expect(context.stroke).toHaveBeenCalledTimes(3)
-    expect(context.fill).not.toHaveBeenCalled()
+    expect(context.fill).toHaveBeenCalledTimes(3)
     expect(context.arc).toHaveBeenCalledTimes(1)
     expect(context.closePath).toHaveBeenCalledTimes(2)
     expect(context.lineTo).toHaveBeenCalledTimes(5 + 2)

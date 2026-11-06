@@ -23,8 +23,17 @@ describe('LandingScoreBadge', () => {
     expect(screen.getByText('20')).toBeInTheDocument()
   })
 
-  it('renders 0 for a genuinely dangerous landing, not a dash', () => {
-    render(<LandingScoreBadge score={0} />)
-    expect(screen.getByText('0')).toBeInTheDocument()
+  it('tints the pill green for a good landing, amber for a fair one and red for a poor one', () => {
+    const tint = (score: number): string => {
+      const { unmount } = render(<LandingScoreBadge score={score} />)
+      const className = screen.getByText(String(score)).className
+      unmount()
+      return className
+    }
+    expect(tint(92)).toContain('bg-light-green')
+    expect(tint(80)).toContain('bg-light-green')
+    expect(tint(65)).toContain('bg-light-amber')
+    expect(tint(20)).toContain('bg-light-red')
+    expect(tint(0)).toContain('bg-light-red')
   })
 })

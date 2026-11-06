@@ -72,9 +72,10 @@ function AtcSample(props: { shape: 'centre' | 'approach' | 'tower' | 'airport' }
           height="10"
           rx="2"
           fill="currentColor"
-          fillOpacity={props.shape === 'centre' ? 0.16 : 0.07}
+          fillOpacity={props.shape === 'centre' ? 0.28 : 0.08}
           stroke="currentColor"
           strokeWidth="1.2"
+          strokeDasharray={props.shape === 'approach' ? '3 2' : undefined}
         />
       )}
     </svg>
@@ -97,14 +98,26 @@ function FixSample(props: { shape: 'enroute' | 'procedure' | 'approach' }): Reac
   return (
     <svg width="28" height="14" viewBox="0 0 28 14" aria-hidden="true" className="text-muted-foreground">
       {props.shape === 'enroute' && (
-        <circle cx="14" cy="7" r="2.6" fill="none" stroke="currentColor" strokeWidth="1.4" />
+        <circle cx="14" cy="7" r="3.3" fill="currentColor" stroke="currentColor" strokeWidth="1" />
       )}
       {props.shape === 'procedure' && (
-        <polygon points={hexagon(14, 7, 4.6)} fill="none" stroke="currentColor" strokeWidth="1.4" />
+        <polygon
+          points={hexagon(14, 7, 5.2)}
+          fill="currentColor"
+          stroke="currentColor"
+          strokeWidth="1"
+          strokeLinejoin="round"
+        />
       )}
       {props.shape === 'approach' && (
-        <g transform="translate(8.5 1.5)">
-          <polygon points={triangle(11)} fill="none" stroke="currentColor" strokeWidth="1.4" />
+        <g transform="translate(8 1)">
+          <polygon
+            points={triangle(12)}
+            fill="currentColor"
+            stroke="currentColor"
+            strokeWidth="1"
+            strokeLinejoin="round"
+          />
         </g>
       )}
     </svg>

@@ -232,7 +232,7 @@ describe('useNetworkAtcOverlay', () => {
     expect(fake.map.addSource).not.toHaveBeenCalled()
   })
 
-  it('adds four sources and eight layers once, with the licence’s attribution on the areas', async () => {
+  it('adds four sources and nine layers once, with the licence’s attribution on the areas', async () => {
     const fake = fakeMap()
     const { client } = fakeClient({ atc: shown() })
     await mount(client, fake)
@@ -247,6 +247,7 @@ describe('useNetworkAtcOverlay', () => {
       'atc-towers-fill',
       'atc-towers-line',
       'atc-areas-line',
+      'atc-approach-line',
       'atc-labels-centre',
       'atc-labels-approach',
       'atc-airports-dot',
@@ -265,7 +266,7 @@ describe('useNetworkAtcOverlay', () => {
     // Every area is filled, so a click anywhere inside it lands on it: the centres at the full tint, the approach areas at half.
     expect(paint('atc-areas-fill')).toEqual({
       'fill-color': '#2a62a3',
-      'fill-opacity': ['case', ['==', ['get', 'kind'], 'centre'], 0.07, 0.035]
+      'fill-opacity': ['case', ['==', ['get', 'kind'], 'centre'], 0.16, 0.048]
     })
     expect((fake.layers.get('atc-areas-fill') as unknown as { filter?: unknown }).filter).toBeUndefined()
     // A tower's ring: a dashed line, and a fill that is there to be clicked.
@@ -275,7 +276,13 @@ describe('useNetworkAtcOverlay', () => {
       'line-dasharray': [3, 2]
     })
     expect(paint('atc-towers-fill')['fill-color']).toBe('#2a62a3')
-    expect(paint('atc-areas-line')).toEqual({ 'line-color': '#2a62a3', 'line-width': 1.2 })
+    // A centre has a solid edge, an approach area a dashed one, so the two read apart.
+    expect(paint('atc-areas-line')).toEqual({ 'line-color': '#2a62a3', 'line-width': 1.4 })
+    expect(paint('atc-approach-line')).toEqual({
+      'line-color': '#2a62a3',
+      'line-width': 1.2,
+      'line-dasharray': [3, 2]
+    })
     expect(paint('atc-labels-centre')['text-color']).toBe('#2a62a3')
     expect(paint('atc-labels-approach')['text-color']).toBe('#2a62a3')
     // The tower is a ring: filled with the ground, outlined in blue.

@@ -35,6 +35,7 @@ export const ATC_FILL_LAYER = 'atc-areas-fill'
 export const ATC_TOWER_FILL_LAYER = 'atc-towers-fill'
 export const ATC_TOWER_LINE_LAYER = 'atc-towers-line'
 export const ATC_LINE_LAYER = 'atc-areas-line'
+export const ATC_APPROACH_LINE_LAYER = 'atc-approach-line'
 export const ATC_CENTRE_LABEL_LAYER = 'atc-labels-centre'
 export const ATC_APPROACH_LABEL_LAYER = 'atc-labels-approach'
 export const ATC_AIRPORT_DOT_LAYER = 'atc-airports-dot'
@@ -42,6 +43,7 @@ export const ATC_AIRPORT_LETTERS_LAYER = 'atc-airports-letters'
 const ALL_LAYERS = [
   ATC_FILL_LAYER,
   ATC_LINE_LAYER,
+  ATC_APPROACH_LINE_LAYER,
   ATC_TOWER_FILL_LAYER,
   ATC_TOWER_LINE_LAYER,
   ATC_CENTRE_LABEL_LAYER,
@@ -87,6 +89,36 @@ export interface UseNetworkAtcOverlayArgs {
  */
 function firstTrafficLayer(map: MapLibreMap): string | undefined {
   return TRAFFIC_LAYERS.find((id) => map.getLayer(id))
+}
+
+/**
+ * The edges of the areas: a centre has a solid edge, an approach area a dashed one, so the two read apart (with their tints).
+ *
+ * @param map The map.
+ * @param palette The map's colours.
+ * @param before The layer to go under, or undefined to go on top.
+ */
+function addAreaEdgeLayers(map: MapLibreMap, palette: MapPalette, before: string | undefined): void {
+  map.addLayer(
+    {
+      id: ATC_LINE_LAYER,
+      type: 'line',
+      source: ATC_AREAS_SOURCE,
+      filter: ['==', ['get', 'kind'], 'centre'] as FilterSpecification,
+      paint: { 'line-color': palette.atc, 'line-width': 1.4 }
+    },
+    before
+  )
+  map.addLayer(
+    {
+      id: ATC_APPROACH_LINE_LAYER,
+      type: 'line',
+      source: ATC_AREAS_SOURCE,
+      filter: ['==', ['get', 'kind'], 'approach'] as FilterSpecification,
+      paint: { 'line-color': palette.atc, 'line-width': 1.2, 'line-dasharray': [3, 2] }
+    },
+    before
+  )
 }
 
 /**
@@ -153,22 +185,14 @@ function ensureAtcLayers(map: MapLibreMap): void {
           'case',
           ['==', ['get', 'kind'], 'centre'],
           palette.atcFillOpacity,
-          palette.atcFillOpacity * 0.5
+          palette.atcFillOpacity * 0.3
         ]
       } as never
     },
     before
   )
   addTowerRingLayers(map, palette, before)
-  map.addLayer(
-    {
-      id: ATC_LINE_LAYER,
-      type: 'line',
-      source: ATC_AREAS_SOURCE,
-      paint: { 'line-color': palette.atc, 'line-width': 1.2 }
-    },
-    before
-  )
+  addAreaEdgeLayers(map, palette, before)
   const label = (id: string, kind: string, minzoom: number): void => {
     map.addLayer(
       {

@@ -30,6 +30,12 @@ describe('LandingBadge', () => {
     expect(container.querySelector('[data-slot="status-light"]')).toHaveAttribute('data-state', 'red')
   })
 
+  it('shows no word beside the light: the word is in the tooltip and for a screen reader only', () => {
+    const { container } = render(<LandingBadge severity="hard" />)
+    expect(container.firstElementChild).toHaveAttribute('title', 'Hard')
+    expect(screen.getByText('Hard')).toHaveClass('sr-only')
+  })
+
   it('shows the severity label in the active i18next language, not a hardcoded English string', async () => {
     await i18n.changeLanguage('de')
     render(<LandingBadge severity="hard" />)

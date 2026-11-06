@@ -28,11 +28,12 @@ function triangle(context: CanvasRenderingContext2D, size: number): void {
   context.lineTo(size - inset, size - inset)
   context.lineTo(inset, size - inset)
   context.closePath()
+  context.fill()
   context.stroke()
 }
 
 /**
- * A ring.
+ * A disc.
  *
  * @param context The canvas to draw on.
  * @param size The box's side, pixels.
@@ -41,6 +42,7 @@ function circle(context: CanvasRenderingContext2D, size: number): void {
   const centre = size / 2
   context.beginPath()
   context.arc(centre, centre, size / 2 - LINE_WIDTH_PX, 0, Math.PI * 2)
+  context.fill()
   context.stroke()
 }
 
@@ -62,13 +64,14 @@ function hexagon(context: CanvasRenderingContext2D, size: number): void {
     else context.lineTo(x, y)
   }
   context.closePath()
+  context.fill()
   context.stroke()
 }
 
 const SYMBOLS: { id: string; sizePx: number; draw: Draw }[] = [
-  { id: FIX_ENROUTE_ICON_ID, sizePx: 8, draw: circle },
-  { id: FIX_PROCEDURE_ICON_ID, sizePx: 12, draw: hexagon },
-  { id: FIX_APPROACH_ICON_ID, sizePx: 11, draw: triangle }
+  { id: FIX_ENROUTE_ICON_ID, sizePx: 9, draw: circle },
+  { id: FIX_PROCEDURE_ICON_ID, sizePx: 13, draw: hexagon },
+  { id: FIX_APPROACH_ICON_ID, sizePx: 12, draw: triangle }
 ]
 
 /**
