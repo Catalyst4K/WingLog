@@ -32,6 +32,11 @@ export interface MapPalette {
   taxiEdgeOpacity: number
   /** The hold-short bar and its label. */
   holdBar: string
+  /**
+   * Layers of the base style painted by id, for a theme whose style draws them too dark to read (the dark one's roads, runways and
+   * buildings are black on near-black). Empty where the style's own colours do.
+   */
+  styled: Record<string, Record<string, string>>
 }
 
 const LIGHT: MapPalette = {
@@ -49,7 +54,8 @@ const LIGHT: MapPalette = {
   atcFillOpacity: 0.07,
   taxi: '#f2c200',
   taxiEdgeOpacity: 0.7,
-  holdBar: '#c62a1f'
+  holdBar: '#c62a1f',
+  styled: {}
 }
 
 const DARK: MapPalette = {
@@ -67,7 +73,25 @@ const DARK: MapPalette = {
   atcFillOpacity: 0.09,
   taxi: '#facc15',
   taxiEdgeOpacity: 0,
-  holdBar: '#f0645a'
+  holdBar: '#f0645a',
+  styled: {
+    highway_path: { 'line-color': '#34332f' },
+    highway_minor: { 'line-color': '#3d3c37' },
+    highway_major_casing: { 'line-color': '#161614' },
+    highway_major_inner: { 'line-color': '#55534c' },
+    highway_major_subtle: { 'line-color': '#45433e' },
+    highway_motorway_casing: { 'line-color': '#161614' },
+    highway_motorway_inner: { 'line-color': '#7a766b' },
+    highway_motorway_subtle: { 'line-color': '#45433e' },
+    railway: { 'line-color': '#37352f' },
+    railway_minor: { 'line-color': '#37352f' },
+    railway_transit: { 'line-color': '#37352f' },
+    building: { 'fill-color': '#262521' },
+    'aeroway-taxiway': { 'line-color': '#4a4842' },
+    'aeroway-runway': { 'line-color': '#6a675f' },
+    'aeroway-runway-casing': { 'line-color': '#1a1a18' },
+    'aeroway-area': { 'fill-color': '#2d2c28' }
+  }
 }
 
 /**

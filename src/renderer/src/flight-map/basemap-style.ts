@@ -19,6 +19,8 @@ const LAND_USE_FILL = /^(landcover_(?!ice)|landuse_)/
  * @returns The paint properties to set on it, or none when the layer is left as the style drew it.
  */
 function paintFor(layer: StyleLayerLike, palette: MapPalette): Record<string, string> {
+  const styled = palette.styled[layer.id]
+  if (styled) return styled
   if (layer.type === 'background') return { 'background-color': palette.land }
   if (layer.type === 'fill' && WATER_FILL.test(layer.id)) return { 'fill-color': palette.sea }
   if (layer.type === 'fill' && GREEN_FILL.test(layer.id)) return { 'fill-color': palette.green }

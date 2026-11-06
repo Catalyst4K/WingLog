@@ -49,6 +49,26 @@ describe('recolourBasemap', () => {
     expect(map.setPaintProperty).toHaveBeenCalledWith('label_city', 'text-color', '#a29e94')
   })
 
+  it('paints the dark style’s roads, runways and buildings by id, so they read on the dark ground, and none of that in the light theme', () => {
+    const layers = [
+      { id: 'highway_minor', type: 'line' },
+      { id: 'highway_motorway_inner', type: 'line' },
+      { id: 'building', type: 'fill' },
+      { id: 'aeroway-runway', type: 'line' }
+    ]
+    const dark = fakeMap(layers)
+    recolourBasemap(dark as unknown as MapLibreMap, true)
+    expect(dark.setPaintProperty.mock.calls.map(([id, name, value]) => `${id} ${name} ${value}`)).toEqual([
+      'highway_minor line-color #3d3c37',
+      'highway_motorway_inner line-color #7a766b',
+      'building fill-color #262521',
+      'aeroway-runway line-color #6a675f'
+    ])
+    const light = fakeMap(layers)
+    recolourBasemap(light as unknown as MapLibreMap, false)
+    expect(light.setPaintProperty).not.toHaveBeenCalled()
+  })
+
   it('leaves the ice layers alone', () => {
     const map = fakeMap()
     recolourBasemap(map as unknown as MapLibreMap, false)
