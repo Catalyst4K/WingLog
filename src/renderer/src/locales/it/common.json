@@ -748,6 +748,7 @@
       "airTime": "Tempo di volo",
       "fuelBurn": "Carburante consumato",
       "fuelPlanned": "Carburante pianificato",
+      "planned": "previsto",
       "online": "Online"
     },
     "altitude": "Altitudine",

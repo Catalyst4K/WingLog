@@ -546,6 +546,22 @@ describe('LogbookView list', () => {
       expect(screen.queryByText('Online')).not.toBeInTheDocument()
     })
 
+    it('shows a flight summary strip with the planned fuel in magenta beside the burn', async () => {
+      setWinglog({
+        logbookListCompletedFlights: vi
+          .fn()
+          .mockResolvedValue([
+            makeFlight({ id: 1, flightNumber: 'PLAN1', fuelBurnKg: 4000, fuelPlannedKg: 4200 })
+          ])
+      })
+      const user = userEvent.setup()
+      render(<LogbookView weightUnit="kg" landingDistanceUnit="ft" />)
+      await user.click((await screen.findByText('PLAN1')).closest('tr')!)
+      const burn = (await screen.findByText('Fuel burn')).nextElementSibling as HTMLElement
+      expect(burn).toHaveTextContent('4,000 kg')
+      expect(within(burn).getByText(/planned 4,200 kg/)).toHaveClass('text-plan')
+    })
+
     it('shows no filter while no flight was flown online', async () => {
       setWinglog({
         logbookListCompletedFlights: vi
@@ -613,6 +629,34 @@ describe('LogbookView list', () => {
 
     expect(await screen.findByText('VHHH → Unknown')).toBeInTheDocument()
     expect(screen.queryByText(/ZZZZ/)).not.toBeInTheDocument()
+  })
+
+  it('lights a flight in the list only for its worst firm or hard touchdown', async () => {
+    setWinglog({
+      logbookListCompletedFlights: vi
+        .fn()
+        .mockResolvedValue([
+          makeFlight({ id: 1, flightNumber: 'SOFT1' }),
+          makeFlight({ id: 2, flightNumber: 'FIRM1' }),
+          makeFlight({ id: 3, flightNumber: 'HARD1' })
+        ]),
+      logbookListAllLandings: vi
+        .fn()
+        .mockResolvedValue([
+          makeLandingListRow({ id: 1, flightId: 1, severity: 'none' }),
+          makeLandingListRow({ id: 2, flightId: 2, severity: 'firm' }),
+          makeLandingListRow({ id: 3, flightId: 3, seq: 1, severity: 'firm' }),
+          makeLandingListRow({ id: 4, flightId: 3, seq: 2, severity: 'hard' })
+        ])
+    })
+    render(<LogbookView weightUnit="kg" landingDistanceUnit="ft" />)
+    const lightIn = async (flightNumber: string): Promise<string | null | undefined> => {
+      const row = (await screen.findByText(flightNumber)).closest('tr')!
+      return row.querySelector('[data-slot="status-light"]')?.getAttribute('data-state')
+    }
+    expect(await lightIn('SOFT1')).toBeUndefined()
+    await waitFor(async () => expect(await lightIn('FIRM1')).toBe('amber'))
+    expect(await lightIn('HARD1')).toBe('red')
   })
 
   it('offers a Flights | Landings tab switcher, and the Landings tab shows logbookListAllLandings data', async () => {

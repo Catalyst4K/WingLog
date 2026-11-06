@@ -746,6 +746,7 @@
       "airTime": "Flugzeit",
       "fuelBurn": "Treibstoffverbrauch",
       "fuelPlanned": "Geplanter Treibstoff",
+      "planned": "geplant",
       "online": "Online"
     },
     "altitude": "Höhe",

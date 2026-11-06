@@ -1,10 +1,11 @@
 /** The Logbook's flights tab and the totals above it. */
 
 import { useTranslation } from 'react-i18next'
-import type { LogbookFlight, LogbookStats, WeightUnit } from '@shared/ipc'
+import type { LandingSeverity, LogbookFlight, LogbookStats, WeightUnit } from '@shared/ipc'
 import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { displayIcao } from '../display-icao'
+import { LandingBadge } from '../LandingBadge'
 import { LandingScoreBadge } from '../LandingScoreBadge'
 import { SortableHead } from '../SortableHead'
 import { formatMinutes, formatWeight } from '../units'
@@ -58,6 +59,8 @@ export function FlightsTable(props: {
   registrationFor: (flight: LogbookFlight) => string
   scoreFor: (flightId: number) => number | null
   landingCountFor: (flightId: number) => number
+  /** The worst touchdown of the flight: a light shows only for firm or hard. */
+  severityFor: (flightId: number) => LandingSeverity
   weightUnit: WeightUnit
   onOpen: (flightId: number) => void
 }): React.JSX.Element {
@@ -135,6 +138,7 @@ export function FlightsTable(props: {
                 <TableCell className="text-center">
                   <span className="inline-flex items-center gap-1.5">
                     <LandingScoreBadge score={props.scoreFor(f.id)} />
+                    <LandingBadge severity={props.severityFor(f.id)} />
                     {landingCount > 1 && (
                       <Badge variant="outline" className="text-xs">
                         ×{landingCount}

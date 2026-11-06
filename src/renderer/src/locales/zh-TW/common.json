@@ -739,6 +739,7 @@
       "airTime": "空中時間",
       "fuelBurn": "燃油消耗",
       "fuelPlanned": "計畫燃油",
+      "planned": "計畫",
       "online": "線上"
     },
     "altitude": "高度",

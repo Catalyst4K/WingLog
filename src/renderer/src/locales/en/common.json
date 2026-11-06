@@ -746,6 +746,7 @@
       "airTime": "Air time",
       "fuelBurn": "Fuel burn",
       "fuelPlanned": "Fuel planned",
+      "planned": "planned",
       "online": "Online"
     },
     "altitude": "Altitude",

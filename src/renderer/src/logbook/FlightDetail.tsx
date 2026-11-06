@@ -1,4 +1,4 @@
-/** A flight's detail page: summary, map, charts and landing. */
+/** A flight's detail page: heading and summary strip, landing, map, charts and receipts. */
 
 import { winglogApi } from '../data/winglog-api'
 import { useEffect, useState } from 'react'
@@ -13,100 +13,18 @@ import type {
   MapLanguage,
   WeightUnit
 } from '@shared/ipc'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { AddFlightToFleetDialog } from '../AddFlightToFleetDialog'
-import { displayIcao } from '../display-icao'
 import { FlightMap } from '../FlightMap'
 import { GsxInvoicesCard } from '../GsxInvoicesCard'
 import { useConfirm } from '../hooks/use-confirm'
 import { TrackToolsMenu } from './TrackToolsMenu'
-import { formatMinutes, formatWeight } from '../units'
 import { asyncHandler, runAsync } from '../report-error'
-import { formatDate, isFreeFlight } from './logbook-format'
-import { DETAIL_GRID_CLASS, DetailField } from './DetailField'
+import { isFreeFlight } from './logbook-format'
+import { FlightSummary } from './FlightSummary'
 import { AltitudeChart, FuelChart, SpeedChart } from './FlightCharts'
 import { LandingCard } from './LandingCard'
 import { useFlightProfile, useFlightRoute, useFlightTrack, useTrackEstimate } from './use-flight-detail'
-
-/**
- * The flight's summary card: its title and free-flight badge, the buttons that open its OFP
- * or add it to the fleet, and its aircraft, date, block and air time and fuel.
- *
- * @param props The flight, its fleet aircraft, the weight unit, and the two button handlers.
- * @returns The element.
- */
-function FlightSummaryCard(props: {
-  flight: Flight
-  aircraft: Aircraft | undefined
-  weightUnit: WeightUnit
-  onViewOfpPdf: () => Promise<void>
-  onAddToFleet: () => void
-}): React.JSX.Element {
-  const { t } = useTranslation()
-  const { flight, aircraft, weightUnit } = props
-  const freeFlight = isFreeFlight(flight)
-  return (
-    <Card className="min-w-72 flex-1">
-      <CardHeader>
-        <CardTitle className="flex flex-wrap items-center gap-2">
-          {flight.flightNumber ? `${flight.flightNumber} — ` : ''}
-          {displayIcao(flight.depIcao)} → {displayIcao(flight.arrIcao)}
-          {freeFlight && (
-            <Badge variant="outline" className="text-xs font-normal">
-              {t('logbookView.freeFlight')}
-            </Badge>
-          )}
-        </CardTitle>
-        {flight.ofpJson && (
-          <CardAction>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={asyncHandler('LogbookView handleViewOfpPdf', props.onViewOfpPdf)}
-            >
-              {t('logbookView.viewOfpPdf')}
-            </Button>
-          </CardAction>
-        )}
-        {freeFlight && flight.aircraftId == null && (
-          <CardAction>
-            <Button type="button" variant="outline" size="sm" onClick={props.onAddToFleet}>
-              {t('logbookView.addToFleet')}
-            </Button>
-          </CardAction>
-        )}
-      </CardHeader>
-      <CardContent>
-        <dl className={DETAIL_GRID_CLASS}>
-          <DetailField
-            label={t('logbookView.fields.aircraft')}
-            value={aircraft?.registration ?? flight.simRegistration ?? '—'}
-          />
-          <DetailField label={t('logbookView.fields.date')} value={formatDate(flight.actualOutUtc)} />
-          <DetailField label={t('logbookView.fields.blockTime')} value={formatMinutes(flight.blockMinutes)} />
-          <DetailField label={t('logbookView.fields.airTime')} value={formatMinutes(flight.airMinutes)} />
-          <DetailField
-            label={t('logbookView.fields.fuelBurn')}
-            value={formatWeight(flight.fuelBurnKg, weightUnit)}
-          />
-          <DetailField
-            label={t('logbookView.fields.fuelPlanned')}
-            value={formatWeight(flight.fuelPlannedKg, weightUnit)}
-          />
-          {flight.onlineNetwork && (
-            <DetailField
-              label={t('logbookView.fields.online')}
-              value={`${flight.onlineNetwork === 'ivao' ? 'IVAO' : 'VATSIM'} · ${flight.onlineCallsign ?? '—'}`}
-            />
-          )}
-        </dl>
-      </CardContent>
-    </Card>
-  )
-}
 
 /**
  * Fetches the opened flight in full (OFP included) before showing it — the list rows are
@@ -150,7 +68,7 @@ export function FlightDetailLoader(
 }
 
 /**
- * A flight's detail page: the summary and landing cards, the map, the altitude and speed
+ * A flight's detail page: the heading and summary strip, the landing, the map, the altitude and speed
  * charts, the fuel chart and GSX invoices.
  *
  * @param props The flight, its aircraft and the fleet, the units, and the navigation handlers.
@@ -254,16 +172,15 @@ function FlightDetail(props: {
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-4">
-        <FlightSummaryCard
-          flight={flight}
-          aircraft={props.aircraft}
-          weightUnit={weightUnit}
-          onViewOfpPdf={handleViewOfpPdf}
-          onAddToFleet={() => setAddToFleetOpen(true)}
-        />
-        <LandingCard flightId={flight.id} landingDistanceUnit={props.landingDistanceUnit} />
-      </div>
+      <FlightSummary
+        flight={flight}
+        aircraft={props.aircraft}
+        weightUnit={weightUnit}
+        onViewOfpPdf={handleViewOfpPdf}
+        onAddToFleet={() => setAddToFleetOpen(true)}
+      />
+
+      <LandingCard flightId={flight.id} landingDistanceUnit={props.landingDistanceUnit} />
 
       <div className="h-[min(36vh,360px)] min-h-56">
         <FlightMap
