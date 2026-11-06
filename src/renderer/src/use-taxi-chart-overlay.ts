@@ -11,6 +11,7 @@ import { useEffect, useMemo, useRef, useState, type MutableRefObject } from 'rea
 import type { GeoJSONSourceSpecification, Map as MapLibreMap } from 'maplibre-gl'
 import type { NavdataTaxiSegment } from '@shared/ipc'
 import { uiMemory } from './ui-memory'
+import { mapPalette } from './flight-map/map-palette'
 import { setSourceData } from './map-source'
 
 const TAXI_SOURCE_ID = 'taxi-chart'
@@ -50,7 +51,12 @@ function ensureLayer(map: MapLibreMap): void {
     source: TAXI_SOURCE_ID,
     minzoom: TAXI_CHART_MINZOOM,
     layout: { visibility: 'none' },
-    paint: { 'line-color': '#9c6b1f', 'line-width': 1.5, 'line-opacity': 0.75 }
+    // The sim's network, thin and muted: the cleared route (use-taxi-route-highlight.ts) is the one line that stands out.
+    paint: {
+      'line-color': mapPalette(document.documentElement.classList.contains('dark')).quiet,
+      'line-width': 1,
+      'line-opacity': 0.6
+    }
   })
 }
 

@@ -16,6 +16,7 @@ import { reportError } from './report-error'
 import { setSourceData } from './map-source'
 import { openTextPopup } from './flight-map/map-popup'
 import { addTrafficIcon, TRAFFIC_ICON_ID } from './flight-map/traffic-icon'
+import { mapPalette } from './flight-map/map-palette'
 import { popupLines, trafficFeatures, type TrafficFeatureProperties } from './flight-map/traffic-features'
 
 /** How often the aircraft are moved on, milliseconds. A source update per frame would cost more than it shows. */
@@ -24,26 +25,15 @@ export const GLIDE_INTERVAL_MS = 1000
 /** How one traffic layer looks: its source, its colour and the colour of its labels in each theme. */
 interface LayerStyle {
   sourceId: string
-  color: string
-  labelLight: string
-  labelDark: string
+  /** How solid its icons are: the sim's own traffic is fainter than the network's pilots. */
+  opacity: number
 }
 
-/** The network's colour: amber, which contrasts with the own aircraft's blue in both themes. */
-const NETWORK_STYLE: LayerStyle = {
-  sourceId: 'network-traffic',
-  color: '#f59f00',
-  labelLight: '#7a4a00',
-  labelDark: '#ffd8a8'
-}
+/** The network's pilots: grey, like all traffic (v2: ink is you, the rest is quiet). */
+const NETWORK_STYLE: LayerStyle = { sourceId: 'network-traffic', opacity: 1 }
 
-/** The sim's own traffic: teal, which is told apart from the network's amber and the own aircraft's blue. */
-const SIM_STYLE: LayerStyle = {
-  sourceId: 'sim-traffic',
-  color: '#12b886',
-  labelLight: '#087f5b',
-  labelDark: '#96f2d7'
-}
+/** The sim's own traffic: the same grey, fainter, so it is told apart from the network's pilots. */
+const SIM_STYLE: LayerStyle = { sourceId: 'sim-traffic', opacity: 0.6 }
 
 const airLayerId = (style: LayerStyle): string => `${style.sourceId}-air`
 const groundLayerId = (style: LayerStyle): string => `${style.sourceId}-ground`
@@ -91,9 +81,10 @@ function ensureTrafficLayers(
   addTrafficIcon(map)
   map.addSource(sourceId, { type: 'geojson', data: { type: 'FeatureCollection', features: [] } })
   const dark = document.documentElement.classList.contains('dark')
+  const palette = mapPalette(dark)
   const textPaint = {
-    'text-color': dark ? style.labelDark : style.labelLight,
-    'text-halo-color': dark ? '#0b0f14' : '#ffffff',
+    'text-color': palette.quiet,
+    'text-halo-color': palette.halo,
     'text-halo-width': 1.2
   }
   // A layer's minzoom would hide the icon as well, so the label is faded out by zoom inside its text size instead.
@@ -115,7 +106,7 @@ function ensureTrafficLayers(
     source: sourceId,
     filter: ['!', ['get', 'onGround']],
     layout: layout(AIR_ICON_SIZE, AIR_LABEL_MINZOOM) as never,
-    paint: { 'icon-color': style.color, ...textPaint }
+    paint: { 'icon-color': palette.quiet, 'icon-opacity': style.opacity, ...textPaint }
   })
   map.addLayer({
     id: groundLayerId(style),
@@ -124,8 +115,8 @@ function ensureTrafficLayers(
     filter: ['get', 'onGround'],
     layout: layout(GROUND_ICON_SIZE, GROUND_LABEL_MINZOOM) as never,
     paint: {
-      'icon-color': style.color,
-      'icon-opacity': GROUND_OPACITY,
+      'icon-color': palette.quiet,
+      'icon-opacity': GROUND_OPACITY * style.opacity,
       'text-opacity': GROUND_OPACITY,
       ...textPaint
     }

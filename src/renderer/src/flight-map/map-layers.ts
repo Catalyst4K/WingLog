@@ -17,6 +17,13 @@ import { lazy } from '@shared/lazy'
 import { planLanguageChange, type StyleLayerLike } from '../map-labels'
 import type { Waypoint } from '@shared/route'
 import { uiMemory } from '../ui-memory'
+import {
+  addFixSymbols,
+  FIX_APPROACH_ICON_ID,
+  FIX_ENROUTE_ICON_ID,
+  FIX_PROCEDURE_ICON_ID
+} from './fix-symbols'
+import { mapPalette } from './map-palette'
 
 // maplibre-gl ships its tile-parsing worker as a separate chunk and locates it via its own import.meta.url, which doesn't
 // survive Vite's dependency pre-bundling in dev, so setWorkerUrl points at Vite's resolved asset URL (maplibreWorkerUrl).
@@ -60,17 +67,17 @@ export function isDarkTheme(): boolean {
 // (paint properties fixed at layer creation, independent of the vector style's colours) were illegible. Picked once
 // alongside the basemap style below, and not re-styled live for the same reason.
 function waypointLabelColors(dark: boolean): { color: string; halo: string } {
-  return dark ? { color: '#c7d3e0', halo: '#05070a' } : { color: '#555', halo: '#fff' }
+  const palette = mapPalette(dark)
+  return { color: palette.label, halo: palette.halo }
 }
 function taxiwayLabelColors(dark: boolean): { color: string; halo: string } {
-  return dark ? { color: '#e0b24d', halo: '#05070a' } : { color: '#7a5c00', halo: '#fff' }
+  const palette = mapPalette(dark)
+  return { color: palette.quiet, halo: palette.halo }
 }
 export const ROUTE_SOURCE_ID = 'planned-route'
-// Same source as ROUTE_SOURCE_ID's layer, drawn solid in the same blue as the flown trail
-// (TRAIL_SOURCE_ID's paint below) rather than a paint-property toggle on one layer —
-// line-dasharray has no "unset back to solid" value once a layer's been created with one
-// (docs/plans/great-circle-fallback-route.md), so a second layer with its own fixed paint,
-// switched by visibility, sidesteps that rather than fighting it.
+// Same source as ROUTE_SOURCE_ID's layer, switched by visibility. Both are the plan, so both are the thin dashed magenta line (v2:
+// dashing means only the plan); a second layer rather than a paint-property toggle on one, as line-dasharray has no "unset back to
+// solid" value once a layer's been created with one (docs/plans/great-circle-fallback-route.md).
 export const ROUTE_APPROXIMATE_LAYER_ID = 'planned-route-approximate'
 export const TRAIL_SOURCE_ID = 'breadcrumb-trail'
 // The per-frame animation below used to resend the *entire* trail (every committed point
@@ -81,8 +88,8 @@ export const TRAIL_SOURCE_ID = 'breadcrumb-trail'
 // real sample (not once per frame). Same paint style as the main trail so the two read as
 // one continuous line.
 export const TRAIL_TIP_SOURCE_ID = 'breadcrumb-trail-tip'
-// The stretches estimated from the flight plan (docs/plans/track-gap-fill.md): the trail's blue, but lighter and dashed, so a made-up
-// stretch can never be read as a recorded one.
+// The stretches estimated from the flight plan (docs/plans/track-gap-fill.md): drawn exactly like the recorded trail (v2, Callum
+// 2026-11-04: filling a gap is meant to make the track look right, not different). Its own layer so it stays a separate source.
 export const ESTIMATED_TRAIL_SOURCE_ID = 'estimated-trail'
 export const WAYPOINT_SOURCE_ID = 'planned-waypoints'
 // fitBoundsTo's zoom for a single coordinate (nothing to fit a box around). Following the
@@ -301,85 +308,73 @@ export function createFlightMap(container: HTMLDivElement, live: boolean, dark: 
  * @returns The aircraft marker, not yet on the map.
  */
 export function addFlightLayers(map: MapLibreMap, dark: boolean): Marker {
+  const palette = mapPalette(dark)
+  // The plan: a thin dashed magenta line, in full colour, beneath the flown track (added first, so it is drawn first).
+  const planPaint = { 'line-color': palette.plan, 'line-width': 1.5, 'line-dasharray': [6, 4] }
+  // What was flown: a thick solid ink line.
+  const flownPaint = { 'line-color': palette.ink, 'line-width': 3 }
   map.addSource(ROUTE_SOURCE_ID, { type: 'geojson', data: lineString([]) })
-  map.addLayer({
-    id: ROUTE_SOURCE_ID,
-    type: 'line',
-    source: ROUTE_SOURCE_ID,
-    paint: { 'line-color': '#888', 'line-width': 2, 'line-dasharray': [2, 2] }
-  })
-  // A synthesized great-circle route (docs/plans/great-circle-fallback-route.md) —
-  // same blue as the flown trail below, so it reads as an obvious, deliberate line
-  // rather than the faint "this isn't real data" grey a planned route normally gets.
-  // Hidden by default; FlightMap's effect toggles which of this pair is visible.
+  map.addLayer({ id: ROUTE_SOURCE_ID, type: 'line', source: ROUTE_SOURCE_ID, paint: planPaint })
+  // A synthesized great-circle route (docs/plans/great-circle-fallback-route.md). Hidden by default; FlightMap's effect toggles which
+  // of this pair is visible.
   map.addLayer({
     id: ROUTE_APPROXIMATE_LAYER_ID,
     type: 'line',
     source: ROUTE_SOURCE_ID,
     layout: { visibility: 'none' },
-    paint: { 'line-color': '#1a73e8', 'line-width': 3 }
+    paint: planPaint
   })
 
   map.addSource(TRAIL_SOURCE_ID, { type: 'geojson', data: lineString([]) })
-  map.addLayer({
-    id: TRAIL_SOURCE_ID,
-    type: 'line',
-    source: TRAIL_SOURCE_ID,
-    paint: { 'line-color': '#1a73e8', 'line-width': 3 }
-  })
+  map.addLayer({ id: TRAIL_SOURCE_ID, type: 'line', source: TRAIL_SOURCE_ID, paint: flownPaint })
 
   map.addSource(ESTIMATED_TRAIL_SOURCE_ID, { type: 'geojson', data: lineString([]) })
   map.addLayer({
     id: ESTIMATED_TRAIL_SOURCE_ID,
     type: 'line',
     source: ESTIMATED_TRAIL_SOURCE_ID,
-    paint: { 'line-color': '#1a73e8', 'line-width': 3, 'line-opacity': 0.55, 'line-dasharray': [2, 2] }
+    paint: flownPaint
   })
 
   map.addSource(TRAIL_TIP_SOURCE_ID, { type: 'geojson', data: lineString([]) })
-  map.addLayer({
-    id: TRAIL_TIP_SOURCE_ID,
-    type: 'line',
-    source: TRAIL_TIP_SOURCE_ID,
-    paint: { 'line-color': '#1a73e8', 'line-width': 3 }
-  })
+  map.addLayer({ id: TRAIL_TIP_SOURCE_ID, type: 'line', source: TRAIL_TIP_SOURCE_ID, paint: flownPaint })
 
   addWaypointLayers(map, dark)
   addTaxiwayLabels(map, dark)
-  return aircraftMarker()
+  return aircraftMarker(dark)
 }
 
 /**
- * Adds the route waypoint source and its circle and label layers, coloured by route segment.
+ * Adds the route waypoint source and its symbol and label layers. The fixes are told apart by shape and size alone, all hollow in the
+ * quiet colour (v2): a small triangle en route, a larger one for a SID or STAR fix, a ring with a dot for an approach fix.
  *
  * @param map The map.
  * @param dark Whether the dark theme is on.
  */
 function addWaypointLayers(map: MapLibreMap, dark: boolean): void {
   map.addSource(WAYPOINT_SOURCE_ID, { type: 'geojson', data: waypointFeatures([]) })
+  addFixSymbols(map)
   map.addLayer({
-    id: `${WAYPOINT_SOURCE_ID}-circle`,
-    type: 'circle',
+    id: `${WAYPOINT_SOURCE_ID}-fix`,
+    type: 'symbol',
     source: WAYPOINT_SOURCE_ID,
-    paint: {
-      'circle-radius': 3,
-      // SID/STAR/approach fixes stand out from plain enroute waypoints — route.ts's
-      // segmentation, either SimBrief's own or a live navdata-backed selection
+    layout: {
+      // route.ts's segmentation, either SimBrief's own or a live navdata-backed selection
       // (docs/plans/navdata-without-navigraph.md, Phase 5).
-      'circle-color': [
+      'icon-image': [
         'match',
         ['get', 'segment'],
         'sid',
-        '#e67700',
+        FIX_PROCEDURE_ICON_ID,
         'star',
-        '#7048e8',
+        FIX_PROCEDURE_ICON_ID,
         'approach',
-        '#2f9e44',
-        /* enroute */ '#888'
+        FIX_APPROACH_ICON_ID,
+        /* enroute */ FIX_ENROUTE_ICON_ID
       ],
-      'circle-stroke-width': 1,
-      'circle-stroke-color': '#fff'
-    }
+      'icon-allow-overlap': true
+    },
+    paint: { 'icon-color': mapPalette(dark).quiet }
   })
   const waypointLabel = waypointLabelColors(dark)
   map.addLayer({
@@ -445,7 +440,8 @@ function addTaxiwayLabels(map: MapLibreMap, dark: boolean): void {
 export const AIRCRAFT_PATH_D =
   'M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2.5 1.5V22l4-1 4 1v-1.5L13 19v-5.5l8 2.5z'
 
-function aircraftMarker(): Marker {
+function aircraftMarker(dark: boolean): Marker {
+  const palette = mapPalette(dark)
   // A text glyph (e.g. '✈') isn't drawn pointing true north in every font, so
   // setRotation(heading) comes out offset by whatever the glyph's own heading is.
   // This SVG is authored nose-up (pointing north at 0 rotation), so it lines up exactly.
@@ -454,7 +450,7 @@ function aircraftMarker(): Marker {
   el.style.height = '22px'
   el.innerHTML =
     '<svg width="22" height="22" viewBox="0 0 24 24">' +
-    `<path d="${AIRCRAFT_PATH_D}" fill="#1a73e8" stroke="#0b3d91" stroke-width="0.5"/>` +
+    `<path d="${AIRCRAFT_PATH_D}" fill="${palette.ink}" stroke="${palette.ground}" stroke-width="0.8"/>` +
     '</svg>'
   return new Marker({ element: el, rotationAlignment: 'map' })
 }

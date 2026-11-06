@@ -25,6 +25,7 @@ import {
   recentTrailSegments
 } from './vfr'
 import { uiMemory } from './ui-memory'
+import { mapPalette } from './flight-map/map-palette'
 import { setSourceData } from './map-source'
 
 /** How often the rings and the recent trail catch up with the animated marker. */
@@ -40,24 +41,21 @@ const GROUPS: {
   minzoom: number
   labelMinzoom: number
   radius: number
-  color: string
 }[] = [
   {
     id: 'major',
     types: ['large_airport', 'medium_airport'],
     minzoom: 4,
     labelMinzoom: 7,
-    radius: 4.5,
-    color: '#e64980'
+    radius: 4.5
   },
-  { id: 'small', types: ['small_airport'], minzoom: 7, labelMinzoom: 10, radius: 3.5, color: '#7048e8' },
+  { id: 'small', types: ['small_airport'], minzoom: 7, labelMinzoom: 10, radius: 3.5 },
   {
     id: 'minor',
     types: ['heliport', 'seaplane_base'],
     minzoom: 10,
     labelMinzoom: 12,
-    radius: 3,
-    color: '#868e96'
+    radius: 3
   }
 ]
 
@@ -98,8 +96,9 @@ function multiLine(segments: [number, number][][]): GeoData {
 function ensureLayers(map: MapLibreMap, airfields: Airfield[], routeLayerId: string): void {
   if (map.getSource(AIRFIELDS_SOURCE)) return
   const dark = isDark()
-  const labelColor = dark ? '#dbe4ee' : '#343a40'
-  const halo = dark ? '#0b0f14' : '#ffffff'
+  const palette = mapPalette(dark)
+  const labelColor = palette.quiet
+  const halo = palette.halo
 
   map.addSource(AIRFIELDS_SOURCE, {
     type: 'geojson',
@@ -116,7 +115,7 @@ function ensureLayers(map: MapLibreMap, airfields: Airfield[], routeLayerId: str
         filter: typeFilter,
         paint: {
           'circle-radius': g.radius,
-          'circle-color': g.color,
+          'circle-color': palette.quiet,
           'circle-stroke-color': halo,
           'circle-stroke-width': 1
         }
@@ -148,7 +147,7 @@ function ensureLayers(map: MapLibreMap, airfields: Airfield[], routeLayerId: str
     type: 'line',
     source: RINGS_SOURCE,
     filter: ['==', ['geometry-type'], 'LineString'],
-    paint: { 'line-color': '#f08c00', 'line-width': 1.2, 'line-dasharray': [3, 3], 'line-opacity': 0.85 }
+    paint: { 'line-color': palette.quiet, 'line-width': 1.2, 'line-dasharray': [3, 3] }
   })
   map.addLayer({
     id: RINGS_LABEL_LAYER,
@@ -161,7 +160,7 @@ function ensureLayers(map: MapLibreMap, airfields: Airfield[], routeLayerId: str
       'text-anchor': 'bottom',
       'text-offset': [0, -0.2]
     },
-    paint: { 'text-color': '#f08c00', 'text-halo-color': halo, 'text-halo-width': 1.2 }
+    paint: { 'text-color': palette.quiet, 'text-halo-color': halo, 'text-halo-width': 1.2 }
   })
 
   map.addSource(RECENT_TRAIL_SOURCE, { type: 'geojson', data: multiLine([]) })
@@ -170,7 +169,7 @@ function ensureLayers(map: MapLibreMap, airfields: Airfield[], routeLayerId: str
     type: 'line',
     source: RECENT_TRAIL_SOURCE,
     layout: { 'line-cap': 'round', 'line-join': 'round' },
-    paint: { 'line-color': '#ff922b', 'line-width': 5, 'line-opacity': 0.9 }
+    paint: { 'line-color': palette.ink, 'line-width': 5, 'line-opacity': 0.3 }
   })
 }
 

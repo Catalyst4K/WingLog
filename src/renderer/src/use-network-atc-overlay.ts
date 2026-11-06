@@ -21,6 +21,7 @@ import { reportError } from './report-error'
 import { setSourceData } from './map-source'
 import { atcPopupCard, layerData } from './flight-map/atc-features'
 import { openCardPopup, type PopupCard } from './flight-map/map-popup'
+import { mapPalette } from './flight-map/map-palette'
 
 /** What a GeoJSON source accepts as data. */
 type GeoData = GeoJSONSourceSpecification['data']
@@ -51,12 +52,7 @@ const TRAFFIC_LAYERS = [
   'sim-traffic-ground'
 ]
 
-/** Centres are purple and approach areas pink: amber and teal are the two traffic layers', and blue the pilot's own aircraft. */
-const CENTRE_COLOR = '#845ef7'
-const APPROACH_COLOR = '#e64980'
-const AIRPORT_COLOR = '#5f3dc4'
-/** The dots are lighter on the dark map, where the dark purple all but disappears. */
-const AIRPORT_COLOR_DARK = '#b197fc'
+// v2: every ATC area, label and airport ring is the palette's blue; only the centres are tinted, so an approach area is an outline.
 
 /** Zoom from which each kind of label and the airport letters appear, so a zoomed-out map is not a wall of text. */
 const CENTRE_LABEL_MINZOOM = 3
@@ -103,10 +99,10 @@ function ensureAtcLayers(map: MapLibreMap): void {
   map.addSource(ATC_AIRPORTS_SOURCE, { type: 'geojson', data: empty })
   const dark = document.documentElement.classList.contains('dark')
   const before = firstTrafficLayer(map)
-  const kindColor = ['match', ['get', 'kind'], 'approach', APPROACH_COLOR, CENTRE_COLOR] as never
-  const textPaint = (color: string, darkColor: string): Record<string, unknown> => ({
-    'text-color': dark ? darkColor : color,
-    'text-halo-color': dark ? '#0b0f14' : '#ffffff',
+  const palette = mapPalette(dark)
+  const textPaint = (): Record<string, unknown> => ({
+    'text-color': palette.atc,
+    'text-halo-color': palette.halo,
     'text-halo-width': 1.2
   })
   map.addLayer(
@@ -114,7 +110,8 @@ function ensureAtcLayers(map: MapLibreMap): void {
       id: ATC_FILL_LAYER,
       type: 'fill',
       source: ATC_AREAS_SOURCE,
-      paint: { 'fill-color': kindColor, 'fill-opacity': dark ? 0.14 : 0.1 }
+      filter: ['==', ['get', 'kind'], 'centre'] as FilterSpecification,
+      paint: { 'fill-color': palette.atc, 'fill-opacity': palette.atcFillOpacity }
     },
     before
   )
@@ -123,11 +120,11 @@ function ensureAtcLayers(map: MapLibreMap): void {
       id: ATC_LINE_LAYER,
       type: 'line',
       source: ATC_AREAS_SOURCE,
-      paint: { 'line-color': kindColor, 'line-width': 1.2, 'line-opacity': 0.75 }
+      paint: { 'line-color': palette.atc, 'line-width': 1.2 }
     },
     before
   )
-  const label = (id: string, kind: string, minzoom: number, color: string, darkColor: string): void => {
+  const label = (id: string, kind: string, minzoom: number): void => {
     map.addLayer(
       {
         id,
@@ -136,13 +133,13 @@ function ensureAtcLayers(map: MapLibreMap): void {
         minzoom,
         filter: ['==', ['get', 'kind'], kind] as FilterSpecification,
         layout: { 'text-field': ['get', 'label'], 'text-size': 11, 'text-optional': true } as never,
-        paint: textPaint(color, darkColor) as never
+        paint: textPaint() as never
       },
       before
     )
   }
-  label(ATC_CENTRE_LABEL_LAYER, 'centre', CENTRE_LABEL_MINZOOM, '#5f3dc4', '#d0bfff')
-  label(ATC_APPROACH_LABEL_LAYER, 'approach', APPROACH_LABEL_MINZOOM, '#a61e4d', '#faa2c1')
+  label(ATC_CENTRE_LABEL_LAYER, 'centre', CENTRE_LABEL_MINZOOM)
+  label(ATC_APPROACH_LABEL_LAYER, 'approach', APPROACH_LABEL_MINZOOM)
   map.addLayer(
     {
       id: ATC_AIRPORT_DOT_LAYER,
@@ -150,9 +147,10 @@ function ensureAtcLayers(map: MapLibreMap): void {
       source: ATC_AIRPORTS_SOURCE,
       minzoom: AIRPORT_MINZOOM,
       paint: {
+        // The tower: a ring.
         'circle-radius': 4.5,
-        'circle-color': dark ? AIRPORT_COLOR_DARK : AIRPORT_COLOR,
-        'circle-stroke-color': dark ? '#0b0f14' : '#ffffff',
+        'circle-color': palette.halo,
+        'circle-stroke-color': palette.atc,
         'circle-stroke-width': 1.5
       }
     },
@@ -171,7 +169,7 @@ function ensureAtcLayers(map: MapLibreMap): void {
         'text-anchor': 'top',
         'text-optional': true
       } as never,
-      paint: textPaint('#5f3dc4', '#d0bfff') as never
+      paint: textPaint() as never
     },
     before
   )

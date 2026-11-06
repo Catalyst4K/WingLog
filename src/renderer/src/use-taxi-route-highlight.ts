@@ -13,13 +13,12 @@ import type { TaxiRoute } from '@shared/live'
 import { useLiveClient } from './live/LiveClient'
 import { useBeyondAtcHidden } from './live/use-online-status'
 import { setSourceData } from './map-source'
+import { mapPalette } from './flight-map/map-palette'
 
 const TRACE_SOURCE_ID = 'taxi-route-trace'
 const TRACE_LAYER_ID = 'taxi-route-trace-line'
-
-// Bright and thick against the base chart's muted, thin line (use-taxi-chart-overlay.ts) — meant to read as "your route," not just another
-// taxiway.
-const ROUTE_PAINT = { 'line-color': '#facc15', 'line-width': 3.5, 'line-opacity': 0.95 }
+/** A dark edge under the line, so the yellow reads on the light map. */
+const TRACE_EDGE_LAYER_ID = 'taxi-route-trace-edge'
 
 /**
  * Adds the route's source and layer if the map doesn't have them yet.
@@ -29,12 +28,23 @@ const ROUTE_PAINT = { 'line-color': '#facc15', 'line-width': 3.5, 'line-opacity'
 function ensureLayer(map: MapLibreMap): void {
   if (map.getSource(TRACE_SOURCE_ID)) return
   map.addSource(TRACE_SOURCE_ID, { type: 'geojson', data: { type: 'FeatureCollection', features: [] } })
+  const palette = mapPalette(document.documentElement.classList.contains('dark'))
+  const layout = { visibility: 'none', 'line-join': 'round', 'line-cap': 'round' } as const
+  // The cleared route stays yellow (magenta would clash with the planned route leaving the runway), bright and thick against the
+  // base chart's muted, thin line (use-taxi-chart-overlay.ts) — meant to read as "your route," not just another taxiway.
+  map.addLayer({
+    id: TRACE_EDGE_LAYER_ID,
+    type: 'line',
+    source: TRACE_SOURCE_ID,
+    layout,
+    paint: { 'line-color': palette.ink, 'line-width': 6, 'line-opacity': palette.taxiEdgeOpacity }
+  })
   map.addLayer({
     id: TRACE_LAYER_ID,
     type: 'line',
     source: TRACE_SOURCE_ID,
-    layout: { visibility: 'none', 'line-join': 'round', 'line-cap': 'round' },
-    paint: ROUTE_PAINT
+    layout,
+    paint: { 'line-color': palette.taxi, 'line-width': 3.5 }
   })
 }
 
@@ -105,7 +115,10 @@ export function useTaxiRouteHighlight({
     // The line comes from BeyondATC's clearance: online, the network's controllers give those instead.
     const line = enabled && !hidden ? lineToDraw(route, depIcao, arrIcao) : null
     if (!line) {
-      if (createdRef.current) map.setLayoutProperty(TRACE_LAYER_ID, 'visibility', 'none')
+      if (createdRef.current) {
+        map.setLayoutProperty(TRACE_EDGE_LAYER_ID, 'visibility', 'none')
+        map.setLayoutProperty(TRACE_LAYER_ID, 'visibility', 'none')
+      }
       return
     }
     ensureLayer(map)
@@ -115,6 +128,7 @@ export function useTaxiRouteHighlight({
       properties: {},
       geometry: { type: 'LineString', coordinates: line }
     })
+    map.setLayoutProperty(TRACE_EDGE_LAYER_ID, 'visibility', 'visible')
     map.setLayoutProperty(TRACE_LAYER_ID, 'visibility', 'visible')
   }, [mapRef, mapReady, enabled, hidden, route, depIcao, arrIcao])
 }

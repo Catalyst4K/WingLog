@@ -159,6 +159,11 @@ vi.mock('maplibre-gl', () => {
     zoomIn = vi.fn()
     zoomOut = vi.fn()
     remove = vi.fn()
+    images = new Set<string>()
+    hasImage = (id: string): boolean => this.images.has(id)
+    addImage = vi.fn((id: string) => {
+      this.images.add(id)
+    })
     setLayoutProperty = vi.fn()
     setFilter = vi.fn((id: string, filter: unknown) => {
       if (this.layers[id]) this.layers[id]!.filter = filter
@@ -384,7 +389,7 @@ describe('FlightMap', () => {
         ROUTE_APPROXIMATE_LAYER_ID,
         TRAIL_SOURCE_ID,
         TRAIL_TIP_SOURCE_ID,
-        `${WAYPOINT_SOURCE_ID}-circle`,
+        `${WAYPOINT_SOURCE_ID}-fix`,
         `${WAYPOINT_SOURCE_ID}-label`,
         'aeroway-taxiway-label'
       ])
@@ -667,8 +672,40 @@ describe('FlightMap', () => {
     expect(dark.map.style).toBe('https://tiles.openfreemap.org/styles/dark')
     // Waypoint/taxiway label colors are picked once, alongside the style, from the same
     // dark flag — confirms the real-complaint fix (dark-on-dark label halos) is wired up.
-    expect(dark.map.layers[`${WAYPOINT_SOURCE_ID}-label`].paint?.['text-color']).toBe('#c7d3e0')
-    expect(dark.map.layers['aeroway-taxiway-label'].paint?.['text-color']).toBe('#e0b24d')
+    expect(dark.map.layers[`${WAYPOINT_SOURCE_ID}-label`].paint?.['text-color']).toBe('#bdb8ad')
+    expect(dark.map.layers['aeroway-taxiway-label'].paint?.['text-color']).toBe('#a29e94')
+    expect(light.map.layers[`${WAYPOINT_SOURCE_ID}-label`].paint?.['text-color']).toBe('#1c1b19')
+  })
+
+  it('draws the plan thin, dashed and magenta beneath a thick solid ink track, and the estimated stretches like the recorded ones', async () => {
+    const { map } = await renderReady({ route: [], trackPoints: [], live: true })
+    const plan = { 'line-color': '#a61e6b', 'line-width': 1.5, 'line-dasharray': [6, 4] }
+    expect(map.layers[ROUTE_SOURCE_ID].paint).toEqual(plan)
+    expect(map.layers[ROUTE_APPROXIMATE_LAYER_ID].paint).toEqual(plan)
+    const flown = { 'line-color': '#1c1b19', 'line-width': 3 }
+    expect(map.layers[TRAIL_SOURCE_ID].paint).toEqual(flown)
+    expect(map.layers[TRAIL_TIP_SOURCE_ID].paint).toEqual(flown)
+    expect(map.layers['estimated-trail'].paint).toEqual(flown)
+    // The plan is added first, so it lies beneath the track.
+    const order = Object.keys(map.layers)
+    expect(order.indexOf(ROUTE_SOURCE_ID)).toBeLessThan(order.indexOf(TRAIL_SOURCE_ID))
+  })
+
+  it('draws the fixes by shape and size alone: a triangle en route, a larger one for a procedure, a ring with a dot for an approach', async () => {
+    const { map } = await renderReady({ route: [], trackPoints: [], live: true })
+    const fixes = map.layers[`${WAYPOINT_SOURCE_ID}-fix`]
+    expect(fixes.paint).toEqual({ 'icon-color': '#5e594f' })
+    expect(fixes.layout?.['icon-image']).toEqual([
+      'match',
+      ['get', 'segment'],
+      'sid',
+      'fix-procedure',
+      'star',
+      'fix-procedure',
+      'approach',
+      'fix-approach',
+      'fix-enroute'
+    ])
   })
 
   describe('map language and declutter (docs/plans/map-language-and-declutter.md)', () => {
@@ -1275,6 +1312,28 @@ describe('FlightMap', () => {
       const map = await chartOn()
       await waitFor(() => expect(visibility(map)).toBe('visible'))
       expect(traceLine(map)).toEqual({ type: 'LineString', coordinates: ROUTE.line })
+    })
+
+    it('draws the cleared route yellow over a dark edge, both shown and hidden together, on the light map', async () => {
+      withTaxiRoute(ROUTE)
+      const map = await chartOn()
+      await waitFor(() => expect(visibility(map)).toBe('visible'))
+      expect(map.layers['taxi-route-trace-line']?.paint).toEqual({
+        'line-color': '#f2c200',
+        'line-width': 3.5
+      })
+      expect(map.layers['taxi-route-trace-edge']?.paint).toEqual({
+        'line-color': '#1c1b19',
+        'line-width': 6,
+        'line-opacity': 0.7
+      })
+      // The edge is under the line, so it only shows around it.
+      const order = Object.keys(map.layers)
+      expect(order.indexOf('taxi-route-trace-edge')).toBeLessThan(order.indexOf('taxi-route-trace-line'))
+      const edgeShown = map.setLayoutProperty.mock.calls.filter(
+        (c) => c[0] === 'taxi-route-trace-edge' && c[2] === 'visible'
+      )
+      expect(edgeShown.length).toBeGreaterThan(0)
     })
 
     it('follows each new line the PC pushes as the aircraft taxis', async () => {

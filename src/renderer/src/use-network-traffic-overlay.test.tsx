@@ -203,7 +203,7 @@ describe('useNetworkTrafficOverlay', () => {
     expect(view.result.current.traffic?.state).toBe('shown')
   })
 
-  it('draws airborne aircraft larger and bright, and ground ones smaller and dimmer, in amber', async () => {
+  it('draws airborne aircraft larger and bright, and ground ones smaller and dimmer, in the quiet grey', async () => {
     const fake = fakeMap()
     const { client } = fakeClient({ traffic: shown(aircraft('A')), layers: LAYERS_ON })
     await mount(client, fake)
@@ -213,7 +213,8 @@ describe('useNetworkTrafficOverlay', () => {
     expect(ground?.filter).toEqual(['get', 'onGround'])
     expect(air?.layout['icon-size']).toBeGreaterThan(ground?.layout['icon-size'] as number)
     expect(ground?.paint['icon-opacity']).toBeLessThan(1)
-    expect(air?.paint['icon-color']).toBe('#f59f00')
+    expect(air?.paint['icon-color']).toBe('#5e594f')
+    expect(air?.paint['icon-opacity']).toBe(1)
     expect(air?.layout['icon-rotate']).toEqual(['get', 'headingDeg'])
     expect(air?.layout['icon-allow-overlap']).toBe(true)
   })
@@ -397,7 +398,7 @@ describe('useNetworkTrafficOverlay', () => {
     const SIM_LAYERS: TrafficLayers = { ...LAYERS_OFF, simOn: true, drawSim: true }
     const simShown = (...list: TrafficAircraft[]): SimTraffic => ({ state: 'shown', aircraft: list })
 
-    it('draws the sim aircraft on its own teal source, with the same kind of symbols', async () => {
+    it('draws the sim aircraft on its own source, the same grey but fainter than the network pilots, with the same kind of symbols', async () => {
       const fake = fakeMap()
       const { client } = fakeClient({
         layers: SIM_LAYERS,
@@ -407,7 +408,8 @@ describe('useNetworkTrafficOverlay', () => {
       expect(fake.sources.has('sim-traffic')).toBe(true)
       expect(fake.sources.has('network-traffic')).toBe(false)
       expect(lastFeatures(fake, 'sim-traffic').map((f) => f.properties.callsign)).toEqual(['UAL1', 'DAL2'])
-      expect(fake.layers.get('sim-traffic-air')?.paint['icon-color']).toBe('#12b886')
+      expect(fake.layers.get('sim-traffic-air')?.paint['icon-color']).toBe('#5e594f')
+      expect(fake.layers.get('sim-traffic-air')?.paint['icon-opacity']).toBeLessThan(1)
       expect(fake.layers.get('sim-traffic-ground')?.filter).toEqual(['get', 'onGround'])
       expect(fake.visibility.get('sim-traffic-air')).toBe('visible')
     })

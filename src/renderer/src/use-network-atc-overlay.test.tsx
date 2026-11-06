@@ -249,6 +249,28 @@ describe('useNetworkAtcOverlay', () => {
     expect(fake.sources.get(ATC_AREAS_SOURCE)?.spec.attribution).toMatch(/VAT-Spy/)
   })
 
+  it('draws every area, label and tower ring in the palette blue, with only the centres tinted', async () => {
+    const fake = fakeMap()
+    const { client } = fakeClient({ atc: shown() })
+    await mount(client, fake)
+    const paint = (id: string): Record<string, unknown> =>
+      (fake.layers.get(id) as unknown as { paint: Record<string, unknown> }).paint
+    expect(paint('atc-areas-fill')).toEqual({ 'fill-color': '#2a62a3', 'fill-opacity': 0.07 })
+    expect((fake.layers.get('atc-areas-fill') as unknown as { filter: unknown }).filter).toEqual([
+      '==',
+      ['get', 'kind'],
+      'centre'
+    ])
+    expect(paint('atc-areas-line')).toEqual({ 'line-color': '#2a62a3', 'line-width': 1.2 })
+    expect(paint('atc-labels-centre')['text-color']).toBe('#2a62a3')
+    expect(paint('atc-labels-approach')['text-color']).toBe('#2a62a3')
+    // The tower is a ring: filled with the ground, outlined in blue.
+    expect(paint('atc-airports-dot')).toMatchObject({
+      'circle-color': '#f3f1eb',
+      'circle-stroke-color': '#2a62a3'
+    })
+  })
+
   it('draws the areas, their labels and the airports', async () => {
     const fake = fakeMap()
     const { client } = fakeClient({ atc: shown() })
