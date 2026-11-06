@@ -122,9 +122,9 @@ describe('the Procedures button', () => {
       sockets[0].onopen?.()
       sockets[0].say({ t: 'snapshot', topics: {}, flight: FLIGHT_WITH_SELECTION })
     })
-    expect(screen.getByRole('button', { name: 'Procedures…' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Change procedures' })).toBeInTheDocument()
     // A chip on the slim header, magenta because the procedures are the plan; its name stays Procedures…, whatever it shows.
-    expect(screen.getByRole('button', { name: 'Procedures…' })).toHaveClass('text-plan', 'rounded-full')
+    expect(screen.getByRole('button', { name: 'Change procedures' })).toHaveClass('text-plan', 'rounded-full')
     expect(screen.getByText('KAMI2A · SIER7B · ILS 27L')).toBeInTheDocument()
   })
 
@@ -155,7 +155,7 @@ describe('the Procedures button', () => {
       sockets[0].onopen?.()
       sockets[0].say({ t: 'snapshot', topics: {}, flight: null })
     })
-    expect(screen.queryByRole('button', { name: 'Procedures…' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Change procedures' })).not.toBeInTheDocument()
   })
 
   it('opens the same dialog as the Track screen, and sends a choice to the PC', async () => {
@@ -182,7 +182,7 @@ describe('the Procedures button', () => {
       })
     })
     expect(screen.getByText('Nothing selected yet')).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: 'Procedures…' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Change procedures' }))
     const dialog = await screen.findByRole('dialog')
     expect(within(dialog).getByRole('tab', { name: 'Departure' })).toBeInTheDocument()
     expect(within(dialog).getByRole('tab', { name: 'Arrival' })).toBeInTheDocument()
@@ -204,7 +204,7 @@ describe('the Procedures button', () => {
       sockets[0].say({ t: 'snapshot', topics: {}, flight: FLIGHT_WITH_SELECTION })
     })
     act(() => sockets[0].onclose?.())
-    await userEvent.click(screen.getByRole('button', { name: 'Procedures…' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Change procedures' }))
     const dialog = await screen.findByRole('dialog')
     const runway = await within(dialog).findByLabelText('Departure runway')
     await userEvent.selectOptions(runway, '02L')
@@ -225,7 +225,7 @@ describe('keeping the choice in step with the PC (docs/plans/lan-sync.md)', () =
       sockets[0].say({ t: 'snapshot', topics: {}, flight: FLIGHT_WITH_SELECTION })
       sockets[0].say(pcRoute(1, FLIGHT_WITH_SELECTION.flight.selection))
     })
-    await userEvent.click(screen.getByRole('button', { name: 'Procedures…' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Change procedures' }))
     const dialog = await screen.findByRole('dialog')
     await userEvent.selectOptions(await within(dialog).findByLabelText('Departure runway'), '02C')
     await userEvent.keyboard('{Escape}')
@@ -377,7 +377,7 @@ describe('LanApp', () => {
     })
     expect(mapProps.current?.mapLanguage).toBe('fr')
     expect(document.documentElement.classList.contains('dark')).toBe(true)
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Verfahren…' })).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Verfahren ändern' })).toBeInTheDocument())
     // The page is global state: leave it as the other tests expect it.
     await i18n.changeLanguage('en')
     document.documentElement.classList.remove('dark')

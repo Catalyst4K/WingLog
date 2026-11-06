@@ -27,6 +27,8 @@ export function Combobox<T>(props: {
   onSelectItem?: (item: T) => void
   placeholder?: string
   className?: string
+  /** Extra classes for the text field itself, such as the mono face for a code. */
+  inputClassName?: string
 }): React.JSX.Element {
   const [results, setResults] = useState<T[]>([])
   const [searching, setSearching] = useState(false)
@@ -76,6 +78,7 @@ export function Combobox<T>(props: {
         type="text"
         value={props.value}
         placeholder={props.placeholder}
+        className={props.inputClassName}
         onChange={(e) => handleInput(e.target.value)}
       />
       {searching && <span className="text-xs text-muted-foreground">Searching…</span>}

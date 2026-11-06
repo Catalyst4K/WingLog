@@ -579,7 +579,7 @@
     "advanced": "高级选项",
     "advancedWithCount": "高级选项（{{count}}）",
     "procedures": "程序",
-    "ofpTitle": "{{flightNumber}}：{{dep}} → {{arr}}（备降 {{altn}}）",
+    "ofpTitle": "{{flightNumber}} · {{dep}} → {{arr}}",
     "flying": "正在飞行",
     "viewOfpPdf": "查看 OFP PDF",
     "usedCustomAirframeNotSaved": "此计划使用了未保存到 {{registration}} 的自定义 SimBrief 机型配置。",
@@ -597,7 +597,6 @@
     "none": "无",
     "route": "航路",
     "fleetAircraft": "机队飞机",
-    "matched": "（已匹配）",
     "noFleetAircraftMatches": "机队中没有与机尾号 {{tail}} 匹配的飞机 — 请手动选择一架。",
     "noneInOfp": "（OFP 中无）",
     "starting": "正在开始…",
@@ -613,10 +612,12 @@
     "flyThisPlanInstead": "改为执行此计划？",
     "discardThisPlan": "放弃此计划？",
     "canFetchAgain": "你可以稍后再次从 SimBrief 获取。",
-    "noOfpPdfAvailable": "此计划暂无可用的 OFP PDF。"
+    "noOfpPdfAvailable": "此计划暂无可用的 OFP PDF。",
+    "alternateLabel": "备降 {{altn}}",
+    "fromOfp": "来自 OFP",
+    "matchesOfp": "与 OFP 一致"
   },
   "trackView": {
-    "flightNum": "航班号：",
     "title": "追踪",
     "times": {
       "et": "已飞",
@@ -624,9 +625,11 @@
       "eta": "预计到达",
       "etaPlanned": "预计到达（计划）",
       "vsSchedule": "{{value}} 分钟",
-      "onTime": "准点"
+      "onTime": "准点",
+      "plan": "计划",
+      "flown": "已飞",
+      "toGo": "剩余"
     },
-    "phase": "阶段：",
     "cancelFlight": "取消航班",
     "finishAndSave": "结束并保存",
     "notConnected": "尚未连接到模拟器。",
@@ -645,7 +648,7 @@
     "freeFlight": "自由飞行",
     "weatherEllipsis": "天气…",
     "weather": "天气",
-    "proceduresEllipsis": "程序…",
+    "proceduresEllipsis": "更改程序",
     "procedures": "程序",
     "alternateIcao": "备降 {{icao}}",
     "nothingSelectedYet": "尚未选择",
@@ -655,7 +658,9 @@
     "ok": "确定",
     "profile": {
       "title": "航路剖面"
-    }
+    },
+    "flightInProgress": "进行中的航班",
+    "change": "更改"
   },
   "flightMap": {
     "stopCentering": "停止以飞机为中心",

@@ -18,6 +18,8 @@ export function AirportSearch(props: {
   value: string
   onChange: (icao: string) => void
   placeholder?: string
+  /** Extra classes for the text field, such as the mono face. */
+  inputClassName?: string
 }): React.JSX.Element {
   const { t } = useTranslation()
   return (
@@ -31,6 +33,7 @@ export function AirportSearch(props: {
         `${r.icao} — ${r.name}${r.municipality ? ` (${r.municipality}, ${r.isoCountry})` : ` (${r.isoCountry})`}`
       }
       placeholder={props.placeholder ?? t('airportSearch.placeholder')}
+      inputClassName={props.inputClassName}
     />
   )
 }

@@ -464,9 +464,9 @@
     "noAirportSet": "Аэропорт не задан.",
     "fetching": "Загрузка…",
     "noCurrentMetar": "Нет текущего METAR для {{icao}}.",
-    "dep": "Выл.",
-    "dest": "Назн.",
-    "altn": "Запас.",
+    "dep": "Вылет",
+    "dest": "Назначение",
+    "altn": "Запасной",
     "custom": "Свой",
     "refreshMetar": "Обновить METAR",
     "enterIcaoCode": "Введите код ICAO"
@@ -603,7 +603,7 @@
     "advanced": "Дополнительно",
     "advancedWithCount": "Дополнительно ({{count}})",
     "procedures": "Процедуры",
-    "ofpTitle": "{{flightNumber}}: {{dep}} → {{arr}} (запасной {{altn}})",
+    "ofpTitle": "{{flightNumber}} · {{dep}} → {{arr}}",
     "flying": "В полёте",
     "viewOfpPdf": "Просмотреть PDF OFP",
     "usedCustomAirframeNotSaved": "В этом плане использован пользовательский борт SimBrief, не сохранённый для {{registration}}.",
@@ -621,7 +621,6 @@
     "none": "Нет",
     "route": "Маршрут",
     "fleetAircraft": "Судно флота",
-    "matched": "(совпадает)",
     "noFleetAircraftMatches": "Ни одно судно флота не соответствует борту {{tail}} — выберите вручную.",
     "noneInOfp": "(нет в OFP)",
     "starting": "Запуск…",
@@ -640,10 +639,12 @@
     "flyThisPlanInstead": "Лететь по этому плану вместо этого?",
     "discardThisPlan": "Отменить этот план?",
     "canFetchAgain": "Вы можете получить его снова из SimBrief.",
-    "noOfpPdfAvailable": "PDF OFP для этого плана недоступен."
+    "noOfpPdfAvailable": "PDF OFP для этого плана недоступен.",
+    "alternateLabel": "Запасной {{altn}}",
+    "fromOfp": "из OFP",
+    "matchesOfp": "Совпадает с OFP"
   },
   "trackView": {
-    "flightNum": "Номер рейса:",
     "title": "Трек",
     "times": {
       "et": "ET",
@@ -651,9 +652,11 @@
       "eta": "ETA",
       "etaPlanned": "ETA (план)",
       "vsSchedule": "{{value}} мин",
-      "onTime": "по расписанию"
+      "onTime": "по расписанию",
+      "plan": "план",
+      "flown": "Пролетено",
+      "toGo": "Осталось"
     },
-    "phase": "Фаза:",
     "cancelFlight": "Отменить рейс",
     "finishAndSave": "Завершить и сохранить",
     "notConnected": "Нет подключения к симулятору.",
@@ -672,7 +675,7 @@
     "freeFlight": "Свободный полёт",
     "weatherEllipsis": "Погода…",
     "weather": "Погода",
-    "proceduresEllipsis": "Процедуры…",
+    "proceduresEllipsis": "Изменить процедуры",
     "procedures": "Процедуры",
     "alternateIcao": "Запасной {{icao}}",
     "nothingSelectedYet": "Пока ничего не выбрано",
@@ -682,7 +685,9 @@
     "ok": "ОК",
     "profile": {
       "title": "Профиль маршрута"
-    }
+    },
+    "flightInProgress": "Текущий рейс",
+    "change": "Изменить"
   },
   "flightMap": {
     "stopCentering": "Прекратить центрирование на самолёте",

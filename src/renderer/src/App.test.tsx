@@ -841,7 +841,7 @@ describe('App', () => {
 
     await clickTab(user, 'Dispatch')
     expect(
-      await screen.findByText(`${ofp.flightNumber}: ${ofp.depIcao} → ${ofp.arrIcao} (altn ${ofp.altnIcao})`)
+      await screen.findByRole('heading', { name: `${ofp.flightNumber} · ${ofp.depIcao} → ${ofp.arrIcao}` })
     ).toBeInTheDocument()
   })
 
@@ -867,7 +867,7 @@ describe('App', () => {
 
     await clickTab(user, 'Dispatch')
     expect(
-      await screen.findByText(`${ofp.flightNumber}: ${ofp.depIcao} → ${ofp.arrIcao} (altn ${ofp.altnIcao})`)
+      await screen.findByRole('heading', { name: `${ofp.flightNumber} · ${ofp.depIcao} → ${ofp.arrIcao}` })
     ).toBeInTheDocument()
 
     pointListener?.(makeTrackPoint({ phase: 'shutdown', flightId: inProgress.id }))
@@ -886,15 +886,15 @@ describe('App', () => {
 
     await clickTab(user, 'Dispatch')
     await user.click(screen.getByRole('button', { name: 'Fetch latest OFP' }))
-    await screen.findByText('TA100: EGLL → EDDF (altn EDDL)')
+    await screen.findByRole('heading', { name: 'TA100 · EGLL → EDDF' })
 
     await clickTab(user, 'Track')
     // Track's own live-route preview draws the same OFP's route — its Procedures button
     // only appears once an OFP/flight is available to preview.
-    expect(await screen.findByRole('button', { name: 'Procedures…' })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: 'Change procedures' })).toBeInTheDocument()
 
     await clickTab(user, 'Dispatch')
-    expect(await screen.findByText('TA100: EGLL → EDDF (altn EDDL)')).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'TA100 · EGLL → EDDF' })).toBeInTheDocument()
   })
 
   it('shows a success toast when GSX is auto-enabled on first launch, and an info toast when it is not', async () => {

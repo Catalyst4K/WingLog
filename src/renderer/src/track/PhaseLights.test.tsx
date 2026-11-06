@@ -8,10 +8,14 @@ const states = (container: HTMLElement): string[] =>
   )
 
 describe('PhaseLights', () => {
-  it('lights the phases done green, the one it is in amber, and those to come off', () => {
+  it('lights the phases done green, the one it is in a larger ringed green dot, and those to come off', () => {
     const { container } = render(<PhaseLights phase="cruise" />)
-    expect(states(container)).toEqual(['green', 'green', 'green', 'green', 'amber', 'off', 'off', 'off'])
-    expect(screen.getByText('cruise').closest('li')).toHaveAttribute('aria-current', 'step')
+    expect(states(container)).toEqual(['green', 'green', 'green', 'green', 'green', 'off', 'off', 'off'])
+    const current = screen.getByText('cruise').closest('li')
+    expect(current).toHaveAttribute('aria-current', 'step')
+    // Only the phase it is in is named on screen; the others are for a screen reader.
+    expect(screen.getByText('cruise')).not.toHaveClass('sr-only')
+    expect(screen.getByText('taxi')).toHaveClass('sr-only')
   })
 
   it('has every light off before the flight has begun', () => {
@@ -22,6 +26,7 @@ describe('PhaseLights', () => {
 
   it('has every phase but the last done after shutdown begins', () => {
     const { container } = render(<PhaseLights phase="shutdown" />)
-    expect(states(container).slice(-2)).toEqual(['green', 'amber'])
+    expect(states(container).slice(-2)).toEqual(['green', 'green'])
+    expect(screen.getByText('shutdown').closest('li')).toHaveAttribute('aria-current', 'step')
   })
 })

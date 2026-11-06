@@ -268,6 +268,8 @@ export function TrackView(props: {
           selection={props.selection}
           onSelectionChange={props.onSelectionChange}
           windSpeedUnit={props.windSpeedUnit ?? 'kt'}
+          times={times}
+          tracking={Boolean(active)}
         />
       )}
 

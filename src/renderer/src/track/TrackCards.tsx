@@ -24,7 +24,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { AirlineLogo } from '../AirlineLogo'
-import { realIcao } from '../display-icao'
+import { displayIcao, realIcao } from '../display-icao'
 import { flightLabel } from '../flight-label'
 import { FreeFlightAirport } from '../FreeFlightAirport'
 import { MetarPanel } from '../MetarPanel'
@@ -39,13 +39,11 @@ import { formatDuration, formatElapsed, formatUtcTime, type TrackTimes } from '.
 import type { FreeFlightBanner } from './use-track-state'
 
 /**
- * "Flight Num: [airline logo] BAW31   A35K · G-XWBS" — the identity strip shown for a
- * flight on this page, whether it's actively being tracked or just queued up to start.
- * Falls back to simIcaoType/simRegistration (a free flight tracked with no fleet
- * aircraft — free-flight-tracking.md's "don't add to fleet" option) when there's no
- * linked Aircraft to read type/registration from.
+ * The flight's identity as on the canvas (r3-track): its number large, the aircraft's type and registration quiet beside it and, for a
+ * flight with a plan, the route. Falls back to simIcaoType/simRegistration (a free flight tracked with no fleet aircraft —
+ * free-flight-tracking.md's "don't add to fleet" option) when there's no linked Aircraft to read type/registration from.
  *
- * @param props The flight number, the fleet aircraft, and what the sim reports.
+ * @param props The flight number, the fleet aircraft, what the sim reports, and the route to show.
  * @returns The element.
  */
 function FlightIdentity(props: {
@@ -53,56 +51,78 @@ function FlightIdentity(props: {
   aircraft: Aircraft | undefined
   simIcaoType?: string | null
   simRegistration?: string | null
+  route?: string
 }): React.JSX.Element {
-  const { t } = useTranslation()
   const icaoType = props.aircraft?.icaoType ?? props.simIcaoType
   const registration = props.aircraft?.registration ?? props.simRegistration
   return (
-    <span className="flex items-center gap-1.5 text-sm text-foreground">
-      <span className="font-medium text-foreground">{t('trackView.flightNum')}</span>
-      <AirlineLogo iata={props.aircraft?.operatorIata ?? null} />
-      <span>{props.flightNumber}</span>
+    <div className="flex flex-wrap items-center gap-x-7 gap-y-2">
+      <span className="flex items-center gap-2">
+        <AirlineLogo iata={props.aircraft?.operatorIata ?? null} />
+        <h2 className="m-0 text-[26px] font-semibold">{props.flightNumber}</h2>
+      </span>
       {(icaoType || registration) && (
         <span className="text-muted-foreground">{[icaoType, registration].filter(Boolean).join(' · ')}</span>
       )}
-    </span>
+      {props.route && <span className="text-[17px]">{props.route}</span>}
+    </div>
   )
 }
 
 /**
- * ET · time remaining · ETA, beside the phase (track-times.ts).
+ * The ETA in the mono face and, beside it in magenta, the plan's time for the same moment; how far the estimate is off the schedule
+ * follows it quietly (track-times.ts).
  *
- * @param props ET, time remaining and ETA.
+ * @param props ETA and the offset from the schedule.
  * @returns The element.
  */
-function TimeReadouts(props: { times: TrackTimes }): React.JSX.Element {
+function EtaReadout(props: { times: TrackTimes }): React.JSX.Element {
   const { t } = useTranslation()
   const { times } = props
   const vs = times.vsScheduleMin
+  // The plan's time is the estimate less how far it is after the schedule.
+  const planMs = times.etaMs !== null && vs !== null ? times.etaMs - vs * 60_000 : null
   return (
-    <span className="flex flex-wrap items-center gap-x-3 text-sm text-muted-foreground">
-      <span>
-        {t('trackView.times.et')}{' '}
-        <span className="font-mono text-foreground">{formatElapsed(times.elapsedMs)}</span>
+    <div className="text-sm text-muted-foreground">
+      {t(times.etaIsPlanned ? 'trackView.times.etaPlanned' : 'trackView.times.eta')}{' '}
+      <span className="ml-1 font-mono text-[17px] text-foreground">{formatUtcTime(times.etaMs)}</span>
+      {planMs !== null && !times.etaIsPlanned && (
+        <span className="ml-2.5 font-mono text-plan">
+          {t('trackView.times.plan')} {formatUtcTime(planMs)}
+        </span>
+      )}
+      {vs !== null && !times.etaIsPlanned && (
+        <span className="ml-2">
+          (
+          {vs === 0
+            ? t('trackView.times.onTime')
+            : t('trackView.times.vsSchedule', { value: `${vs > 0 ? '+' : '−'}${Math.abs(vs)}` })}
+          )
+        </span>
+      )}
+    </div>
+  )
+}
+
+/**
+ * How long the flight has run and how long is left, under the plan's procedures.
+ *
+ * @param props ET and time remaining.
+ * @returns The element.
+ */
+function FlownReadout(props: { times: TrackTimes }): React.JSX.Element {
+  const { t } = useTranslation()
+  const { times } = props
+  return (
+    <div className="text-sm text-muted-foreground">
+      <span>{t('trackView.times.flown')}</span>{' '}
+      <span className="font-mono text-foreground">{formatElapsed(times.elapsedMs)}</span>
+      <span aria-hidden="true" className="mx-2">
+        ·
       </span>
-      <span>
-        {t('trackView.times.remaining')}{' '}
-        <span className="font-mono text-foreground">{formatDuration(times.remainingMs)}</span>
-      </span>
-      <span>
-        {t(times.etaIsPlanned ? 'trackView.times.etaPlanned' : 'trackView.times.eta')}{' '}
-        <span className="font-mono text-foreground">{formatUtcTime(times.etaMs)}</span>
-        {vs !== null && (
-          <span className="ml-1">
-            (
-            {vs === 0
-              ? t('trackView.times.onTime')
-              : t('trackView.times.vsSchedule', { value: `${vs > 0 ? '+' : '−'}${Math.abs(vs)}` })}
-            )
-          </span>
-        )}
-      </span>
-    </span>
+      <span>{t('trackView.times.toGo')}</span>{' '}
+      <span className="font-mono text-foreground">{formatDuration(times.remainingMs)}</span>
+    </div>
   )
 }
 
@@ -119,8 +139,8 @@ const PHASE_ORDER: FlightPhase[] = [
 ]
 
 /**
- * The flight's phases as a row of lights (winglog-backend docs/plans/v2-design.md, "Track"): green for those done, amber for the one it
- * is in, off for those still to come.
+ * The flight's phases as a row of dots (winglog-backend docs/plans/v2-design.md, "Track", and the canvas): green for those done, a larger
+ * ringed green dot with its name for the one it is in, off for those still to come. The other names are there for a screen reader.
  *
  * @param props The phase the flight is in.
  * @returns The element.
@@ -128,17 +148,26 @@ const PHASE_ORDER: FlightPhase[] = [
 export function PhaseLights(props: { phase: FlightPhase }): React.JSX.Element {
   const current = PHASE_ORDER.indexOf(props.phase)
   return (
-    <ol className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs" data-testid="phase-lights">
+    <ol className="m-0 flex list-none items-center gap-1.5 p-0" data-testid="phase-lights">
       {PHASE_ORDER.map((phase, index) => {
-        const state = index < current ? 'green' : index === current ? 'amber' : 'off'
+        const isCurrent = index === current
         return (
           <li
             key={phase}
-            aria-current={index === current ? 'step' : undefined}
-            className={`inline-flex items-center gap-1.5 capitalize ${index === current ? 'font-medium text-foreground' : 'text-muted-foreground'}`}
+            aria-current={isCurrent ? 'step' : undefined}
+            className="inline-flex items-center gap-2 capitalize"
           >
-            <StatusLight state={state} />
-            {phase}
+            {isCurrent ? (
+              <span
+                aria-hidden="true"
+                data-slot="status-light"
+                data-state="green"
+                className="size-[13px] rounded-full border-2 border-foreground bg-light-green"
+              />
+            ) : (
+              <StatusLight state={index < current ? 'green' : 'off'} />
+            )}
+            <span className={isCurrent ? 'mr-1 text-[17px]' : 'sr-only'}>{phase}</span>
           </li>
         )
       })}
@@ -147,7 +176,7 @@ export function PhaseLights(props: { phase: FlightPhase }): React.JSX.Element {
 }
 
 /**
- * The flight being tracked: who, the phase, the times, Cancel and Finish, and a free flight's
+ * The flight being tracked, as the canvas draws it: who, the phase, the ETA beside the plan's, Cancel and Finish, and a free flight's
  * editable airports.
  *
  * @param props The tracking state, the flight and its aircraft, the times, and the handlers.
@@ -166,41 +195,48 @@ export function ActiveFlightCard(props: {
   const { t } = useTranslation()
   const flight = props.flight
   return (
-    <Card>
-      <CardContent className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
+    <section
+      className="flex flex-col gap-3 border-b border-border pb-4"
+      aria-label={t('trackView.flightInProgress')}
+    >
+      <div className="flex flex-wrap items-center justify-between gap-x-8 gap-y-3.5 pt-2">
+        <div className="flex flex-wrap items-center gap-x-7 gap-y-2">
           <FlightIdentity
             flightNumber={props.label}
             aircraft={props.aircraft}
             simIcaoType={flight?.simIcaoType}
             simRegistration={flight?.simRegistration}
+            route={
+              flight?.hasOfp ? `${displayIcao(flight.depIcao)} → ${displayIcao(flight.arrIcao)}` : undefined
+            }
           />
-          <TimeReadouts times={props.times} />
+          <PhaseLights phase={props.active.phase} />
         </div>
-        <div className="flex gap-2">
-          {flight?.hasOfp && (
-            <PrefileButtons file={(network) => winglogApi().onlinePrefileForFlight(flight.id, network)} />
-          )}
-          <Button
-            type="button"
-            variant="destructive"
-            size="sm"
-            onClick={asyncHandler('TrackView handleCancelActive', props.onCancel)}
-          >
-            {t('trackView.cancelFlight')}
-          </Button>
-          <Button type="button" size="sm" onClick={asyncHandler('TrackView handleFinish', props.onFinish)}>
-            {t('trackView.finishAndSave')}
-          </Button>
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-3.5">
+          <EtaReadout times={props.times} />
+          <div className="flex gap-2">
+            {flight?.hasOfp && (
+              <PrefileButtons file={(network) => winglogApi().onlinePrefileForFlight(flight.id, network)} />
+            )}
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={asyncHandler('TrackView handleCancelActive', props.onCancel)}
+            >
+              {t('trackView.cancelFlight')}
+            </Button>
+            <Button
+              type="button"
+              className="font-semibold"
+              onClick={asyncHandler('TrackView handleFinish', props.onFinish)}
+            >
+              {t('trackView.finishAndSave')}
+            </Button>
+          </div>
         </div>
-      </CardContent>
-      {/* The phases get a row of their own: seven words and their lights would crowd the flight's name. */}
-      <CardContent className="flex flex-wrap items-center gap-x-3 gap-y-1">
-        <span className="text-sm text-muted-foreground">{t('trackView.phase')}</span>
-        <PhaseLights phase={props.active.phase} />
-      </CardContent>
+      </div>
       {flight && !flight.hasOfp && (
-        <CardContent className="flex flex-wrap gap-x-6 gap-y-2">
+        <div className="flex flex-wrap gap-x-6 gap-y-2">
           <FreeFlightAirport
             key={`dep-${flight.depIcao}`}
             kind="departure"
@@ -213,9 +249,9 @@ export function ActiveFlightCard(props: {
             icao={flight.arrIcao}
             onChanged={asyncHandler('TrackView reload', props.onAirportChanged)}
           />
-        </CardContent>
+        </div>
       )}
-    </Card>
+    </section>
   )
 }
 
@@ -312,9 +348,10 @@ export function NotTrackingCards(props: {
 }
 
 /**
- * The Weather, online ATC and Procedures dialogs, and the procedures chosen so far.
+ * The procedures chosen so far with a Change button (the Procedures dialog), the Weather and online ATC dialogs beside them, and, while a
+ * flight is tracked, how long it has flown and how long is left.
  *
- * @param props The flight's airports, the procedure selection and its change handler, and the wind unit.
+ * @param props The flight's airports, the procedure selection and its change handler, the wind unit, and the times.
  * @returns The element.
  */
 export function FlightToolbar(props: {
@@ -322,6 +359,9 @@ export function FlightToolbar(props: {
   selection: ProcedureSelection
   onSelectionChange: (next: ProcedureSelection) => void
   windSpeedUnit: WindSpeedUnit
+  /** The flight's times, shown once it is tracked. */
+  times?: TrackTimes
+  tracking?: boolean
 }): React.JSX.Element {
   const { t } = useTranslation()
   const { airports, selection } = props
@@ -332,57 +372,66 @@ export function FlightToolbar(props: {
     selection.approachIdent
   ].filter((v): v is string => v !== null)
   return (
-    <div className="flex items-center gap-2">
-      {/* Weather for the departure, destination and alternate of whatever is being flown —
-       *  for a free flight, whatever was set in the card above — plus a Custom airport. */}
-      <Dialog>
-        <DialogTrigger asChild>
-          <Button type="button" variant="outline" size="sm">
-            {t('trackView.weatherEllipsis')}
-          </Button>
-        </DialogTrigger>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>{t('trackView.weather')}</DialogTitle>
-          </DialogHeader>
-          <MetarPanel
-            depIcao={realIcao(airports?.depIcao)}
-            arrIcao={realIcao(airports?.arrIcao)}
-            altnIcao={realIcao(airports?.altnIcao)}
-            windSpeedUnit={props.windSpeedUnit}
-          />
-        </DialogContent>
-      </Dialog>
-      {/* Who is online at the flight's airports, while a network is chosen and a flight is tracked. */}
-      <OnlineAtcButton />
-      {airports && !(airports.depIcao === 'ZZZZ' && airports.arrIcao === 'ZZZZ') && (
-        <>
-          <Dialog>
-            <DialogTrigger asChild>
-              <Button type="button" variant="outline" size="sm">
-                {t('trackView.proceduresEllipsis')}
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-2xl">
-              <DialogHeader>
-                <DialogTitle>{t('trackView.procedures')}</DialogTitle>
-              </DialogHeader>
-              <NavdataCycleNote />
-              <ProcedureSelector
-                airports={airports}
-                selection={selection}
-                onSelectionChange={props.onSelectionChange}
-              />
-            </DialogContent>
-          </Dialog>
-          {/* The chosen procedures are the plan, so they are magenta (winglog-backend docs/plans/v2-design.md); none chosen is quiet text. */}
-          {chosen.length > 0 ? (
-            <span className="font-mono text-sm text-plan">{chosen.join(' · ')}</span>
-          ) : (
-            <span className="text-sm text-muted-foreground">{t('trackView.nothingSelectedYet')}</span>
-          )}
-        </>
-      )}
+    <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-1">
+      <div className="flex flex-wrap items-center gap-x-3.5 gap-y-1">
+        {airports && !(airports.depIcao === 'ZZZZ' && airports.arrIcao === 'ZZZZ') && (
+          <>
+            <span className="text-sm text-muted-foreground">{t('trackView.procedures')}</span>
+            {/* The chosen procedures are the plan, so they are magenta (winglog-backend docs/plans/v2-design.md); none chosen is quiet text. */}
+            {chosen.length > 0 ? (
+              <span className="font-mono text-[15px] text-plan">{chosen.join(' · ')}</span>
+            ) : (
+              <span className="text-sm text-muted-foreground">{t('trackView.nothingSelectedYet')}</span>
+            )}
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  aria-label={t('trackView.proceduresEllipsis')}
+                >
+                  {t('trackView.change')}
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-2xl">
+                <DialogHeader>
+                  <DialogTitle>{t('trackView.procedures')}</DialogTitle>
+                </DialogHeader>
+                <NavdataCycleNote />
+                <ProcedureSelector
+                  airports={airports}
+                  selection={selection}
+                  onSelectionChange={props.onSelectionChange}
+                />
+              </DialogContent>
+            </Dialog>
+          </>
+        )}
+        {/* Weather for the departure, destination and alternate of whatever is being flown —
+         *  for a free flight, whatever was set in the card above — plus a Custom airport. */}
+        <Dialog>
+          <DialogTrigger asChild>
+            <Button type="button" variant="outline" size="sm">
+              {t('trackView.weatherEllipsis')}
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>{t('trackView.weather')}</DialogTitle>
+            </DialogHeader>
+            <MetarPanel
+              depIcao={realIcao(airports?.depIcao)}
+              arrIcao={realIcao(airports?.arrIcao)}
+              altnIcao={realIcao(airports?.altnIcao)}
+              windSpeedUnit={props.windSpeedUnit}
+            />
+          </DialogContent>
+        </Dialog>
+        {/* Who is online at the flight's airports, while a network is chosen and a flight is tracked. */}
+        <OnlineAtcButton />
+      </div>
+      {props.tracking && props.times && <FlownReadout times={props.times} />}
     </div>
   )
 }

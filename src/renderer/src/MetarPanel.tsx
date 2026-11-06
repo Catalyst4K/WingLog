@@ -8,7 +8,13 @@ import type { TFunction } from 'i18next'
 import type { MetarReport, WindSpeedUnit } from '@shared/ipc'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import {
+  FolderTabs as Tabs,
+  FolderTabsContent as TabsContent,
+  FolderTabsList,
+  FolderTabsTrigger
+} from '@/components/FolderTabs'
+import { StatusLight, type LightState } from '@/components/StatusLight'
 import { AirportSearch } from './AirportSearch'
 import { AtisLine } from './online/WeatherAtis'
 import { atisFor, useWeatherAtis } from './online/use-weather-atis'
@@ -17,11 +23,12 @@ import { runAsync } from './report-error'
 
 type Slot = 'departure' | 'destination' | 'alternate' | 'custom'
 
-const FLIGHT_CATEGORY_CLASS: Record<NonNullable<MetarReport['flightCategory']>, string> = {
-  VFR: 'text-success',
-  MVFR: 'text-primary',
-  IFR: 'text-destructive',
-  LIFR: 'text-destructive font-semibold'
+/** The light beside the flight category: clear to see green, marginal amber, instrument red. */
+const FLIGHT_CATEGORY_LIGHT: Record<NonNullable<MetarReport['flightCategory']>, LightState> = {
+  VFR: 'green',
+  MVFR: 'amber',
+  IFR: 'red',
+  LIFR: 'red'
 }
 
 function formatObservedAgo(observedUtc: string, t: TFunction): string {
@@ -57,20 +64,30 @@ function MetarBody(props: {
   // never rewritten in place (docs/plans/flight-test-findings-2026-09-06.md #5).
   const wind = parseWindGroup(props.report.rawText)
   return (
-    <div className="flex flex-col gap-1">
-      <div className="flex items-center gap-1.5">
-        <span className="text-xs font-medium text-foreground">{props.icao}</span>
+    <div className="flex flex-col gap-2">
+      <div className="flex flex-wrap items-center gap-x-3.5 gap-y-1.5">
+        <span className="text-[17px] font-semibold">{props.icao}</span>
         {props.report.flightCategory && (
-          <span className={`text-xs font-semibold ${FLIGHT_CATEGORY_CLASS[props.report.flightCategory]}`}>
+          <span className="inline-flex items-center gap-1.5 text-sm font-medium">
+            <StatusLight state={FLIGHT_CATEGORY_LIGHT[props.report.flightCategory]} />
             {props.report.flightCategory}
           </span>
         )}
-        <span className="text-xs text-muted-foreground">
+        <span className="text-sm text-muted-foreground">
           {formatObservedAgo(props.report.observedUtc, t)}
         </span>
+        {wind && (
+          <>
+            <span aria-hidden="true" className="-mx-2 text-sm text-muted-foreground">
+              ·
+            </span>
+            <span className="text-sm text-muted-foreground">{formatWind(wind, props.windSpeedUnit)}</span>
+          </>
+        )}
       </div>
-      {wind && <p className="text-xs text-foreground">{formatWind(wind, props.windSpeedUnit)}</p>}
-      <p className="font-mono text-xs break-words text-foreground">{props.report.rawText}</p>
+      <p className="m-0 font-mono text-[13px] leading-relaxed break-words text-muted-foreground">
+        {props.report.rawText}
+      </p>
     </div>
   )
 }
@@ -152,32 +169,33 @@ export function MetarPanel(props: {
   }
 
   return (
-    <Card size="sm">
+    <Card className="rounded-md [--card-spacing:--spacing(5)]">
       <CardContent>
-        <Tabs value={tab} onValueChange={(v) => setTab(v as Slot)} className="gap-2">
-          <div className="flex items-center gap-2">
-            <TabsList className="w-full flex-1">
-              <TabsTrigger value="departure" className="px-1.5 text-xs">
+        <Tabs value={tab} onValueChange={(v) => setTab(v as Slot)} className="gap-3">
+          <div className="flex items-center justify-between gap-2 border-b border-border">
+            <FolderTabsList className="w-auto flex-wrap border-b-0">
+              <FolderTabsTrigger value="departure" className="px-3 py-3 text-sm">
                 {t('metarPanel.dep')}
-              </TabsTrigger>
-              <TabsTrigger value="destination" className="px-1.5 text-xs">
+              </FolderTabsTrigger>
+              <FolderTabsTrigger value="destination" className="px-3 py-3 text-sm">
                 {t('metarPanel.dest')}
-              </TabsTrigger>
-              <TabsTrigger value="alternate" className="px-1.5 text-xs">
+              </FolderTabsTrigger>
+              <FolderTabsTrigger value="alternate" className="px-3 py-3 text-sm">
                 {t('metarPanel.altn')}
-              </TabsTrigger>
-              <TabsTrigger value="custom" className="px-1.5 text-xs">
+              </FolderTabsTrigger>
+              <FolderTabsTrigger value="custom" className="px-3 py-3 text-sm">
                 {t('metarPanel.custom')}
-              </TabsTrigger>
-            </TabsList>
+              </FolderTabsTrigger>
+            </FolderTabsList>
             <Button
               type="button"
               variant="ghost"
-              size="icon-xs"
+              size="icon"
               onClick={() => setRefreshKey((k) => k + 1)}
               title={t('metarPanel.refreshMetar')}
+              aria-label={t('metarPanel.refreshMetar')}
             >
-              <RefreshCw />
+              <RefreshCw className="text-muted-foreground" />
             </Button>
           </div>
           <TabsContent value="departure">

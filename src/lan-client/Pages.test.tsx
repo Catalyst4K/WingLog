@@ -211,8 +211,8 @@ describe('the Dispatch page', () => {
     stubWinglog()
     open({ weightUnit: 'lb' })
     await userEvent.click(screen.getByRole('button', { name: 'Dispatch' }))
-    expect(await screen.findByText(/BAW31: EGLL → VHHH \(altn VMMC\)/)).toBeInTheDocument()
-    expect(screen.getByText('A35K G-XWBS')).toBeInTheDocument()
+    expect((await screen.findAllByText(/BAW31 · EGLL → VHHH/))[0]).toBeInTheDocument()
+    expect(screen.getByText('A35K · G-XWBS')).toBeInTheDocument()
     // 189,112 kg ZFW in pounds, once the PC has said its unit is lb.
     await waitFor(() =>
       expect(screen.getByText(/416,9\d\d lb \/ 603,\d{3} lb \/ 438,\d{3} lb/)).toBeInTheDocument()
@@ -240,8 +240,8 @@ describe('the weather on the Dispatch page', () => {
     stubWinglog()
     open()
     await userEvent.click(screen.getByRole('button', { name: 'Dispatch' }))
-    const weather = await screen.findByRole('tab', { name: 'Dep' })
-    const plan = await screen.findByText(/BAW31: EGLL → VHHH/)
+    const weather = await screen.findByRole('tab', { name: 'Departure' })
+    const plan = (await screen.findAllByText(/BAW31 · EGLL → VHHH/)).at(-1) as HTMLElement
     expect(weather.compareDocumentPosition(plan) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
@@ -249,7 +249,7 @@ describe('the weather on the Dispatch page', () => {
     stubWinglog()
     open()
     await userEvent.click(screen.getByRole('button', { name: 'Dispatch' }))
-    expect(await screen.findByRole('tab', { name: 'Dep' })).toBeInTheDocument()
+    expect(await screen.findByRole('tab', { name: 'Departure' })).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'Weather' })).not.toBeInTheDocument()
     await waitFor(() =>
       expect(window.winglog.weatherGetMetars).toHaveBeenCalledWith(['EGLL', 'VHHH', 'VMMC'])

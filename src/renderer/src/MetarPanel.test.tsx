@@ -178,10 +178,10 @@ describe('MetarPanel', () => {
     await waitFor(() => expect(weatherGetMetars).toHaveBeenCalled())
     expect(await screen.findByText(/METAR EGLL/, {}, { timeout: 2000 })).toBeInTheDocument()
 
-    await user.click(screen.getByRole('tab', { name: 'Dest' }))
+    await user.click(screen.getByRole('tab', { name: 'Destination' }))
     expect(await screen.findByText(/METAR KJFK/, {}, { timeout: 2000 })).toBeInTheDocument()
 
-    await user.click(screen.getByRole('tab', { name: 'Altn' }))
+    await user.click(screen.getByRole('tab', { name: 'Alternate' }))
     expect(await screen.findByText(/METAR EGKK/, {}, { timeout: 2000 })).toBeInTheDocument()
 
     await user.click(screen.getByRole('tab', { name: 'Custom' }))
@@ -311,7 +311,7 @@ describe('MetarPanel: the live ATIS', () => {
       onlineAtisGet: vi.fn().mockResolvedValue(answer([shown('EGLL', 'destination', [arrival])]))
     })
     render(<MetarPanel depIcao={null} arrIcao="EGLL" altnIcao={null} windSpeedUnit="kt" />)
-    await userEvent.click(screen.getByRole('tab', { name: 'Dest' }))
+    await userEvent.click(screen.getByRole('tab', { name: 'Destination' }))
     expect(await screen.findByText('VATSIM arrival ATIS M')).toBeInTheDocument()
   })
 
@@ -335,7 +335,7 @@ describe('MetarPanel: the live ATIS', () => {
     })
     render(<MetarPanel depIcao="EGLL" arrIcao="LFPG" altnIcao={null} windSpeedUnit="kt" />)
     expect(await screen.findByText('No VATSIM ATIS')).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('tab', { name: 'Dest' }))
+    await userEvent.click(screen.getByRole('tab', { name: 'Destination' }))
     expect(await screen.findByText('VATSIM ATIS unavailable')).toBeInTheDocument()
   })
 
@@ -407,7 +407,7 @@ describe('MetarPanel: the live ATIS', () => {
     withWinglog({ onlineAtisGet, weatherGetMetars: vi.fn().mockResolvedValue([]) })
     render(<MetarPanel depIcao="WSSS" arrIcao="EGLL" altnIcao={null} windSpeedUnit="kt" />)
     expect(await screen.findByText('BeyondATC ATIS R · departure runway 20C')).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('tab', { name: 'Dest' }))
+    await userEvent.click(screen.getByRole('tab', { name: 'Destination' }))
     expect(await screen.findByText('BeyondATC ATIS R · arrival runway 27R')).toBeInTheDocument()
     expect(onlineAtisGet).toHaveBeenCalledTimes(1)
     await userEvent.click(screen.getByRole('button', { name: /Refresh/ }))

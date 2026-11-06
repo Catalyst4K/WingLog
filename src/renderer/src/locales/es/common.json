@@ -448,10 +448,10 @@
     "noAirportSet": "Ningún aeropuerto establecido.",
     "fetching": "Consultando…",
     "noCurrentMetar": "Sin METAR actual para {{icao}}.",
-    "dep": "Sal.",
-    "dest": "Dest.",
-    "altn": "Alt.",
-    "custom": "Personal.",
+    "dep": "Salida",
+    "dest": "Destino",
+    "altn": "Alternativo",
+    "custom": "Personalizado",
     "refreshMetar": "Actualizar METAR",
     "enterIcaoCode": "Introduce un código ICAO"
   },
@@ -587,7 +587,7 @@
     "advanced": "Avanzado",
     "advancedWithCount": "Avanzado ({{count}})",
     "procedures": "Procedimientos",
-    "ofpTitle": "{{flightNumber}}: {{dep}} → {{arr}} (altn {{altn}})",
+    "ofpTitle": "{{flightNumber}} · {{dep}} → {{arr}}",
     "flying": "En vuelo",
     "viewOfpPdf": "Ver PDF del OFP",
     "usedCustomAirframeNotSaved": "Este plan usó una célula personalizada de SimBrief no guardada en {{registration}}.",
@@ -605,7 +605,6 @@
     "none": "Ninguno",
     "route": "Ruta",
     "fleetAircraft": "Aeronave de la flota",
-    "matched": "(coincide)",
     "noFleetAircraftMatches": "Ninguna aeronave de la flota coincide con la matrícula {{tail}} — elige una manualmente.",
     "noneInOfp": "(ninguna en el OFP)",
     "starting": "Iniciando…",
@@ -621,10 +620,12 @@
     "flyThisPlanInstead": "¿Volar este plan en su lugar?",
     "discardThisPlan": "¿Descartar este plan?",
     "canFetchAgain": "Puedes volver a obtenerlo desde SimBrief.",
-    "noOfpPdfAvailable": "No hay PDF de OFP disponible para este plan."
+    "noOfpPdfAvailable": "No hay PDF de OFP disponible para este plan.",
+    "alternateLabel": "Alternativo {{altn}}",
+    "fromOfp": "del OFP",
+    "matchesOfp": "Coincide con el OFP"
   },
   "trackView": {
-    "flightNum": "N.º de vuelo:",
     "title": "Seguimiento",
     "times": {
       "et": "ET",
@@ -632,9 +633,11 @@
       "eta": "ETA",
       "etaPlanned": "ETA (prevista)",
       "vsSchedule": "{{value}} min",
-      "onTime": "en hora"
+      "onTime": "en hora",
+      "plan": "plan",
+      "flown": "Volado",
+      "toGo": "Restante"
     },
-    "phase": "Fase:",
     "cancelFlight": "Cancelar vuelo",
     "finishAndSave": "Finalizar y guardar",
     "notConnected": "No conectado al simulador.",
@@ -653,7 +656,7 @@
     "freeFlight": "Vuelo libre",
     "weatherEllipsis": "Meteorología…",
     "weather": "Meteorología",
-    "proceduresEllipsis": "Procedimientos…",
+    "proceduresEllipsis": "Cambiar procedimientos",
     "procedures": "Procedimientos",
     "alternateIcao": "Alternativo {{icao}}",
     "nothingSelectedYet": "Nada seleccionado todavía",
@@ -663,7 +666,9 @@
     "ok": "Aceptar",
     "profile": {
       "title": "Perfil de la ruta"
-    }
+    },
+    "flightInProgress": "Vuelo en curso",
+    "change": "Cambiar"
   },
   "flightMap": {
     "stopCentering": "Dejar de centrar en la aeronave",

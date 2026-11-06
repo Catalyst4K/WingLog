@@ -446,10 +446,10 @@
     "noAirportSet": "Kein Flughafen festgelegt.",
     "fetching": "Wird abgerufen…",
     "noCurrentMetar": "Kein aktueller METAR für {{icao}}.",
-    "dep": "Abfl.",
+    "dep": "Abflug",
     "dest": "Ziel",
-    "altn": "Ausw.",
-    "custom": "Benutzerdef.",
+    "altn": "Ausweichflughafen",
+    "custom": "Eigener",
     "refreshMetar": "METAR aktualisieren",
     "enterIcaoCode": "ICAO-Code eingeben"
   },
@@ -585,7 +585,7 @@
     "advanced": "Erweitert",
     "advancedWithCount": "Erweitert ({{count}})",
     "procedures": "Verfahren",
-    "ofpTitle": "{{flightNumber}}: {{dep}} → {{arr}} (Ausw. {{altn}})",
+    "ofpTitle": "{{flightNumber}} · {{dep}} → {{arr}}",
     "flying": "Im Flug",
     "viewOfpPdf": "OFP-PDF ansehen",
     "usedCustomAirframeNotSaved": "Dieser Plan verwendete eine benutzerdefinierte SimBrief-Zelle, die nicht bei {{registration}} gespeichert ist.",
@@ -603,7 +603,6 @@
     "none": "Keine",
     "route": "Route",
     "fleetAircraft": "Flottenflugzeug",
-    "matched": "(zugeordnet)",
     "noFleetAircraftMatches": "Kein Flottenflugzeug passt zum Kennzeichen {{tail}} — bitte manuell auswählen.",
     "noneInOfp": "(keines im OFP)",
     "starting": "Wird gestartet…",
@@ -619,10 +618,12 @@
     "flyThisPlanInstead": "Stattdessen diesen Plan fliegen?",
     "discardThisPlan": "Diesen Plan verwerfen?",
     "canFetchAgain": "Du kannst ihn erneut von SimBrief abrufen.",
-    "noOfpPdfAvailable": "Kein OFP-PDF für diesen Plan verfügbar."
+    "noOfpPdfAvailable": "Kein OFP-PDF für diesen Plan verfügbar.",
+    "alternateLabel": "Ausweichflughafen {{altn}}",
+    "fromOfp": "aus dem OFP",
+    "matchesOfp": "Passt zum OFP"
   },
   "trackView": {
-    "flightNum": "Flugnummer:",
     "title": "Flugverfolgung",
     "times": {
       "et": "ET",
@@ -630,9 +631,11 @@
       "eta": "ETA",
       "etaPlanned": "ETA (geplant)",
       "vsSchedule": "{{value}} Min.",
-      "onTime": "pünktlich"
+      "onTime": "pünktlich",
+      "plan": "Plan",
+      "flown": "Geflogen",
+      "toGo": "Verbleibend"
     },
-    "phase": "Phase:",
     "cancelFlight": "Flug abbrechen",
     "finishAndSave": "Beenden & speichern",
     "notConnected": "Nicht mit dem Sim verbunden.",
@@ -651,7 +654,7 @@
     "freeFlight": "Freier Flug",
     "weatherEllipsis": "Wetter…",
     "weather": "Wetter",
-    "proceduresEllipsis": "Verfahren…",
+    "proceduresEllipsis": "Verfahren ändern",
     "procedures": "Verfahren",
     "alternateIcao": "Ausweichflughafen {{icao}}",
     "nothingSelectedYet": "Noch nichts ausgewählt",
@@ -661,7 +664,9 @@
     "ok": "OK",
     "profile": {
       "title": "Streckenprofil"
-    }
+    },
+    "flightInProgress": "Laufender Flug",
+    "change": "Ändern"
   },
   "flightMap": {
     "stopCentering": "Zentrierung auf Flugzeug stoppen",

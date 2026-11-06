@@ -5,7 +5,7 @@ import { useState } from 'react'
 import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
 import type { AltitudeUnit, DispatchOfp, ProcedureSelection, WeightUnit, WindSpeedUnit } from '@shared/ipc'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { DispatchAdvancedDialog } from './DispatchAdvancedDialog'
 import { useConfirm } from './hooks/use-confirm'
 import { MetarPanel } from './MetarPanel'
@@ -249,8 +249,9 @@ export function DispatchView(props: {
     <div className="flex flex-col gap-6">
       <h1 className="sr-only">{t('dispatchView.title')}</h1>
 
-      <div className="flex flex-wrap items-start gap-4">
-        <div className="flex min-w-72 max-w-md flex-1 flex-col gap-4">
+      {/* As on the canvas (r3-dispatch): the plan form and procedures on the left, the weather above the fetched plan on the right. */}
+      <div className="flex flex-wrap items-start gap-5">
+        <div className="flex min-w-72 flex-[1_1_31rem] flex-col gap-5">
           <PlanFlightCard
             form={form}
             aircraft={aircraft}
@@ -266,11 +267,9 @@ export function DispatchView(props: {
           />
 
           {ofp && (
-            <Card size="sm">
-              <CardHeader>
-                <CardTitle>{t('dispatchView.procedures')}</CardTitle>
-              </CardHeader>
+            <Card className="rounded-md [--card-spacing:--spacing(5)]">
               <CardContent className="flex flex-col gap-3">
+                <h2 className="m-0 text-[17px] font-semibold">{t('dispatchView.procedures')}</h2>
                 <NavdataCycleNote planAirac={ofp.airac} />
                 <ProcedureSelector
                   airports={ofp}
@@ -282,7 +281,14 @@ export function DispatchView(props: {
           )}
         </div>
 
-        <div className="flex min-w-72 flex-1 flex-col gap-4">
+        <div className="flex min-w-72 flex-[1.15_1_35rem] flex-col gap-5">
+          <MetarPanel
+            depIcao={metarAirports.depIcao}
+            arrIcao={metarAirports.arrIcao}
+            altnIcao={metarAirports.altnIcao}
+            windSpeedUnit={props.windSpeedUnit}
+          />
+
           {ofp ? (
             <OfpCard
               ofp={ofp}
@@ -303,13 +309,6 @@ export function DispatchView(props: {
           ) : (
             <p className="text-sm text-muted-foreground">{t('dispatchView.planOrFetchPrompt')}</p>
           )}
-
-          <MetarPanel
-            depIcao={metarAirports.depIcao}
-            arrIcao={metarAirports.arrIcao}
-            altnIcao={metarAirports.altnIcao}
-            windSpeedUnit={props.windSpeedUnit}
-          />
         </div>
       </div>
 

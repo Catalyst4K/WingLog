@@ -446,9 +446,9 @@
     "noAirportSet": "No airport set.",
     "fetching": "Fetching…",
     "noCurrentMetar": "No current METAR for {{icao}}.",
-    "dep": "Dep",
-    "dest": "Dest",
-    "altn": "Altn",
+    "dep": "Departure",
+    "dest": "Destination",
+    "altn": "Alternate",
     "custom": "Custom",
     "refreshMetar": "Refresh METAR",
     "enterIcaoCode": "Enter an ICAO code"
@@ -585,7 +585,7 @@
     "advanced": "Advanced",
     "advancedWithCount": "Advanced ({{count}})",
     "procedures": "Procedures",
-    "ofpTitle": "{{flightNumber}}: {{dep}} → {{arr}} (altn {{altn}})",
+    "ofpTitle": "{{flightNumber}} · {{dep}} → {{arr}}",
     "flying": "Flying",
     "viewOfpPdf": "View OFP PDF",
     "usedCustomAirframeNotSaved": "This plan used a custom SimBrief airframe not saved to {{registration}}.",
@@ -603,7 +603,6 @@
     "none": "None",
     "route": "Route",
     "fleetAircraft": "Fleet aircraft",
-    "matched": "(matched)",
     "noFleetAircraftMatches": "No fleet aircraft matches tail {{tail}} — pick one manually.",
     "noneInOfp": "(none in OFP)",
     "starting": "Starting…",
@@ -619,10 +618,12 @@
     "flyThisPlanInstead": "Fly this plan instead?",
     "discardThisPlan": "Discard this plan?",
     "canFetchAgain": "You can fetch it again from SimBrief.",
-    "noOfpPdfAvailable": "No OFP PDF available for this plan."
+    "noOfpPdfAvailable": "No OFP PDF available for this plan.",
+    "alternateLabel": "Alternate {{altn}}",
+    "fromOfp": "from the OFP",
+    "matchesOfp": "Matches the OFP"
   },
   "trackView": {
-    "flightNum": "Flight Num:",
     "title": "Track",
     "times": {
       "et": "ET",
@@ -630,9 +631,11 @@
       "eta": "ETA",
       "etaPlanned": "ETA (planned)",
       "vsSchedule": "{{value}} min",
-      "onTime": "on time"
+      "onTime": "on time",
+      "plan": "plan",
+      "flown": "Flown",
+      "toGo": "To go"
     },
-    "phase": "Phase:",
     "cancelFlight": "Cancel flight",
     "finishAndSave": "Finish & save",
     "notConnected": "Not connected to the sim.",
@@ -651,7 +654,7 @@
     "freeFlight": "Free flight",
     "weatherEllipsis": "Weather…",
     "weather": "Weather",
-    "proceduresEllipsis": "Procedures…",
+    "proceduresEllipsis": "Change procedures",
     "procedures": "Procedures",
     "alternateIcao": "Alternate {{icao}}",
     "nothingSelectedYet": "Nothing selected yet",
@@ -661,7 +664,9 @@
     "ok": "OK",
     "profile": {
       "title": "Route profile"
-    }
+    },
+    "flightInProgress": "Flight in progress",
+    "change": "Change"
   },
   "flightMap": {
     "stopCentering": "Stop centering on aircraft",

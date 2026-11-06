@@ -20,6 +20,10 @@ import { transitionsFor } from '@shared/approach-suggestion'
  *  other pick — same `undefined`-for-"nothing chosen" convention already used elsewhere in
  *  this app (e.g. DispatchView's own aircraft picker). */
 const NONE_OPTION = '__none__'
+/** A picker's label (the canvas's r3-dispatch): small and quiet above the field. */
+const PICKER_LABEL = 'text-[13px] font-normal text-muted-foreground'
+/** The heading over a column of pickers. */
+const COLUMN_HEADING = 'text-[13px] font-semibold text-muted-foreground'
 
 /**
  * The browser's own dropdown, styled like the app's.
@@ -37,7 +41,7 @@ function NativePicker(props: {
   return (
     <select
       id={props.id}
-      className="h-11 w-full rounded-lg border border-input bg-background px-2.5 text-base text-foreground disabled:opacity-50"
+      className="h-11 w-full rounded-md border border-input bg-field px-3 font-mono text-[15px] text-foreground disabled:opacity-50"
       value={props.value}
       disabled={props.disabled}
       onChange={(event) => props.onChange(event.target.value)}
@@ -71,7 +75,9 @@ function ProcedureSelect(props: {
   if (props.native) {
     return (
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor={id}>{props.label}</Label>
+        <Label htmlFor={id} className={PICKER_LABEL}>
+          {props.label}
+        </Label>
         <NativePicker
           id={id}
           value={props.value ?? ''}
@@ -84,13 +90,13 @@ function ProcedureSelect(props: {
   }
   return (
     <div className="flex flex-col gap-1.5">
-      <Label>{props.label}</Label>
+      <Label className={PICKER_LABEL}>{props.label}</Label>
       <Select
         value={props.value ?? undefined}
         onValueChange={(v) => props.onChange(v === NONE_OPTION ? null : v)}
         disabled={props.disabled}
       >
-        <SelectTrigger className="w-full">
+        <SelectTrigger className="w-full font-mono">
           <SelectValue placeholder={t('procedureSelector.none')} />
         </SelectTrigger>
         <SelectContent>
@@ -232,7 +238,7 @@ export function ProcedureSelector(props: {
 
   const departureColumn = (
     <div className="flex flex-col gap-3">
-      <span className="text-xs font-medium text-muted-foreground">{t('procedureSelector.departure')}</span>
+      <span className={COLUMN_HEADING}>{t('procedureSelector.departure')}</span>
       <ProcedureSelect
         native={compact}
         label={t('procedureSelector.departureRunway')}
@@ -261,10 +267,12 @@ export function ProcedureSelector(props: {
   )
   const arrivalColumn = (
     <div className="flex flex-col gap-3">
-      <span className="text-xs font-medium text-muted-foreground">{t('procedureSelector.arrival')}</span>
+      <span className={COLUMN_HEADING}>{t('procedureSelector.arrival')}</span>
       {altnIcao && (
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor={arrivalAirportId}>{t('procedureSelector.arrivalAirport')}</Label>
+          <Label htmlFor={arrivalAirportId} className={PICKER_LABEL}>
+            {t('procedureSelector.arrivalAirport')}
+          </Label>
           {compact ? (
             <NativePicker
               id={arrivalAirportId}
@@ -297,14 +305,6 @@ export function ProcedureSelector(props: {
       )}
       <ProcedureSelect
         native={compact}
-        label={t('procedureSelector.approach')}
-        value={selection.approachIdent}
-        options={approachIdentifiers}
-        onChange={(v) => set({ approachIdent: v, approachTransition: null })}
-        disabled={approachIdentifiers.length === 0}
-      />
-      <ProcedureSelect
-        native={compact}
         label={t('procedureSelector.star')}
         value={selection.starIdent}
         options={starIdentifiers}
@@ -318,6 +318,14 @@ export function ProcedureSelector(props: {
         options={starTransitions}
         onChange={(v) => set({ starTransition: v })}
         disabled={starTransitions.length === 0}
+      />
+      <ProcedureSelect
+        native={compact}
+        label={t('procedureSelector.approach')}
+        value={selection.approachIdent}
+        options={approachIdentifiers}
+        onChange={(v) => set({ approachIdent: v, approachTransition: null })}
+        disabled={approachIdentifiers.length === 0}
       />
       <ProcedureSelect
         native={compact}

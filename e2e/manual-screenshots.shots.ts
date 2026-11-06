@@ -157,6 +157,81 @@ test('fleet, logbook and settings on a seeded profile', async () => {
   }
 })
 
+/** A plan and a weather report for the Dispatch screen, the way SimBrief and aviationweather.gov would give them (Hong Kong to Heathrow). */
+const DEMO_OFP = {
+  ofpId: 'demo-ofp',
+  airac: null,
+  aircraftIcaoType: 'A35K',
+  aircraftRegistration: 'G-WLHV',
+  flightNumber: 'BAW32',
+  depIcao: 'VHHH',
+  arrIcao: 'EGLL',
+  altnIcao: 'EGCC',
+  routeString:
+    'A461 SHL W22 TEPID W24 OSNOV G586 GMC B330 ELKAL W179 OMBON W195 IDOPA W197 ANDIM B215 IBANO G470 AKLAS W192 FKG A368 SARIN N161 LEYLA T916 MATAL DCT TABAS DCT REBLO UM11 CRM UL746 ODERO',
+  cruiseAltM: 10424,
+  schedOutUtc: '2026-09-14T21:25:00.000Z',
+  schedInUtc: '2026-09-15T09:30:00.000Z',
+  fuelPlannedKg: 97800,
+  pax: 307,
+  cargoKg: 7675,
+  zfwKg: 186928,
+  towKg: 284229,
+  ldwKg: 196907,
+  costIndex: 200,
+  waypoints: [],
+  stepClimbs: [
+    { atIdent: 'VHHH', toAltitudeFt: 34100, native: { unit: 'm', value: 10400 } },
+    { atIdent: 'IGNAK', toAltitudeFt: 33136, native: { unit: 'm', value: 10100 } },
+    { atIdent: 'SARIN', toAltitudeFt: 36000, native: { unit: 'ft', value: 36000 } },
+    { atIdent: 'DEXIT', toAltitudeFt: 40000, native: { unit: 'ft', value: 40000 } }
+  ],
+  ofpJson: '{}',
+  matchedAircraftId: null,
+  simbriefIsCustom: false,
+  simbriefInternalId: null
+}
+
+test('the Dispatch page with a fetched plan', async () => {
+  const userDataDir = seededProfile()
+  const { app, window: page, cleanup } = await launchApp({ userDataDir })
+  try {
+    await prepare(app, page)
+    await page.evaluate(() =>
+      (globalThis as unknown as Window).winglog.aircraftCreate({
+        registration: 'G-WLHV',
+        icaoType: 'A35K',
+        operator: 'British Airways',
+        currentIcao: 'VHHH'
+      })
+    )
+    // The two outside services answered by the main process with canned data.
+    await app.evaluate(({ ipcMain }, ofp) => {
+      ipcMain.removeHandler('dispatch:fetch-ofp')
+      ipcMain.handle('dispatch:fetch-ofp', () => ofp)
+      ipcMain.removeHandler('weather:get-metars')
+      ipcMain.handle('weather:get-metars', () => [
+        {
+          icao: 'VHHH',
+          rawText:
+            'METAR VHHH 142030Z VRB02KT 9999 FEW010 SCT030 27/24 Q1012 TEMPO 3000 TSRA SHRA FEW010CB SCT015',
+          observedUtc: new Date(Date.now() - 22 * 60_000).toISOString(),
+          flightCategory: 'VFR'
+        }
+      ])
+    }, DEMO_OFP)
+    await page.reload()
+    await page.getByRole('tab', { name: 'Dispatch' }).click()
+    await page.getByRole('button', { name: 'Fetch latest OFP' }).click()
+    await expect(page.getByRole('heading', { name: 'BAW32 · VHHH → EGLL' })).toBeVisible()
+    await expect(page.getByText('METAR VHHH')).toBeVisible()
+    await shot(page, 'dispatch')
+  } finally {
+    await cleanup()
+    rmSync(userDataDir, { recursive: true, force: true })
+  }
+})
+
 test('a live free flight on Track', async () => {
   const fixturePath = join(process.cwd(), 'src/main/tracking/__fixtures__/short-hop-egll-egcc.ndjson')
   const {

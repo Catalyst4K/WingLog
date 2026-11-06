@@ -383,7 +383,10 @@ describe('TrackView', () => {
 
   describe('ET, time remaining and ETA (track-time-readouts.md)', () => {
     /** The value shown after a readout's label (the label's own monospaced child). */
-    const readout = (label: string): Element | null => screen.getByText(label).querySelector('.font-mono')
+    const readout = (label: string): Element | null => {
+      const element = screen.getByText(label)
+      return element.querySelector('.font-mono') ?? element.nextElementSibling
+    }
 
     it('on the ground before takeoff: no ET or time remaining, and the planned arrival as the ETA', async () => {
       setWinglog({
@@ -399,8 +402,8 @@ describe('TrackView', () => {
 
       expect(await screen.findByText('ETA (planned)')).toBeInTheDocument()
       expect(screen.getByText('07:15Z')).toBeInTheDocument()
-      expect(readout('ET')).toHaveTextContent('--:--:--')
-      expect(readout('Remaining')).toHaveTextContent('--:--')
+      expect(readout('Flown')).toHaveTextContent('--:--:--')
+      expect(readout('To go')).toHaveTextContent('--:--')
     })
 
     it('offers to file the tracked flight on the chosen network, by its id, and not for a flight with no OFP', async () => {
@@ -535,10 +538,10 @@ describe('TrackView', () => {
         telemetry: makeTelemetry({ onGround: false, groundSpeedMs: 250, latitude: 42, longitude: 50 })
       })
 
-      await waitFor(() => expect(readout('Remaining')).not.toHaveTextContent('--:--'))
+      await waitFor(() => expect(readout('To go')).not.toHaveTextContent('--:--'))
       expect(logbookGreatCircleRoute).toHaveBeenCalledWith('VHHH', 'EGLL')
-      expect(readout('ET')?.textContent).toMatch(/^2:05:3\d$/)
-      expect(readout('Remaining')?.textContent).toMatch(/^\d+:\d\d$/)
+      expect(readout('Flown')?.textContent).toMatch(/^2:05:3\d$/)
+      expect(readout('To go')?.textContent).toMatch(/^\d+:\d\d$/)
       expect(readout('ETA')?.textContent).toMatch(/^\d\d:\d\dZ$/)
       expect(screen.queryByText('ETA (planned)')).not.toBeInTheDocument()
     })
@@ -559,7 +562,7 @@ describe('TrackView', () => {
     expect(await screen.findByText('Flying something already?')).toBeInTheDocument()
     expect(screen.getByText('Free flight')).toBeInTheDocument()
     // Nothing planned/active/preview — no Procedures affordance either.
-    expect(screen.queryByText('Procedures…')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Change procedures' })).not.toBeInTheDocument()
   })
 
   describe('free-flight destination while tracking (v1.1.1)', () => {
@@ -645,7 +648,7 @@ describe('TrackView', () => {
         trackingGetActive: vi.fn().mockResolvedValue({ flightId: 5, phase: 'cruise' })
       })
       renderTrack()
-      await screen.findByText('Phase:')
+      await screen.findByTestId('phase-lights')
       expect(screen.queryByText('Destination')).not.toBeInTheDocument()
     })
 
@@ -677,8 +680,8 @@ describe('TrackView', () => {
       await waitFor(() =>
         expect(weatherGetMetars).toHaveBeenCalledWith(expect.arrayContaining(['VHHH', 'VHHX']))
       )
-      expect(screen.getByRole('tab', { name: 'Dep' })).toBeInTheDocument()
-      expect(screen.getByRole('tab', { name: 'Dest' })).toBeInTheDocument()
+      expect(screen.getByRole('tab', { name: 'Departure' })).toBeInTheDocument()
+      expect(screen.getByRole('tab', { name: 'Destination' })).toBeInTheDocument()
       expect(screen.getByRole('tab', { name: 'Custom' })).toBeInTheDocument()
     })
 
@@ -702,7 +705,7 @@ describe('TrackView', () => {
       })
       renderTrack()
       await screen.findByText('Destination')
-      expect(screen.queryByRole('button', { name: 'Procedures…' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Change procedures' })).not.toBeInTheDocument()
     })
   })
 
@@ -887,7 +890,7 @@ describe('TrackView', () => {
         arrIcao: null,
         flightNumber: null
       })
-      expect(await screen.findByText('Phase:')).toBeInTheDocument()
+      expect(await screen.findByTestId('phase-lights')).toBeInTheDocument()
     })
 
     it("shows the flight's own sim-reported identity in the active card when tracking with no fleet aircraft — not mandatory to add one", async () => {
@@ -926,7 +929,7 @@ describe('TrackView', () => {
       await user.click(await screen.findByRole('option', { name: 'None' }))
       await user.click(screen.getByText('Start tracking'))
 
-      expect(await screen.findByText('Phase:')).toBeInTheDocument()
+      expect(await screen.findByTestId('phase-lights')).toBeInTheDocument()
       expect(screen.getByText('C172 · G-TEST')).toBeInTheDocument()
     })
   })
@@ -940,7 +943,7 @@ describe('TrackView', () => {
     expect(await screen.findByText('BAW31')).toBeInTheDocument()
     expect(screen.getByText('A35K · G-XWBS')).toBeInTheDocument()
     expect(screen.getByText('Start tracking')).toBeInTheDocument()
-    expect(screen.getByText('Procedures…')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Change procedures' })).toBeInTheDocument()
     expect(screen.getByText('Nothing selected yet')).toBeInTheDocument()
   })
 
@@ -958,7 +961,7 @@ describe('TrackView', () => {
       })
     })
     renderTrack()
-    await userEvent.click(await screen.findByRole('button', { name: 'Procedures…' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Change procedures' }))
     expect(await screen.findByText(/Navigraph AIRAC 2610, but 2611 is the current cycle/)).toBeInTheDocument()
   })
 
@@ -986,7 +989,7 @@ describe('TrackView', () => {
     const user = userEvent.setup()
     renderTrack()
     await screen.findByText('Start tracking')
-    await user.click(screen.getByText('Procedures…'))
+    await user.click(screen.getByRole('button', { name: 'Change procedures' }))
     expect(await screen.findByText('Departure runway')).toBeInTheDocument()
     expect(screen.getByText('SID')).toBeInTheDocument()
     expect(screen.getByText('STAR')).toBeInTheDocument()
@@ -1014,7 +1017,7 @@ describe('TrackView', () => {
     await screen.findByText('Start tracking')
     await user.click(screen.getByText('Start tracking'))
     expect(winglog.trackingStart).toHaveBeenCalledWith(1)
-    expect(await screen.findByText('Phase:')).toBeInTheDocument()
+    expect(await screen.findByTestId('phase-lights')).toBeInTheDocument()
   })
 
   it('shows a toast when starting tracking fails', async () => {
@@ -1415,14 +1418,14 @@ describe('TrackView', () => {
     renderTrack({ previewOfp })
     await screen.findByText('Flying something already?')
     // The Dispatch preview still counts as "airports" for the Procedures affordance.
-    expect(screen.getByText('Procedures…')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Change procedures' })).toBeInTheDocument()
   })
 
   it('has no Procedures affordance without a planned/active flight or a Dispatch preview', async () => {
     setWinglog()
     renderTrack({ previewOfp: null })
     await screen.findByText('Flying something already?')
-    expect(screen.queryByText('Procedures…')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Change procedures' })).not.toBeInTheDocument()
   })
 
   const OVERLAY_TELEMETRY: SimTelemetry = {

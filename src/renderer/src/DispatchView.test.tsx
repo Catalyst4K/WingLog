@@ -223,7 +223,10 @@ function Harness(props: {
  *  with the several other Selects ProcedureSelector renders once an OFP is loaded. */
 function selectTriggerNear(labelText: string): HTMLElement {
   const label = screen.getByText(labelText, { selector: 'label' })
-  return within(label.parentElement as HTMLElement).getByRole('combobox')
+  // The label's own row may hold more than the label (a note beside it), so climb to the block that holds the select.
+  let block = label.parentElement as HTMLElement
+  while (within(block).queryByRole('combobox') === null) block = block.parentElement as HTMLElement
+  return within(block).getByRole('combobox')
 }
 
 describe('DispatchView', () => {
@@ -447,7 +450,7 @@ describe('DispatchView', () => {
 
       resolveFetch(makeOfp({ matchedAircraftId: null }))
 
-      expect(await screen.findByText('TA100: EGLL → EDDF (altn EDDL)')).toBeInTheDocument()
+      expect(await screen.findByRole('heading', { name: 'TA100 · EGLL → EDDF' })).toBeInTheDocument()
       expect(screen.getByRole('button', { name: 'Fetch latest OFP' })).toBeEnabled()
     })
 
@@ -561,16 +564,15 @@ describe('DispatchView', () => {
       await user.click(await screen.findByRole('option', { name: /G-ABCD/ }))
       await user.click(screen.getByRole('button', { name: 'Fetch latest OFP' }))
 
-      await screen.findByText('TA100: EGLL → EDDF (altn EDDL)')
+      await screen.findByRole('heading', { name: 'TA100 · EGLL → EDDF' })
       const fleetSelect = selectTriggerNear('Fleet aircraft')
       // The pre-chosen G-ABCD (id 1) stays selected rather than switching to the OFP's own
-      // registration match (id 2) — shown as "(matched)" only against G-EFGH's option.
+      // registration match (id 2) — the "Matches the OFP" light shows only once G-EFGH is the one chosen.
+      expect(screen.queryByText('Matches the OFP')).not.toBeInTheDocument()
       await user.click(fleetSelect)
-      const matchedOption = await screen.findByRole('option', { name: /G-EFGH.*\(matched\)/ })
-      expect(matchedOption).toBeInTheDocument()
-
-      await user.click(matchedOption)
+      await user.click(await screen.findByRole('option', { name: /G-EFGH/ }))
       expect(await within(fleetSelect).findByText(/G-EFGH/)).toBeInTheDocument()
+      expect(screen.getByText('Matches the OFP')).toBeInTheDocument()
     })
   })
 
@@ -657,7 +659,7 @@ describe('DispatchView', () => {
       render(<Harness />)
       await user.click(screen.getByRole('button', { name: 'Fetch latest OFP' }))
 
-      await screen.findByText('TA100: EGLL → EDDF (altn EDDL)')
+      await screen.findByRole('heading', { name: 'TA100 · EGLL → EDDF' })
       // Scoped to the "Steps" field specifically — the Procedures dropdowns elsewhere on
       // this page also render placeholder "None" text, making a bare getByText ambiguous.
       const stepsField = screen.getByText('Steps').parentElement as HTMLElement
@@ -665,25 +667,28 @@ describe('DispatchView', () => {
       expect(screen.getByText('—')).toBeInTheDocument()
     })
 
-    it('renders step climb badges when present', async () => {
+    it('renders the step climbs as one line when present', async () => {
       window.winglog = createWinglog({ dispatchFetchOfp: vi.fn().mockResolvedValue(makeOfp()) })
       const user = userEvent.setup()
       render(<Harness />)
       await user.click(screen.getByRole('button', { name: 'Fetch latest OFP' }))
 
-      await screen.findByText('TA100: EGLL → EDDF (altn EDDL)')
-      expect(screen.getByText('ABCDE')).toBeInTheDocument()
+      await screen.findByRole('heading', { name: 'TA100 · EGLL → EDDF' })
+      expect(screen.getByText(/ABCDE/)).toBeInTheDocument()
     })
 
-    it('shows the OFP’s figures as one boxed strip, above the weather', async () => {
+    it('shows the OFP’s figures as hairline rows, under the weather', async () => {
       window.winglog = createWinglog({ dispatchFetchOfp: vi.fn().mockResolvedValue(makeOfp()) })
       const user = userEvent.setup()
       render(<Harness />)
       await user.click(screen.getByRole('button', { name: 'Fetch latest OFP' }))
-      await screen.findByText('TA100: EGLL → EDDF (altn EDDL)')
-      const strip = screen.getByText('Cost index').closest('dl') as HTMLElement
-      expect([...strip.querySelectorAll('dt')].map((label) => label.textContent)).toContain('Planned fuel')
-      expect(strip).toHaveClass('flex-wrap')
+      await screen.findByRole('heading', { name: 'TA100 · EGLL → EDDF' })
+      const figures = screen.getByText('Cost index').closest('dl') as HTMLElement
+      expect([...figures.querySelectorAll('dt')].map((label) => label.textContent)).toContain('Planned fuel')
+      expect(figures).toHaveClass('grid')
+      // The weather panel comes first on the right, then the plan.
+      const weather = screen.getByRole('tab', { name: 'Departure' })
+      expect(weather.compareDocumentPosition(figures) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     })
 
     it('draws the step climbs in magenta, the plan colour, and the figures in the mono face', async () => {
@@ -692,8 +697,8 @@ describe('DispatchView', () => {
       render(<Harness />)
       await user.click(screen.getByRole('button', { name: 'Fetch latest OFP' }))
 
-      await screen.findByText('TA100: EGLL → EDDF (altn EDDL)')
-      expect(screen.getByText('ABCDE').parentElement).toHaveClass('text-plan')
+      await screen.findByRole('heading', { name: 'TA100 · EGLL → EDDF' })
+      expect(screen.getByText(/ABCDE/)).toHaveClass('text-plan')
       expect(screen.getByText('Cost index').nextElementSibling).toHaveClass('font-mono')
     })
 
@@ -721,7 +726,7 @@ describe('DispatchView', () => {
       const user = userEvent.setup()
       render(<Harness />)
       await user.click(screen.getByRole('button', { name: 'Fetch latest OFP' }))
-      await screen.findByText('TA100: EGLL → EDDF (altn EDDL)')
+      await screen.findByRole('heading', { name: 'TA100 · EGLL → EDDF' })
       expect(screen.queryByText(/Last parked here/)).not.toBeInTheDocument()
     })
 
@@ -741,7 +746,7 @@ describe('DispatchView', () => {
       const user = userEvent.setup()
       render(<Harness />)
       await user.click(screen.getByRole('button', { name: 'Fetch latest OFP' }))
-      await screen.findByText('TA100: EGLL → EDDF (altn EDDL)')
+      await screen.findByRole('heading', { name: 'TA100 · EGLL → EDDF' })
 
       await user.click(screen.getByRole('button', { name: 'Discard plan' }))
       const dialog = screen.getByRole('alertdialog')
@@ -757,12 +762,12 @@ describe('DispatchView', () => {
       const user = userEvent.setup()
       render(<Harness />)
       await user.click(screen.getByRole('button', { name: 'Fetch latest OFP' }))
-      await screen.findByText('TA100: EGLL → EDDF (altn EDDL)')
+      await screen.findByRole('heading', { name: 'TA100 · EGLL → EDDF' })
 
       await user.click(screen.getByRole('button', { name: 'Discard plan' }))
       await user.click(screen.getByRole('button', { name: 'Back' }))
 
-      expect(screen.getByText('TA100: EGLL → EDDF (altn EDDL)')).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: 'TA100 · EGLL → EDDF' })).toBeInTheDocument()
     })
 
     it('opens the OFP PDF and shows nothing extra when one is available', async () => {
@@ -774,7 +779,7 @@ describe('DispatchView', () => {
       const user = userEvent.setup()
       render(<Harness />)
       await user.click(screen.getByRole('button', { name: 'Fetch latest OFP' }))
-      await screen.findByText('TA100: EGLL → EDDF (altn EDDL)')
+      await screen.findByRole('heading', { name: 'TA100 · EGLL → EDDF' })
 
       await user.click(screen.getByRole('button', { name: 'View OFP PDF' }))
 
@@ -798,7 +803,7 @@ describe('DispatchView', () => {
       const user = userEvent.setup()
       render(<Harness />)
       await user.click(screen.getByRole('button', { name: 'Fetch latest OFP' }))
-      await screen.findByText('TA100: EGLL → EDDF (altn EDDL)')
+      await screen.findByRole('heading', { name: 'TA100 · EGLL → EDDF' })
 
       await user.click(await screen.findByRole('button', { name: 'File on IVAO' }))
 
@@ -820,7 +825,7 @@ describe('DispatchView', () => {
       const user = userEvent.setup()
       render(<Harness />)
       await user.click(screen.getByRole('button', { name: 'Fetch latest OFP' }))
-      await screen.findByText('TA100: EGLL → EDDF (altn EDDL)')
+      await screen.findByRole('heading', { name: 'TA100 · EGLL → EDDF' })
       await waitFor(() => expect(settingsGetOnlineNetwork).toHaveBeenCalled())
       expect(screen.queryByRole('button', { name: /File on/ })).not.toBeInTheDocument()
     })
@@ -833,7 +838,7 @@ describe('DispatchView', () => {
       const user = userEvent.setup()
       render(<Harness />)
       await user.click(screen.getByRole('button', { name: 'Fetch latest OFP' }))
-      await screen.findByText('TA100: EGLL → EDDF (altn EDDL)')
+      await screen.findByRole('heading', { name: 'TA100 · EGLL → EDDF' })
 
       await user.click(screen.getByRole('button', { name: 'View OFP PDF' }))
 
@@ -845,7 +850,7 @@ describe('DispatchView', () => {
     async function loadOfpAndPickAircraft(): Promise<void> {
       const user = userEvent.setup()
       await user.click(screen.getByRole('button', { name: 'Fetch latest OFP' }))
-      await screen.findByText('TA100: EGLL → EDDF (altn EDDL)')
+      await screen.findByRole('heading', { name: 'TA100 · EGLL → EDDF' })
     }
 
     it('flies immediately (no confirmation) when nothing else is in progress', async () => {
