@@ -231,7 +231,7 @@
       "settings": "Settings"
     },
     "connection": {
-      "connected": "Sim connected",
+      "connected": "Sim connected ({{version}})",
       "connecting": "Connecting…",
       "disconnected": "Disconnected — retrying",
       "states": {

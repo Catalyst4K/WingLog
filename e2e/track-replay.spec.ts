@@ -27,7 +27,7 @@ test('the SimConnect replay seam reaches the renderer through a real app launch'
     }
   })
   try {
-    const badge = window.locator('[data-slot=badge]', { hasText: 'SimConnect:' })
+    const badge = window.locator('header span[title]', { hasText: 'Sim:' })
     await expect(badge).toHaveAttribute('title', /replay/, { timeout: 15_000 })
   } finally {
     await cleanup()

@@ -698,7 +698,7 @@ describe('App', () => {
 
     statusListener?.({ state: 'connected', simConnectVersion: '12.2' })
     expect(await screen.findByText('Sim: connected')).toBeInTheDocument()
-    expect(screen.getByTitle('Sim connected')).toBeInTheDocument()
+    expect(screen.getByTitle('Sim connected (12.2)')).toBeInTheDocument()
 
     // Telemetry only matters visibly once Track is open (its map overlay reads it) — confirm
     // it clears there rather than staying frozen once the sim disconnects.

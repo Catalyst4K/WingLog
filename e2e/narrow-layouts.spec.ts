@@ -84,9 +84,7 @@ for (const [width, height] of [
 
       // The connection badge is still there, just shorter on a phone.
       // Whether the sim is running on this machine doesn't matter: connected or not, the badge is there.
-      await expect(
-        page.getByText(width < 640 ? /^(dis)?connected$/ : /^SimConnect: (dis)?connected$/)
-      ).toBeVisible()
+      await expect(page.getByText(width < 640 ? /^(dis)?connected$/ : /^Sim: (dis)?connected$/)).toBeVisible()
     } finally {
       await cleanup()
       await beyondAtc.stop()
@@ -119,9 +117,11 @@ test('at the default window width every tab label sits on one line, under its un
       .evaluateAll((tabs) => tabs.map((tab) => tab.getBoundingClientRect().height))
     expect(heights.length).toBe(7)
     expect(new Set(heights).size).toBe(1)
-    const label = page.getByRole('tab', { name: 'Ground services' }).getByText('Ground services')
-    const lineHeight = await label.evaluate((el) => parseFloat(getComputedStyle(el).lineHeight))
-    expect((await label.boundingBox())!.height).toBeLessThanOrEqual(lineHeight + 1)
+    // The tab's own text (v2: no icon and no inner span) stays on one line.
+    const tab = page.getByRole('tab', { name: 'Ground services' })
+    const lineHeight = await tab.evaluate((el) => parseFloat(getComputedStyle(el).lineHeight))
+    expect(await tab.evaluate((el) => getComputedStyle(el).whiteSpace)).toBe('nowrap')
+    expect((await tab.boundingBox())!.height).toBeLessThanOrEqual(lineHeight * 2)
   } finally {
     await cleanup()
     await gsx.stop()
