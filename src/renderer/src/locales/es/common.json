@@ -283,9 +283,10 @@
       "registration": "Matrícula",
       "type": "Tipo",
       "airline": "Aerolínea",
-      "location": "Ubicación",
+      "location": "Aeropuerto",
       "hours": "Horas",
-      "flights": "Vuelos"
+      "flights": "Vuelos",
+      "stand": "Posición"
     },
     "retiredTable": {
       "registration": "Matrícula",

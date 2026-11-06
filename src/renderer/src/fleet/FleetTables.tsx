@@ -6,9 +6,9 @@ import type { Aircraft, AircraftLastParked, FleetStats } from '@shared/ipc'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { SortableHead } from '../SortableHead'
 import { AirlineLabel } from './DetailCards'
-import { formatDate, useLocationLabel } from './fleet-format'
+import { airportAndStand, formatDate } from './fleet-format'
 
-export type FleetSortKey = 'registration' | 'type' | 'airline' | 'location' | 'hours' | 'flights'
+export type FleetSortKey = 'registration' | 'type' | 'airline' | 'location' | 'stand' | 'hours' | 'flights'
 
 function fleetSortColumns(t: TFunction): { key: FleetSortKey; label: string }[] {
   return [
@@ -16,6 +16,7 @@ function fleetSortColumns(t: TFunction): { key: FleetSortKey; label: string }[] 
     { key: 'type', label: t('fleetView.sortColumns.type') },
     { key: 'airline', label: t('fleetView.sortColumns.airline') },
     { key: 'location', label: t('fleetView.sortColumns.location') },
+    { key: 'stand', label: t('fleetView.sortColumns.stand') },
     { key: 'hours', label: t('fleetView.sortColumns.hours') },
     { key: 'flights', label: t('fleetView.sortColumns.flights') }
   ]
@@ -37,7 +38,6 @@ export function ActiveFleetTable(props: {
   onOpen: (id: number) => void
 }): React.JSX.Element {
   const { t } = useTranslation()
-  const locationLabel = useLocationLabel()
   return (
     <Table>
       <TableHeader>
@@ -58,6 +58,10 @@ export function ActiveFleetTable(props: {
         {props.rows.map((a) => {
           const s = props.stats.find((x) => x.aircraftId === a.id)
           const icao = a.currentIcao ?? s?.lastArrIcao ?? null
+          const where = airportAndStand(
+            icao,
+            props.lastParked.find((p) => p.aircraftId === a.id)
+          )
           return (
             <TableRow key={a.id} onClick={() => props.onOpen(a.id)} className="cursor-pointer">
               <TableCell className="font-medium">{a.registration}</TableCell>
@@ -65,12 +69,8 @@ export function ActiveFleetTable(props: {
               <TableCell>
                 <AirlineLabel operator={a.operator} operatorIata={a.operatorIata} />
               </TableCell>
-              <TableCell>
-                {locationLabel(
-                  icao,
-                  props.lastParked.find((p) => p.aircraftId === a.id)
-                )}
-              </TableCell>
+              <TableCell className="font-mono">{where.airport ?? '—'}</TableCell>
+              <TableCell className="font-mono text-muted-foreground">{where.stand ?? ''}</TableCell>
               <TableCell>{s ? s.totalHours.toFixed(1) : '0.0'}</TableCell>
               <TableCell>{s?.totalCycles ?? 0}</TableCell>
             </TableRow>

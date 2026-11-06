@@ -30,3 +30,19 @@ export function useLocationLabel(): (icao: string | null, parked: AircraftLastPa
       : airport
   }
 }
+
+/**
+ * Where an aircraft is, as the Fleet list's two columns: the airport, and the stand when it last parked at that airport
+ * (stand-positions.md). v2 shows them apart so each can be sorted and read on its own.
+ *
+ * @param icao The airport the aircraft is at, or null.
+ * @param parked Where it last parked, if recorded.
+ * @returns The airport as shown (null when unknown) and the stand (null when not recorded or at another airport).
+ */
+export function airportAndStand(
+  icao: string | null,
+  parked: AircraftLastParked | undefined
+): { airport: string | null; stand: string | null } {
+  if (!icao) return { airport: null, stand: null }
+  return { airport: displayIcao(icao), stand: parked && parked.icao === icao ? parked.stand : null }
+}

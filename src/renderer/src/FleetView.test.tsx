@@ -255,7 +255,7 @@ describe('FleetView', () => {
     expect(screen.getByText('LFPG')).toBeInTheDocument()
   })
 
-  it('shows the stand an aircraft last parked at beside its location, only at that airport (stand-positions.md)', async () => {
+  it('shows the airport and the stand in their own columns, the stand only at that airport (stand-positions.md)', async () => {
     setWinglog({
       aircraftList: vi
         .fn()
@@ -270,9 +270,47 @@ describe('FleetView', () => {
       ])
     })
     render(<FleetView onOpenFlightInLogbook={vi.fn()} />)
-    expect(await screen.findByText('VHHH · stand N32')).toBeInTheDocument()
-    expect(screen.getByText('YBBN')).toBeInTheDocument()
+    await screen.findByText('B-LRA')
+    const cells = (registration: string): string[] =>
+      within(screen.getByText(registration).closest('tr')!)
+        .getAllByRole('cell')
+        .map((cell) => cell.textContent ?? '')
+    // Columns: registration, type, airline, airport, stand, hours, flights.
+    expect(cells('B-LRA').slice(3, 5)).toEqual(['VHHH', 'N32'])
+    expect(cells('B-LRB').slice(3, 5)).toEqual(['YBBN', ''])
     expect(screen.queryByText(/W122/)).not.toBeInTheDocument()
+  })
+
+  it('sorts by airport then stand, or by stand then airport', async () => {
+    setWinglog({
+      aircraftList: vi
+        .fn()
+        .mockResolvedValue([
+          makeAircraft({ id: 1, registration: 'A-ONE', currentIcao: 'VHHH' }),
+          makeAircraft({ id: 2, registration: 'B-TWO', currentIcao: 'VHHH' }),
+          makeAircraft({ id: 3, registration: 'C-THREE', currentIcao: 'EGLL' })
+        ]),
+      fleetListLastParked: vi.fn().mockResolvedValue([
+        { aircraftId: 1, icao: 'VHHH', stand: 'N32' },
+        { aircraftId: 2, icao: 'VHHH', stand: 'N5' },
+        { aircraftId: 3, icao: 'EGLL', stand: '552' }
+      ])
+    })
+    const user = userEvent.setup()
+    render(<FleetView onOpenFlightInLogbook={vi.fn()} />)
+    await screen.findByText('A-ONE')
+    const order = (): string[] =>
+      screen
+        .getAllByRole('row')
+        .slice(1)
+        .map((row) => within(row).getAllByRole('cell')[0].textContent ?? '')
+    await user.click(screen.getByText('Airport'))
+    // EGLL sorts before VHHH; at VHHH stand N5 comes before N32 because the digits compare as numbers.
+    expect(order()).toEqual(['C-THREE', 'B-TWO', 'A-ONE'])
+    await user.click(screen.getByText('Stand'))
+    expect(order()).toEqual(['C-THREE', 'B-TWO', 'A-ONE'])
+    await user.click(screen.getByText('Stand'))
+    expect(order()).toEqual(['A-ONE', 'B-TWO', 'C-THREE'])
   })
 
   it('shows a dash for airline when unset', async () => {
@@ -350,7 +388,7 @@ describe('FleetView', () => {
     // Alpha Air, then Zed Air.
     expect(registrationOrder()).toEqual(['C-NULL', 'D-ZERO', 'A-LOW', 'B-MID'])
 
-    await user.click(screen.getByText('Location'))
+    await user.click(screen.getByText('Airport'))
     // B-MID's currentIcao is 'EGKK' directly; A-LOW has none, falling back to its stats'
     // lastArrIcao 'EGLL'; C-NULL/D-ZERO have neither, falling all the way back to ''.
     expect(registrationOrder()).toEqual(['C-NULL', 'D-ZERO', 'B-MID', 'A-LOW'])

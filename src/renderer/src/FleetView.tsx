@@ -12,6 +12,7 @@ import { AircraftForm } from './AircraftForm'
 import { FolderTabs, FolderTabsContent, FolderTabsList, FolderTabsTrigger } from './components/FolderTabs'
 import { AircraftDetail } from './fleet/AircraftDetail'
 import { ActiveFleetTable, RetiredFleetTable, type FleetSortKey } from './fleet/FleetTables'
+import { airportAndStand } from './fleet/fleet-format'
 import { ReplaceAircraftDialog } from './fleet/ReplaceAircraftDialog'
 import { useConfirm } from './hooks/use-confirm'
 import { useResetSignal } from './hooks/use-reset-signal'
@@ -64,14 +65,32 @@ export function FleetView(props: {
     return stats.find((s) => s.aircraftId === aircraftId)
   }
 
+  /** An aircraft's airport and stand as text to sort by: an unknown one sorts as empty. */
+  function whereIs(a: Aircraft): { airport: string; stand: string } {
+    const icao = a.currentIcao ?? statsFor(a.id)?.lastArrIcao ?? null
+    const where = airportAndStand(
+      icao,
+      lastParked.find((p) => p.aircraftId === a.id)
+    )
+    return { airport: where.airport ?? '', stand: where.stand ?? '' }
+  }
+
   const fleetComparators: Record<FleetSortKey, (a: Aircraft, b: Aircraft) => number> = {
     registration: (a, b) => a.registration.localeCompare(b.registration),
     type: (a, b) => a.icaoType.localeCompare(b.icaoType),
     airline: (a, b) => (a.operator ?? '').localeCompare(b.operator ?? ''),
-    location: (a, b) =>
-      (a.currentIcao ?? statsFor(a.id)?.lastArrIcao ?? '').localeCompare(
-        b.currentIcao ?? statsFor(b.id)?.lastArrIcao ?? ''
-      ),
+    location: (a, b) => {
+      const [wa, wb] = [whereIs(a), whereIs(b)]
+      return (
+        wa.airport.localeCompare(wb.airport) || wa.stand.localeCompare(wb.stand, undefined, { numeric: true })
+      )
+    },
+    stand: (a, b) => {
+      const [wa, wb] = [whereIs(a), whereIs(b)]
+      return (
+        wa.stand.localeCompare(wb.stand, undefined, { numeric: true }) || wa.airport.localeCompare(wb.airport)
+      )
+    },
     hours: (a, b) => (statsFor(a.id)?.totalHours ?? 0) - (statsFor(b.id)?.totalHours ?? 0),
     flights: (a, b) => (statsFor(a.id)?.totalCycles ?? 0) - (statsFor(b.id)?.totalCycles ?? 0)
   }

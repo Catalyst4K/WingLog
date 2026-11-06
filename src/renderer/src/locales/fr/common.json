@@ -283,9 +283,10 @@
       "registration": "Immatriculation",
       "type": "Type",
       "airline": "Compagnie",
-      "location": "Emplacement",
+      "location": "Aéroport",
       "hours": "Heures",
-      "flights": "Vols"
+      "flights": "Vols",
+      "stand": "Poste"
     },
     "retiredTable": {
       "registration": "Immatriculation",

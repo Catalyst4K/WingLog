@@ -276,9 +276,10 @@
       "registration": "注册号",
       "type": "机型",
       "airline": "航空公司",
-      "location": "位置",
+      "location": "机场",
       "hours": "飞行时长",
-      "flights": "航班数"
+      "flights": "航班数",
+      "stand": "停机位"
     },
     "retiredTable": {
       "registration": "注册号",

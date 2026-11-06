@@ -297,9 +297,10 @@
       "registration": "Регистрация",
       "type": "Тип",
       "airline": "Авиакомпания",
-      "location": "Местоположение",
+      "location": "Аэропорт",
       "hours": "Часы",
-      "flights": "Рейсы"
+      "flights": "Рейсы",
+      "stand": "Стоянка"
     },
     "retiredTable": {
       "registration": "Регистрация",

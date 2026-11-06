@@ -281,9 +281,10 @@
       "registration": "Kennzeichen",
       "type": "Typ",
       "airline": "Airline",
-      "location": "Standort",
+      "location": "Flughafen",
       "hours": "Stunden",
-      "flights": "Flüge"
+      "flights": "Flüge",
+      "stand": "Position"
     },
     "retiredTable": {
       "registration": "Kennzeichen",

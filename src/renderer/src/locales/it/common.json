@@ -283,9 +283,10 @@
       "registration": "Immatricolazione",
       "type": "Tipo",
       "airline": "Compagnia",
-      "location": "Posizione",
+      "location": "Aeroporto",
       "hours": "Ore",
-      "flights": "Voli"
+      "flights": "Voli",
+      "stand": "Piazzola"
     },
     "retiredTable": {
       "registration": "Immatricolazione",

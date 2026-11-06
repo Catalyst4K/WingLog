@@ -281,9 +281,10 @@
       "registration": "Registration",
       "type": "Type",
       "airline": "Airline",
-      "location": "Location",
+      "location": "Airport",
       "hours": "Hours",
-      "flights": "Flights"
+      "flights": "Flights",
+      "stand": "Stand"
     },
     "retiredTable": {
       "registration": "Registration",
