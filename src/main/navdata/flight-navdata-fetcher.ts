@@ -6,9 +6,10 @@
  * It fetches once per airport per flight. A fetch that fails (the sim is down, or still loading) is not counted as done, so it is tried
  * again the next time the shown flight changes or the sim connects.
  *
- * The taxi networks are fetched once more when tracking starts (`refreshTaxiNetworks`): the sim can answer as soon as it connects, but
- * a fetch made then can be the default layout, not the add-on scenery the flight loads (ZSPD, 2026-11-05: fetched 22:43 with the
- * sim only just up, 3,438 of BeyondATC's 4,236 paths later were the add-on's type 1; WingLog's cache had none).
+ * The taxi networks are fetched again (`refreshTaxiNetworks`) when tracking starts, and on the first telemetry of each sim session: the
+ * scenery in the sim changes with the flight loaded, and a pilot can quit the sim and load another flight while tracking carries on
+ * (ZSPD, 2026-11-05: the default airport was loaded when the network was fetched, the add-on after the sim was restarted; the cache
+ * kept the default one, with none of the add-on's type 1 paths).
  */
 
 import { describeError } from '../logging/describe-error'

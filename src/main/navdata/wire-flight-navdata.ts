@@ -54,8 +54,20 @@ export function wireFlightNavdata({
     fetcher.refresh()
     fetcher.refreshTaxiNetworks()
   })
+  // The sim loads a flight, and its scenery, after it connects, and a pilot can quit and load another one (the add-on airport after
+  // the default one, ZSPD 2026-11-05) while WingLog keeps tracking: the first telemetry after each connect is the loaded flight.
+  let awaitingFlight = true
   sim.on('status', (status) => {
-    if (status.state === 'connected') fetcher.refresh()
+    if (status.state !== 'connected') {
+      awaitingFlight = true
+      return
+    }
+    fetcher.refresh()
+  })
+  sim.on('telemetry', () => {
+    if (!awaitingFlight) return
+    awaitingFlight = false
+    fetcher.refreshTaxiNetworks()
   })
   fetcher.refresh()
   return fetcher
