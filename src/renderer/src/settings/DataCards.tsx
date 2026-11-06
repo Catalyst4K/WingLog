@@ -1,4 +1,4 @@
-/** Settings → Data: Fleet and Logbook import and export, and cloud sync. */
+/** Settings → Import and export: Fleet and Logbook import and export, and cloud sync. */
 
 import { useId } from 'react'
 import { useTranslation } from 'react-i18next'

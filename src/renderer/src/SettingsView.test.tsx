@@ -264,17 +264,32 @@ describe('SettingsView', () => {
         expect(screen.getByText(group)).toBeInTheDocument()
     })
 
-    it('lights GSX and ATC when GSX Remote Control and BeyondATC are on, and leaves them off otherwise', async () => {
+    it('lights GSX and ATC by their connection: green connected, amber turned on but not connected, off when turned off', async () => {
       setWinglog({
         settingsGetGsxRemote: vi.fn().mockResolvedValue(makeGsxRemote({ enabled: true })),
-        settingsGetBeyondAtc: vi.fn().mockResolvedValue({ enabled: false, host: 'localhost' })
+        gsxRemoteGetStatus: vi.fn().mockResolvedValue(makeGsxRemoteStatus({ state: 'connected' })),
+        settingsGetBeyondAtc: vi.fn().mockResolvedValue({ enabled: true, host: 'localhost' })
       })
       renderSettings()
       const light = (name: string): Element | null =>
         screen.getByRole('tab', { name }).querySelector('[data-slot="status-light"]')
       await waitFor(() => expect(light('GSX')).toHaveAttribute('data-state', 'green'))
-      expect(light('ATC')).toHaveAttribute('data-state', 'off')
+      // BeyondATC is on but the test's BeyondATC never connects.
+      expect(light('ATC')).toHaveAttribute('data-state', 'amber')
       expect(light('General')).toBeNull()
+    })
+
+    it('leaves the lights off while the add-ons are turned off, even though they are not connected', async () => {
+      setWinglog({
+        settingsGetGsxRemote: vi.fn().mockResolvedValue(makeGsxRemote({ enabled: false })),
+        settingsGetBeyondAtc: vi.fn().mockResolvedValue({ enabled: false, host: 'localhost' })
+      })
+      renderSettings()
+      const light = (name: string): Element | null =>
+        screen.getByRole('tab', { name }).querySelector('[data-slot="status-light"]')
+      await waitFor(() => expect(screen.getByRole('tab', { name: 'GSX' })).toBeInTheDocument())
+      expect(light('GSX')).toHaveAttribute('data-state', 'off')
+      expect(light('ATC')).toHaveAttribute('data-state', 'off')
     })
 
     it('puts each add-on on its own page', async () => {

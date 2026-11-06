@@ -251,7 +251,8 @@
         "connecting": "conectando",
         "disconnected": "desconectado"
       },
-      "badge": "SimConnect: {{state}}"
+      "badge": "SimConnect: {{state}}",
+      "label": "Sim"
     },
     "orphanedFlight": {
       "resumeTitle": "¿Reanudar el seguimiento?",
@@ -274,7 +275,7 @@
       "update": "Actualizar",
       "dismiss": "Descartar"
     },
-    "whatsNew": "Novedades de WingLog 1.5: una segunda pantalla para tu móvil o tableta, actualizaciones con un clic, un aviso de poco espacio en disco y una línea de rodaje más precisa. Activa la segunda pantalla en Ajustes → Datos."
+    "whatsNew": "Novedades de WingLog 1.5: una segunda pantalla para tu móvil o tableta, actualizaciones con un clic, un aviso de poco espacio en disco y una línea de rodaje más precisa. Activa la segunda pantalla en Ajustes → Segunda pantalla."
   },
   "fleetView": {
     "atStand": "puesto {{stand}}",
@@ -282,7 +283,7 @@
     "newAircraft": "Nueva aeronave",
     "editAircraft": "Editar {{registration}}",
     "aircraftNotFound": "Aeronave no encontrada.",
-    "noActiveAircraft": "No hay aeronaves activas — añade una, o importa una flota desde Ajustes → Datos.",
+    "noActiveAircraft": "No hay aeronaves activas — añade una, o importa una flota desde Ajustes → Importar y exportar.",
     "activeTab": "Activas ({{count}})",
     "retiredTab": "Retiradas ({{count}})",
     "retiredStatus": "Retirada{{date}}",
@@ -696,7 +697,9 @@
       "flown": "Trayectoria volada",
       "plan": "Plan",
       "taxiRoute": "Ruta de rodaje",
-      "atcArea": "Área ATC",
+      "atcCentre": "Centro de control (teñido)",
+      "atcApproach": "Área de aproximación (solo contorno)",
+      "atcAirport": "Aeropuerto con ATC (D G T A I: autorización, tierra, torre, aproximación, ATIS)",
       "fixEnroute": "Punto",
       "fixProcedure": "Punto SID o STAR",
       "fixApproach": "Punto de aproximación"
@@ -782,7 +785,7 @@
       "flights": "Vuelos",
       "landings": "Aterrizajes"
     },
-    "noCompletedFlights": "Aún no hay vuelos completados — registra uno, o importa un CSV de bitácora desde Ajustes → Datos.",
+    "noCompletedFlights": "Aún no hay vuelos completados — registra uno, o importa un CSV de bitácora desde Ajustes → Importar y exportar.",
     "flightNotFound": "Vuelo no encontrado.",
     "onlineFilter": {
       "label": "Mostrar",
@@ -797,7 +800,7 @@
   "gsxRemotePanel": {
     "atcStand": "Puesto {{stand}} (de ATC)",
     "loading": "Cargando…",
-    "notConfigured": "GSX Remote Control está desactivado. Actívalo y define un puerto en Ajustes → Terceros.",
+    "notConfigured": "GSX Remote Control está desactivado. Actívalo y define un puerto en Ajustes → GSX.",
     "connecting": "Conectando con GSX…",
     "disconnected": "Sin conexión con GSX.",
     "menuHeaderClosed": "Menú de GSX",
@@ -922,7 +925,7 @@
   },
   "beyondAtcPanel": {
     "loading": "Cargando…",
-    "notConfigured": "La integración con BeyondATC está desactivada. Actívala en Ajustes → Terceros.",
+    "notConfigured": "La integración con BeyondATC está desactivada. Actívala en Ajustes → ATC.",
     "connecting": "Conectando con BeyondATC…",
     "connected": "Conectado a BeyondATC.",
     "disconnected": "Sin conexión con BeyondATC.",
@@ -1094,7 +1097,7 @@
     "welcome": {
       "title": "Bienvenido a WingLog",
       "body": "WingLog gestiona tu flota, planifica tus vuelos con SimBrief, los registra en directo desde Microsoft Flight Simulator y lleva un libro de vuelo con análisis de aterrizajes. Antes, unas elecciones rápidas.",
-      "skipHint": "Cada paso es opcional. Puedes cambiar todo esto más tarde en Ajustes y volver a abrir esta configuración desde Ajustes → Acerca de."
+      "skipHint": "Cada paso es opcional. Puedes cambiar todo esto más tarde en Ajustes y volver a abrir esta configuración desde Ajustes → Acerca de y actualizaciones."
     },
     "simbrief": {
       "title": "SimBrief",
@@ -1129,7 +1132,7 @@
     },
     "done": {
       "title": "Todo listo",
-      "body": "Todo esto se puede cambiar en Ajustes. Para volver a ver esta configuración, ve a Ajustes → Acerca de → Volver a ejecutar la configuración."
+      "body": "Todo esto se puede cambiar en Ajustes. Para volver a ver esta configuración, ve a Ajustes → Acerca de y actualizaciones → Volver a ejecutar la configuración."
     }
   },
   "errorBoundary": {

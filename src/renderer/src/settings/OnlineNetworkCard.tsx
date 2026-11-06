@@ -1,5 +1,5 @@
 /**
- * Settings → 3rd party: the online network (none, VATSIM or IVAO), the pilot's member number on it (winglog-backend's
+ * Settings → Online network: the online network (none, VATSIM or IVAO), the pilot's member number on it (winglog-backend's
  * docs/plans/vatsim-build.md, Step 1a), and whether the map offers the sim traffic button. The network is the one switch for every VATSIM
  * and IVAO feature: None shows none of them.
  */

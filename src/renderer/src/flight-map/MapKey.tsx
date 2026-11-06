@@ -36,6 +36,41 @@ function LineSample(props: {
 }
 
 /**
+ * A sample of an ATC area or an airport marker, drawn as the map draws it: a centre is an outline with a light tint, an approach area
+ * an outline only, an airport a ring.
+ *
+ * @param props Which one.
+ * @returns The element.
+ */
+function AtcSample(props: { shape: 'centre' | 'approach' | 'airport' }): React.JSX.Element {
+  return (
+    <svg
+      width="28"
+      height="14"
+      viewBox="0 0 28 14"
+      aria-hidden="true"
+      className="text-[#2a62a3] dark:text-[#7fb0e8]"
+    >
+      {props.shape === 'airport' ? (
+        <circle cx="14" cy="7" r="4.5" fill="var(--popover)" stroke="currentColor" strokeWidth="1.5" />
+      ) : (
+        <rect
+          x="2"
+          y="2"
+          width="24"
+          height="10"
+          rx="2"
+          fill={props.shape === 'centre' ? 'currentColor' : 'none'}
+          fillOpacity={props.shape === 'centre' ? 0.14 : 0}
+          stroke="currentColor"
+          strokeWidth="1.2"
+        />
+      )}
+    </svg>
+  )
+}
+
+/**
  * A hollow fix symbol, drawn as the map draws it.
  *
  * @param props Which symbol.
@@ -111,10 +146,9 @@ export function MapKey(): React.JSX.Element {
         {row(<LineSample className="text-foreground" width={3} />, t('flightMap.key.flown'))}
         {row(<LineSample className="text-plan" width={1.5} dash="6 4" />, t('flightMap.key.plan'))}
         {row(<LineSample className="text-[#f2c200]" width={3.5} edge />, t('flightMap.key.taxiRoute'))}
-        {row(
-          <LineSample className="text-[#2a62a3] dark:text-[#7fb0e8]" width={1.2} />,
-          t('flightMap.key.atcArea')
-        )}
+        {row(<AtcSample shape="centre" />, t('flightMap.key.atcCentre'))}
+        {row(<AtcSample shape="approach" />, t('flightMap.key.atcApproach'))}
+        {row(<AtcSample shape="airport" />, t('flightMap.key.atcAirport'))}
         {row(<FixSample shape="enroute" />, t('flightMap.key.fixEnroute'))}
         {row(<FixSample shape="procedure" />, t('flightMap.key.fixProcedure'))}
         {row(<FixSample shape="approach" />, t('flightMap.key.fixApproach'))}

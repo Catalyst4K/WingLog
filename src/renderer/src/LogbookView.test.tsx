@@ -1271,7 +1271,7 @@ describe('FlightDetail', () => {
     expect(winglog.flightDelete).toHaveBeenCalledWith(1, false)
     expect(
       await screen.findByText(
-        'No completed flights yet — track one, or import a CSV logbook from Settings → Data.'
+        'No completed flights yet — track one, or import a CSV logbook from Settings → Import and export.'
       )
     ).toBeInTheDocument()
   })

@@ -21,7 +21,9 @@ describe('MapKey', () => {
       'Flown track',
       'Plan',
       'Taxi route',
-      'ATC area',
+      'ATC centre (tinted)',
+      'Approach area (outline only)',
+      'Airport with ATC (D G T A I: delivery, ground, tower, approach, ATIS)',
       'Fix',
       'SID or STAR fix',
       'Approach fix'

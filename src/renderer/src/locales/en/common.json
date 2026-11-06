@@ -249,7 +249,8 @@
         "connecting": "connecting",
         "disconnected": "disconnected"
       },
-      "badge": "Sim: {{state}}"
+      "badge": "Sim: {{state}}",
+      "label": "Sim"
     },
     "orphanedFlight": {
       "resumeTitle": "Resume tracking?",
@@ -272,7 +273,7 @@
       "update": "Update",
       "dismiss": "Dismiss"
     },
-    "whatsNew": "New in WingLog 1.5: a second screen for your phone or tablet, one-click updates, a low disk space warning and a more accurate taxi line. Turn the second screen on in Settings → Data."
+    "whatsNew": "New in WingLog 1.5: a second screen for your phone or tablet, one-click updates, a low disk space warning and a more accurate taxi line. Turn the second screen on in Settings → Second screen."
   },
   "fleetView": {
     "atStand": "stand {{stand}}",
@@ -280,7 +281,7 @@
     "newAircraft": "New aircraft",
     "editAircraft": "Edit {{registration}}",
     "aircraftNotFound": "Aircraft not found.",
-    "noActiveAircraft": "No active aircraft — add one, or import a fleet from Settings → Data.",
+    "noActiveAircraft": "No active aircraft — add one, or import a fleet from Settings → Import and export.",
     "activeTab": "Active ({{count}})",
     "retiredTab": "Retired ({{count}})",
     "retiredStatus": "Retired{{date}}",
@@ -694,7 +695,9 @@
       "flown": "Flown track",
       "plan": "Plan",
       "taxiRoute": "Taxi route",
-      "atcArea": "ATC area",
+      "atcCentre": "ATC centre (tinted)",
+      "atcApproach": "Approach area (outline only)",
+      "atcAirport": "Airport with ATC (D G T A I: delivery, ground, tower, approach, ATIS)",
       "fixEnroute": "Fix",
       "fixProcedure": "SID or STAR fix",
       "fixApproach": "Approach fix"
@@ -780,7 +783,7 @@
       "flights": "Flights",
       "landings": "Landings"
     },
-    "noCompletedFlights": "No completed flights yet — track one, or import a CSV logbook from Settings → Data.",
+    "noCompletedFlights": "No completed flights yet — track one, or import a CSV logbook from Settings → Import and export.",
     "flightNotFound": "Flight not found.",
     "onlineFilter": {
       "label": "Show",
@@ -795,7 +798,7 @@
   "gsxRemotePanel": {
     "atcStand": "Stand {{stand}} (from ATC)",
     "loading": "Loading…",
-    "notConfigured": "GSX Remote Control is off. Enable it and set a port in Settings → 3rd party.",
+    "notConfigured": "GSX Remote Control is off. Enable it and set a port in Settings → GSX.",
     "connecting": "Connecting to GSX…",
     "disconnected": "Not connected to GSX.",
     "menuHeaderClosed": "GSX Menu",
@@ -920,7 +923,7 @@
   },
   "beyondAtcPanel": {
     "loading": "Loading…",
-    "notConfigured": "BeyondATC integration is off. Turn it on under Settings → 3rd party.",
+    "notConfigured": "BeyondATC integration is off. Turn it on under Settings → ATC.",
     "connecting": "Connecting to BeyondATC…",
     "connected": "Connected to BeyondATC.",
     "disconnected": "Not connected to BeyondATC.",
@@ -1092,7 +1095,7 @@
     "welcome": {
       "title": "Welcome to WingLog",
       "body": "WingLog keeps your fleet, plans your flights with SimBrief, tracks them live from Microsoft Flight Simulator, and keeps a logbook with landing analysis. A few quick choices first.",
-      "skipHint": "Every step is optional. You can change all of this later in Settings, and reopen this setup from Settings → About."
+      "skipHint": "Every step is optional. You can change all of this later in Settings, and reopen this setup from Settings → About and updates."
     },
     "simbrief": {
       "title": "SimBrief",
@@ -1127,7 +1130,7 @@
     },
     "done": {
       "title": "You're all set",
-      "body": "Everything here can be changed in Settings. To see this setup again, go to Settings → About → Run setup again."
+      "body": "Everything here can be changed in Settings. To see this setup again, go to Settings → About and updates → Run setup again."
     }
   },
   "errorBoundary": {

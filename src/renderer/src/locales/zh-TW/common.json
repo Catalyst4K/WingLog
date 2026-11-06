@@ -244,7 +244,8 @@
         "connecting": "連線中",
         "disconnected": "已斷線"
       },
-      "badge": "SimConnect：{{state}}"
+      "badge": "SimConnect：{{state}}",
+      "label": "模擬器"
     },
     "orphanedFlight": {
       "resumeTitle": "恢復追蹤？",
@@ -267,7 +268,7 @@
       "update": "更新",
       "dismiss": "忽略"
     },
-    "whatsNew": "WingLog 1.5 新功能：適用於手機或平板的第二螢幕、一鍵更新、磁碟空間不足提醒，以及更準確的滑行線。在「設定 → 資料」中開啟第二螢幕。"
+    "whatsNew": "WingLog 1.5 新功能：適用於手機或平板的第二螢幕、一鍵更新、磁碟空間不足提醒，以及更準確的滑行線。在「設定 → 第二螢幕」中開啟第二螢幕。"
   },
   "fleetView": {
     "atStand": "機位 {{stand}}",
@@ -275,7 +276,7 @@
     "newAircraft": "新增飛機",
     "editAircraft": "編輯 {{registration}}",
     "aircraftNotFound": "找不到該飛機。",
-    "noActiveAircraft": "目前沒有在役飛機 — 新增一架，或從「設定 → 資料」匯入機隊。",
+    "noActiveAircraft": "目前沒有在役飛機 — 新增一架，或從「設定 → 匯入和匯出」匯入機隊。",
     "activeTab": "在役（{{count}}）",
     "retiredTab": "已除役（{{count}}）",
     "retiredStatus": "已除役{{date}}",
@@ -688,7 +689,9 @@
       "flown": "已飛航跡",
       "plan": "計畫",
       "taxiRoute": "滑行路線",
-      "atcArea": "ATC 區域",
+      "atcCentre": "區域管制中心（著色）",
+      "atcApproach": "進場區域（僅輪廓）",
+      "atcAirport": "有 ATC 的機場（D G T A I：許可、地面、塔台、進場、ATIS）",
       "fixEnroute": "航路點",
       "fixProcedure": "SID 或 STAR 點",
       "fixApproach": "進場點"
@@ -773,7 +776,7 @@
       "flights": "航班",
       "landings": "落地"
     },
-    "noCompletedFlights": "尚無已完成的航班 — 去追蹤一趟飛行，或從「設定 → 資料」匯入 CSV 飛行日誌。",
+    "noCompletedFlights": "尚無已完成的航班 — 去追蹤一趟飛行，或從「設定 → 匯入和匯出」匯入 CSV 飛行日誌。",
     "flightNotFound": "找不到該航班。",
     "onlineFilter": {
       "label": "顯示",
@@ -788,7 +791,7 @@
   "gsxRemotePanel": {
     "atcStand": "機位 {{stand}}（ATC 指定）",
     "loading": "載入中…",
-    "notConfigured": "GSX 遠端控制已關閉。請在設定 → 第三方中啟用並設定連接埠。",
+    "notConfigured": "GSX 遠端控制已關閉。請在設定 → GSX中啟用並設定連接埠。",
     "connecting": "正在連線至 GSX…",
     "disconnected": "未連線至 GSX。",
     "menuHeaderClosed": "GSX 選單",
@@ -912,7 +915,7 @@
   },
   "beyondAtcPanel": {
     "loading": "載入中…",
-    "notConfigured": "BeyondATC 整合已關閉。請在設定 → 第三方中啟用。",
+    "notConfigured": "BeyondATC 整合已關閉。請在設定 → ATC中啟用。",
     "connecting": "正在連線至 BeyondATC…",
     "connected": "已連線至 BeyondATC。",
     "disconnected": "未連線至 BeyondATC。",
@@ -1084,7 +1087,7 @@
     "welcome": {
       "title": "歡迎使用 WingLog",
       "body": "WingLog 管理你的機隊，用 SimBrief 規劃航班，從 Microsoft Flight Simulator 即時記錄飛行，並保存含著陸分析的飛行日誌。先做幾個簡單的選擇。",
-      "skipHint": "每一步都可以略過。之後都能在設定中變更，也可以在「設定 → 關於」中重新開啟此設定精靈。"
+      "skipHint": "每一步都可以略過。之後都能在設定中變更，也可以在「設定 → 關於和更新」中重新開啟此設定精靈。"
     },
     "simbrief": {
       "title": "SimBrief",
@@ -1119,7 +1122,7 @@
     },
     "done": {
       "title": "一切就緒",
-      "body": "這裡的所有內容都可以在設定中變更。要再次查看此精靈，請前往「設定 → 關於 → 重新執行設定精靈」。"
+      "body": "這裡的所有內容都可以在設定中變更。要再次查看此精靈，請前往「設定 → 關於和更新 → 重新執行設定精靈」。"
     }
   },
   "errorBoundary": {

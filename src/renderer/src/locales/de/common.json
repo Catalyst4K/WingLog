@@ -249,7 +249,8 @@
         "connecting": "verbindet",
         "disconnected": "getrennt"
       },
-      "badge": "SimConnect: {{state}}"
+      "badge": "SimConnect: {{state}}",
+      "label": "Sim"
     },
     "orphanedFlight": {
       "resumeTitle": "Tracking fortsetzen?",
@@ -272,7 +273,7 @@
       "update": "Aktualisieren",
       "dismiss": "Verwerfen"
     },
-    "whatsNew": "Neu in WingLog 1.5: ein zweiter Bildschirm für Handy oder Tablet, Updates mit einem Klick, eine Warnung bei wenig Speicherplatz und eine genauere Rollroute. Den zweiten Bildschirm aktivierst du unter Einstellungen → Daten."
+    "whatsNew": "Neu in WingLog 1.5: ein zweiter Bildschirm für Handy oder Tablet, Updates mit einem Klick, eine Warnung bei wenig Speicherplatz und eine genauere Rollroute. Den zweiten Bildschirm aktivierst du unter Einstellungen → Zweiter Bildschirm."
   },
   "fleetView": {
     "atStand": "Position {{stand}}",
@@ -280,7 +281,7 @@
     "newAircraft": "Neues Flugzeug",
     "editAircraft": "{{registration}} bearbeiten",
     "aircraftNotFound": "Flugzeug nicht gefunden.",
-    "noActiveAircraft": "Keine aktiven Flugzeuge — füge eines hinzu oder importiere eine Flotte über Einstellungen → Daten.",
+    "noActiveAircraft": "Keine aktiven Flugzeuge — füge eines hinzu oder importiere eine Flotte über Einstellungen → Import und Export.",
     "activeTab": "Aktiv ({{count}})",
     "retiredTab": "Ausgemustert ({{count}})",
     "retiredStatus": "Ausgemustert{{date}}",
@@ -694,7 +695,9 @@
       "flown": "Geflogene Strecke",
       "plan": "Plan",
       "taxiRoute": "Rollweg",
-      "atcArea": "ATC-Bereich",
+      "atcCentre": "Kontrollzentrum (getönt)",
+      "atcApproach": "Anflugbereich (nur Umriss)",
+      "atcAirport": "Flughafen mit ATC (D G T A I: Freigabe, Boden, Turm, Anflug, ATIS)",
       "fixEnroute": "Wegpunkt",
       "fixProcedure": "SID- oder STAR-Punkt",
       "fixApproach": "Anflugpunkt"
@@ -780,7 +783,7 @@
       "flights": "Flüge",
       "landings": "Landungen"
     },
-    "noCompletedFlights": "Noch keine abgeschlossenen Flüge — einen tracken oder ein CSV-Logbuch über Einstellungen → Daten importieren.",
+    "noCompletedFlights": "Noch keine abgeschlossenen Flüge — einen tracken oder ein CSV-Logbuch über Einstellungen → Import und Export importieren.",
     "flightNotFound": "Flug nicht gefunden.",
     "onlineFilter": {
       "label": "Anzeigen",
@@ -795,7 +798,7 @@
   "gsxRemotePanel": {
     "atcStand": "Position {{stand}} (von ATC)",
     "loading": "Wird geladen…",
-    "notConfigured": "GSX Remote Control ist deaktiviert. Aktiviere es und lege einen Port fest unter Einstellungen → Drittanbieter.",
+    "notConfigured": "GSX Remote Control ist deaktiviert. Aktiviere es und lege einen Port fest unter Einstellungen → GSX.",
     "connecting": "Verbindung zu GSX wird hergestellt…",
     "disconnected": "Nicht mit GSX verbunden.",
     "menuHeaderClosed": "GSX-Menü",
@@ -920,7 +923,7 @@
   },
   "beyondAtcPanel": {
     "loading": "Wird geladen…",
-    "notConfigured": "BeyondATC-Integration ist deaktiviert. Aktiviere sie unter Einstellungen → Drittanbieter.",
+    "notConfigured": "BeyondATC-Integration ist deaktiviert. Aktiviere sie unter Einstellungen → ATC.",
     "connecting": "Verbindung zu BeyondATC wird hergestellt…",
     "connected": "Mit BeyondATC verbunden.",
     "disconnected": "Nicht mit BeyondATC verbunden.",
@@ -1092,7 +1095,7 @@
     "welcome": {
       "title": "Willkommen bei WingLog",
       "body": "WingLog verwaltet deine Flotte, plant Flüge mit SimBrief, zeichnet sie live aus dem Microsoft Flight Simulator auf und führt ein Flugbuch mit Landeanalyse. Zuerst ein paar kurze Einstellungen.",
-      "skipHint": "Jeder Schritt ist optional. Alles lässt sich später in den Einstellungen ändern, und diese Einrichtung kannst du unter Einstellungen → Über erneut öffnen."
+      "skipHint": "Jeder Schritt ist optional. Alles lässt sich später in den Einstellungen ändern, und diese Einrichtung kannst du unter Einstellungen → Info und Updates erneut öffnen."
     },
     "simbrief": {
       "title": "SimBrief",
@@ -1127,7 +1130,7 @@
     },
     "done": {
       "title": "Alles bereit",
-      "body": "Alles hier lässt sich in den Einstellungen ändern. Diese Einrichtung findest du wieder unter Einstellungen → Über → Einrichtung erneut ausführen."
+      "body": "Alles hier lässt sich in den Einstellungen ändern. Diese Einrichtung findest du wieder unter Einstellungen → Info und Updates → Einrichtung erneut ausführen."
     }
   },
   "errorBoundary": {

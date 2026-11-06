@@ -197,7 +197,7 @@ describe('FleetView', () => {
     expect(await screen.findByText('Flotte')).toBeInTheDocument()
     expect(
       screen.getByText(
-        'Keine aktiven Flugzeuge — füge eines hinzu oder importiere eine Flotte über Einstellungen → Daten.'
+        'Keine aktiven Flugzeuge — füge eines hinzu oder importiere eine Flotte über Einstellungen → Import und Export.'
       )
     ).toBeInTheDocument()
   })
@@ -206,7 +206,9 @@ describe('FleetView', () => {
     setWinglog()
     render(<FleetView onOpenFlightInLogbook={vi.fn()} />)
     expect(
-      await screen.findByText('No active aircraft — add one, or import a fleet from Settings → Data.')
+      await screen.findByText(
+        'No active aircraft — add one, or import a fleet from Settings → Import and export.'
+      )
     ).toBeInTheDocument()
   })
 
@@ -648,7 +650,9 @@ describe('FleetView', () => {
     })
     const user = userEvent.setup()
     render(<FleetView onOpenFlightInLogbook={vi.fn()} />)
-    await screen.findByText('No active aircraft — add one, or import a fleet from Settings → Data.')
+    await screen.findByText(
+      'No active aircraft — add one, or import a fleet from Settings → Import and export.'
+    )
     await user.click(screen.getByText('New aircraft'))
     expect(await screen.findByText('New aircraft', { selector: 'h1' })).toBeInTheDocument()
 
@@ -665,12 +669,16 @@ describe('FleetView', () => {
     setWinglog({ aircraftList: vi.fn().mockResolvedValue([]) })
     const user = userEvent.setup()
     render(<FleetView onOpenFlightInLogbook={vi.fn()} />)
-    await screen.findByText('No active aircraft — add one, or import a fleet from Settings → Data.')
+    await screen.findByText(
+      'No active aircraft — add one, or import a fleet from Settings → Import and export.'
+    )
     await user.click(screen.getByText('New aircraft'))
     await screen.findByText('New aircraft', { selector: 'h1' })
     await user.click(screen.getByText('Cancel'))
     expect(
-      await screen.findByText('No active aircraft — add one, or import a fleet from Settings → Data.')
+      await screen.findByText(
+        'No active aircraft — add one, or import a fleet from Settings → Import and export.'
+      )
     ).toBeInTheDocument()
   })
 
@@ -735,7 +743,9 @@ describe('FleetView', () => {
     await user.click(screen.getByText('Delete aircraft'))
     await waitFor(() => expect(winglog.aircraftDelete).toHaveBeenCalledWith(4))
     expect(
-      await screen.findByText('No active aircraft — add one, or import a fleet from Settings → Data.')
+      await screen.findByText(
+        'No active aircraft — add one, or import a fleet from Settings → Import and export.'
+      )
     ).toBeInTheDocument()
   })
 

@@ -1,4 +1,4 @@
-/** Settings → 3rd party: the SimBrief credentials, GSX, GSX Remote and BeyondATC cards. */
+/** Settings → SimBrief and Navigraph, GSX and ATC: the SimBrief credentials, GSX, GSX Remote and BeyondATC cards. */
 
 import { useId } from 'react'
 import { useTranslation } from 'react-i18next'

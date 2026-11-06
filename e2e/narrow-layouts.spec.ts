@@ -82,9 +82,8 @@ for (const [width, height] of [
       await expect(page.getByText('GSX Menu')).toBeInViewport()
       await expectNoHorizontalScroll(page)
 
-      // The connection badge is still there, just shorter on a phone.
-      // Whether the sim is running on this machine doesn't matter: connected or not, the badge is there.
-      await expect(page.getByText(width < 640 ? /^(dis)?connected$/ : /^Sim: (dis)?connected$/)).toBeVisible()
+      // The sim word and its lights are still in the window (whether the sim is running here doesn't matter).
+      await expect(page.locator('header').getByText('Sim', { exact: true })).toBeInViewport({ ratio: 1 })
     } finally {
       await cleanup()
       await beyondAtc.stop()

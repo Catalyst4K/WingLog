@@ -52,20 +52,19 @@ const PANEL = 'flex min-w-0 flex-col gap-4'
 interface SettingsPage {
   value: SettingsCategory
   label: string
-  /** A light for add-ons that can be on or off: green on, off when turned off. Absent for pages with nothing to be on. */
+  /** A light for add-ons that connect to something: green connected, amber turned on and waiting, off when turned off. Absent for other pages. */
   light?: LightState
 }
 
 /**
  * @param t The translation function.
- * @param lights Whether GSX Remote Control and BeyondATC are turned on.
+ * @param lights The lights for GSX Remote Control and BeyondATC.
  * @returns The pages down the side, in their three groups.
  */
 function settingsGroups(
   t: TFunction,
-  lights: { gsxRemote: boolean; beyondAtc: boolean }
+  lights: { gsxRemote: LightState; beyondAtc: LightState }
 ): { label: string; pages: SettingsPage[] }[] {
-  const onOff = (on: boolean): LightState => (on ? 'green' : 'off')
   return [
     {
       label: t('settingsView.groups.app'),
@@ -78,8 +77,8 @@ function settingsGroups(
       label: t('settingsView.groups.addons'),
       pages: [
         { value: 'accounts', label: t('settingsView.categories.accounts') },
-        { value: 'gsx', label: t('settingsView.categories.gsx'), light: onOff(lights.gsxRemote) },
-        { value: 'beyondAtc', label: t('settingsView.categories.beyondAtc'), light: onOff(lights.beyondAtc) },
+        { value: 'gsx', label: t('settingsView.categories.gsx'), light: lights.gsxRemote },
+        { value: 'beyondAtc', label: t('settingsView.categories.beyondAtc'), light: lights.beyondAtc },
         { value: 'online', label: t('settingsView.categories.online') },
         { value: 'navdata', label: t('settingsView.categories.navdata') }
       ]
@@ -92,6 +91,18 @@ function settingsGroups(
       ]
     }
   ]
+}
+
+/**
+ * The light on an add-on's page: what the connection is doing, not only whether the add-on is switched on.
+ *
+ * @param enabled Whether the add-on is turned on.
+ * @param state The add-on's connection.
+ * @returns Off when turned off; green when connected; amber while it is turned on but not connected (connecting, or its program is not running).
+ */
+function addonLight(enabled: boolean, state: 'connected' | 'connecting' | 'disconnected'): LightState {
+  if (!enabled) return 'off'
+  return state === 'connected' ? 'green' : 'amber'
 }
 
 /** The unit, language and theme settings App owns, with their change handlers. */
@@ -266,8 +277,8 @@ export function SettingsView(
           className="w-52 shrink-0 gap-3 self-stretch border-r border-border/40 pr-3 group-data-vertical/tabs:items-stretch"
         >
           {settingsGroups(t, {
-            gsxRemote: gsxRemote.settings.enabled,
-            beyondAtc: beyondAtc.settings.enabled
+            gsxRemote: addonLight(gsxRemote.settings.enabled, gsxRemote.status.state),
+            beyondAtc: addonLight(beyondAtc.settings.enabled, beyondAtc.status.state)
           }).map((group) => (
             <div key={group.label} role="presentation" className="flex flex-col gap-0.5">
               <span aria-hidden="true" className="px-1.5 pb-1 text-xs text-muted-foreground">

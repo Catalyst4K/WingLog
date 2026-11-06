@@ -1,4 +1,4 @@
-/** Settings → Data → Second screen: the live map on a phone or tablet (winglog-backend's docs/plans/lan-web-viewer.md). */
+/** Settings → Second screen: the live map on a phone or tablet (winglog-backend's docs/plans/lan-web-viewer.md). */
 
 import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'

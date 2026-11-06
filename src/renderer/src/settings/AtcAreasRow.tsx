@@ -1,5 +1,5 @@
 /**
- * Settings → 3rd party → Online network: whether the app keeps the ATC coverage areas up to date by itself, which releases are in use and
+ * Settings → Online network: whether the app keeps the ATC coverage areas up to date by itself, which releases are in use and
  * when GitHub was last asked, and Check now (winglog-backend docs/plans/atc-areas-auto-update.md).
  */
 import { useEffect, useState } from 'react'

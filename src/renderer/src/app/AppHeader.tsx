@@ -99,7 +99,7 @@ export function AppHeader(props: {
       </TabsList>
       <div className="flex shrink-0 items-center gap-2">
         <DevBuildBadge />
-        {/* Not below sm: the tabs and the connection badge only just fit at 360 px. */}
+        {/* Not below sm: the tabs and the sim light only just fit at 360 px. */}
         <OnlineBadge className="hidden sm:inline-flex" />
         <span
           title={connectionStatusLabel(simStatus, t)}
@@ -108,9 +108,10 @@ export function AppHeader(props: {
             simStatus.state === 'disconnected' ? 'text-destructive' : 'text-muted-foreground'
           )}
         >
+          {/* The word and the lights only; the state is in the lights' colour, the tooltip and, for a screen reader, here. */}
+          <span aria-hidden="true">{t('app.connection.label')}</span>
           <StatusLight state={connectionLight(simStatus)} count={3} />
-          <span className="sm:hidden">{connectionStateLabel(simStatus, t)}</span>
-          <span className="hidden sm:inline">
+          <span className="sr-only">
             {t('app.connection.badge', { state: connectionStateLabel(simStatus, t) })}
           </span>
         </span>

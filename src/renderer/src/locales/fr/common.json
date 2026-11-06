@@ -251,7 +251,8 @@
         "connecting": "connexion",
         "disconnected": "déconnecté"
       },
-      "badge": "SimConnect : {{state}}"
+      "badge": "SimConnect : {{state}}",
+      "label": "Sim"
     },
     "orphanedFlight": {
       "resumeTitle": "Reprendre le suivi ?",
@@ -274,7 +275,7 @@
       "update": "Mettre à jour",
       "dismiss": "Ignorer"
     },
-    "whatsNew": "Nouveau dans WingLog 1.5 : un second écran pour votre téléphone ou tablette, des mises à jour en un clic, une alerte d’espace disque faible et une ligne de roulage plus précise. Activez le second écran dans Paramètres → Données."
+    "whatsNew": "Nouveau dans WingLog 1.5 : un second écran pour votre téléphone ou tablette, des mises à jour en un clic, une alerte d’espace disque faible et une ligne de roulage plus précise. Activez le second écran dans Paramètres → Deuxième écran."
   },
   "fleetView": {
     "atStand": "poste {{stand}}",
@@ -282,7 +283,7 @@
     "newAircraft": "Nouvel appareil",
     "editAircraft": "Modifier {{registration}}",
     "aircraftNotFound": "Appareil introuvable.",
-    "noActiveAircraft": "Aucun appareil actif — ajoutez-en un, ou importez une flotte depuis Paramètres → Données.",
+    "noActiveAircraft": "Aucun appareil actif — ajoutez-en un, ou importez une flotte depuis Paramètres → Import et export.",
     "activeTab": "Actifs ({{count}})",
     "retiredTab": "Retirés ({{count}})",
     "retiredStatus": "Retiré{{date}}",
@@ -696,7 +697,9 @@
       "flown": "Trajectoire volée",
       "plan": "Plan",
       "taxiRoute": "Itinéraire de roulage",
-      "atcArea": "Zone ATC",
+      "atcCentre": "Centre de contrôle (teinté)",
+      "atcApproach": "Zone d’approche (contour seul)",
+      "atcAirport": "Aéroport avec ATC (D G T A I : clairance, sol, tour, approche, ATIS)",
       "fixEnroute": "Point",
       "fixProcedure": "Point SID ou STAR",
       "fixApproach": "Point d'approche"
@@ -782,7 +785,7 @@
       "flights": "Vols",
       "landings": "Atterrissages"
     },
-    "noCompletedFlights": "Aucun vol terminé pour l'instant — suivez-en un, ou importez un CSV de carnet depuis Paramètres → Données.",
+    "noCompletedFlights": "Aucun vol terminé pour l'instant — suivez-en un, ou importez un CSV de carnet depuis Paramètres → Import et export.",
     "flightNotFound": "Vol introuvable.",
     "onlineFilter": {
       "label": "Afficher",
@@ -797,7 +800,7 @@
   "gsxRemotePanel": {
     "atcStand": "Poste {{stand}} (ATC)",
     "loading": "Chargement…",
-    "notConfigured": "GSX Remote Control est désactivé. Activez-le et définissez un port dans Paramètres → Tiers.",
+    "notConfigured": "GSX Remote Control est désactivé. Activez-le et définissez un port dans Paramètres → GSX.",
     "connecting": "Connexion à GSX…",
     "disconnected": "Non connecté à GSX.",
     "menuHeaderClosed": "Menu GSX",
@@ -922,7 +925,7 @@
   },
   "beyondAtcPanel": {
     "loading": "Chargement…",
-    "notConfigured": "L'intégration BeyondATC est désactivée. Activez-la dans Paramètres → Tiers.",
+    "notConfigured": "L'intégration BeyondATC est désactivée. Activez-la dans Paramètres → ATC.",
     "connecting": "Connexion à BeyondATC…",
     "connected": "Connecté à BeyondATC.",
     "disconnected": "Non connecté à BeyondATC.",
@@ -1094,7 +1097,7 @@
     "welcome": {
       "title": "Bienvenue dans WingLog",
       "body": "WingLog gère votre flotte, prépare vos vols avec SimBrief, les suit en direct depuis Microsoft Flight Simulator et tient un carnet de vol avec analyse des atterrissages. D'abord, quelques choix rapides.",
-      "skipHint": "Chaque étape est facultative. Vous pourrez tout modifier plus tard dans les Paramètres, et rouvrir cette configuration depuis Paramètres → À propos."
+      "skipHint": "Chaque étape est facultative. Vous pourrez tout modifier plus tard dans les Paramètres, et rouvrir cette configuration depuis Paramètres → À propos et mises à jour."
     },
     "simbrief": {
       "title": "SimBrief",
@@ -1129,7 +1132,7 @@
     },
     "done": {
       "title": "Tout est prêt",
-      "body": "Tout cela se modifie dans les Paramètres. Pour revoir cette configuration, allez dans Paramètres → À propos → Relancer la configuration."
+      "body": "Tout cela se modifie dans les Paramètres. Pour revoir cette configuration, allez dans Paramètres → À propos et mises à jour → Relancer la configuration."
     }
   },
   "errorBoundary": {
