@@ -49,7 +49,9 @@ test('changes units, theme, SimBrief username, and GSX settings, all persisted',
     // the toggle flips state rather than assuming a fixed starting value. Scoped to this
     // card specifically — the separate GSX Remote Control card (plan/gsx-remote-control)
     // has its own, differently-purposed "Off"/"On" toggle with the same button text.
-    const gsxCard = page.locator('[data-slot="card"]').filter({ hasText: 'GSX ground services' })
+    const gsxCard = page
+      .locator('[data-slot="card"]')
+      .filter({ has: page.getByText('GSX ground services', { exact: true }) })
     const initiallyEnabled = (await page.evaluate(() => window.winglog.settingsGetGsx())).enabled
     const flipTo = initiallyEnabled ? 'Off' : 'On'
     await gsxCard.getByRole('button', { name: flipTo, exact: true }).click()

@@ -82,13 +82,10 @@ export function AppHeader(props: {
   const { t } = useTranslation()
   const { simStatus } = props
   return (
-    // Text-only tabs (v2): in a narrow window they scroll rather than turning into icons.
+    // Text-only tabs (v2): in a narrow window they wrap onto a second row rather than turning into icons or scrolling.
     // winglog-backend docs/plans/v2-design.md D9 recommends a "More" menu instead; not built yet.
     <header className="flex items-center justify-between gap-2 border-b border-border px-4 py-2 sm:gap-4 sm:px-6">
-      <TabsList
-        variant="line"
-        className="min-w-0 justify-start overflow-x-auto overflow-y-hidden [scrollbar-width:none]"
-      >
+      <TabsList variant="line" className="h-auto min-w-0 flex-wrap justify-start">
         {appTabs(t, props.gsxRemoteEnabled, props.beyondAtcEnabled).map(({ page: tabPage, label }) => (
           <TabsTrigger
             key={tabPage}

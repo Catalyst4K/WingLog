@@ -193,7 +193,9 @@ test.describe('GSX routines', () => {
       await phone.screenshot({ path: 'release/sim/gsx-routines/phone-running.png', animations: 'disabled' })
 
       // Cancel from the phone is seen on the PC window as well.
+      // With services under way Cancel first asks what to do with them (plan/gsx-routine-cancel).
       await progress.getByRole('button', { name: 'Cancel' }).click()
+      await progress.getByRole('button', { name: 'Leave them running' }).click()
       await expect(progress.getByRole('status')).toHaveText('Routine cancelled.')
       await page.getByRole('tab', { name: 'Ground services' }).click()
       await expect(page.getByTestId('gsx-routine-progress').getByRole('status')).toHaveText(
