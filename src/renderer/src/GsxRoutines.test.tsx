@@ -138,13 +138,96 @@ describe('GsxRoutines', () => {
       expect(within(panel).getByRole('button', { name: 'Cancel' })).toBeInTheDocument()
     })
 
-    it('cancels through the live command, and holds the other buttons while it runs', async () => {
-      const { api } = withWinglog({ progress: RUNNING })
+    it('holds the other buttons while it runs', async () => {
+      withWinglog({ progress: RUNNING })
       render(<GsxRoutines canEdit />)
       await screen.findByTestId('gsx-routine-progress')
       expect(screen.getByRole('button', { name: 'Arrival' })).toBeDisabled()
-      await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))
-      expect(api.gsxRoutineCancel).toHaveBeenCalledTimes(1)
+    })
+
+    describe('Cancel', () => {
+      const NOTHING_UNDER_WAY: GsxRoutineProgress = {
+        ...RUNNING,
+        services: [
+          { service: 'Catering', progress: 'waiting' },
+          { service: 'Refueling', progress: 'asking' }
+        ]
+      }
+
+      it('cancels at once, with no question, when no service is under way', async () => {
+        const { api } = withWinglog({ progress: NOTHING_UNDER_WAY })
+        render(<GsxRoutines canEdit />)
+        await screen.findByTestId('gsx-routine-progress')
+        await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+        expect(api.gsxRoutineCancel).toHaveBeenCalledTimes(1)
+        expect(api.gsxRoutineCancel.mock.calls[0][0]).toBeUndefined()
+        expect(screen.queryByRole('group', { name: 'Cancel the routine' })).toBeNull()
+      })
+
+      it('asks what to do with the services under way, naming them', async () => {
+        const { api } = withWinglog({ progress: RUNNING })
+        render(<GsxRoutines canEdit />)
+        await screen.findByTestId('gsx-routine-progress')
+        await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+        const prompt = screen.getByRole('group', { name: 'Cancel the routine' })
+        expect(
+          within(prompt).getByText('Catering still running. What should happen to them?')
+        ).toBeInTheDocument()
+        expect(api.gsxRoutineCancel).not.toHaveBeenCalled()
+        expect(screen.queryByRole('button', { name: 'Cancel' })).toBeNull()
+      })
+
+      it.each([
+        ['Abort them', 'abort'],
+        ['Complete them now', 'complete'],
+        ['Leave them running', 'leave']
+      ])('sends %s as %s through the live command', async (label, choice) => {
+        const { api } = withWinglog({ progress: RUNNING })
+        render(<GsxRoutines canEdit />)
+        await screen.findByTestId('gsx-routine-progress')
+        await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+        await userEvent.click(screen.getByRole('button', { name: label }))
+        expect(api.gsxRoutineCancel).toHaveBeenCalledTimes(1)
+        expect(api.gsxRoutineCancel).toHaveBeenCalledWith(choice)
+      })
+
+      it('goes back to the usual Cancel button, sending nothing, on Keep the routine going', async () => {
+        const { api } = withWinglog({ progress: RUNNING })
+        render(<GsxRoutines canEdit />)
+        await screen.findByTestId('gsx-routine-progress')
+        await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+        await userEvent.click(screen.getByRole('button', { name: 'Keep the routine going' }))
+        expect(api.gsxRoutineCancel).not.toHaveBeenCalled()
+        expect(screen.getByRole('button', { name: 'Cancel' })).toBeInTheDocument()
+        expect(screen.queryByRole('group', { name: 'Cancel the routine' })).toBeNull()
+      })
+
+      it('says what it is doing while it aborts or completes, with no Cancel to press again', async () => {
+        const { push } = withWinglog({ progress: RUNNING })
+        render(<GsxRoutines canEdit />)
+        await screen.findByTestId('gsx-routine-progress')
+        push({ ...RUNNING, note: { code: 'ending', choice: 'abort', services: ['Catering'] } })
+        expect(await screen.findByText('Aborting Catering in GSX…')).toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: 'Cancel' })).toBeNull()
+        push({ ...RUNNING, note: { code: 'ending', choice: 'complete', services: ['Catering'] } })
+        expect(await screen.findByText('Completing Catering in GSX…')).toBeInTheDocument()
+      })
+
+      it('says which services were left as they are when GSX’s menu could not be reached', async () => {
+        withWinglog({
+          progress: {
+            ...RUNNING,
+            state: 'stopped',
+            note: { code: 'ending-failed', services: ['Catering', 'Refueling'] }
+          }
+        })
+        render(<GsxRoutines canEdit />)
+        expect(
+          await screen.findByText(
+            "Routine cancelled. GSX's menu didn't let WingLog reach: Catering, Refueling. Left as it is."
+          )
+        ).toBeInTheDocument()
+      })
     })
 
     it('follows the topic as the routine goes on, and goes when it is cleared', async () => {

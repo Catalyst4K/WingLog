@@ -9,9 +9,14 @@
  * the aircraft moves or pushback is requested.
  */
 import type { GsxRoutineService } from '@shared/gsx-routines'
-import type { GsxRoutineNote, GsxRoutineStopReason } from '@shared/gsx-routine-progress'
+import type {
+  GsxRoutineCancelChoice,
+  GsxRoutineNote,
+  GsxRoutineStopReason
+} from '@shared/gsx-routine-progress'
 import { decideFollowUp, isAdditionalServicesMenu, isMainMenu, isRefuelingLevelMenu } from './routine-menu'
 import { stepAttempt } from './routine-attempt'
+import { startWindDown, stepWindDown, windDownQueue } from './routine-winddown'
 import {
   adoptService,
   endRun,
@@ -278,6 +283,10 @@ export function stepRoutine(previous: RoutineRun, input: RunnerInput): RunnerSte
     return { run, actions }
   }
   trackServices(run, input)
+  if (run.windDown) {
+    stepWindDown(run, input, actions)
+    return { run, actions }
+  }
   run.note = restingNote(run, input)
   advance(run, input, actions)
   if (!run.outcome && isFinished(run)) endRun(run, { state: 'finished' }, input.menu, actions)
@@ -292,16 +301,30 @@ export function stepRoutine(previous: RoutineRun, input: RunnerInput): RunnerSte
 }
 
 /**
- * The pilot pressed Cancel.
+ * The pilot pressed Cancel. With abort or complete, and services of the routine's under way, the routine stays `ending` while they
+ * are aborted or completed in GSX's menu (routine-winddown.ts); otherwise it stops at once.
  *
  * @param previous The run so far; not changed.
- * @param menu GSX's menu now, so one the routine opened can be closed.
- * @returns The run, stopped, and the menu actions to send.
+ * @param input GSX, the aircraft, the guard and the clock now: a menu the routine opened can be closed, and the services under way found.
+ * @param choice What to do with the services under way; leaving them running by default.
+ * @returns The run, stopped or ending, and the menu actions to send.
  */
-export function cancelRoutine(previous: RoutineRun, menu: RunnerInput['menu']): RunnerStep {
+export function cancelRoutine(
+  previous: RoutineRun,
+  input: RunnerInput,
+  choice: GsxRoutineCancelChoice = 'leave'
+): RunnerStep {
   if (previous.outcome) return { run: previous, actions: [] }
   const run = structuredClone(previous)
   const actions: RunnerAction[] = []
-  endRun(run, { state: 'stopped', reason: 'cancelled' }, menu, actions)
+  if (choice !== 'leave' && !run.windDown) {
+    const queue = windDownQueue(run, input, choice)
+    if (queue.length > 0) {
+      startWindDown(run, input, choice, queue)
+      stepWindDown(run, input, actions)
+      return { run, actions }
+    }
+  }
+  endRun(run, { state: 'stopped', reason: 'cancelled' }, input.menu, actions)
   return { run, actions }
 }

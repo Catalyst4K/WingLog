@@ -6,6 +6,7 @@ import {
   type GsxRoutine,
   type GsxRoutineService
 } from '@shared/gsx-routines'
+import type { GsxRoutineCancelChoice } from '@shared/gsx-routine-progress'
 import { EMPTY_MENU } from './GsxRemoteService'
 import { cancelRoutine, stepRoutine } from './routine-runner'
 import {
@@ -104,21 +105,30 @@ class Session {
     this.run = startRoutine(routine, 0)
   }
 
-  /** Advances the clock, runs one step, and returns the actions it asked for. */
-  tick(afterMs = 250): RunnerAction[] {
-    this.nowMs += afterMs
-    const services = SERVICE_IDS.filter((id) => !this.absent.has(id)).map((id) =>
-      service(id, this.states[id])
-    )
-    const step = stepRoutine(this.run, {
+  /** What the runner is given now. */
+  input(): RunnerInput {
+    return {
       nowMs: this.nowMs,
       gsxConnected: this.gsxConnected,
       aircraftMoving: this.aircraftMoving,
       menu: this.menu,
-      services,
+      services: SERVICE_IDS.filter((id) => !this.absent.has(id)).map((id) => service(id, this.states[id])),
       guard: this.guard,
       plan: this.plan
-    })
+    }
+  }
+
+  /** Advances the clock, runs one step, and returns the actions it asked for. */
+  tick(afterMs = 250): RunnerAction[] {
+    this.nowMs += afterMs
+    const step = stepRoutine(this.run, this.input())
+    this.run = step.run
+    return step.actions
+  }
+
+  /** The pilot presses Cancel, with a choice for the services under way. */
+  cancel(choice?: GsxRoutineCancelChoice): RunnerAction[] {
+    const step = cancelRoutine(this.run, this.input(), choice)
     this.run = step.run
     return step.actions
   }
@@ -617,16 +627,16 @@ describe('stopping', () => {
     const session = new Session(custom(['Catering']))
     session.tick()
     session.menu = mainMenu()
-    const step = cancelRoutine(session.run, session.menu)
-    expect(step.run.outcome).toEqual({ state: 'stopped', reason: 'cancelled' })
-    expect(step.actions).toEqual([{ kind: 'closeMenu' }])
+    const actions = session.cancel()
+    expect(session.run.outcome).toEqual({ state: 'stopped', reason: 'cancelled' })
+    expect(actions).toEqual([{ kind: 'closeMenu' }])
   })
 
   it('does not close a menu it did not open when cancelled', () => {
     const session = new Session(custom(['Catering']))
     request(session, 'Catering')
     session.menu = tugMenu()
-    expect(cancelRoutine(session.run, session.menu).actions).toEqual([])
+    expect(session.cancel()).toEqual([])
   })
 
   it('stops when GSX disconnects', () => {
@@ -656,7 +666,9 @@ describe('stopping', () => {
     session.tick()
     session.gsxConnected = true
     expect(session.tick()).toEqual([])
-    expect(cancelRoutine(session.run, session.menu).run).toBe(session.run)
+    const before = session.run
+    session.cancel()
+    expect(session.run).toBe(before)
   })
 
   it('does not change the run it was given', () => {
@@ -693,5 +705,199 @@ describe('the status line', () => {
     session.states.Catering = 'completed'
     session.tick()
     expect(session.progress.stage).toBe(2)
+  })
+})
+
+/** GSX's menu for a running service's own entry (captures/flight-258, 2026-10-29): it does not say which service it is for. */
+const serviceInProgressMenu = (): GsxRemoteMenuState =>
+  menu('Service in progress', ['Complete now', 'Abort service', 'Back'])
+/** The main menu while Refueling runs: GSX relabels the entry the routine picked (index 2). */
+const mainMenuRefuelling = (): GsxRemoteMenuState =>
+  menu(
+    'Activate Services at EGLL/London Heathrow',
+    MAIN_ENTRIES.map((entry, i) => (i === 2 ? 'Fuel Truck is in position' : entry))
+  )
+/** The Additional Services submenu while GPU runs: the entry the routine picked (index 0) is relabelled. */
+const additionalMenuGpu = (): GsxRemoteMenuState =>
+  menu(
+    'Additional Services',
+    ADDITIONAL_ENTRIES.map((entry, i) => (i === 0 ? 'GPU connected' : entry))
+  )
+
+/** A routine that has asked for Refueling, which GSX is now performing. */
+function refuelling(extra: GsxRoutineService[] = []): Session {
+  const session = new Session(custom(['Refueling', ...extra]))
+  request(session, 'Refueling')
+  session.states.Refueling = 'performing'
+  session.tick()
+  return session
+}
+
+describe('cancelling with a choice for the services under way (docs/plans/gsx-routine-cancel.md)', () => {
+  it('aborts a running service through its own entry and the Service in progress menu, then ends cancelled', () => {
+    const session = refuelling()
+    expect(session.cancel('abort')).toEqual([{ kind: 'openMenu' }])
+    expect(session.run.outcome).toBeNull()
+    expect(session.progress.note).toEqual({ code: 'ending', choice: 'abort', services: ['Refueling'] })
+    session.menu = mainMenuRefuelling()
+    expect(session.tick()).toEqual([
+      {
+        kind: 'pick',
+        index: 2,
+        title: 'Activate Services at EGLL/London Heathrow',
+        label: 'Fuel Truck is in position'
+      }
+    ])
+    session.menu = serviceInProgressMenu()
+    expect(session.tick()).toEqual([
+      { kind: 'pick', index: 1, title: 'Service in progress', label: 'Abort service' }
+    ])
+    session.menu = EMPTY_MENU
+    session.states.Refueling = 'available'
+    session.tick()
+    expect(session.tick()).toEqual([])
+    expect(session.run.outcome).toEqual({ state: 'stopped', reason: 'cancelled' })
+    expect(session.progress.note).toEqual({ code: 'stopped', reason: 'cancelled' })
+  })
+
+  it('completes a running service with Complete now, done once GSX shows it completing', () => {
+    const session = refuelling()
+    session.cancel('complete')
+    session.menu = mainMenuRefuelling()
+    session.tick()
+    session.menu = serviceInProgressMenu()
+    expect(session.tick()).toEqual([
+      { kind: 'pick', index: 0, title: 'Service in progress', label: 'Complete now' }
+    ])
+    session.menu = EMPTY_MENU
+    session.states.Refueling = 'completing'
+    session.tick()
+    session.tick()
+    expect(session.run.outcome).toEqual({ state: 'stopped', reason: 'cancelled' })
+  })
+
+  it('goes one level down for a service under Additional Services', () => {
+    const session = new Session(custom(['GPU']))
+    session.tick()
+    session.menu = mainMenu()
+    session.tick()
+    session.menu = additionalMenu()
+    session.tick()
+    session.menu = EMPTY_MENU
+    session.states.GPU = 'performing'
+    session.tick()
+    session.cancel('abort')
+    session.menu = mainMenu()
+    expect(session.tick()).toEqual([
+      {
+        kind: 'pick',
+        index: 7,
+        title: 'Activate Services at EGLL/London Heathrow',
+        label: 'Additional Services ▶'
+      }
+    ])
+    session.menu = additionalMenuGpu()
+    expect(session.tick()).toEqual([
+      { kind: 'pick', index: 0, title: 'Additional Services', label: 'GPU connected' }
+    ])
+    session.menu = serviceInProgressMenu()
+    expect(session.tick()).toEqual([
+      { kind: 'pick', index: 1, title: 'Service in progress', label: 'Abort service' }
+    ])
+  })
+
+  it("does the services one at a time, in the routine's order", () => {
+    const session = new Session(custom(['Catering', 'Refueling']))
+    request(session, 'Catering')
+    session.states.Catering = 'performing'
+    request(session, 'Refueling')
+    session.states.Refueling = 'performing'
+    session.tick()
+    session.cancel('complete')
+    expect(session.progress.note).toEqual({
+      code: 'ending',
+      choice: 'complete',
+      services: ['Catering', 'Refueling']
+    })
+    session.menu = menu(
+      'Activate Services at EGLL/London Heathrow',
+      MAIN_ENTRIES.map((entry, i) => (i === 1 ? 'Catering truck is loading' : entry))
+    )
+    expect(session.tick()).toEqual([expect.objectContaining({ kind: 'pick', index: 1 })])
+    session.menu = serviceInProgressMenu()
+    session.tick()
+    session.menu = EMPTY_MENU
+    session.states.Catering = 'completing'
+    session.tick()
+    expect(session.progress.note).toEqual({ code: 'ending', choice: 'complete', services: ['Refueling'] })
+  })
+
+  it('leaves them running, and stops at once, when asked to (or when the choice is missing)', () => {
+    for (const choice of ['leave', undefined] as const) {
+      const session = refuelling()
+      session.cancel(choice)
+      expect(session.run.outcome).toEqual({ state: 'stopped', reason: 'cancelled' })
+    }
+  })
+
+  it('stops at once when no service of the routine is under way', () => {
+    const session = new Session(custom(['Catering']))
+    session.cancel('abort')
+    expect(session.run.outcome).toEqual({ state: 'stopped', reason: 'cancelled' })
+  })
+
+  it('leaves alone a service GSX was already running that the routine did not ask for', () => {
+    const session = new Session(custom(['Refueling']))
+    session.states.Refueling = 'performing'
+    session.tick()
+    session.cancel('abort')
+    expect(session.run.outcome).toEqual({ state: 'stopped', reason: 'cancelled' })
+  })
+
+  it('never picks an entry that is still a Request entry, and says the service was left as it is', () => {
+    const session = refuelling()
+    session.cancel('abort')
+    session.menu = mainMenu()
+    expect(session.tick()).toEqual([{ kind: 'closeMenu' }])
+    session.menu = EMPTY_MENU
+    session.tick()
+    expect(session.run.outcome).toEqual({ state: 'stopped', reason: 'cancelled' })
+    expect(session.progress.note).toEqual({ code: 'ending-failed', services: ['Refueling'] })
+  })
+
+  it('picks Abort service or Complete now only on a menu titled Service in progress', () => {
+    const session = refuelling()
+    session.cancel('abort')
+    session.menu = mainMenuRefuelling()
+    session.tick()
+    session.menu = menu('Select refueling level', ['Abort service', 'Complete now'])
+    expect(session.tick()).toEqual([])
+  })
+
+  it('gives a service up after ten seconds without its menu, closes what it opened, and ends cancelled', () => {
+    const session = refuelling()
+    session.cancel('abort')
+    session.menu = mainMenuRefuelling()
+    session.tick()
+    session.menu = mainMenuRefuelling()
+    expect(session.tick(10_000)).toEqual([{ kind: 'closeMenu' }])
+    session.menu = EMPTY_MENU
+    session.tick()
+    expect(session.run.outcome).toEqual({ state: 'stopped', reason: 'cancelled' })
+    expect(session.progress.note).toEqual({ code: 'ending-failed', services: ['Refueling'] })
+  })
+
+  it('does not ask twice while it waits for the menu to open', () => {
+    const session = refuelling()
+    session.cancel('abort')
+    expect(session.quiet(10)).toEqual([])
+  })
+
+  it('stops for the usual reasons even while winding down', () => {
+    const session = refuelling()
+    session.cancel('abort')
+    session.gsxConnected = false
+    session.tick()
+    expect(session.run.outcome).toEqual({ state: 'stopped', reason: 'gsx-disconnected' })
   })
 })

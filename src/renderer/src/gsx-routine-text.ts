@@ -20,7 +20,7 @@ export function serviceLabel(t: TFunction, service: GsxRoutineService): string {
  * @param services Some routine services.
  * @returns Their names, joined as a list.
  */
-function serviceList(t: TFunction, services: readonly GsxRoutineService[]): string {
+export function serviceList(t: TFunction, services: readonly GsxRoutineService[]): string {
   return services.map((service) => serviceLabel(t, service)).join(', ')
 }
 
@@ -121,6 +121,25 @@ export function describeNote(t: TFunction, note: GsxRoutineNote): string {
       return t(`gsxRoutines.note.skipped.${SKIP_KEY[note.reason]}`, {
         service: serviceLabel(t, note.service)
       })
+    default:
+      return describeEndNote(t, note)
+  }
+}
+
+/**
+ * @param t The translator.
+ * @param note The runner's status once the routine is ending or over.
+ * @returns The status line in the pilot's language.
+ */
+function describeEndNote(
+  t: TFunction,
+  note: Extract<GsxRoutineNote, { code: 'ending' | 'ending-failed' | 'finished' | 'stopped' }>
+): string {
+  switch (note.code) {
+    case 'ending':
+      return t(`gsxRoutines.note.ending.${note.choice}`, { services: serviceList(t, note.services) })
+    case 'ending-failed':
+      return t('gsxRoutines.note.endingFailed', { services: serviceList(t, note.services) })
     case 'finished':
       return t('gsxRoutines.note.finished')
     case 'stopped':

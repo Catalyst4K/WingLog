@@ -18,6 +18,13 @@ export type GsxRoutineStopReason =
   | 'gsx-has-no-plan'
   | 'no-planned-weight'
 
+/** What Cancel does with the services the routine has under way (winglog-backend's docs/plans/gsx-routine-cancel.md): GSX's own `Abort
+ *  service` or `Complete now` on each, or nothing. */
+export type GsxRoutineCancelChoice = 'abort' | 'complete' | 'leave'
+
+/** Every choice, for checking one that arrived from outside. */
+export const GSX_ROUTINE_CANCEL_CHOICES: readonly GsxRoutineCancelChoice[] = ['abort', 'complete', 'leave']
+
 /** Why a service was left out. */
 export type GsxRoutineSkipReason = 'not-offered' | 'dropped' | 'bypassed'
 
@@ -34,6 +41,10 @@ export type GsxRoutineNote =
   | { code: 'following'; services: GsxRoutineService[] }
   | { code: 'stalled'; services: GsxRoutineService[] }
   | { code: 'skipped'; service: GsxRoutineService; reason: GsxRoutineSkipReason }
+  /** Cancel was pressed with a choice for the services under way: they are being aborted or completed in GSX's menu, one at a time. */
+  | { code: 'ending'; choice: 'abort' | 'complete'; services: GsxRoutineService[] }
+  /** The routine is cancelled, but these could not be reached in GSX's menu in time, so they were left as they are. */
+  | { code: 'ending-failed'; services: GsxRoutineService[] }
   | { code: 'finished' }
   | { code: 'stopped'; reason: GsxRoutineStopReason }
 

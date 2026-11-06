@@ -9,6 +9,10 @@ import type { GsxRemoteMenuState } from '@shared/ipc'
 
 const MAIN_MENU_TITLE_PREFIX = 'Activate Services at'
 const ADDITIONAL_SERVICES_TITLE_PREFIX = 'Additional Services'
+const SERVICE_IN_PROGRESS_TITLE = 'Service in progress'
+/** The two entries of GSX's `Service in progress` menu (it also has `Back`), picked by their exact labels. */
+export const COMPLETE_NOW_LABEL = 'Complete now'
+export const ABORT_SERVICE_LABEL = 'Abort service'
 const GSX_CHOICE_MARK = '[GSX choice]'
 const REFUELING_LEVEL_TITLE_PREFIX = 'Select refueling level'
 const SIMBRIEF_BLOCK_FUEL_MARK = 'BLOCK FUEL from Simbrief'
@@ -30,6 +34,15 @@ export function isMainMenu(menu: GsxRemoteMenuState): boolean {
  */
 export function isAdditionalServicesMenu(menu: GsxRemoteMenuState): boolean {
   return menu.menuShown && menu.title.startsWith(ADDITIONAL_SERVICES_TITLE_PREFIX)
+}
+
+/**
+ * @param menu GSX's menu.
+ * @returns Whether `Service in progress` is open: what GSX shows when a running service's own entry is picked. It does not say
+ *   which service it is for.
+ */
+export function isServiceInProgressMenu(menu: GsxRemoteMenuState): boolean {
+  return menu.menuShown && menu.title === SERVICE_IN_PROGRESS_TITLE
 }
 
 /**

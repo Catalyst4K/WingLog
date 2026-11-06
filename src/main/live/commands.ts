@@ -20,7 +20,8 @@ type CommandFn = (...args: unknown[]) => void
 /** Starting and cancelling a GSX routine, as the commands see it. The id arrives unchecked. */
 export interface RoutineControl {
   start(id: unknown): void
-  cancel(): void
+  /** @param choice What to do with the services under way; unchecked, and anything unknown leaves them running. */
+  cancel(choice?: unknown): void
 }
 
 /** A table of commands, keyed by name. */
@@ -92,7 +93,7 @@ export function gsxCommands(
     'gsx.cancelPrompt': (gen) => service()?.cancelPrompt(gen),
     'gsx.runCommand': (id) => service()?.runCommand(id),
     'gsx.startRoutine': (id) => routines()?.start(id),
-    'gsx.cancelRoutine': () => routines()?.cancel()
+    'gsx.cancelRoutine': (choice) => routines()?.cancel(choice)
   }
 }
 
