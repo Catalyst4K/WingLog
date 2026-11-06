@@ -138,7 +138,7 @@ test('fleet, logbook and settings on a seeded profile', async () => {
     await shot(page, 'logbook-detail')
 
     await page.getByRole('tab', { name: 'Settings' }).click()
-    await expect(page.getByText('Units')).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Units' })).toBeVisible()
     await shot(page, 'settings-ui')
     for (const [tab, name] of [
       ['GSX', 'settings-gsx'],

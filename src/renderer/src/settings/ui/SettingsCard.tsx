@@ -27,12 +27,9 @@ export function SettingsCard(props: {
   footer?: ReactNode
 }): React.JSX.Element {
   return (
-    <section
-      data-slot="card"
-      className="flex w-full max-w-2xl flex-col gap-3 border-t border-border pt-6 first:border-t-0 first:pt-0"
-    >
+    <section data-slot="card" className="mt-[26px] flex w-full max-w-[760px] flex-col gap-1 first:mt-0">
       <header className="flex flex-col gap-1">
-        <h2 className="flex items-center justify-between gap-2 text-base font-medium text-foreground">
+        <h2 className="m-0 flex items-center justify-between gap-2 text-base font-semibold text-foreground">
           <span>{props.title}</span>
           {props.status}
         </h2>
@@ -41,12 +38,12 @@ export function SettingsCard(props: {
       {props.children !== undefined && (
         <div
           data-slot="card-content"
-          className="flex flex-col divide-y divide-border/60 [&>*]:py-3 [&>*:first-child]:pt-0 [&>*:last-child]:pb-0"
+          className="flex flex-col [&>*]:min-h-14 [&>*]:border-t [&>*]:border-border [&>*]:py-2"
         >
           {props.children}
         </div>
       )}
-      {props.footer && <div className="flex justify-end gap-2">{props.footer}</div>}
+      {props.footer && <div className="flex justify-end gap-2 pt-2">{props.footer}</div>}
     </section>
   )
 }
@@ -92,7 +89,7 @@ export function SettingRow(props: {
   labelRole?: 'status'
   children: ReactNode
 }): React.JSX.Element {
-  const labelClass = 'text-sm text-foreground'
+  const labelClass = 'text-[15px] font-normal text-foreground'
   return (
     <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
       <div className="flex min-w-0 flex-1 basis-48 flex-col gap-0.5">
@@ -108,7 +105,7 @@ export function SettingRow(props: {
           )}
           {props.labelAddOn}
         </div>
-        {props.note && <p className="text-xs text-muted-foreground">{props.note}</p>}
+        {props.note && <p className="m-0 text-[13px] leading-snug text-muted-foreground">{props.note}</p>}
       </div>
       <div
         className={cn(
@@ -119,6 +116,55 @@ export function SettingRow(props: {
         {props.children}
       </div>
     </div>
+  )
+}
+
+/**
+ * A group of choices joined in one bordered box (the canvas's r3-settings): the chosen one filled with the text colour.
+ *
+ * @param props The accessible name and the buttons.
+ * @returns The element.
+ */
+export function SegmentedGroup(props: { label: string; children: ReactNode }): React.JSX.Element {
+  return (
+    <div
+      role="group"
+      aria-label={props.label}
+      className="inline-flex overflow-hidden rounded-md border border-input"
+    >
+      {props.children}
+    </div>
+  )
+}
+
+/**
+ * One choice of a SegmentedGroup.
+ *
+ * @param props Whether it is the chosen one, whether it is disabled, the click handler and its text.
+ * @returns The element.
+ */
+export function SegmentButton(props: {
+  pressed: boolean
+  disabled?: boolean
+  onClick: () => void
+  children: ReactNode
+}): React.JSX.Element {
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      aria-pressed={props.pressed}
+      disabled={props.disabled}
+      onClick={props.onClick}
+      className={cn(
+        'h-10 min-w-16 rounded-none px-3 text-sm font-normal',
+        props.pressed
+          ? 'bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground'
+          : 'text-muted-foreground'
+      )}
+    >
+      {props.children}
+    </Button>
   )
 }
 
@@ -137,22 +183,18 @@ export function OnOffControl(props: {
   onChange: (enabled: boolean) => void
 }): React.JSX.Element {
   return (
-    <div className="flex gap-1.5" role="group" aria-label={props.label}>
+    <SegmentedGroup label={props.label}>
       {[true, false].map((value) => (
-        <Button
+        <SegmentButton
           key={String(value)}
-          type="button"
-          size="sm"
-          variant={props.enabled === value ? 'default' : 'outline'}
-          aria-pressed={props.enabled === value}
+          pressed={props.enabled === value}
           disabled={props.disabled}
-          className="min-w-[4.5rem]"
           onClick={() => props.onChange(value)}
         >
           {value ? props.onText : props.offText}
-        </Button>
+        </SegmentButton>
       ))}
-    </div>
+    </SegmentedGroup>
   )
 }
 

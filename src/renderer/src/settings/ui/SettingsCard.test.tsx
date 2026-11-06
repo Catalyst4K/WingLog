@@ -18,7 +18,7 @@ describe('SettingsCard', () => {
       </SettingsCard>
     )
     const card = screen.getByText('GSX Remote Control').closest('[data-slot="card"]') as HTMLElement
-    expect(card).toHaveClass('w-full', 'max-w-2xl')
+    expect(card).toHaveClass('w-full', 'max-w-[760px]')
     const header = within(card)
     expect(header.getByText('Connected')).toBeInTheDocument()
     expect(header.getByText('Live ground-service control.')).toBeInTheDocument()
@@ -124,7 +124,8 @@ describe('a section in v2', () => {
       .getByRole('heading', { name: 'Units' })
       .closest('[data-slot="card"]') as HTMLElement
     expect(section.tagName).toBe('SECTION')
-    expect(section).toHaveClass('border-t')
+    // The rows carry the hairlines (one above each), and the section itself is no box.
+    expect(section.querySelector('[data-slot="card-content"]')).toHaveClass('[&>*]:border-t')
     expect(section).not.toHaveClass('border')
     expect(section).not.toHaveClass('bg-card')
   })

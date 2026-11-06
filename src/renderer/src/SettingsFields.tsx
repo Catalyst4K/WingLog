@@ -19,10 +19,10 @@ import type {
 import { APP_LANGUAGE_OPTIONS } from '@shared/app-language'
 import { MAP_LANGUAGES } from './map-labels'
 import { trackingLabels } from './tracking-labels'
-import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { runAsync } from './report-error'
-import { SettingRow } from './settings/ui/SettingsCard'
+import { SegmentButton, SegmentedGroup, SettingRow } from './settings/ui/SettingsCard'
 
 /**
  * One row of option buttons, laid out as every other Settings row is (SettingRow): the label (with an optional visible note, or an
@@ -47,41 +47,82 @@ export function SegmentedRow<T extends string>(props: {
       label={props.label}
       note={props.note}
       stacked={props.options.length > 3}
-      labelAddOn={
-        props.hint && (
-          <Popover>
-            <PopoverTrigger asChild>
-              <button
-                type="button"
-                className="cursor-pointer text-muted-foreground/60 hover:text-foreground"
-                aria-label={props.hintAriaLabel}
-              >
-                <Info className="size-3.5" />
-              </button>
-            </PopoverTrigger>
-            <PopoverContent>{props.hint}</PopoverContent>
-          </Popover>
-        )
-      }
+      labelAddOn={props.hint && <HintPopover hint={props.hint} ariaLabel={props.hintAriaLabel} />}
     >
       {/* Grouped and labelled so two rows with overlapping option labels (App language and
        *  Map language both offer "Deutsch", "Español", etc.) can still be queried
        *  unambiguously, in tests and by assistive tech alike. */}
-      <div className="flex flex-wrap gap-1.5" role="group" aria-label={props.label}>
+      <SegmentedGroup label={props.label}>
         {props.options.map((opt) => (
-          <Button
+          <SegmentButton
             key={opt.value}
-            type="button"
-            size="sm"
-            variant={props.value === opt.value ? 'default' : 'outline'}
-            aria-pressed={props.value === opt.value}
-            className="min-w-[4.5rem]"
+            pressed={props.value === opt.value}
             onClick={() => props.onChange(opt.value)}
           >
             {opt.label}
-          </Button>
+          </SegmentButton>
         ))}
-      </div>
+      </SegmentedGroup>
+    </SettingRow>
+  )
+}
+
+/**
+ * The (i) beside a label: a caveat in a popover.
+ *
+ * @param props The caveat and the button's accessible name.
+ * @returns The element.
+ */
+function HintPopover(props: { hint: string; ariaLabel?: string }): React.JSX.Element {
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="cursor-pointer text-muted-foreground/60 hover:text-foreground"
+          aria-label={props.ariaLabel}
+        >
+          <Info className="size-3.5" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent>{props.hint}</PopoverContent>
+    </Popover>
+  )
+}
+
+/**
+ * A setting with many choices (the languages), as the canvas draws it: the label and its note on the left, a dropdown on the right.
+ *
+ * @param props The label, the choices, the chosen one, the change handler, and an optional note or hint.
+ * @returns The element.
+ */
+export function SelectRow<T extends string>(props: {
+  label: string
+  value: T
+  options: readonly { value: T; label: string }[]
+  onChange: (value: T) => void
+  note?: string
+  hint?: string
+  hintAriaLabel?: string
+}): React.JSX.Element {
+  return (
+    <SettingRow
+      label={props.label}
+      note={props.note}
+      labelAddOn={props.hint && <HintPopover hint={props.hint} ariaLabel={props.hintAriaLabel} />}
+    >
+      <Select value={props.value} onValueChange={(value) => props.onChange(value as T)}>
+        <SelectTrigger aria-label={props.label} className="h-10 min-w-52 justify-between text-sm">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {props.options.map((opt) => (
+            <SelectItem key={opt.value} value={opt.value}>
+              {opt.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
     </SettingRow>
   )
 }
@@ -108,6 +149,21 @@ export interface UnitsFieldsProps {
  * @returns The element.
  */
 export function UnitsFields(props: UnitsFieldsProps): React.JSX.Element {
+  return (
+    <>
+      <UnitRows {...props} />
+      <LanguageRows {...props} />
+    </>
+  )
+}
+
+/**
+ * The unit rows: weights, OFP altitudes, wind, landing distances.
+ *
+ * @param props Each unit setting and its change handler.
+ * @returns The element.
+ */
+export function UnitRows(props: UnitsFieldsProps): React.JSX.Element {
   const { t } = useTranslation()
   return (
     <>
@@ -136,22 +192,6 @@ export function UnitsFields(props: UnitsFieldsProps): React.JSX.Element {
         note={t('settingsView.units.hybridHint')}
       />
       <SegmentedRow
-        label={t('settingsView.units.appLanguage')}
-        value={props.appLanguage}
-        options={APP_LANGUAGE_OPTIONS}
-        onChange={props.onAppLanguageChange}
-        hint={t('settingsView.units.appLanguageHint')}
-        hintAriaLabel={t('settingsView.units.moreInfoFor', { label: t('settingsView.units.appLanguage') })}
-      />
-      <SegmentedRow
-        label={t('settingsView.units.mapLanguage')}
-        value={props.mapLanguage}
-        options={MAP_LANGUAGES}
-        onChange={props.onMapLanguageChange}
-        hint={t('settingsView.units.mapLanguageHint')}
-        hintAriaLabel={t('settingsView.units.moreInfoFor', { label: t('settingsView.units.mapLanguage') })}
-      />
-      <SegmentedRow
         label={t('settingsView.units.metarWindSpeed')}
         value={props.windSpeedUnit}
         options={[
@@ -174,6 +214,38 @@ export function UnitsFields(props: UnitsFieldsProps): React.JSX.Element {
         hintAriaLabel={t('settingsView.units.moreInfoFor', {
           label: t('settingsView.units.landingDistances')
         })}
+      />
+    </>
+  )
+}
+
+/**
+ * The language rows: the app's and the map's.
+ *
+ * @param props The two languages and their change handlers.
+ * @returns The element.
+ */
+export function LanguageRows(
+  props: Pick<UnitsFieldsProps, 'appLanguage' | 'onAppLanguageChange' | 'mapLanguage' | 'onMapLanguageChange'>
+): React.JSX.Element {
+  const { t } = useTranslation()
+  return (
+    <>
+      <SelectRow
+        label={t('settingsView.units.appLanguage')}
+        value={props.appLanguage}
+        options={APP_LANGUAGE_OPTIONS}
+        onChange={props.onAppLanguageChange}
+        hint={t('settingsView.units.appLanguageHint')}
+        hintAriaLabel={t('settingsView.units.moreInfoFor', { label: t('settingsView.units.appLanguage') })}
+      />
+      <SelectRow
+        label={t('settingsView.units.mapLanguage')}
+        value={props.mapLanguage}
+        options={MAP_LANGUAGES}
+        onChange={props.onMapLanguageChange}
+        hint={t('settingsView.units.mapLanguageHint')}
+        hintAriaLabel={t('settingsView.units.moreInfoFor', { label: t('settingsView.units.mapLanguage') })}
       />
     </>
   )

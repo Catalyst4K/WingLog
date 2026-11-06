@@ -224,6 +224,23 @@
       "app": "應用程式",
       "addons": "帳戶和外掛",
       "yourData": "你的資料"
+    },
+    "language": {
+      "cardTitle": "語言"
+    },
+    "appearance": {
+      "cardTitle": "外觀與視窗"
+    },
+    "pageLede": {
+      "general": "單位、語言、WingLog 的外觀與記錄方式。",
+      "secondScreen": "在同一網路的手機或平板上顯示地圖和航班。",
+      "accounts": "你的 SimBrief 使用者名稱，以及用於程序的 Navigraph。",
+      "gsx": "在 WingLog 中使用地勤服務，並把 GSX 收據附到航班上。",
+      "beyondAtc": "在 WingLog 中讀取 BeyondATC 的指令。",
+      "online": "在 VATSIM 或 IVAO 上飛行：附近誰在線，以及提交飛行計畫。",
+      "navdata": "WingLog 為程序讀取的模擬器導航資料。",
+      "data": "備份、遷移或清除機隊和飛行日誌。",
+      "about": "版本、手冊和更新。"
     }
   },
   "app": {

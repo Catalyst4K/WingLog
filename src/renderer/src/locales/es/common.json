@@ -231,6 +231,23 @@
       "app": "Aplicación",
       "addons": "Cuentas y complementos",
       "yourData": "Tus datos"
+    },
+    "language": {
+      "cardTitle": "Idioma"
+    },
+    "appearance": {
+      "cardTitle": "Apariencia y ventana"
+    },
+    "pageLede": {
+      "general": "Unidades, idioma, aspecto de WingLog y cómo registra.",
+      "secondScreen": "Muestra el mapa y el vuelo en un móvil o tableta de tu red.",
+      "accounts": "Tu nombre de SimBrief y Navigraph para los procedimientos.",
+      "gsx": "Servicios de tierra desde WingLog y recibos de GSX en tus vuelos.",
+      "beyondAtc": "Las instrucciones de BeyondATC, leídas en WingLog.",
+      "online": "Vuela en VATSIM o IVAO: quién está conectado cerca y la presentación del plan.",
+      "navdata": "Los datos de navegación del simulador que WingLog lee para los procedimientos.",
+      "data": "Copia, mueve o borra tu flota y tu libro de vuelo.",
+      "about": "Versión, manual y actualizaciones."
     }
   },
   "app": {

@@ -1,6 +1,6 @@
 /** Settings → Interface → Window: where the window goes when minimised (winglog-backend's docs/plans/tray.md). */
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { WindowSettings } from '@shared/ipc'
 import { winglogApi } from '../data/winglog-api'
@@ -11,11 +11,12 @@ import { SettingsCard } from './ui/SettingsCard'
 type MinimizeChoice = 'taskbar' | 'tray'
 
 /**
- * The Window card: minimise to the taskbar, or to the tray. Not shown where there is no tray.
+ * The Window card: minimise to the taskbar, or to the tray. Not shown where there is no tray, unless rows are put in front of it (Settings puts the theme there).
  *
+ * @param props An optional title, and rows to put before the window row.
  * @returns The element, or nothing until the setting is read and wherever a tray is not possible.
  */
-export function WindowCard(): React.JSX.Element | null {
+export function WindowCard(props: { title?: string; lead?: ReactNode }): React.JSX.Element | null {
   const { t } = useTranslation()
   const [settings, setSettings] = useState<WindowSettings | null>(null)
 
@@ -23,7 +24,8 @@ export function WindowCard(): React.JSX.Element | null {
     runAsync('WindowCard settingsGetWindow', winglogApi().settingsGetWindow().then(setSettings))
   }, [])
 
-  if (!settings?.trayAvailable) return null
+  const trayAvailable = settings?.trayAvailable === true
+  if (!trayAvailable && !props.lead) return null
 
   function choose(choice: MinimizeChoice): void {
     const minimizeToTray = choice === 'tray'
@@ -32,17 +34,20 @@ export function WindowCard(): React.JSX.Element | null {
   }
 
   return (
-    <SettingsCard title={t('settingsView.window.cardTitle')}>
-      <SegmentedRow<MinimizeChoice>
-        label={t('settingsView.window.minimizeLabel')}
-        value={settings.minimizeToTray ? 'tray' : 'taskbar'}
-        options={[
-          { value: 'taskbar', label: t('settingsView.window.taskbar') },
-          { value: 'tray', label: t('settingsView.window.tray') }
-        ]}
-        onChange={choose}
-        note={t('settingsView.window.description')}
-      />
+    <SettingsCard title={props.title ?? t('settingsView.window.cardTitle')}>
+      {props.lead}
+      {settings?.trayAvailable && (
+        <SegmentedRow<MinimizeChoice>
+          label={t('settingsView.window.minimizeLabel')}
+          value={settings.minimizeToTray ? 'tray' : 'taskbar'}
+          options={[
+            { value: 'taskbar', label: t('settingsView.window.taskbar') },
+            { value: 'tray', label: t('settingsView.window.tray') }
+          ]}
+          onChange={choose}
+          note={t('settingsView.window.description')}
+        />
+      )}
     </SettingsCard>
   )
 }

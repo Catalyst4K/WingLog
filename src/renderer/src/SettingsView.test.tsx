@@ -247,7 +247,10 @@ describe('SettingsView', () => {
     it('lists the pages in three groups, and shows General (Units, Theme) by default', async () => {
       renderSettings()
       expect(await screen.findByText('Units')).toBeInTheDocument()
-      expect(screen.getByText('Theme')).toBeInTheDocument()
+      expect(screen.getByText('Appearance and window')).toBeInTheDocument()
+      // The page names itself and says what it is for.
+      expect(screen.getByRole('heading', { name: 'General' })).toBeInTheDocument()
+      expect(screen.getByText('Units, language, how WingLog looks, and how it tracks.')).toBeInTheDocument()
       expect(screen.queryByText('Credentials')).not.toBeInTheDocument()
       expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual([
         'General',
@@ -779,11 +782,12 @@ describe('SettingsView', () => {
       const user = userEvent.setup()
       renderSettings({ mapLanguage: 'en', onMapLanguageChange })
 
-      const group = within(await screen.findByRole('group', { name: 'Map language' }))
+      await user.click(await screen.findByRole('combobox', { name: 'Map language' }))
+      const list = within(await screen.findByRole('listbox'))
       for (const label of ['English', 'Local', 'Deutsch', 'Español', 'Français', 'Italiano', 'Русский']) {
-        expect(group.getByRole('button', { name: label })).toBeInTheDocument()
+        expect(list.getByRole('option', { name: label })).toBeInTheDocument()
       }
-      await user.click(group.getByRole('button', { name: 'Deutsch' }))
+      await user.click(list.getByRole('option', { name: 'Deutsch' }))
       expect(onMapLanguageChange).toHaveBeenCalledWith('de')
     })
   })
@@ -794,7 +798,8 @@ describe('SettingsView', () => {
       const user = userEvent.setup()
       renderSettings({ appLanguage: 'system', onAppLanguageChange })
 
-      const group = within(await screen.findByRole('group', { name: 'App language' }))
+      await user.click(await screen.findByRole('combobox', { name: 'App language' }))
+      const list = within(await screen.findByRole('listbox'))
       for (const label of [
         'System',
         'English',
@@ -806,9 +811,9 @@ describe('SettingsView', () => {
         '简体中文',
         '繁體中文'
       ]) {
-        expect(group.getByRole('button', { name: label })).toBeInTheDocument()
+        expect(list.getByRole('option', { name: label })).toBeInTheDocument()
       }
-      await user.click(group.getByRole('button', { name: 'Deutsch' }))
+      await user.click(list.getByRole('option', { name: 'Deutsch' }))
       expect(onAppLanguageChange).toHaveBeenCalledWith('de')
     })
   })

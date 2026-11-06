@@ -5,7 +5,6 @@
 
 import { winglogApi } from './data/winglog-api'
 import { useEffect, useState } from 'react'
-import { ChevronRight } from 'lucide-react'
 import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
@@ -18,7 +17,7 @@ import type {
   WeightUnit,
   WindSpeedUnit
 } from '@shared/ipc'
-import { SegmentedRow, TrackingFields, UnitsFields } from './SettingsFields'
+import { LanguageRows, SegmentedRow, TrackingFields, UnitRows } from './SettingsFields'
 import { trackingLabels } from './tracking-labels'
 import { UpdatesCard } from './UpdatesCard'
 import { LanCard } from './settings/LanCard'
@@ -45,8 +44,10 @@ import {
 type SettingsCategory =
   'general' | 'secondScreen' | 'accounts' | 'gsx' | 'beyondAtc' | 'online' | 'navdata' | 'data' | 'about'
 const DEFAULT_SETTINGS_CATEGORY: SettingsCategory = 'general'
-/** Every page is one column of equal-width cards (the width is SettingsCard's). */
-const PANEL = 'flex min-w-0 flex-col gap-4'
+/** Every page is one column of sections (the width is SettingsCard's); the sections space themselves. */
+const PANEL = 'flex min-w-0 flex-col'
+/** A page's own box beside the list: room to the left of it, and the rest of the width. */
+const PAGE = 'min-w-0 flex-1 px-10 pt-1 pb-8'
 
 /** A page in the list down the side. */
 interface SettingsPage {
@@ -134,7 +135,7 @@ function InterfacePanel(props: AppWideSettings): React.JSX.Element {
   return (
     <>
       <SettingsCard title={t('settingsView.units.cardTitle')}>
-        <UnitsFields
+        <UnitRows
           weightUnit={props.weightUnit}
           onWeightUnitChange={props.onWeightUnitChange}
           altitudeUnit={props.altitudeUnit}
@@ -150,20 +151,30 @@ function InterfacePanel(props: AppWideSettings): React.JSX.Element {
         />
       </SettingsCard>
 
-      <SettingsCard title={t('settingsView.theme.cardTitle')}>
-        <SegmentedRow
-          label={t('settingsView.theme.appearance')}
-          value={props.theme}
-          options={[
-            { value: 'light', label: t('settingsView.theme.light') },
-            { value: 'dark', label: t('settingsView.theme.dark') },
-            { value: 'system', label: t('settingsView.theme.system') }
-          ]}
-          onChange={props.onThemeChange}
+      <SettingsCard title={t('settingsView.language.cardTitle')}>
+        <LanguageRows
+          mapLanguage={props.mapLanguage}
+          onMapLanguageChange={props.onMapLanguageChange}
+          appLanguage={props.appLanguage}
+          onAppLanguageChange={props.onAppLanguageChange}
         />
       </SettingsCard>
 
-      <WindowCard />
+      <WindowCard
+        title={t('settingsView.appearance.cardTitle')}
+        lead={
+          <SegmentedRow
+            label={t('settingsView.theme.appearance')}
+            value={props.theme}
+            options={[
+              { value: 'light', label: t('settingsView.theme.light') },
+              { value: 'dark', label: t('settingsView.theme.dark') },
+              { value: 'system', label: t('settingsView.theme.system') }
+            ]}
+            onChange={props.onThemeChange}
+          />
+        }
+      />
 
       <SettingsCard
         title={t('settingsView.tracking.cardTitle')}
@@ -172,6 +183,27 @@ function InterfacePanel(props: AppWideSettings): React.JSX.Element {
         <TrackingFields />
       </SettingsCard>
     </>
+  )
+}
+
+/**
+ * A page of the Settings list: its name large, one line of what it is for, then its sections (the canvas's r3-settings).
+ *
+ * @param props The page and its sections.
+ * @returns The element.
+ */
+function SettingsPage(props: { category: SettingsCategory; children: React.ReactNode }): React.JSX.Element {
+  const { t } = useTranslation()
+  return (
+    <div className={PANEL}>
+      <header className="max-w-[760px]">
+        <h2 className="m-0 text-[26px] font-semibold">{t(`settingsView.categories.${props.category}`)}</h2>
+        <p className="m-0 mt-1 text-sm text-muted-foreground">
+          {t(`settingsView.pageLede.${props.category}`)}
+        </p>
+      </header>
+      <div className={`${PANEL} mt-[26px]`}>{props.children}</div>
+    </div>
   )
 }
 
@@ -271,75 +303,97 @@ export function SettingsView(
         orientation="vertical"
         value={category}
         onValueChange={(value) => setCategory(value as SettingsCategory)}
-        className="items-start gap-6"
+        className="items-start gap-0"
       >
         <TabsList
           variant="line"
-          className="w-52 shrink-0 gap-3 self-stretch border-r border-border/40 pr-3 group-data-vertical/tabs:items-stretch"
+          className="w-[248px] shrink-0 gap-0 self-stretch border-r border-border py-1 pr-3 group-data-vertical/tabs:items-stretch"
         >
           {settingsGroups(t, {
             gsxRemote: addonLight(gsxRemote.settings.enabled, gsxRemote.status.state),
             beyondAtc: addonLight(beyondAtc.settings.enabled, beyondAtc.status.state)
           }).map((group) => (
             <div key={group.label} role="presentation" className="flex flex-col gap-0.5">
-              <span aria-hidden="true" className="px-1.5 pb-1 text-xs text-muted-foreground">
+              <span
+                aria-hidden="true"
+                className="px-2.5 pt-3.5 pb-1 text-xs font-semibold text-muted-foreground"
+              >
                 {group.label}
               </span>
               {group.pages.map(({ value, label, light }) => (
-                <TabsTrigger key={value} value={value} className="after:hidden">
+                <TabsTrigger
+                  key={value}
+                  value={value}
+                  className="h-11 justify-between rounded-md px-2.5 text-[15px] font-normal text-muted-foreground after:hidden data-active:bg-card! data-active:font-semibold data-active:text-foreground"
+                >
                   {label}
-                  {light && <StatusLight state={light} className="ml-1" />}
-                  {category === value && (
-                    <ChevronRight data-testid="settings-active-chevron" className="ml-auto" />
-                  )}
+                  {light && <StatusLight state={light} />}
                 </TabsTrigger>
               ))}
             </div>
           ))}
         </TabsList>
 
-        <TabsContent value="general" className={PANEL}>
-          <InterfacePanel {...props} />
+        <TabsContent value="general" className={PAGE}>
+          <SettingsPage category="general">
+            <InterfacePanel {...props} />
+          </SettingsPage>
         </TabsContent>
 
-        <TabsContent value="secondScreen" className={PANEL}>
-          <LanCard />
+        <TabsContent value="secondScreen" className={PAGE}>
+          <SettingsPage category="secondScreen">
+            <LanCard />
+          </SettingsPage>
         </TabsContent>
 
-        <TabsContent value="accounts" className={PANEL}>
-          <CredentialsCard credentials={credentials} />
+        <TabsContent value="accounts" className={PAGE}>
+          <SettingsPage category="accounts">
+            <CredentialsCard credentials={credentials} />
+          </SettingsPage>
         </TabsContent>
 
-        <TabsContent value="gsx" className={PANEL}>
-          <GsxCard gsx={gsx} />
-          <GsxRemoteCard gsxRemote={gsxRemote} />
+        <TabsContent value="gsx" className={PAGE}>
+          <SettingsPage category="gsx">
+            <GsxCard gsx={gsx} />
+            <GsxRemoteCard gsxRemote={gsxRemote} />
+          </SettingsPage>
         </TabsContent>
 
-        <TabsContent value="beyondAtc" className={PANEL}>
-          <BeyondAtcCard beyondAtc={beyondAtc} />
+        <TabsContent value="beyondAtc" className={PAGE}>
+          <SettingsPage category="beyondAtc">
+            <BeyondAtcCard beyondAtc={beyondAtc} />
+          </SettingsPage>
         </TabsContent>
 
-        <TabsContent value="online" className={PANEL}>
-          <OnlineNetworkCard />
+        <TabsContent value="online" className={PAGE}>
+          <SettingsPage category="online">
+            <OnlineNetworkCard />
+          </SettingsPage>
         </TabsContent>
 
-        <TabsContent value="navdata" className={PANEL}>
-          <NavdataCard />
+        <TabsContent value="navdata" className={PAGE}>
+          <SettingsPage category="navdata">
+            <NavdataCard />
+          </SettingsPage>
         </TabsContent>
 
-        <TabsContent value="data" className={PANEL}>
-          <DataCard data={data} />
-          {/* Cloud sync build-time flag (docs/plans/public-release-v1.md, Decision 1) —
+        <TabsContent value="data" className={PAGE}>
+          <SettingsPage category="data">
+            <DataCard data={data} />
+            {/* Cloud sync build-time flag (docs/plans/public-release-v1.md, Decision 1) —
                 hidden entirely in a public build, not just disabled: the syncLogin/etc.
                 channels this card calls don't exist there at all (see index.ts). */}
-          {/* v8 ignore next -- vitest.config.ts's `define` fixes the flag at `true`, so the
+            {/* v8 ignore next -- vitest.config.ts's `define` fixes the flag at `true`, so the
                 "hidden in a public build" arm of this && can't be exercised in this test run. */}
-          {__WINGLOG_CLOUD_SYNC_ENABLED__ && <CloudSyncCard sync={sync} />}
+            {__WINGLOG_CLOUD_SYNC_ENABLED__ && <CloudSyncCard sync={sync} />}
+          </SettingsPage>
         </TabsContent>
 
-        <TabsContent value="about" className={PANEL}>
-          <AboutCard appVersion={appVersion} onRunSetup={props.onRunSetup} />
-          <UpdatesCard />
+        <TabsContent value="about" className={PAGE}>
+          <SettingsPage category="about">
+            <AboutCard appVersion={appVersion} onRunSetup={props.onRunSetup} />
+            <UpdatesCard />
+          </SettingsPage>
         </TabsContent>
       </Tabs>
     </div>
