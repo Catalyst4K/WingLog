@@ -176,7 +176,9 @@ test('a live free flight on Track', async () => {
     await page.getByRole('button', { name: 'Free flight' }).click()
     await page.getByRole('button', { name: 'Start tracking' }).click()
     // Into the climb, so the map shows a trail behind the aircraft.
-    await expect(page.getByText(/Phase:\s*climb/i)).toBeVisible({ timeout: 240_000 })
+    await expect(page.locator('[data-testid="phase-lights"] [aria-current="step"]')).toHaveText(/climb/i, {
+      timeout: 240_000
+    })
     await page.waitForTimeout(10_000)
     await shot(page, 'track')
   } finally {

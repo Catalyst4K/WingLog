@@ -175,8 +175,6 @@ export function ActiveFlightCard(props: {
             simIcaoType={flight?.simIcaoType}
             simRegistration={flight?.simRegistration}
           />
-          <span className="text-sm text-muted-foreground">{t('trackView.phase')}</span>
-          <PhaseLights phase={props.active.phase} />
           <TimeReadouts times={props.times} />
         </div>
         <div className="flex gap-2">
@@ -195,6 +193,11 @@ export function ActiveFlightCard(props: {
             {t('trackView.finishAndSave')}
           </Button>
         </div>
+      </CardContent>
+      {/* The phases get a row of their own: seven words and their lights would crowd the flight's name. */}
+      <CardContent className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <span className="text-sm text-muted-foreground">{t('trackView.phase')}</span>
+        <PhaseLights phase={props.active.phase} />
       </CardContent>
       {flight && !flight.hasOfp && (
         <CardContent className="flex flex-wrap gap-x-6 gap-y-2">
