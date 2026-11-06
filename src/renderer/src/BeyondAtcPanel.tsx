@@ -20,10 +20,8 @@ import { AtcClearanceBackupLine } from './app/AtcClearanceBackup'
 import { latestAtcInstruction, type AtcInstruction, type InstructionFieldKey } from './beyond-atc-instruction'
 import { useLiveClient, useLiveTopic } from './live/LiveClient'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import { StatusLight } from '@/components/StatusLight'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { asyncHandler, runAsync } from './report-error'
 
 const STEP_CLIMB_OFF: BeyondAtcStepClimbStatus = {
@@ -354,43 +352,7 @@ function TranscriptCard(props: { entries: BeyondAtcTranscriptEntry[] }): React.J
 }
 
 /**
- * The radios, behind a button, for a phone: the COM1 station shows beside it, and the dialog holds the frequency boxes, auto-tune and
- * auto-respond, which on a narrow screen otherwise sit squeezed in the page.
- *
- * @param props The radios' props.
- * @returns The element.
- */
-function RadiosButton(props: React.ComponentProps<typeof BeyondAtcRadios>): React.JSX.Element {
-  const { t } = useTranslation()
-  const { facility } = props
-  return (
-    <div className="flex items-center gap-3">
-      <Dialog>
-        <DialogTrigger asChild>
-          <Button type="button" variant="outline" className="h-11">
-            {t('beyondAtcPanel.radios')}…
-          </Button>
-        </DialogTrigger>
-        <DialogContent
-          className="max-h-[88dvh] overflow-y-auto"
-          // The first field is the COM1 frequency box: focusing it on open raises the phone's keyboard before the pilot has chosen anything.
-          onOpenAutoFocus={(event) => event.preventDefault()}
-        >
-          <DialogHeader>
-            <DialogTitle>{t('beyondAtcPanel.radios')}</DialogTitle>
-          </DialogHeader>
-          <BeyondAtcRadios {...props} />
-        </DialogContent>
-      </Dialog>
-      <span className="truncate text-xs text-muted-foreground">
-        {facility ? `${facility.name} · ${facility.frequency}` : '—'}
-      </span>
-    </div>
-  )
-}
-
-/**
- * The phone layout: one column that scrolls with the page, the radios behind a button, and the transcript at a fixed height at the end.
+ * The phone layout: one column that scrolls with the page, the radios in their panel, and the transcript at a fixed height at the end.
  *
  * @param props Each card's props, and the connection line.
  * @returns The element.
@@ -409,7 +371,7 @@ function CompactLayout(props: {
       <InfoCard state={props.state} statusLine={props.statusLine} />
       <LatestInstructionCard instruction={props.instruction} arrival={props.arrival} />
       <ActionsCard {...props.actions} />
-      <RadiosButton {...props.radios} />
+      <RadiosCard {...props.radios} />
       <div className="flex h-80 flex-col">
         <TranscriptCard entries={props.transcript} />
       </div>

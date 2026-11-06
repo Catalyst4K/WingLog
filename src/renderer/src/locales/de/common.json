@@ -471,7 +471,11 @@
     "altn": "Ausweichflughafen",
     "custom": "Eigener",
     "refreshMetar": "METAR aktualisieren",
-    "enterIcaoCode": "ICAO-Code eingeben"
+    "enterIcaoCode": "ICAO-Code eingeben",
+    "depShort": "Abflug",
+    "destShort": "Ziel",
+    "altnShort": "Ausw.",
+    "customShort": "Eigener"
   },
   "gsxInvoicesCard": {
     "serviceGroup": {

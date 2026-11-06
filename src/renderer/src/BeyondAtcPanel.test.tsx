@@ -69,7 +69,7 @@ function withWinglog(overrides: Partial<WingLogApi> = {}): void {
 }
 
 describe('BeyondAtcPanel on a phone (compact)', () => {
-  it('puts the radios behind a button, with the tuned station beside it, and no radios card', async () => {
+  it('keeps the radios in their panel, with the frequency in a box and the station beside it, as on the PC', async () => {
     withWinglog({
       beyondAtcGetState: vi.fn().mockResolvedValue(
         makeState({
@@ -80,28 +80,10 @@ describe('BeyondAtcPanel on a phone (compact)', () => {
       )
     })
     render(<BeyondAtcPanel compact />)
-    const button = await screen.findByRole('button', { name: 'Radios…' })
-    expect(await screen.findByText('Singapore Delivery · 118.850')).toBeInTheDocument()
-    expect(screen.queryByRole('group', { name: 'Auto-tune' })).not.toBeInTheDocument()
-    await userEvent.click(button)
-    const dialog = await screen.findByRole('dialog')
-    expect(within(dialog).getByRole('group', { name: 'Auto-tune' })).toBeInTheDocument()
-    expect(within(dialog).getByRole('group', { name: 'Auto-respond' })).toBeInTheDocument()
-  })
-
-  it('opens the radios without putting the cursor in a frequency box, so no keyboard appears until one is tapped', async () => {
-    withWinglog({
-      beyondAtcGetState: vi
-        .fn()
-        .mockResolvedValue(makeState({ facility: { name: 'Singapore Delivery', frequency: '118.850' } }))
-    })
-    render(<BeyondAtcPanel compact />)
-    await userEvent.click(await screen.findByRole('button', { name: 'Radios…' }))
-    const dialog = await screen.findByRole('dialog')
-    const box = within(dialog).getByRole('textbox', { name: 'COM1 frequency' })
-    expect(box).toBeVisible()
-    expect(box).not.toHaveFocus()
-    expect(document.activeElement?.tagName).not.toBe('INPUT')
+    expect(await screen.findByRole('textbox', { name: 'COM1 frequency' })).toBeVisible()
+    expect(screen.getByRole('group', { name: 'Auto-tune' })).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: 'Auto-respond' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Radios…' })).not.toBeInTheDocument()
   })
 
   it('keeps everything else in one column that scrolls with the page: instruction, actions and the transcript', async () => {
@@ -113,13 +95,6 @@ describe('BeyondAtcPanel on a phone (compact)', () => {
     expect(await screen.findByRole('button', { name: 'Request Taxi' })).toBeInTheDocument()
     expect(await screen.findAllByText('Cleared to land.')).not.toHaveLength(0)
     expect(screen.getByText('Transcript')).toBeInTheDocument()
-  })
-
-  it('shows a dash beside the button while nothing is tuned', async () => {
-    withWinglog()
-    render(<BeyondAtcPanel compact />)
-    await screen.findByRole('button', { name: 'Radios…' })
-    expect(screen.getByText('—')).toBeInTheDocument()
   })
 })
 

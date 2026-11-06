@@ -240,7 +240,7 @@ describe('the weather on the Dispatch page', () => {
     stubWinglog()
     open()
     await userEvent.click(screen.getByRole('button', { name: 'Dispatch' }))
-    const weather = await screen.findByRole('tab', { name: 'Departure' })
+    const weather = await screen.findByRole('tab', { name: 'Dep' })
     const plan = (await screen.findAllByText(/BAW31 · EGLL → VHHH/)).at(-1) as HTMLElement
     expect(weather.compareDocumentPosition(plan) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
@@ -249,7 +249,7 @@ describe('the weather on the Dispatch page', () => {
     stubWinglog()
     open()
     await userEvent.click(screen.getByRole('button', { name: 'Dispatch' }))
-    expect(await screen.findByRole('tab', { name: 'Departure' })).toBeInTheDocument()
+    expect(await screen.findByRole('tab', { name: 'Dep' })).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'Weather' })).not.toBeInTheDocument()
     await waitFor(() =>
       expect(window.winglog.weatherGetMetars).toHaveBeenCalledWith(['EGLL', 'VHHH', 'VMMC'])

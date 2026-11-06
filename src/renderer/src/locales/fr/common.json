@@ -473,7 +473,11 @@
     "altn": "Déroutement",
     "custom": "Personnalisé",
     "refreshMetar": "Actualiser le METAR",
-    "enterIcaoCode": "Saisissez un code OACI"
+    "enterIcaoCode": "Saisissez un code OACI",
+    "depShort": "Dép.",
+    "destShort": "Dest.",
+    "altnShort": "Dérout.",
+    "customShort": "Autre"
   },
   "gsxInvoicesCard": {
     "serviceGroup": {

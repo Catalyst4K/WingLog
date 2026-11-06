@@ -471,7 +471,11 @@
     "altn": "Alternate",
     "custom": "Custom",
     "refreshMetar": "Refresh METAR",
-    "enterIcaoCode": "Enter an ICAO code"
+    "enterIcaoCode": "Enter an ICAO code",
+    "depShort": "Dep",
+    "destShort": "Dest",
+    "altnShort": "Altn",
+    "customShort": "Custom"
   },
   "gsxInvoicesCard": {
     "serviceGroup": {

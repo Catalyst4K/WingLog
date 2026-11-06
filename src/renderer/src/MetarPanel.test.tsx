@@ -35,6 +35,14 @@ describe('MetarPanel', () => {
     expect(screen.getByRole('tab', { name: 'Ziel' })).toBeInTheDocument()
   })
 
+  it('shortens the tabs on a phone so all four fit on one line', async () => {
+    withWinglog()
+    render(<MetarPanel compact depIcao={null} arrIcao={null} altnIcao={null} windSpeedUnit="kt" />)
+    for (const name of ['Dep', 'Dest', 'Altn', 'Custom'])
+      expect(await screen.findByRole('tab', { name })).toBeInTheDocument()
+    expect(screen.queryByRole('tab', { name: 'Departure' })).not.toBeInTheDocument()
+  })
+
   it('shows "No airport set." for a slot with no ICAO, and does not fetch at all', async () => {
     const weatherGetMetars = vi.fn().mockResolvedValue([])
     withWinglog({ weatherGetMetars })

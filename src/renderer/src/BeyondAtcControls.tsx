@@ -292,7 +292,7 @@ function FrequencyRow(props: {
       }}
     >
       <span className="text-sm text-muted-foreground">{props.label}</span>
-      <span className="flex min-w-0 items-baseline gap-2.5">
+      <span className="flex min-w-0 flex-wrap items-baseline gap-x-2.5 gap-y-0.5">
         <Input
           type="text"
           inputMode="decimal"
@@ -305,7 +305,7 @@ function FrequencyRow(props: {
           }}
           className="h-10 w-28 shrink-0 font-mono text-lg"
         />
-        <span className="truncate text-sm text-muted-foreground">
+        <span className="min-w-0 text-sm break-words text-muted-foreground">
           {props.stationName ?? t('beyondAtcPanel.frequencyUnknown')}
         </span>
       </span>

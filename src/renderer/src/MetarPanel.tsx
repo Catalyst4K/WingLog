@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
 import type { MetarReport, WindSpeedUnit } from '@shared/ipc'
 import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 import { Card, CardContent } from '@/components/ui/card'
 import {
   FolderTabs as Tabs,
@@ -93,6 +94,46 @@ function MetarBody(props: {
 }
 
 /**
+ * The row of tabs, one for each airport, and the refresh button at its end. On a phone the words are shortened and the buttons made
+ * smaller so that all four fit on one line.
+ *
+ * @param props Whether it is the phone's, and what refreshing does.
+ * @returns The element.
+ */
+function SlotTabs(props: { compact?: boolean; onRefresh: () => void }): React.JSX.Element {
+  const { t } = useTranslation()
+  const { compact } = props
+  const tabClass = compact ? 'px-2 py-3 text-sm' : 'px-3 py-3 text-sm'
+  const slots: [Slot, string, string][] = [
+    ['departure', 'metarPanel.dep', 'metarPanel.depShort'],
+    ['destination', 'metarPanel.dest', 'metarPanel.destShort'],
+    ['alternate', 'metarPanel.altn', 'metarPanel.altnShort'],
+    ['custom', 'metarPanel.custom', 'metarPanel.customShort']
+  ]
+  return (
+    <div className="flex items-center justify-between gap-2 border-b border-border">
+      <FolderTabsList className={cn('w-auto flex-wrap border-b-0', compact && 'gap-0.5')}>
+        {slots.map(([slot, full, short]) => (
+          <FolderTabsTrigger key={slot} value={slot} className={tabClass}>
+            {t(compact ? short : full)}
+          </FolderTabsTrigger>
+        ))}
+      </FolderTabsList>
+      <Button
+        type="button"
+        variant="ghost"
+        size={compact ? 'icon-sm' : 'icon'}
+        onClick={props.onRefresh}
+        title={t('metarPanel.refreshMetar')}
+        aria-label={t('metarPanel.refreshMetar')}
+      >
+        <RefreshCw className="text-muted-foreground" />
+      </Button>
+    </div>
+  )
+}
+
+/**
  * Sits in Dispatch's right-hand column, above the imported/created plan's details —
  * departure/destination/alternate come from the fetched OFP once there is one, or the
  * "Plan a flight" panel's own selections before that; "Custom" is a free airport search
@@ -100,10 +141,12 @@ function MetarBody(props: {
  * one batched call rather than one request per tab, and
  * only for slots that actually have a real 4-letter code.
  *
- * @param props The airports to show weather for.
+ * @param props The airports to show weather for; `compact` for a phone, where the four tabs and the refresh button are fitted onto one
+ *   line.
  * @returns The element.
  */
 export function MetarPanel(props: {
+  compact?: boolean
   depIcao: string | null
   arrIcao: string | null
   altnIcao: string | null
@@ -169,35 +212,15 @@ export function MetarPanel(props: {
   }
 
   return (
-    <Card className="rounded-md [--card-spacing:--spacing(5)]">
+    <Card
+      className={cn(
+        'rounded-md',
+        props.compact ? '[--card-spacing:--spacing(4)]' : '[--card-spacing:--spacing(5)]'
+      )}
+    >
       <CardContent>
         <Tabs value={tab} onValueChange={(v) => setTab(v as Slot)} className="gap-3">
-          <div className="flex items-center justify-between gap-2 border-b border-border">
-            <FolderTabsList className="w-auto flex-wrap border-b-0">
-              <FolderTabsTrigger value="departure" className="px-3 py-3 text-sm">
-                {t('metarPanel.dep')}
-              </FolderTabsTrigger>
-              <FolderTabsTrigger value="destination" className="px-3 py-3 text-sm">
-                {t('metarPanel.dest')}
-              </FolderTabsTrigger>
-              <FolderTabsTrigger value="alternate" className="px-3 py-3 text-sm">
-                {t('metarPanel.altn')}
-              </FolderTabsTrigger>
-              <FolderTabsTrigger value="custom" className="px-3 py-3 text-sm">
-                {t('metarPanel.custom')}
-              </FolderTabsTrigger>
-            </FolderTabsList>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              onClick={() => setRefreshKey((k) => k + 1)}
-              title={t('metarPanel.refreshMetar')}
-              aria-label={t('metarPanel.refreshMetar')}
-            >
-              <RefreshCw className="text-muted-foreground" />
-            </Button>
-          </div>
+          <SlotTabs compact={props.compact} onRefresh={() => setRefreshKey((k) => k + 1)} />
           <TabsContent value="departure">
             <MetarBody
               icao={props.depIcao}

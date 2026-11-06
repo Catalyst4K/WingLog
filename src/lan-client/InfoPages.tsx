@@ -5,8 +5,8 @@ import { useSyncExternalStore } from 'react'
 import { useTranslation } from 'react-i18next'
 import { parseOfp } from '@shared/simbrief-ofp'
 import type { DispatchOfp, LanFlight } from '@shared/ipc'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { OfpDetails } from '@/dispatch/DispatchCards'
+import { Card, CardContent } from '@/components/ui/card'
+import { OfpDetails, OfpHeading } from '@/dispatch/DispatchCards'
 import { MetarPanel } from '@/MetarPanel'
 import { GsxRemotePanel } from '@/GsxRemotePanel'
 import { BeyondAtcPanel } from '@/BeyondAtcPanel'
@@ -61,24 +61,16 @@ function DispatchPage({
     <div className="flex flex-col gap-3 p-3">
       <h1 className="font-heading text-xl font-semibold">{t('app.tabs.dispatch')}</h1>
       <MetarPanel
+        compact
         depIcao={realIcao(flight?.depIcao)}
         arrIcao={realIcao(flight?.arrIcao)}
         altnIcao={realIcao(ofp?.altnIcao)}
         windSpeedUnit={settings.windSpeedUnit}
       />
       {ofp ? (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">
-              {t('dispatchView.ofpTitle', {
-                flightNumber: ofp.flightNumber,
-                dep: ofp.depIcao,
-                arr: ofp.arrIcao,
-                altn: ofp.altnIcao
-              })}
-            </CardTitle>
-          </CardHeader>
+        <Card className="rounded-md [--card-spacing:--spacing(5)]">
           <CardContent className="flex flex-col gap-4">
+            <OfpHeading ofp={ofp} />
             <OfpDetails ofp={ofp} weightUnit={settings.weightUnit} altitudeUnit={settings.altitudeUnit} />
           </CardContent>
         </Card>

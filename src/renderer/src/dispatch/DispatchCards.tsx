@@ -214,6 +214,30 @@ export function PlanFlightCard(props: {
 }
 
 /**
+ * The plan's heading: the flight and its route, and the alternate the OFP names.
+ *
+ * @param props The OFP.
+ * @returns The element.
+ */
+export function OfpHeading(props: { ofp: DispatchOfp }): React.JSX.Element {
+  const { t } = useTranslation()
+  const { ofp } = props
+  return (
+    <div>
+      <h2 className="m-0 text-xl font-semibold">
+        {t('dispatchView.ofpTitle', { flightNumber: ofp.flightNumber, dep: ofp.depIcao, arr: ofp.arrIcao })}
+      </h2>
+      {ofp.altnIcao && (
+        <p className="m-0 text-sm text-muted-foreground">
+          {t('dispatchView.alternateLabel', { altn: ofp.altnIcao })} ·{' '}
+          <span className="text-plan">{t('dispatchView.fromOfp')}</span>
+        </p>
+      )}
+    </div>
+  )
+}
+
+/**
  * One row of the plan's figures: the name quiet on the left, the figure in the mono face on the right, a hairline under it.
  *
  * @param props The name and the figure.
@@ -221,7 +245,8 @@ export function PlanFlightCard(props: {
  */
 function FigureRow(props: { label: string; children: React.ReactNode }): React.JSX.Element {
   return (
-    <div className="flex items-baseline justify-between gap-3 border-b border-border py-2">
+    // A figure too long for the line (the three weights on a phone) drops under its name instead of squeezing it.
+    <div className="flex flex-wrap items-baseline justify-between gap-x-3 border-b border-border py-2">
       <dt className="m-0 text-sm text-muted-foreground">{props.label}</dt>
       <dd className="m-0 text-right font-mono text-[15px]">{props.children}</dd>
     </div>
@@ -413,21 +438,7 @@ export function OfpCard(props: {
     <Card className={PANEL_CLASS}>
       <CardContent className="flex flex-col gap-3">
         <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
-          <div>
-            <h2 className="m-0 text-xl font-semibold">
-              {t('dispatchView.ofpTitle', {
-                flightNumber: ofp.flightNumber,
-                dep: ofp.depIcao,
-                arr: ofp.arrIcao
-              })}
-            </h2>
-            {ofp.altnIcao && (
-              <p className="m-0 text-sm text-muted-foreground">
-                {t('dispatchView.alternateLabel', { altn: ofp.altnIcao })} ·{' '}
-                <span className="text-plan">{t('dispatchView.fromOfp')}</span>
-              </p>
-            )}
-          </div>
+          <OfpHeading ofp={ofp} />
           <div className="flex items-center gap-2">
             {alreadyFlown && <Badge variant="secondary">{t('dispatchView.flying')}</Badge>}
             <PrefileButtons file={(network) => winglogApi().onlinePrefileFromOfp(ofp.ofpJson, network)} />

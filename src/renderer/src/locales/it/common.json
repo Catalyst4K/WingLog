@@ -473,7 +473,11 @@
     "altn": "Alternato",
     "custom": "Personalizzato",
     "refreshMetar": "Aggiorna METAR",
-    "enterIcaoCode": "Inserisci un codice ICAO"
+    "enterIcaoCode": "Inserisci un codice ICAO",
+    "depShort": "Part.",
+    "destShort": "Dest.",
+    "altnShort": "Alt.",
+    "customShort": "Altro"
   },
   "gsxInvoicesCard": {
     "serviceGroup": {

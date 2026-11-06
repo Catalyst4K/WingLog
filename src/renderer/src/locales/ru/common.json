@@ -489,7 +489,11 @@
     "altn": "Запасной",
     "custom": "Свой",
     "refreshMetar": "Обновить METAR",
-    "enterIcaoCode": "Введите код ICAO"
+    "enterIcaoCode": "Введите код ICAO",
+    "depShort": "Вылет",
+    "destShort": "Назн.",
+    "altnShort": "Запас.",
+    "customShort": "Свой"
   },
   "gsxInvoicesCard": {
     "serviceGroup": {

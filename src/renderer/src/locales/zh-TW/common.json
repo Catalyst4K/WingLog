@@ -465,7 +465,11 @@
     "altn": "備降",
     "custom": "自訂",
     "refreshMetar": "重新整理 METAR",
-    "enterIcaoCode": "請輸入 ICAO 代碼"
+    "enterIcaoCode": "請輸入 ICAO 代碼",
+    "depShort": "起飛",
+    "destShort": "目的地",
+    "altnShort": "備降",
+    "customShort": "自訂"
   },
   "gsxInvoicesCard": {
     "serviceGroup": {
