@@ -21,9 +21,7 @@ import { displayIcao } from '../display-icao'
 import { FlightMap } from '../FlightMap'
 import { GsxInvoicesCard } from '../GsxInvoicesCard'
 import { useConfirm } from '../hooks/use-confirm'
-import { KeepCaptureButton } from '../KeepCaptureButton'
-import { TrackCleanupButton } from '../TrackCleanupButton'
-import { TrackGapFillButton } from '../TrackGapFillButton'
+import { TrackToolsMenu } from './TrackToolsMenu'
 import { formatMinutes, formatWeight } from '../units'
 import { asyncHandler, runAsync } from '../report-error'
 import { formatDate, isFreeFlight } from './logbook-format'
@@ -238,12 +236,15 @@ function FlightDetail(props: {
           {props.backToAircraft ? t('logbookView.backToAircraft') : t('logbookView.backToLogbook')}
         </Button>
         <div className="flex items-center gap-2">
-          <KeepCaptureButton flightId={flight.id} />
-          <TrackCleanupButton flightId={flight.id} onCleaned={setTrackPoints} />
-          <TrackGapFillButton flightId={flight.id} estimate={estimate} onChanged={setEstimate} />
+          <TrackToolsMenu
+            flightId={flight.id}
+            onCleaned={setTrackPoints}
+            estimate={estimate}
+            onEstimateChanged={setEstimate}
+          />
           <Button
             type="button"
-            variant="ghost"
+            variant="destructive"
             size="sm"
             onClick={asyncHandler('LogbookView handleDelete', handleDelete)}
           >

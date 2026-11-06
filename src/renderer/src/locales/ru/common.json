@@ -727,9 +727,6 @@
       "airspeedGroundSpeed": "Приборная скорость / Путевая скорость",
       "headwindCrosswind": "Встречный ветер / Боковой ветер",
       "runway": "ВПП",
-      "runwayData": "Данные о ВПП",
-      "runwayDataSim": "Симулятор",
-      "runwayDataDatabase": "База данных аэропортов",
       "distanceFromThreshold": "Расстояние от торца ВПП",
       "centrelineOffset": "Отклонение от осевой линии",
       "scoreBreakdown": "Детализация оценки"
@@ -801,7 +798,8 @@
       "label": "Показать",
       "all": "Все",
       "online": "Онлайн"
-    }
+    },
+    "trackTools": "Инструменты трека"
   },
   "gsxRemoteView": {
     "title": "Наземное обслуживание"

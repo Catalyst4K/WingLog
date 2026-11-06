@@ -706,9 +706,6 @@
       "airspeedGroundSpeed": "Airspeed / Ground speed",
       "headwindCrosswind": "Headwind / Crosswind",
       "runway": "Runway",
-      "runwayData": "Runway data",
-      "runwayDataSim": "Simulator",
-      "runwayDataDatabase": "Airport database",
       "distanceFromThreshold": "Distance from threshold",
       "centrelineOffset": "Centreline offset",
       "scoreBreakdown": "Score breakdown"
@@ -778,7 +775,8 @@
       "label": "Show",
       "all": "All",
       "online": "Online"
-    }
+    },
+    "trackTools": "Track tools"
   },
   "gsxRemoteView": {
     "title": "Ground services"

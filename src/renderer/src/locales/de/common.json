@@ -706,9 +706,6 @@
       "airspeedGroundSpeed": "Fluggeschwindigkeit / Geschwindigkeit über Grund",
       "headwindCrosswind": "Gegenwind / Seitenwind",
       "runway": "Landebahn",
-      "runwayData": "Pistendaten",
-      "runwayDataSim": "Simulator",
-      "runwayDataDatabase": "Flughafendatenbank",
       "distanceFromThreshold": "Abstand zur Schwelle",
       "centrelineOffset": "Abweichung von der Mittellinie",
       "scoreBreakdown": "Bewertungsdetails"
@@ -778,7 +775,8 @@
       "label": "Anzeigen",
       "all": "Alle",
       "online": "Online"
-    }
+    },
+    "trackTools": "Spur-Werkzeuge"
   },
   "gsxRemoteView": {
     "title": "Bodendienste"

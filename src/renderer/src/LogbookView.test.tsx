@@ -724,41 +724,18 @@ describe('LandingCard', () => {
     expect(screen.getByText('Firm')).toBeInTheDocument()
   })
 
-  it("says whose runway the landing was measured against: the simulator's, or the airport database's", async () => {
+  it('no longer says whose runway data the landing was measured against (v2: Callum, 2026-11-04: no need to show it)', async () => {
     const score = { score: 78, severity: 'firm', categories: makeCategories() } satisfies LandingScoreResult
     setWinglog({
       logbookListLandings: vi
         .fn()
         .mockResolvedValue([makeLandingWithDetails({ runwayIdent: '20R', runwaySource: 'sim', score })])
     })
-    const { unmount } = render(<LandingCard flightId={1} landingDistanceUnit="ft" />)
-    expect(await screen.findByText('Runway data')).toBeInTheDocument()
-    expect(screen.getByText('Simulator')).toBeInTheDocument()
-    unmount()
-
-    // A landing recorded before the source was stored was measured against the airport database.
-    setWinglog({
-      logbookListLandings: vi
-        .fn()
-        .mockResolvedValue([makeLandingWithDetails({ runwayIdent: '27L', runwaySource: null, score })])
-    })
     render(<LandingCard flightId={1} landingDistanceUnit="ft" />)
-    expect(await screen.findByText('Airport database')).toBeInTheDocument()
-  })
-
-  it('shows no runway data line when the landing found no runway', async () => {
-    setWinglog({
-      logbookListLandings: vi.fn().mockResolvedValue([
-        makeLandingWithDetails({
-          runwayIdent: null,
-          runwaySource: null,
-          score: { score: 78, severity: 'firm', categories: makeCategories() } satisfies LandingScoreResult
-        })
-      ])
-    })
-    render(<LandingCard flightId={1} landingDistanceUnit="ft" />)
-    await screen.findByText('Runway')
+    expect(await screen.findByText('20R')).toBeInTheDocument()
     expect(screen.queryByText('Runway data')).not.toBeInTheDocument()
+    expect(screen.queryByText('Simulator')).not.toBeInTheDocument()
+    expect(screen.queryByText('Airport database')).not.toBeInTheDocument()
   })
 
   it('lets long labels and values shrink and wrap instead of overlapping when the card narrows', async () => {

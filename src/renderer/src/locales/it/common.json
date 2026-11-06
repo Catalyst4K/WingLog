@@ -708,9 +708,6 @@
       "airspeedGroundSpeed": "Velocità aria / Velocità al suolo",
       "headwindCrosswind": "Vento frontale / Vento al traverso",
       "runway": "Pista",
-      "runwayData": "Dati pista",
-      "runwayDataSim": "Simulatore",
-      "runwayDataDatabase": "Database aeroporti",
       "distanceFromThreshold": "Distanza dalla soglia",
       "centrelineOffset": "Scostamento dall'asse pista",
       "scoreBreakdown": "Dettaglio del punteggio"
@@ -780,7 +777,8 @@
       "label": "Mostra",
       "all": "Tutti",
       "online": "Online"
-    }
+    },
+    "trackTools": "Strumenti traccia"
   },
   "gsxRemoteView": {
     "title": "Servizi di terra"

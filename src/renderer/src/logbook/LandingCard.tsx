@@ -151,16 +151,6 @@ function LandingFields(props: {
         }
       />
       <DetailField label={t('logbookView.landingCard.runway')} value={landing.runwayIdent ?? '—'} />
-      {landing.runwayIdent && (
-        <DetailField
-          label={t('logbookView.landingCard.runwayData')}
-          value={t(
-            landing.runwaySource === 'sim'
-              ? 'logbookView.landingCard.runwayDataSim'
-              : 'logbookView.landingCard.runwayDataDatabase'
-          )}
-        />
-      )}
       <DetailField
         label={t('logbookView.landingCard.distanceFromThreshold')}
         warn={isCategoryBad(categoryScore('distanceFromAimingPoint'))}
