@@ -20,6 +20,7 @@ export interface FeatureCollection<Geometry, Properties> {
 }
 
 type Polygons = { type: 'MultiPolygon'; coordinates: number[][][][] }
+type Ring = { type: 'Polygon'; coordinates: number[][][] }
 type Point = { type: 'Point'; coordinates: [number, number] }
 
 /** What a drawn area carries. `card` is the popup's content, as JSON, since a feature's property cannot hold a list. */
@@ -28,6 +29,18 @@ export interface AreaProperties {
   label: string
   card: string
 }
+
+/** What a tower's ring carries: the airport's popup, and `kind` so the popup lists it ahead of the approach and centre areas. */
+export interface TowerRingProperties {
+  kind: 'tower'
+  card: string
+}
+
+/** The radius of the ring drawn round an airport with a tower, nautical miles: a tower's ordinary range, not a published boundary. */
+export const TOWER_RING_NM = 5
+const METRES_PER_NM = 1852
+const EARTH_RADIUS_M = 6_371_000
+const RING_SEGMENTS = 64
 
 /** What a drawn airport carries. */
 export interface AirportProperties {
@@ -150,6 +163,52 @@ export function airportFeatures(airports: AtcAirport[]): FeatureCollection<Point
 }
 
 /**
+ * @param centre [longitude, latitude].
+ * @param radiusNm The radius, nautical miles.
+ * @returns A closed ring of points that far from the centre on the great-circle sphere.
+ */
+function circleRing(centre: [number, number], radiusNm: number): number[][] {
+  const lat = (centre[1] * Math.PI) / 180
+  const lng = (centre[0] * Math.PI) / 180
+  const angular = (radiusNm * METRES_PER_NM) / EARTH_RADIUS_M
+  const points: number[][] = []
+  for (let step = 0; step <= RING_SEGMENTS; step++) {
+    const bearing = (2 * Math.PI * (step % RING_SEGMENTS)) / RING_SEGMENTS
+    const pointLat = Math.asin(
+      Math.sin(lat) * Math.cos(angular) + Math.cos(lat) * Math.sin(angular) * Math.cos(bearing)
+    )
+    const pointLng =
+      lng +
+      Math.atan2(
+        Math.sin(bearing) * Math.sin(angular) * Math.cos(lat),
+        Math.cos(angular) - Math.sin(lat) * Math.sin(pointLat)
+      )
+    points.push([(pointLng * 180) / Math.PI, (pointLat * 180) / Math.PI])
+  }
+  return points
+}
+
+/**
+ * @param airports The airports with something staffed.
+ * @returns A ring round each one that has a tower staffed, carrying the airport's popup.
+ */
+export function towerRingFeatures(airports: AtcAirport[]): FeatureCollection<Ring, TowerRingProperties> {
+  return {
+    type: 'FeatureCollection',
+    features: airports
+      .filter((airport) => airport.stations.some((station) => station.position === 'twr'))
+      .map((airport) => ({
+        type: 'Feature',
+        geometry: { type: 'Polygon', coordinates: [circleRing(airport.at, TOWER_RING_NM)] },
+        properties: {
+          kind: 'tower',
+          card: cardJson(airport.icao, [...airport.stations.map(stationRow), ...airport.atis.map(atisRow)])
+        }
+      }))
+  }
+}
+
+/**
  * @param properties A clicked feature's properties.
  * @returns The popup's card, or null when the property is not what this layer wrote. Only text is kept: a row that is not made of text
  *   is dropped.
@@ -186,17 +245,19 @@ export function atcPopupCard(properties: { card?: unknown }): PopupCard | null {
 
 /**
  * @param atc The topic's latest value, or null before it arrives.
- * @returns The three feature collections for it, empty ones for anything that is not shown.
+ * @returns The four feature collections for it, empty ones for anything that is not shown.
  */
 export function layerData(atc: NetworkAtc | null): {
   areas: FeatureCollection<Polygons, AreaProperties>
   labels: FeatureCollection<Point, AreaProperties>
   airports: FeatureCollection<Point, AirportProperties>
+  towers: FeatureCollection<Ring, TowerRingProperties>
 } {
   const shown = atc?.state === 'shown' ? atc : null
   return {
     areas: areaFeatures(shown?.areas ?? []),
     labels: areaLabelFeatures(shown?.areas ?? []),
-    airports: airportFeatures(shown?.airports ?? [])
+    airports: airportFeatures(shown?.airports ?? []),
+    towers: towerRingFeatures(shown?.airports ?? [])
   }
 }

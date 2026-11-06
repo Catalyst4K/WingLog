@@ -6,7 +6,9 @@ import {
   areaFeatures,
   areaLabelFeatures,
   atcPopupCard,
-  layerData
+  layerData,
+  TOWER_RING_NM,
+  towerRingFeatures
 } from './atc-features'
 
 const SQUARE = [
@@ -44,6 +46,39 @@ const HEATHROW: AtcAirport = {
   stations: [station('EGLL_GND', 'gnd', '121.700'), station('EGLL_TWR', 'twr', '118.500')],
   atis: [{ callsign: 'EGLL_D_ATIS', code: 'L', frequency: '121.850' }]
 }
+
+/** The great-circle distance between two [longitude, latitude] points, nautical miles. */
+function distanceNm(a: number[], b: number[]): number {
+  const rad = (degrees: number): number => (degrees * Math.PI) / 180
+  const h =
+    Math.sin(rad(b[1]! - a[1]!) / 2) ** 2 +
+    Math.cos(rad(a[1]!)) * Math.cos(rad(b[1]!)) * Math.sin(rad(b[0]! - a[0]!) / 2) ** 2
+  return (2 * 6_371_000 * Math.asin(Math.sqrt(h))) / 1852
+}
+
+describe('towerRingFeatures', () => {
+  it('draws a ring about five nautical miles out round an airport with a tower, closed, carrying the airport’s popup', () => {
+    const [feature, ...rest] = towerRingFeatures([HEATHROW]).features
+    expect(rest).toEqual([])
+    expect(TOWER_RING_NM).toBe(5)
+    const ring = feature!.geometry.coordinates[0]!
+    expect(ring[0]).toEqual(ring[ring.length - 1])
+    for (const point of ring) expect(distanceNm(HEATHROW.at, point)).toBeCloseTo(TOWER_RING_NM, 1)
+    expect(feature!.properties.kind).toBe('tower')
+    expect(JSON.parse(feature!.properties.card).title).toBe('EGLL')
+  })
+
+  it('draws none for an airport with no tower staffed, however much else is', () => {
+    const groundOnly: AtcAirport = { ...HEATHROW, stations: [station('EGLL_GND', 'gnd')] }
+    expect(towerRingFeatures([groundOnly]).features).toEqual([])
+  })
+
+  it('comes with the other layers’ data, and empty while nothing is shown', () => {
+    const atc: NetworkAtc = { network: 'vatsim', state: 'shown', areas: [LONDON], airports: [HEATHROW] }
+    expect(layerData(atc).towers.features).toHaveLength(1)
+    expect(layerData(null).towers.features).toEqual([])
+  })
+})
 
 describe('areaFeatures', () => {
   it('gives each area its shape as it is, its kind, the first controller’s callsign as its label, and the popup’s card', () => {

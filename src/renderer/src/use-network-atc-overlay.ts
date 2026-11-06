@@ -13,6 +13,7 @@ import type {
   GeoJSONSourceSpecification,
   Map as MapLibreMap,
   MapGeoJSONFeature,
+  MapLayerMouseEvent,
   Popup
 } from 'maplibre-gl'
 import type { NetworkAtc, TrafficLayers } from '@shared/ipc'
@@ -29,7 +30,10 @@ type GeoData = GeoJSONSourceSpecification['data']
 export const ATC_AREAS_SOURCE = 'atc-areas'
 export const ATC_LABELS_SOURCE = 'atc-area-labels'
 export const ATC_AIRPORTS_SOURCE = 'atc-airports'
+export const ATC_TOWERS_SOURCE = 'atc-towers'
 export const ATC_FILL_LAYER = 'atc-areas-fill'
+export const ATC_TOWER_FILL_LAYER = 'atc-towers-fill'
+export const ATC_TOWER_LINE_LAYER = 'atc-towers-line'
 export const ATC_LINE_LAYER = 'atc-areas-line'
 export const ATC_CENTRE_LABEL_LAYER = 'atc-labels-centre'
 export const ATC_APPROACH_LABEL_LAYER = 'atc-labels-approach'
@@ -38,6 +42,8 @@ export const ATC_AIRPORT_LETTERS_LAYER = 'atc-airports-letters'
 const ALL_LAYERS = [
   ATC_FILL_LAYER,
   ATC_LINE_LAYER,
+  ATC_TOWER_FILL_LAYER,
+  ATC_TOWER_LINE_LAYER,
   ATC_CENTRE_LABEL_LAYER,
   ATC_APPROACH_LABEL_LAYER,
   ATC_AIRPORT_DOT_LAYER,
@@ -52,7 +58,8 @@ const TRAFFIC_LAYERS = [
   'sim-traffic-ground'
 ]
 
-// v2: every ATC area, label and airport ring is the palette's blue; only the centres are tinted, so an approach area is an outline.
+// v2: every ATC area, ring and label is the palette's blue. A centre is tinted, an approach area lighter, a tower's ring only a hint,
+// each of them clickable (a fill of no opacity is still hit by a click).
 
 /** Zoom from which each kind of label and the airport letters appear, so a zoomed-out map is not a wall of text. */
 const CENTRE_LABEL_MINZOOM = 3
@@ -97,6 +104,7 @@ function ensureAtcLayers(map: MapLibreMap): void {
   })
   map.addSource(ATC_LABELS_SOURCE, { type: 'geojson', data: empty })
   map.addSource(ATC_AIRPORTS_SOURCE, { type: 'geojson', data: empty })
+  map.addSource(ATC_TOWERS_SOURCE, { type: 'geojson', data: empty })
   const dark = document.documentElement.classList.contains('dark')
   const before = firstTrafficLayer(map)
   const palette = mapPalette(dark)
@@ -110,8 +118,35 @@ function ensureAtcLayers(map: MapLibreMap): void {
       id: ATC_FILL_LAYER,
       type: 'fill',
       source: ATC_AREAS_SOURCE,
-      filter: ['==', ['get', 'kind'], 'centre'] as FilterSpecification,
-      paint: { 'fill-color': palette.atc, 'fill-opacity': palette.atcFillOpacity }
+      paint: {
+        'fill-color': palette.atc,
+        // Every area is tinted, so a click anywhere inside it lands on it: the approach areas lighter than the centres.
+        'fill-opacity': [
+          'case',
+          ['==', ['get', 'kind'], 'centre'],
+          palette.atcFillOpacity,
+          palette.atcFillOpacity * 0.5
+        ]
+      } as never
+    },
+    before
+  )
+  // The ring round an airport with a tower: a thin dashed line, and a fill that is only there to be clicked.
+  map.addLayer(
+    {
+      id: ATC_TOWER_FILL_LAYER,
+      type: 'fill',
+      source: ATC_TOWERS_SOURCE,
+      paint: { 'fill-color': palette.atc, 'fill-opacity': palette.atcFillOpacity * 0.4 }
+    },
+    before
+  )
+  map.addLayer(
+    {
+      id: ATC_TOWER_LINE_LAYER,
+      type: 'line',
+      source: ATC_TOWERS_SOURCE,
+      paint: { 'line-color': palette.atc, 'line-width': 1.4, 'line-dasharray': [3, 2] }
     },
     before
   )
@@ -184,15 +219,22 @@ function ensureAtcLayers(map: MapLibreMap): void {
 function cardsUnder(features: MapGeoJSONFeature[]): PopupCard[] {
   const wanted = features.flatMap((feature) => {
     const card = atcPopupCard(feature.properties ?? {})
-    return card ? [{ card, approach: feature.properties?.kind === 'approach' }] : []
+    return card
+      ? [
+          {
+            card,
+            approach: feature.properties?.kind === 'approach',
+            tower: feature.properties?.kind === 'tower'
+          }
+        ]
+      : []
   })
   // A shape the map has cut into tiles comes back once for each tile it spans.
   const unique = wanted.filter(
     ({ card }, index) => wanted.findIndex((one) => one.card.title === card.title) === index
   )
-  return [...unique.filter((one) => one.approach), ...unique.filter((one) => !one.approach)].map(
-    (one) => one.card
-  )
+  const rank = (one: { tower: boolean; approach: boolean }): number => (one.tower ? 0 : one.approach ? 1 : 2)
+  return [...unique].sort((a, b) => rank(a) - rank(b)).map((one) => one.card)
 }
 
 /**
@@ -216,11 +258,23 @@ function addClickHandlers(map: MapLibreMap): void {
     shown = { popup: openCardPopup(map, at, cards), key }
   }
   map.on('click', ATC_AIRPORT_DOT_LAYER, (event) => open(event.lngLat, event.features))
-  map.on('click', ATC_FILL_LAYER, (event) => {
-    const smaller = [ATC_AIRPORT_DOT_LAYER, ...TRAFFIC_LAYERS].filter((id) => map.getLayer(id))
-    if (map.queryRenderedFeatures(event.point, { layers: smaller }).length > 0) return
-    open(event.lngLat, event.features)
-  })
+  // A click inside an area, a tower's ring or both is one click, and one card lists everything under it. The two layers each report it, so
+  // the first one that gets it handles it and the other leaves it alone.
+  const handled = new WeakSet<object>()
+  const onArea =
+    (other: string) =>
+    (event: MapLayerMouseEvent): void => {
+      if (event.originalEvent) {
+        if (handled.has(event.originalEvent)) return
+        handled.add(event.originalEvent)
+      }
+      const smaller = [ATC_AIRPORT_DOT_LAYER, ...TRAFFIC_LAYERS].filter((id) => map.getLayer(id))
+      if (map.queryRenderedFeatures(event.point, { layers: smaller }).length > 0) return
+      const alsoUnder = map.getLayer(other) ? map.queryRenderedFeatures(event.point, { layers: [other] }) : []
+      open(event.lngLat, [...(event.features ?? []), ...alsoUnder])
+    }
+  map.on('click', ATC_FILL_LAYER, onArea(ATC_TOWER_FILL_LAYER))
+  map.on('click', ATC_TOWER_FILL_LAYER, onArea(ATC_FILL_LAYER))
   // The canvas's own cursor beats the container's (the grab hand, or the arrow while panning is locked).
   map.on('mouseenter', ATC_AIRPORT_DOT_LAYER, () => {
     map.getCanvas().style.cursor = 'pointer'
@@ -293,6 +347,7 @@ export function useNetworkAtcOverlay({
     setSourceData(map, ATC_AREAS_SOURCE, data.areas as GeoData)
     setSourceData(map, ATC_LABELS_SOURCE, data.labels as GeoData)
     setSourceData(map, ATC_AIRPORTS_SOURCE, data.airports as GeoData)
+    setSourceData(map, ATC_TOWERS_SOURCE, data.towers as GeoData)
   }, [mapRef, mapReady, drawing, atc])
 
   return { atc }

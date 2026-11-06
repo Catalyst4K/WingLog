@@ -346,7 +346,7 @@ export function addFlightLayers(map: MapLibreMap, dark: boolean): Marker {
 
 /**
  * Adds the route waypoint source and its symbol and label layers. The fixes are told apart by shape and size alone, all hollow in the
- * quiet colour (v2): a small triangle en route, a larger one for a SID or STAR fix, a ring with a dot for an approach fix.
+ * quiet colour (v2): a circle en route, a hexagon for a SID or STAR fix, a triangle for an approach fix.
  *
  * @param map The map.
  * @param dark Whether the dark theme is on.

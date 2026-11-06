@@ -232,13 +232,20 @@ describe('useNetworkAtcOverlay', () => {
     expect(fake.map.addSource).not.toHaveBeenCalled()
   })
 
-  it('adds three sources and six layers once, with the licence’s attribution on the areas', async () => {
+  it('adds four sources and eight layers once, with the licence’s attribution on the areas', async () => {
     const fake = fakeMap()
     const { client } = fakeClient({ atc: shown() })
     await mount(client, fake)
-    expect([...fake.sources.keys()]).toEqual([ATC_AREAS_SOURCE, ATC_LABELS_SOURCE, ATC_AIRPORTS_SOURCE])
+    expect([...fake.sources.keys()]).toEqual([
+      ATC_AREAS_SOURCE,
+      ATC_LABELS_SOURCE,
+      ATC_AIRPORTS_SOURCE,
+      'atc-towers'
+    ])
     expect([...fake.layers.keys()]).toEqual([
       'atc-areas-fill',
+      'atc-towers-fill',
+      'atc-towers-line',
       'atc-areas-line',
       'atc-labels-centre',
       'atc-labels-approach',
@@ -249,18 +256,25 @@ describe('useNetworkAtcOverlay', () => {
     expect(fake.sources.get(ATC_AREAS_SOURCE)?.spec.attribution).toMatch(/VAT-Spy/)
   })
 
-  it('draws every area, label and tower ring in the palette blue, with only the centres tinted', async () => {
+  it('draws every area, label and tower ring in the palette blue: centres tinted, approach areas lighter, rings a hint', async () => {
     const fake = fakeMap()
     const { client } = fakeClient({ atc: shown() })
     await mount(client, fake)
     const paint = (id: string): Record<string, unknown> =>
       (fake.layers.get(id) as unknown as { paint: Record<string, unknown> }).paint
-    expect(paint('atc-areas-fill')).toEqual({ 'fill-color': '#2a62a3', 'fill-opacity': 0.07 })
-    expect((fake.layers.get('atc-areas-fill') as unknown as { filter: unknown }).filter).toEqual([
-      '==',
-      ['get', 'kind'],
-      'centre'
-    ])
+    // Every area is filled, so a click anywhere inside it lands on it: the centres at the full tint, the approach areas at half.
+    expect(paint('atc-areas-fill')).toEqual({
+      'fill-color': '#2a62a3',
+      'fill-opacity': ['case', ['==', ['get', 'kind'], 'centre'], 0.07, 0.035]
+    })
+    expect((fake.layers.get('atc-areas-fill') as unknown as { filter?: unknown }).filter).toBeUndefined()
+    // A tower's ring: a dashed line, and a fill that is there to be clicked.
+    expect(paint('atc-towers-line')).toEqual({
+      'line-color': '#2a62a3',
+      'line-width': 1.4,
+      'line-dasharray': [3, 2]
+    })
+    expect(paint('atc-towers-fill')['fill-color']).toBe('#2a62a3')
     expect(paint('atc-areas-line')).toEqual({ 'line-color': '#2a62a3', 'line-width': 1.2 })
     expect(paint('atc-labels-centre')['text-color']).toBe('#2a62a3')
     expect(paint('atc-labels-approach')['text-color']).toBe('#2a62a3')
@@ -299,7 +313,7 @@ describe('useNetworkAtcOverlay', () => {
     await act(async () => push('networkAtc', shown([], [HEATHROW, { ...HEATHROW, icao: 'EGKK' }])))
     expect(lastFeatures(fake, ATC_AREAS_SOURCE)).toEqual([])
     expect(lastFeatures(fake, ATC_AIRPORTS_SOURCE).map((f) => f.properties.label)).toEqual(['EGLL', 'EGKK'])
-    expect(fake.map.addSource).toHaveBeenCalledTimes(3)
+    expect(fake.map.addSource).toHaveBeenCalledTimes(4)
   })
 
   it('hides the layers when the layers say it no longer draws, and shows them again', async () => {
@@ -311,7 +325,8 @@ describe('useNetworkAtcOverlay', () => {
     expect(fake.visibility.get('atc-airports-letters')).toBe('none')
     view.rerender({ layers: LAYERS_ON })
     expect(fake.visibility.get('atc-areas-fill')).toBe('visible')
-    expect(fake.map.addSource).toHaveBeenCalledTimes(3)
+    expect(fake.visibility.get('atc-towers-line')).toBe('visible')
+    expect(fake.map.addSource).toHaveBeenCalledTimes(4)
   })
 
   it.each([['off'], ['noNetwork'], ['needsVid'], ['unavailable']] as const)(
@@ -339,6 +354,43 @@ describe('useNetworkAtcOverlay', () => {
     const row = (callsign: string) => ({ tag: 'CTR', callsign, frequency: '133.700' })
     const featureWith = (title: string, rows: ReturnType<typeof row>[] = []) => ({
       properties: { card: JSON.stringify({ title, rows }) }
+    })
+
+    it('opens one card for a click inside an area and a tower’s ring at once, the airport first, and only once', async () => {
+      const fake = await drawn()
+      const tower = {
+        properties: { kind: 'tower', card: JSON.stringify({ title: 'EGLL', rows: [row('EGLL_TWR')] }) }
+      }
+      const centre = {
+        properties: {
+          kind: 'centre',
+          card: JSON.stringify({ title: 'London ACC', rows: [row('LON_C_CTR')] })
+        }
+      }
+      // Both layers report the one click, each with its own features and the same original event.
+      const original = {}
+      fake.putUnderClick([])
+      fake.map.queryRenderedFeatures.mockImplementation(((_point: unknown, options: { layers: string[] }) =>
+        options.layers.includes('atc-towers-fill')
+          ? [tower]
+          : options.layers.includes('atc-areas-fill')
+            ? [centre]
+            : []) as never)
+      const click = (layer: string, features: unknown[]): void =>
+        fake.clicks.get(layer)?.({
+          lngLat: { lng: 1, lat: 2 },
+          point: { x: 10, y: 10 },
+          originalEvent: original,
+          features
+        })
+      click('atc-areas-fill', [centre])
+      click('atc-towers-fill', [tower])
+      expect(popups).toHaveLength(1)
+      expect(popups[0]?.content?.textContent).toContain('EGLL')
+      expect(popups[0]?.content?.textContent).toContain('London ACC')
+      expect(popups[0]?.content?.textContent?.indexOf('EGLL')).toBeLessThan(
+        popups[0]!.content!.textContent!.indexOf('London ACC')
+      )
     })
 
     it('lays an area out as a title and one aligned row per controller, all as text nodes', async () => {

@@ -17,7 +17,9 @@ import { electronBinary } from './electron-binary'
  * Run with `npm run manual:screenshots` (builds first). Not part of the e2e suite: it writes
  * files and needs BeyondATC's real port free (close BeyondATC first).
  */
-const OUT = join(process.cwd(), 'docs', 'manual', 'images')
+// For a look at the whole UI rather than the manual: WINGLOG_SHOTS_OUT picks the folder and WINGLOG_SHOTS_THEME (light or dark) the theme.
+const OUT = process.env.WINGLOG_SHOTS_OUT ?? join(process.cwd(), 'docs', 'manual', 'images')
+const THEME: 'light' | 'dark' = process.env.WINGLOG_SHOTS_THEME === 'dark' ? 'dark' : 'light'
 const WIDTH = 1440
 const HEIGHT = 900
 
@@ -30,8 +32,8 @@ async function prepare(app: ElectronApplication, page: Page): Promise<void> {
     },
     { width: WIDTH, height: HEIGHT }
   )
-  // Light theme for print. App reads the theme at start, so reload to apply it.
-  await page.evaluate(() => (globalThis as unknown as Window).winglog.settingsSetTheme('light'))
+  // Light theme for print (or dark, for a look at it). App reads the theme at start, so reload to apply it.
+  await page.evaluate((theme) => (globalThis as unknown as Window).winglog.settingsSetTheme(theme), THEME)
   await page.reload()
   await page.waitForLoadState('domcontentloaded')
 }
@@ -134,6 +136,14 @@ test('fleet, logbook and settings on a seeded profile', async () => {
     await page.getByRole('tab', { name: 'Settings' }).click()
     await expect(page.getByText('Units')).toBeVisible()
     await shot(page, 'settings-ui')
+    for (const [tab, name] of [
+      ['GSX', 'settings-gsx'],
+      ['Online network', 'settings-online'],
+      ['Second screen', 'settings-second-screen']
+    ] as const) {
+      await page.getByRole('tab', { name: tab, exact: true }).click()
+      await shot(page, name)
+    }
     await page.getByRole('tab', { name: 'About' }).click()
     await expect(page.getByRole('button', { name: 'Manual (PDF)' })).toBeVisible()
     await shot(page, 'settings-about')

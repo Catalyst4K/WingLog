@@ -36,13 +36,13 @@ function LineSample(props: {
 }
 
 /**
- * A sample of an ATC area or an airport marker, drawn as the map draws it: a centre is an outline with a light tint, an approach area
- * an outline only, an airport a ring.
+ * A sample of an ATC area or an airport marker, drawn as the map draws it: a centre is an outline with a tint, an approach area the
+ * same with a lighter one, a tower's zone a dashed ring, an airport a small ring.
  *
  * @param props Which one.
  * @returns The element.
  */
-function AtcSample(props: { shape: 'centre' | 'approach' | 'airport' }): React.JSX.Element {
+function AtcSample(props: { shape: 'centre' | 'approach' | 'tower' | 'airport' }): React.JSX.Element {
   return (
     <svg
       width="28"
@@ -53,6 +53,17 @@ function AtcSample(props: { shape: 'centre' | 'approach' | 'airport' }): React.J
     >
       {props.shape === 'airport' ? (
         <circle cx="14" cy="7" r="4.5" fill="var(--popover)" stroke="currentColor" strokeWidth="1.5" />
+      ) : props.shape === 'tower' ? (
+        <circle
+          cx="14"
+          cy="7"
+          r="5.6"
+          fill="currentColor"
+          fillOpacity={0.05}
+          stroke="currentColor"
+          strokeWidth="1.4"
+          strokeDasharray="3 2"
+        />
       ) : (
         <rect
           x="2"
@@ -60,8 +71,8 @@ function AtcSample(props: { shape: 'centre' | 'approach' | 'airport' }): React.J
           width="24"
           height="10"
           rx="2"
-          fill={props.shape === 'centre' ? 'currentColor' : 'none'}
-          fillOpacity={props.shape === 'centre' ? 0.14 : 0}
+          fill="currentColor"
+          fillOpacity={props.shape === 'centre' ? 0.16 : 0.07}
           stroke="currentColor"
           strokeWidth="1.2"
         />
@@ -78,23 +89,23 @@ function AtcSample(props: { shape: 'centre' | 'approach' | 'airport' }): React.J
  */
 function FixSample(props: { shape: 'enroute' | 'procedure' | 'approach' }): React.JSX.Element {
   const triangle = (size: number): string => `${size / 2},1.4 ${size - 1.4},${size - 1.4} 1.4,${size - 1.4}`
+  const hexagon = (cx: number, cy: number, radius: number): string =>
+    Array.from({ length: 6 }, (_, corner) => {
+      const angle = -Math.PI / 2 + (corner * Math.PI) / 3
+      return `${(cx + radius * Math.cos(angle)).toFixed(2)},${(cy + radius * Math.sin(angle)).toFixed(2)}`
+    }).join(' ')
   return (
     <svg width="28" height="14" viewBox="0 0 28 14" aria-hidden="true" className="text-muted-foreground">
       {props.shape === 'enroute' && (
-        <g transform="translate(10 3)">
-          <polygon points={triangle(8)} fill="none" stroke="currentColor" strokeWidth="1.4" />
-        </g>
+        <circle cx="14" cy="7" r="2.6" fill="none" stroke="currentColor" strokeWidth="1.4" />
       )}
       {props.shape === 'procedure' && (
-        <g transform="translate(8 1)">
-          <polygon points={triangle(12)} fill="none" stroke="currentColor" strokeWidth="1.4" />
-        </g>
+        <polygon points={hexagon(14, 7, 4.6)} fill="none" stroke="currentColor" strokeWidth="1.4" />
       )}
       {props.shape === 'approach' && (
-        <>
-          <circle cx="14" cy="7" r="4.1" fill="none" stroke="currentColor" strokeWidth="1.4" />
-          <circle cx="14" cy="7" r="1.3" fill="currentColor" />
-        </>
+        <g transform="translate(8.5 1.5)">
+          <polygon points={triangle(11)} fill="none" stroke="currentColor" strokeWidth="1.4" />
+        </g>
       )}
     </svg>
   )
@@ -148,6 +159,7 @@ export function MapKey(): React.JSX.Element {
         {row(<LineSample className="text-[#f2c200]" width={3.5} edge />, t('flightMap.key.taxiRoute'))}
         {row(<AtcSample shape="centre" />, t('flightMap.key.atcCentre'))}
         {row(<AtcSample shape="approach" />, t('flightMap.key.atcApproach'))}
+        {row(<AtcSample shape="tower" />, t('flightMap.key.atcTower'))}
         {row(<AtcSample shape="airport" />, t('flightMap.key.atcAirport'))}
         {row(<FixSample shape="enroute" />, t('flightMap.key.fixEnroute'))}
         {row(<FixSample shape="procedure" />, t('flightMap.key.fixProcedure'))}
