@@ -180,7 +180,7 @@ function FlightDetail(props: {
   const { t } = useTranslation()
   const { flight, weightUnit } = props
   const { trackPoints, setTrackPoints } = useFlightTrack(flight.id)
-  const { estimate, estimatedLines, estimatedNm, setEstimate } = useTrackEstimate(flight.id)
+  const { estimate, estimatedLines, setEstimate } = useTrackEstimate(flight.id)
   const [confirm, confirmDialog] = useConfirm()
   const [addToFleetOpen, setAddToFleetOpen] = useState(false)
   const { displayRoute, displayWaypoints, routeIsApproximate } = useFlightRoute(flight)
@@ -275,12 +275,6 @@ function FlightDetail(props: {
           mapLanguage={props.mapLanguage}
         />
       </div>
-
-      {estimate.length > 0 && (
-        <p className="text-sm text-muted-foreground">
-          {t('logbookView.estimatedTrack', { nm: Math.round(estimatedNm) })}
-        </p>
-      )}
 
       {profile.profile.length > 1 && (
         <div className="flex flex-wrap gap-4">

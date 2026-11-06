@@ -670,10 +670,21 @@
     "showAtc": "显示 {{network}} 管制",
     "hideAtc": "隐藏 {{network}} 管制",
     "atcNeedsVid": "请在设置中输入你的 IVAO VID 以查看 IVAO 管制",
-    "atcUnavailable": "{{network}} 管制不可用"
+    "atcUnavailable": "{{network}} 管制不可用",
+    "key": {
+      "show": "图例",
+      "hide": "隐藏",
+      "title": "地图图例",
+      "flown": "已飞航迹",
+      "plan": "计划",
+      "taxiRoute": "滑行路线",
+      "atcArea": "ATC 区域",
+      "fixEnroute": "航路点",
+      "fixProcedure": "SID 或 STAR 点",
+      "fixApproach": "进近点"
+    }
   },
   "logbookView": {
-    "estimatedTrack": "虚线约 {{nm}} nm，是根据飞行计划估算的，并非实际记录。",
     "loading": "加载中…",
     "belowAverage": "低于平均水平",
     "landingCard": {

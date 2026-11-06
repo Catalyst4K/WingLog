@@ -676,10 +676,21 @@
     "showAtc": "{{network}}-ATC anzeigen",
     "hideAtc": "{{network}}-ATC ausblenden",
     "atcNeedsVid": "Trage in den Einstellungen deine IVAO-VID ein, um IVAO-ATC zu sehen",
-    "atcUnavailable": "{{network}}-ATC nicht verfügbar"
+    "atcUnavailable": "{{network}}-ATC nicht verfügbar",
+    "key": {
+      "show": "Legende",
+      "hide": "Ausblenden",
+      "title": "Kartenlegende",
+      "flown": "Geflogene Strecke",
+      "plan": "Plan",
+      "taxiRoute": "Rollweg",
+      "atcArea": "ATC-Bereich",
+      "fixEnroute": "Wegpunkt",
+      "fixProcedure": "SID- oder STAR-Punkt",
+      "fixApproach": "Anflugpunkt"
+    }
   },
   "logbookView": {
-    "estimatedTrack": "Die gestrichelte Linie sind etwa {{nm}} nm, aus dem Flugplan geschätzt. Sie wurden nicht aufgezeichnet.",
     "loading": "Wird geladen…",
     "belowAverage": "Unterdurchschnittlich",
     "landingCard": {

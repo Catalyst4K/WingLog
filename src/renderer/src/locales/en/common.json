@@ -676,10 +676,21 @@
     "showAtc": "Show {{network}} ATC",
     "hideAtc": "Hide {{network}} ATC",
     "atcNeedsVid": "Enter your IVAO VID in Settings to see IVAO ATC",
-    "atcUnavailable": "{{network}} ATC unavailable"
+    "atcUnavailable": "{{network}} ATC unavailable",
+    "key": {
+      "show": "Key",
+      "hide": "Hide",
+      "title": "Map key",
+      "flown": "Flown track",
+      "plan": "Plan",
+      "taxiRoute": "Taxi route",
+      "atcArea": "ATC area",
+      "fixEnroute": "Fix",
+      "fixProcedure": "SID or STAR fix",
+      "fixApproach": "Approach fix"
+    }
   },
   "logbookView": {
-    "estimatedTrack": "The dashed line is about {{nm}} nm estimated from the flight plan. It was not recorded.",
     "loading": "Loading…",
     "belowAverage": "Below average",
     "landingCard": {

@@ -401,7 +401,7 @@ function TopLeftPills(props: {
   if (!props.live) return null
   const trafficProblem = trafficProblemKey(props.traffic)
   return (
-    <div className="absolute top-3 left-3 flex max-w-[calc(100%-4.5rem)] flex-col items-start gap-1.5">
+    <div className="absolute top-12 left-3 flex max-w-[calc(100%-4.5rem)] flex-col items-start gap-1.5">
       {props.vfr.enabled && props.vfr.nearestText && <NearestAirfieldPill text={props.vfr.nearestText} />}
       {trafficProblem && props.traffic?.network && (
         <div className={PILL_CLASS_NAME}>

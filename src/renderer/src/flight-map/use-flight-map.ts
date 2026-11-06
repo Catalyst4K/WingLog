@@ -239,7 +239,7 @@ export function useRouteLayers(
 }
 
 /**
- * Draws the stretches estimated from the flight plan, dashed, in their own layer under the recorded trail.
+ * Draws the stretches estimated from the flight plan, like the recorded trail, in their own layer under it.
  *
  * @param instance The map instance.
  * @param estimatedTrack The estimated stretches, each a list of [lon, lat] pairs; none draws nothing.

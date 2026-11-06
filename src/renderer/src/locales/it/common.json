@@ -678,10 +678,21 @@
     "showAtc": "Mostra l’ATC {{network}}",
     "hideAtc": "Nascondi l’ATC {{network}}",
     "atcNeedsVid": "Inserisci il tuo VID IVAO nelle impostazioni per vedere l’ATC IVAO",
-    "atcUnavailable": "ATC {{network}} non disponibile"
+    "atcUnavailable": "ATC {{network}} non disponibile",
+    "key": {
+      "show": "Legenda",
+      "hide": "Nascondi",
+      "title": "Legenda della mappa",
+      "flown": "Traccia volata",
+      "plan": "Piano",
+      "taxiRoute": "Percorso di rullaggio",
+      "atcArea": "Area ATC",
+      "fixEnroute": "Punto",
+      "fixProcedure": "Punto SID o STAR",
+      "fixApproach": "Punto di avvicinamento"
+    }
   },
   "logbookView": {
-    "estimatedTrack": "La linea tratteggiata è di circa {{nm}} nm stimati dal piano di volo. Non sono stati registrati.",
     "loading": "Caricamento…",
     "belowAverage": "Sotto la media",
     "landingCard": {

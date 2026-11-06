@@ -678,10 +678,21 @@
     "showAtc": "Mostrar ATC de {{network}}",
     "hideAtc": "Ocultar ATC de {{network}}",
     "atcNeedsVid": "Introduce tu VID de IVAO en Ajustes para ver el ATC de IVAO",
-    "atcUnavailable": "ATC de {{network}} no disponible"
+    "atcUnavailable": "ATC de {{network}} no disponible",
+    "key": {
+      "show": "Leyenda",
+      "hide": "Ocultar",
+      "title": "Leyenda del mapa",
+      "flown": "Trayectoria volada",
+      "plan": "Plan",
+      "taxiRoute": "Ruta de rodaje",
+      "atcArea": "Área ATC",
+      "fixEnroute": "Punto",
+      "fixProcedure": "Punto SID o STAR",
+      "fixApproach": "Punto de aproximación"
+    }
   },
   "logbookView": {
-    "estimatedTrack": "La línea discontinua son unas {{nm}} nm estimadas a partir del plan de vuelo. No se grabaron.",
     "loading": "Cargando…",
     "belowAverage": "Por debajo del promedio",
     "landingCard": {

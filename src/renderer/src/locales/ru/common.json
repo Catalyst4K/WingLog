@@ -697,10 +697,21 @@
     "showAtc": "Показать диспетчеров {{network}}",
     "hideAtc": "Скрыть диспетчеров {{network}}",
     "atcNeedsVid": "Введите свой IVAO VID в настройках, чтобы видеть диспетчеров IVAO",
-    "atcUnavailable": "Диспетчеры {{network}} недоступны"
+    "atcUnavailable": "Диспетчеры {{network}} недоступны",
+    "key": {
+      "show": "Легенда",
+      "hide": "Скрыть",
+      "title": "Легенда карты",
+      "flown": "Пройденный путь",
+      "plan": "План",
+      "taxiRoute": "Маршрут руления",
+      "atcArea": "Зона ОВД",
+      "fixEnroute": "Точка",
+      "fixProcedure": "Точка SID или STAR",
+      "fixApproach": "Точка захода"
+    }
   },
   "logbookView": {
-    "estimatedTrack": "Пунктирная линия — около {{nm}} nm, оценённых по плану полёта. Они не были записаны.",
     "loading": "Загрузка…",
     "belowAverage": "Ниже среднего",
     "landingCard": {

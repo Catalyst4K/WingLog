@@ -16,6 +16,7 @@ import { ROUTE_SOURCE_ID } from './flight-map/map-layers'
 import { isMapVisible } from './flight-map/map-state'
 import { ErrorBoundary } from './ErrorBoundary'
 import { MapControls, MapPills } from './flight-map/MapOverlays'
+import { MapKey } from './flight-map/MapKey'
 import {
   useFollowToggle,
   useMapInstance,
@@ -34,7 +35,7 @@ export interface FlightMapProps {
    *  a crash-resume or a mid-flight teleport, winglog-backend's docs/plans/
    *  resume-track-cleanup.md) are dropped inside this component, not by the caller. */
   trackPoints: TrackPoint[]
-  /** Logbook only: stretches estimated from the flight plan, drawn dashed apart from the recorded track (docs/plans/track-gap-fill.md). */
+  /** Logbook only: stretches estimated from the flight plan, drawn like the recorded track (docs/plans/track-gap-fill.md). */
   estimatedTrack?: [number, number][][]
   /**
    * true (TrackView): animated marker/camera follow as new points arrive.
@@ -190,6 +191,7 @@ function FlightMapView({
         onZoomIn={() => mapRef.current?.zoomIn()}
         onZoomOut={() => mapRef.current?.zoomOut()}
       />
+      <MapKey />
       <MapPills
         live={live}
         telemetry={telemetry}

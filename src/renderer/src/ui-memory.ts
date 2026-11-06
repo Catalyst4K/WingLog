@@ -25,6 +25,8 @@ export interface UiMemory {
   approachCleared: Set<string>
   /** The VFR overlay's toggle. */
   vfrEnabled: boolean
+  /** Whether the map key is open (closed by default). */
+  mapKeyOpen: boolean
   /** The airfield list, fetched once (~43k rows), so it isn't sent over IPC again. */
   vfrAirfields: Airfield[] | null
 }
@@ -39,6 +41,7 @@ function initial(): UiMemory {
     taxiSegments: new Map(),
     approachCleared: new Set(),
     vfrEnabled: false,
+    mapKeyOpen: false,
     vfrAirfields: null
   }
 }
