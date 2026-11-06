@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 import { useTranslation } from 'react-i18next'
 import type {
+  FlightPhase,
   LanFlight,
   LanFlightSnapshot,
   MapLanguage,
@@ -22,6 +23,7 @@ import {
   type TrackTimes
 } from '@/track-times'
 import { ProcedureSelector } from '@/ProcedureSelector'
+import { PhaseLights } from '@/track/PhaseLights'
 import { AtcClearanceDialog } from '@/app/AppDialogs'
 import { useAtcClearancePrompt } from '@/app/use-prompts'
 import { AutoTuneOnlineWarning } from '@/online/AutoTuneOnlineWarning'
@@ -65,7 +67,13 @@ function useCollapsedAttribution(): void {
  * @param props The flight being tracked.
  * @returns The element.
  */
-function FlightBanner({ flight }: { flight: LanFlight }): React.JSX.Element {
+function FlightBanner({
+  flight,
+  phase
+}: {
+  flight: LanFlight
+  phase: FlightPhase | undefined
+}): React.JSX.Element {
   const route = `${realIcao(flight.depIcao) ?? '—'} → ${realIcao(flight.arrIcao) ?? '—'}`
   const aircraft = [flight.registration, flight.icaoType].filter(Boolean).join(' · ')
   return (
@@ -76,6 +84,7 @@ function FlightBanner({ flight }: { flight: LanFlight }): React.JSX.Element {
       <span className="flex shrink-0 items-center gap-2">
         {aircraft && <span className="text-muted-foreground">{aircraft}</span>}
         <OnlineBadge />
+        {phase && <PhaseLights phase={phase} compact />}
       </span>
     </div>
   )
@@ -282,6 +291,7 @@ function FlightView(props: {
       <FlightHeader
         snapshot={snapshot}
         times={times}
+        phase={phase}
         procedures={airports ? { airports, selection, onSelectionChange: choose, unconfirmed } : null}
       />
       <div className="min-h-0 flex-1">
@@ -313,6 +323,7 @@ function FlightView(props: {
 function FlightHeader(props: {
   snapshot: LanFlightSnapshot | null
   times: TrackTimes
+  phase: FlightPhase | undefined
   procedures: (Parameters<typeof ProceduresBar>[0] & { unconfirmed: boolean }) | null
 }): React.JSX.Element {
   const { snapshot, times, procedures } = props
@@ -330,7 +341,7 @@ function FlightHeader(props: {
           {t('lanPage.noFlight')}
         </p>
       )}
-      {snapshot && <FlightBanner flight={snapshot.flight} />}
+      {snapshot && <FlightBanner flight={snapshot.flight} phase={props.phase} />}
       <AutoTuneOnlineWarning />
       <OnlineAtcSection />
       {snapshot && (

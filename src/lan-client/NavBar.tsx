@@ -31,8 +31,11 @@ export function NavBar(props: {
           aria-current={props.current === id ? 'page' : undefined}
           onClick={() => props.onChange(id)}
           className={cn(
-            'flex min-h-14 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 px-1 text-[11px]',
-            props.current === id ? 'font-medium text-primary' : 'text-muted-foreground'
+            // The page open has a line over it and the text colour (the canvas's r3-phone); the others are quiet.
+            'flex min-h-14 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 border-t-2 px-1 text-[11px] font-medium',
+            props.current === id
+              ? 'border-foreground text-foreground'
+              : 'border-transparent text-muted-foreground'
           )}
         >
           <Icon className="size-5" />

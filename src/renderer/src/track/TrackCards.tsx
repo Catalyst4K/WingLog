@@ -4,7 +4,6 @@ import { useTranslation } from 'react-i18next'
 import type {
   ActiveTracking,
   Aircraft,
-  FlightPhase,
   LogbookFlight,
   ProcedureSelection,
   SimTelemetry,
@@ -19,7 +18,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle
 } from '@/components/ui/alert-dialog'
-import { StatusLight } from '@/components/StatusLight'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
@@ -37,6 +35,7 @@ import { ProcedureSelector } from '../ProcedureSelector'
 import { asyncHandler } from '../report-error'
 import { formatDuration, formatElapsed, formatUtcTime, type TrackTimes } from '../track-times'
 import type { FreeFlightBanner } from './use-track-state'
+import { PhaseLights } from './PhaseLights'
 
 /**
  * The flight's identity as on the canvas (r3-track): its number large, the aircraft's type and registration quiet beside it and, for a
@@ -123,55 +122,6 @@ function FlownReadout(props: { times: TrackTimes }): React.JSX.Element {
       <span>{t('trackView.times.toGo')}</span>{' '}
       <span className="font-mono text-foreground">{formatDuration(times.remainingMs)}</span>
     </div>
-  )
-}
-
-/** The phases of a flight, in order, as the strip shows them. */
-const PHASE_ORDER: FlightPhase[] = [
-  'pushback',
-  'taxi',
-  'takeoff',
-  'climb',
-  'cruise',
-  'descent',
-  'landing',
-  'shutdown'
-]
-
-/**
- * The flight's phases as a row of dots (winglog-backend docs/plans/v2-design.md, "Track", and the canvas): green for those done, a larger
- * ringed green dot with its name for the one it is in, off for those still to come. The other names are there for a screen reader.
- *
- * @param props The phase the flight is in.
- * @returns The element.
- */
-export function PhaseLights(props: { phase: FlightPhase }): React.JSX.Element {
-  const current = PHASE_ORDER.indexOf(props.phase)
-  return (
-    <ol className="m-0 flex list-none items-center gap-1.5 p-0" data-testid="phase-lights">
-      {PHASE_ORDER.map((phase, index) => {
-        const isCurrent = index === current
-        return (
-          <li
-            key={phase}
-            aria-current={isCurrent ? 'step' : undefined}
-            className="inline-flex items-center gap-2 capitalize"
-          >
-            {isCurrent ? (
-              <span
-                aria-hidden="true"
-                data-slot="status-light"
-                data-state="green"
-                className="size-[13px] rounded-full border-2 border-foreground bg-light-green"
-              />
-            ) : (
-              <StatusLight state={index < current ? 'green' : 'off'} />
-            )}
-            <span className={isCurrent ? 'mr-1 text-[17px]' : 'sr-only'}>{phase}</span>
-          </li>
-        )
-      })}
-    </ol>
   )
 }
 

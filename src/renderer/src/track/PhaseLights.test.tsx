@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import { PhaseLights } from './TrackCards'
+import { PhaseLights } from './PhaseLights'
 
 const states = (container: HTMLElement): string[] =>
   [...container.querySelectorAll('[data-slot="status-light"]')].map(
