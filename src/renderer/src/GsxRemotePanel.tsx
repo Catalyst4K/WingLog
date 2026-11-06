@@ -77,7 +77,7 @@ function MenuHeader(props: { menu: GsxRemoteMenuState; onToggle: () => void }): 
     <button
       type="button"
       onClick={props.onToggle}
-      className="flex items-center justify-between gap-2 rounded-md border border-primary/40 bg-primary/5 px-3 py-2.5 text-left shadow-sm transition-colors hover:bg-primary/10"
+      className="flex items-center justify-between gap-2 border-y border-border px-1 py-2.5 text-left transition-colors hover:bg-muted/60"
     >
       <span className="flex flex-col items-start gap-0.5">
         <span className="text-sm font-semibold text-foreground">{title}</span>
@@ -85,7 +85,7 @@ function MenuHeader(props: { menu: GsxRemoteMenuState; onToggle: () => void }): 
       </span>
       <ChevronRight
         aria-hidden="true"
-        className={`size-4 shrink-0 text-primary transition-transform ${closed ? '' : 'rotate-90'}`}
+        className={`size-4 shrink-0 text-muted-foreground transition-transform ${closed ? '' : 'rotate-90'}`}
       />
     </button>
   )
@@ -345,6 +345,22 @@ function GateSearchBox(props: {
  * @param props The service.
  * @returns The element, or null when there is nothing to show.
  */
+/**
+ * A progress line, "15,357 / 81,488 kg": what is done in ink, the target (what the plan asked for) in magenta.
+ *
+ * @param props The line as the format functions write it.
+ * @returns The element.
+ */
+function ProgressText(props: { text: string }): React.JSX.Element {
+  const at = props.text.indexOf(' / ')
+  if (at < 0) return <span>{props.text}</span>
+  return (
+    <span>
+      {props.text.slice(0, at)} / <span className="text-plan">{props.text.slice(at + 3)}</span>
+    </span>
+  )
+}
+
 function ServiceProgress(props: { service: GsxRemoteServiceStatus }): React.JSX.Element | null {
   const { t } = useTranslation()
   const detail = props.service.detail
@@ -360,7 +376,7 @@ function ServiceProgress(props: { service: GsxRemoteServiceStatus }): React.JSX.
     return (
       <span className="flex flex-col text-muted-foreground">
         {waitingLine}
-        <span>{formatFuelProgress(detail.fuel)}</span>
+        <ProgressText text={formatFuelProgress(detail.fuel)} />
       </span>
     )
   }
@@ -368,9 +384,9 @@ function ServiceProgress(props: { service: GsxRemoteServiceStatus }): React.JSX.
     return (
       <span className="flex flex-col text-muted-foreground">
         {waitingLine}
-        <span>{formatPaxProgress(detail.pax)}</span>
+        <ProgressText text={formatPaxProgress(detail.pax)} />
         {detail.cargo?.map((cargo) => (
-          <span key={cargo.hold}>{formatCargoProgress(cargo)}</span>
+          <ProgressText key={cargo.hold} text={formatCargoProgress(cargo)} />
         ))}
       </span>
     )
@@ -546,10 +562,7 @@ export function GsxRemotePanel(props: { canEditRoutines?: boolean }): React.JSX.
         />
       )}
       <GateHeader gate={gate} />
-      <CommandBar
-        commandBar={commandBar}
-        onRun={asyncHandler('GsxRemotePanel gsx.runCommand', (id) => live.command('gsx.runCommand', id))}
-      />
+      <ServicesList services={services} />
       <GsxRoutines canEdit={props.canEditRoutines ?? true} />
       <MenuHeader
         menu={menu}
@@ -561,7 +574,10 @@ export function GsxRemotePanel(props: { canEditRoutines?: boolean }): React.JSX.
         onSearch={asyncHandler('GsxRemotePanel gsx.search', (text) => live.command('gsx.search', text))}
         atcStand={atcStand}
       />
-      <ServicesList services={services} />
+      <CommandBar
+        commandBar={commandBar}
+        onRun={asyncHandler('GsxRemotePanel gsx.runCommand', (id) => live.command('gsx.runCommand', id))}
+      />
     </div>
   )
 }

@@ -64,6 +64,14 @@ function withWinglog(overrides: Partial<WingLogApi> = {}): void {
   } as unknown as WingLogApi
 }
 
+/** Matches a progress line: the span holding the whole text, with the magenta target inside it. */
+function progressLine(text: string) {
+  return (_content: string, element: Element | null): boolean =>
+    element?.tagName === 'SPAN' &&
+    element.textContent === text &&
+    element.querySelector(':scope > .text-plan') !== null
+}
+
 describe('GsxRemotePanel', () => {
   it('shows a not-configured message when GSX Remote is disabled', async () => {
     withWinglog({ settingsGetGsxRemote: vi.fn().mockResolvedValue(makeSettings({ enabled: false })) })
@@ -638,7 +646,9 @@ describe('GsxRemotePanel', () => {
       }
     ])
 
-    expect(await screen.findByText('15,357 / 81,488 kg')).toBeInTheDocument()
+    expect(await screen.findByText(progressLine('15,357 / 81,488 kg'))).toBeInTheDocument()
+    // The target is the plan's, so it is magenta; what is done is not.
+    expect(screen.getByText('81,488 kg')).toHaveClass('text-plan')
     expect(screen.getByText(/24,272/)).toBeInTheDocument()
     expect(screen.queryByText(/pumping\\nfuel/)).not.toBeInTheDocument()
   })
@@ -676,9 +686,9 @@ describe('GsxRemotePanel', () => {
       }
     ])
 
-    expect(await screen.findByText('0 / 344')).toBeInTheDocument()
-    expect(screen.getByText('Front: 0 / 7 ULDs')).toBeInTheDocument()
-    expect(screen.getByText('Rear: 0 / 6 ULDs')).toBeInTheDocument()
+    expect(await screen.findByText(progressLine('0 / 344'))).toBeInTheDocument()
+    expect(screen.getByText(progressLine('Front: 0 / 7 ULDs'))).toBeInTheDocument()
+    expect(screen.getByText(progressLine('Rear: 0 / 6 ULDs'))).toBeInTheDocument()
   })
 
   it('shows why a service is stuck alongside its real progress, not instead of it', async () => {
@@ -717,7 +727,7 @@ describe('GsxRemotePanel', () => {
     ])
 
     expect(await screen.findByText('Waiting: BaggageTrainEmptyFront to clear the way')).toBeInTheDocument()
-    expect(screen.getByText('0 / 367')).toBeInTheDocument()
+    expect(screen.getByText(progressLine('0 / 367'))).toBeInTheDocument()
   })
 
   it('shows why a service is stuck even with no structured detail to fall back on', async () => {
