@@ -255,7 +255,8 @@
       "gsx": "Наземное обслуживание",
       "beyondAtc": "BeyondATC",
       "logbook": "Логбук",
-      "settings": "Настройки"
+      "settings": "Настройки",
+      "more": "Ещё"
     },
     "connection": {
       "connected": "Подключено (SimConnect {{version}})",

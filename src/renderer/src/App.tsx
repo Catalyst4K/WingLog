@@ -255,6 +255,7 @@ export default function App(): React.JSX.Element {
           gsxRemoteEnabled={settings.gsxRemoteEnabled}
           beyondAtcEnabled={settings.beyondAtcEnabled}
           onTabClick={nav.goToTab}
+          current={nav.effectivePage}
           simStatus={simStatus}
         />
 

@@ -234,7 +234,8 @@
       "gsx": "地面服务",
       "beyondAtc": "BeyondATC",
       "logbook": "飞行日志",
-      "settings": "设置"
+      "settings": "设置",
+      "more": "更多"
     },
     "connection": {
       "connected": "已连接（SimConnect {{version}}）",

@@ -241,7 +241,8 @@
       "gsx": "Servicios de tierra",
       "beyondAtc": "BeyondATC",
       "logbook": "Bitácora",
-      "settings": "Ajustes"
+      "settings": "Ajustes",
+      "more": "Más"
     },
     "connection": {
       "connected": "Conectado (SimConnect {{version}})",

@@ -42,6 +42,18 @@ async function expectNoHorizontalScroll(page: Page): Promise<void> {
   expect(overflow).toEqual({ document: 0, header: 0, tabs: 0, content: 0 })
 }
 
+/**
+ * Opens a page that is folded behind More in a narrow window (winglog-backend docs/plans/v2-design.md, D9). The More button carries the
+ * name of the folded page you are on, so it is found by being the header's popover button, not by its label.
+ *
+ * @param page The window.
+ * @param name The page's name.
+ */
+async function openFromMore(page: Page, name: string): Promise<void> {
+  await page.locator('header button[aria-haspopup="dialog"]').click()
+  await page.getByRole('button', { name, exact: true }).click()
+}
+
 for (const [width, height] of [
   [360, 780],
   [768, 1024]
@@ -65,20 +77,22 @@ for (const [width, height] of [
       await page.reload()
       await setWidth(app, width, height)
 
-      // Every tab is reachable without scrolling the tab row, even with both add-on tabs on.
-      await expect(page.getByRole('tab', { name: 'Settings' })).toBeInViewport({ ratio: 1 })
+      // Below 800 px Fleet, Dispatch, Track and Logbook stay in the bar and the rest (Ground services, BeyondATC, Settings) are behind
+      // More: the whole bar fits, with nothing scrolled.
+      await expect(page.getByRole('tab')).toHaveCount(4)
+      await expect(page.locator('header button[aria-haspopup="dialog"]')).toBeInViewport({ ratio: 1 })
       await expectNoHorizontalScroll(page)
 
       await page.getByRole('tab', { name: 'Track' }).click()
       await expect(page.getByRole('button', { name: 'Free flight' })).toBeInViewport()
       await expectNoHorizontalScroll(page)
 
-      await page.getByRole('tab', { name: 'BeyondATC' }).click()
+      await openFromMore(page, 'BeyondATC')
       await expect(page.getByRole('button', { name: 'Request IFR Clearance' })).toBeInViewport()
       await expect(page.getByRole('button', { name: 'Set' }).first()).toBeVisible()
       await expectNoHorizontalScroll(page)
 
-      await page.getByRole('tab', { name: 'Ground services' }).click()
+      await openFromMore(page, 'Ground services')
       await expect(page.getByText('GSX Menu')).toBeInViewport()
       await expectNoHorizontalScroll(page)
 

@@ -241,7 +241,8 @@
       "gsx": "Services au sol",
       "beyondAtc": "BeyondATC",
       "logbook": "Carnet",
-      "settings": "Paramètres"
+      "settings": "Paramètres",
+      "more": "Plus"
     },
     "connection": {
       "connected": "Connecté (SimConnect {{version}})",

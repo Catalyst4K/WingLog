@@ -241,7 +241,8 @@
       "gsx": "Servizi di terra",
       "beyondAtc": "BeyondATC",
       "logbook": "Libretto",
-      "settings": "Impostazioni"
+      "settings": "Impostazioni",
+      "more": "Altro"
     },
     "connection": {
       "connected": "Connesso (SimConnect {{version}})",

@@ -239,7 +239,8 @@
       "gsx": "Bodendienste",
       "beyondAtc": "BeyondATC",
       "logbook": "Logbuch",
-      "settings": "Einstellungen"
+      "settings": "Einstellungen",
+      "more": "Mehr"
     },
     "connection": {
       "connected": "Verbunden (SimConnect {{version}})",

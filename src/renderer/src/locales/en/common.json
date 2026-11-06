@@ -239,7 +239,8 @@
       "gsx": "Ground services",
       "beyondAtc": "BeyondATC",
       "logbook": "Logbook",
-      "settings": "Settings"
+      "settings": "Settings",
+      "more": "More"
     },
     "connection": {
       "connected": "Sim connected ({{version}})",
