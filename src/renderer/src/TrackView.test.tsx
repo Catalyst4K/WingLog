@@ -51,6 +51,8 @@ vi.mock('maplibre-gl', () => {
     remove = vi.fn()
     addSource = vi.fn()
     addLayer = vi.fn()
+    hasImage = vi.fn(() => false)
+    addImage = vi.fn()
     getSource = vi.fn(() => ({ setData: vi.fn().mockResolvedValue(undefined) }))
     setLayoutProperty = vi.fn()
     fitBounds = vi.fn()

@@ -58,6 +58,10 @@ vi.mock('maplibre-gl', () => {
     off(): void {}
     addSource(): void {}
     addLayer(): void {}
+    hasImage(): boolean {
+      return false
+    }
+    addImage(): void {}
     getSource(): { setData: () => Promise<void> } {
       return { setData: vi.fn().mockResolvedValue(undefined) }
     }

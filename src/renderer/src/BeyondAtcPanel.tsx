@@ -15,6 +15,7 @@ import type {
 import { EMPTY_BEYONDATC_STATE } from '@shared/beyondatc-state'
 import { BeyondAtcAtisButton } from './BeyondAtcAtis'
 import { BeyondAtcActions, BeyondAtcRadios } from './BeyondAtcControls'
+import { AtcClearanceBackupLine } from './app/AtcClearanceBackup'
 import { latestAtcInstruction, type AtcInstruction } from './beyond-atc-instruction'
 import { useLiveClient, useLiveTopic } from './live/LiveClient'
 import { Badge } from '@/components/ui/badge'
@@ -157,6 +158,7 @@ function LatestInstructionCard(props: {
             <p className="text-xs text-muted-foreground">{instruction.text}</p>
           </>
         )}
+        <AtcClearanceBackupLine />
       </CardContent>
     </Card>
   )

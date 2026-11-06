@@ -1,6 +1,6 @@
 import { act, renderHook } from '@testing-library/react'
 import type { ReactNode } from 'react'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { BeyondAtcState, GsxRemoteMenuState, ProcedureSelection, WingLogApi } from '@shared/ipc'
 import { LiveClientContext, type LiveClient } from '../live/LiveClient'
 import { emptyProcedureSelection } from '@shared/procedure-selection'
@@ -88,6 +88,62 @@ describe('useAtcClearancePrompt on a LiveClient', () => {
     // The other screen pressed Update: the selection now holds what this prompt would apply.
     rerender({ sel: { ...selection, starIdent: 'LOGA2H' } })
     expect(result.current.pending).toBeNull()
+  })
+
+  describe('the pop-up gives way to the BeyondATC page after a minute (v2, Part 4)', () => {
+    afterEach(() => vi.useRealTimers())
+
+    async function offered(popupMs: number | null) {
+      window.winglog = { appLogRendererError: vi.fn().mockResolvedValue(undefined) } as unknown as WingLogApi
+      const { client, push } = fakeClient()
+      const hook = renderHook(() => useAtcClearancePrompt(selection, vi.fn(), popupMs), {
+        wrapper: wrapper(client)
+      })
+      const offer = async (star: string): Promise<void> => {
+        await act(async () => {
+          push('beyondAtcState', { ...state(star), infoBoxesAt: Math.random() * 1e6 })
+          await Promise.resolve()
+        })
+      }
+      await offer('LOGA2H')
+      return { ...hook, offer }
+    }
+
+    it('opens the pop-up, then closes it after the minute while the same question stays pending', async () => {
+      vi.useFakeTimers()
+      const { result } = await offered(60_000)
+      expect(result.current.popupOpen).toBe(true)
+      act(() => vi.advanceTimersByTime(59_000))
+      expect(result.current.popupOpen).toBe(true)
+      act(() => vi.advanceTimersByTime(1_000))
+      expect(result.current.popupOpen).toBe(false)
+      expect(result.current.pending?.fields).toEqual({ starIdent: 'LOGA2H' })
+    })
+
+    it('opens a pop-up again for a newer clearance', async () => {
+      vi.useFakeTimers()
+      const { result, offer } = await offered(60_000)
+      act(() => vi.advanceTimersByTime(60_000))
+      expect(result.current.popupOpen).toBe(false)
+      await offer('BNN1A')
+      expect(result.current.pending?.fields).toEqual({ starIdent: 'BNN1A' })
+      expect(result.current.popupOpen).toBe(true)
+    })
+
+    it('keeps the pop-up open for ever where there is no BeyondATC page (the second screen)', async () => {
+      vi.useFakeTimers()
+      const { result } = await offered(null)
+      act(() => vi.advanceTimersByTime(10 * 60_000))
+      expect(result.current.popupOpen).toBe(true)
+    })
+
+    it('has no pop-up, and no timer, once the question is answered', async () => {
+      vi.useFakeTimers()
+      const { result } = await offered(60_000)
+      act(() => result.current.onDismiss())
+      expect(result.current.pending).toBeNull()
+      expect(result.current.popupOpen).toBe(false)
+    })
   })
 
   describe('while the pilot is online', () => {

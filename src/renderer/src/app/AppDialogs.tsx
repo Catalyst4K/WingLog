@@ -22,16 +22,7 @@ import { flightLabel } from '../flight-label'
 import { useLiveClient } from '../live/LiveClient'
 import { asyncHandler, runAsync } from '../report-error'
 import type { PendingAtcClearance } from './atc-clearance'
-
-/** Maps a parsed clearance's ProcedureSelection field name to its existing ProcedureSelector
- *  label key — reused rather than duplicated, same fields, same meaning. */
-const ATC_CLEARANCE_FIELD_LABEL_KEYS: Partial<Record<keyof ProcedureSelection, string>> = {
-  departureRunway: 'procedureSelector.departureRunway',
-  sidIdent: 'procedureSelector.sid',
-  starIdent: 'procedureSelector.star',
-  approachIdent: 'procedureSelector.approach',
-  approachTransition: 'procedureSelector.approachTransition'
-}
+import { ClearanceChanges } from './AtcClearanceBackup'
 
 /**
  * The resume/discard prompt covers two different situations under one flight row — a
@@ -178,20 +169,7 @@ export function AtcClearanceDialog(props: {
             <DialogHeader>
               <DialogTitle>{t('app.atcClearancePrompt.title')}</DialogTitle>
             </DialogHeader>
-            <div className="flex flex-col gap-1.5 text-sm">
-              {Object.entries(clearance.fields).map(([key, value]) => (
-                <p key={key}>
-                  <span className="font-medium text-foreground">
-                    {t(ATC_CLEARANCE_FIELD_LABEL_KEYS[key as keyof ProcedureSelection] ?? '')}:{' '}
-                  </span>
-                  <span className="text-muted-foreground">
-                    {props.selection[key as keyof ProcedureSelection] ?? t('procedureSelector.none')}
-                  </span>
-                  {' → '}
-                  <span className="text-foreground">{value ?? t('procedureSelector.none')}</span>
-                </p>
-              ))}
-            </div>
+            <ClearanceChanges clearance={clearance} selection={props.selection} />
             <DialogFooter>
               <Button type="button" variant="outline" onClick={props.onDismiss}>
                 {t('app.atcClearancePrompt.dismiss')}

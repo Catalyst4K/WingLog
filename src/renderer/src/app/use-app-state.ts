@@ -23,7 +23,7 @@ import {
   selectionFromFlight
 } from '@shared/procedure-selection'
 import { runAsync } from '../report-error'
-import { useAtcClearancePrompt, useImportantGsxMenu } from './use-prompts'
+import { ATC_CLEARANCE_POPUP_MS, useAtcClearancePrompt, useImportantGsxMenu } from './use-prompts'
 
 /** The dispatched OFP and procedure selection Dispatch and Track share, and their handlers. */
 export interface FlightPlan {
@@ -398,4 +398,4 @@ export function useFirstLaunchSetup(): { setupOpen: boolean; setSetupOpen: (open
   return { setupOpen, setSetupOpen }
 }
 
-export { useAtcClearancePrompt, useImportantGsxMenu }
+export { ATC_CLEARANCE_POPUP_MS, useAtcClearancePrompt, useImportantGsxMenu }

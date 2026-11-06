@@ -13,7 +13,9 @@ import { FleetView } from './FleetView'
 import { asyncHandler, runAsync } from './report-error'
 import { AppHeader } from './app/AppHeader'
 import { AtcClearanceDialog, ImportantGsxMenuDialog, OrphanedFlightDialog } from './app/AppDialogs'
+import { AtcClearanceBackupContext } from './app/atc-clearance-backup-context'
 import {
+  ATC_CLEARANCE_POPUP_MS,
   useAtcClearancePrompt,
   useFirstLaunchSetup,
   useFlightPlan,
@@ -219,7 +221,20 @@ export default function App(): React.JSX.Element {
   const nav = useNavigation(settings.gsxRemoteEnabled, settings.beyondAtcEnabled)
   const orphaned = useOrphanedFlight(plan, () => nav.setPage('track'))
   // Accepting a clearance changes the choice like any other change: sent to the main process, which tells every screen.
-  const atcClearance = useAtcClearancePrompt(plan.procedureSelection, plan.setProcedureSelection)
+  const atcClearance = useAtcClearancePrompt(
+    plan.procedureSelection,
+    plan.setProcedureSelection,
+    ATC_CLEARANCE_POPUP_MS
+  )
+  const clearanceBackup =
+    atcClearance.pending && !atcClearance.popupOpen
+      ? {
+          clearance: atcClearance.pending,
+          selection: plan.procedureSelection,
+          onAccept: atcClearance.onAccept,
+          onDismiss: atcClearance.onDismiss
+        }
+      : null
   usePrefetchViews()
   const { setupOpen, setSetupOpen } = useFirstLaunchSetup()
   const gsxMenu = useImportantGsxMenu(nav.effectivePage === 'gsx')
@@ -250,13 +265,15 @@ export default function App(): React.JSX.Element {
             measurably taller than the viewport, not this div). */}
         <div className="min-h-0 flex-1 overflow-auto p-4 sm:p-8">
           <ErrorBoundary name={nav.effectivePage} resetKey={nav.effectivePage}>
-            <CurrentPage
-              nav={nav}
-              settings={settings}
-              plan={plan}
-              telemetry={telemetry}
-              onRunSetup={() => setSetupOpen(true)}
-            />
+            <AtcClearanceBackupContext.Provider value={clearanceBackup}>
+              <CurrentPage
+                nav={nav}
+                settings={settings}
+                plan={plan}
+                telemetry={telemetry}
+                onRunSetup={() => setSetupOpen(true)}
+              />
+            </AtcClearanceBackupContext.Provider>
           </ErrorBoundary>
         </div>
       </Tabs>
@@ -271,7 +288,7 @@ export default function App(): React.JSX.Element {
       />
       <ImportantGsxMenuDialog menu={gsxMenu.menu} open={gsxMenu.open} onDismiss={gsxMenu.onDismiss} />
       <AtcClearanceDialog
-        clearance={atcClearance.pending}
+        clearance={atcClearance.popupOpen ? atcClearance.pending : null}
         selection={plan.procedureSelection}
         onAccept={atcClearance.onAccept}
         onDismiss={atcClearance.onDismiss}

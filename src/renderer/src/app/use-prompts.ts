@@ -18,6 +18,9 @@ import {
   type PendingAtcClearance
 } from './atc-clearance'
 
+/** How long the procedure-update pop-up waits for an answer before it gives way to the line on the BeyondATC page (D5). */
+export const ATC_CLEARANCE_POPUP_MS = 60_000
+
 /**
  * Reads each new set of BeyondATC InfoBoxes for a clearance whose fields differ from the current selection, and holds it for the
  * user's accept or dismiss: overwrite, but ask first, gently. Never ATC's speech (winglog-backend's
@@ -26,15 +29,27 @@ import {
  *
  * @param selection The current procedure selection.
  * @param setSelection Applies an accepted clearance.
- * @returns The clearance awaiting an answer, and the accept and dismiss handlers.
+ * @param popupMs How long the pop-up stays open unanswered before the question moves to the BeyondATC page, or null to keep it open
+ *   (the second screen has no BeyondATC page).
+ * @returns The clearance awaiting an answer, whether its pop-up is open or it has moved to the BeyondATC page, and the accept and
+ *   dismiss handlers.
  */
 export function useAtcClearancePrompt(
   selection: ProcedureSelection,
-  setSelection: React.Dispatch<React.SetStateAction<ProcedureSelection>>
-): { pending: PendingAtcClearance | null; onAccept: () => void; onDismiss: () => void } {
+  setSelection: React.Dispatch<React.SetStateAction<ProcedureSelection>>,
+  popupMs: number | null = null
+): {
+  pending: PendingAtcClearance | null
+  popupOpen: boolean
+  onAccept: () => void
+  onDismiss: () => void
+} {
   // Unlike the GSX prompt, no remembered-dismissal key is needed: each new set of InfoBoxes
   // is read once (lastAtcBoxesKey below), not re-offered while it stays up.
   const [pending, setPending] = useState<PendingAtcClearance | null>(null)
+  // The clearance whose pop-up has timed out: it is waiting on the BeyondATC page. Keyed by the clearance itself, so a newer one
+  // (a new object) gets its own pop-up without anything to reset.
+  const [movedOn, setMovedOn] = useState<PendingAtcClearance | null>(null)
   // The last set of BeyondATC InfoBoxes already read: the state is pushed on every BeyondATC
   // message, so this tells a genuinely new set apart from one already considered (and
   // possibly dismissed).
@@ -59,6 +74,12 @@ export function useAtcClearancePrompt(
     })
   }, [client, selection, hidden])
 
+  useEffect(() => {
+    if (!pending || popupMs === null) return
+    const timer = setTimeout(() => setMovedOn(pending), popupMs)
+    return () => clearTimeout(timer)
+  }, [pending, popupMs])
+
   // The other screen answered it (the phone pressed Update, or the desktop did): the selection already holds what this one would
   // apply, so there is nothing left to ask, and a stale Update here must not be pressable. Adjusted while rendering, React's
   // pattern for state that follows a prop.
@@ -67,6 +88,7 @@ export function useAtcClearancePrompt(
 
   return {
     pending,
+    popupOpen: pending !== null && movedOn !== pending,
     onAccept: () => {
       if (!pending) return
       setSelection((prev) => applyClearance(prev, pending.fields))
