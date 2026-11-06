@@ -101,6 +101,42 @@ describe('useLiveWaypoints with the alternate as the arrival airport (v1.1.1)', 
     expect(navdataGetProcedureWaypoints).toHaveBeenCalledWith('EGLL', 'sid', 'BPK7F', '27L', null)
   })
 
+  it('starts the line along the departure runway once its position is read', async () => {
+    const navdataListRunways = vi.fn().mockResolvedValue([
+      {
+        ident: '27L',
+        headingTrueDeg: 270,
+        lengthM: 3000,
+        widthM: 45,
+        surface: 1,
+        thresholdLat: 51.5,
+        thresholdLon: 0
+      }
+    ])
+    window.winglog = {
+      navdataGetProcedureWaypoints: vi.fn().mockResolvedValue([]),
+      navdataListRunways
+    } as unknown as WingLogApi
+    const { result } = renderHook(() =>
+      useLiveWaypoints(airports({ ofpJson }), { ...emptyProcedureSelection(), departureRunway: '27L' })
+    )
+    await waitFor(() => expect(result.current[0]?.ident).toBe('RW27L'))
+    expect(navdataListRunways).toHaveBeenCalledWith('EGLL')
+    expect(result.current.filter((w) => w.runwayPoint)).toHaveLength(3)
+  })
+
+  it('leaves the line as it was when the runway cannot be read', async () => {
+    window.winglog = {
+      navdataGetProcedureWaypoints: vi.fn().mockResolvedValue([]),
+      navdataListRunways: vi.fn().mockRejectedValue(new Error('no navdata'))
+    } as unknown as WingLogApi
+    const { result } = renderHook(() =>
+      useLiveWaypoints(airports({ ofpJson }), { ...emptyProcedureSelection(), departureRunway: '27L' })
+    )
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(result.current.map((w) => w.ident)).toEqual(['SIDFIX', 'CRUISE'])
+  })
+
   it("keeps SimBrief's segment when the legs come back empty or the fetch fails", async () => {
     for (const fetch of [vi.fn().mockResolvedValue([]), vi.fn().mockRejectedValue(new Error('no navdata'))]) {
       window.winglog = { navdataGetProcedureWaypoints: fetch } as unknown as WingLogApi

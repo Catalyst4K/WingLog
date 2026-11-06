@@ -173,7 +173,7 @@ interface WaypointFeatureCollection {
   type: 'FeatureCollection'
   features: {
     type: 'Feature'
-    properties: { ident: string; segment: string; tag?: string }
+    properties: { ident: string; segment: string; tag?: string; runway?: true }
     geometry: { type: 'Point'; coordinates: [number, number] }
   }[]
 }
@@ -198,6 +198,14 @@ export function waypointFeatures(waypoints: Waypoint[], names?: ProcedureNames):
   return {
     type: 'FeatureCollection',
     features: waypoints.map((w) => {
+      // A point along the departure runway is only part of the line: no symbol, label or tag.
+      if (w.runwayPoint) {
+        return {
+          type: 'Feature' as const,
+          properties: { ident: w.ident, segment: w.segment, runway: true as const },
+          geometry: { type: 'Point' as const, coordinates: [w.lon, w.lat] as [number, number] }
+        }
+      }
       const name = w.segment === 'enroute' ? null : (names?.[w.segment] ?? null)
       const first = name !== null && !tagged.has(w.segment)
       if (first) tagged.add(w.segment)
@@ -375,6 +383,7 @@ function addWaypointLayers(map: MapLibreMap, dark: boolean): void {
     id: `${WAYPOINT_SOURCE_ID}-fix`,
     type: 'symbol',
     source: WAYPOINT_SOURCE_ID,
+    filter: ['!', ['has', 'runway']],
     layout: {
       // route.ts's segmentation, either SimBrief's own or a live navdata-backed selection
       // (docs/plans/navdata-without-navigraph.md, Phase 5).
@@ -424,6 +433,7 @@ function addWaypointLayers(map: MapLibreMap, dark: boolean): void {
     // zoom (no minzoom on that layer); only the text waits until there's enough
     // screen space per waypoint to actually read it against a specific leg.
     minzoom: 6,
+    filter: ['!', ['has', 'runway']],
     layout: {
       'text-field': ['get', 'ident'],
       'text-size': 11,

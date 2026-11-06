@@ -59,6 +59,8 @@ export interface Waypoint {
   /** Which part of the route this fix belongs to — see segmentWaypoints below. Always
    *  'enroute' when the OFP names no SID/STAR at all. */
   segment: RouteSegment
+  /** A point of the line along the departure runway, not a fix: the line passes through it, and the map draws no symbol, label or tag. */
+  runwayPoint?: boolean
 }
 
 /** SimBrief's stated procedure names for a route — `general.sid_ident`/`star_ident` (and

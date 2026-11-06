@@ -256,6 +256,45 @@ describe('assembleRoute', () => {
     ])
   })
 
+  describe('with the departure runway known', () => {
+    const runway = { ident: '27L', headingTrueDeg: 270, lengthM: 3000, thresholdLat: 51.5, thresholdLon: 0 }
+    const withAirport = JSON.stringify({
+      general: {},
+      navlog: {
+        fix: [
+          { ident: 'EGLL', pos_lat: '51.47', pos_long: '-0.46', altitude_feet: '83', via_airway: 'DCT' },
+          { ident: 'LAM', pos_lat: '51.65', pos_long: '0.15', altitude_feet: '9000', via_airway: 'DCT' }
+        ]
+      }
+    })
+
+    it('starts the line along the runway and drops the OFP’s first point, which is the airport itself', () => {
+      const route = assembleRoute(
+        { ...airports, ofpJson: withAirport },
+        emptyProcedureSelection(),
+        none,
+        runway
+      )
+      expect(route.map((w) => w.ident)).toEqual(['RW27L', '', '', 'LAM'])
+      expect(route.slice(0, 3).every((w) => w.runwayPoint === true)).toBe(true)
+      expect(route[3]?.runwayPoint).toBeUndefined()
+    })
+
+    it('keeps a first point that is not the airport, and tells the line where it goes next', () => {
+      // SIDFIX (1, 1) lies east of a westbound runway: behind it, so the centreline carries on for the climb-out.
+      const route = assembleRoute(airports, emptyProcedureSelection(), none, runway)
+      expect(route.map((w) => w.ident)).toEqual(['RW27L', '', '', 'SIDFIX', 'CRUISE', 'STARFIX'])
+    })
+
+    it('is unchanged without a runway', () => {
+      expect(assembleRoute(airports, emptyProcedureSelection(), none, null).map((w) => w.ident)).toEqual([
+        'SIDFIX',
+        'CRUISE',
+        'STARFIX'
+      ])
+    })
+  })
+
   it("drops the filed destination's STAR when diverting to the alternate", () => {
     const route = assembleRoute(
       airports,

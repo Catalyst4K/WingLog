@@ -2,7 +2,7 @@
 
 import { winglogApi } from './data/winglog-api'
 import { useEffect, useMemo, useState } from 'react'
-import type { NavdataLeg, ProcedureSelection } from '@shared/ipc'
+import type { NavdataLeg, NavdataRunwayOption, ProcedureSelection } from '@shared/ipc'
 import {
   assembleRoute,
   procedureRequests,
@@ -73,6 +73,35 @@ function fetchProcedureLegs(request: ProcedureRequest, set: (fetched: FetchedLeg
  * @param request The lookup, or null when the procedure isn't selected. Must be stable between renders.
  * @returns The legs for exactly this lookup, or null.
  */
+/**
+ * The selected departure runway, read from the cached runways of the departure airport, for the planned line to leave along.
+ *
+ * @param depIcao The departure airport, or undefined before it is known.
+ * @param ident The selected departure runway, or null.
+ * @returns The runway, or null while it is not chosen or not read.
+ */
+function useDepartureRunway(depIcao: string | undefined, ident: string | null): NavdataRunwayOption | null {
+  const [fetched, setFetched] = useState<{ icao: string; runways: NavdataRunwayOption[] } | null>(null)
+  useEffect(() => {
+    if (!depIcao || ident === null) return undefined
+    let ignore = false
+    // Through a promise, so a missing or failing lookup is only a missing runway, never a throw.
+    Promise.resolve()
+      .then(() => winglogApi().navdataListRunways(depIcao))
+      .then((runways) => {
+        if (!ignore) setFetched({ icao: depIcao, runways })
+      })
+      .catch(() => {
+        // No runway: the line starts at the first fix, as it did.
+      })
+    return () => {
+      ignore = true
+    }
+  }, [depIcao, ident])
+  const runways = fetched !== null && fetched.icao === depIcao ? fetched.runways : []
+  return runways.find((runway) => runway.ident === ident) ?? null
+}
+
 function useProcedureLegs(request: ProcedureRequest | null): NavdataLeg[] | null {
   const [fetched, setFetched] = useState<FetchedLegs | null>(null)
   // None of the effects reset their legs state when the procedure goes null — deliberately: a stale array left over from a previous
@@ -137,6 +166,7 @@ export function useLiveWaypoints(
   const star = useProcedureLegs(requests?.star ?? null)
   const approach = useProcedureLegs(requests?.approach ?? null)
   const altnIcao = airports?.altnIcao
+  const runway = useDepartureRunway(depIcao, departureRunway)
 
   // Memoized so callers that key their own effects off this result (e.g. LogbookView's great-circle-fallback check) see a stable
   // reference across renders that don't actually change anything here, not a fresh array every time.
@@ -155,7 +185,8 @@ export function useLiveWaypoints(
               approachTransition,
               arrivalIcao
             },
-            { sid, star, approach }
+            { sid, star, approach },
+            runway
           )
         : [],
     [
@@ -173,7 +204,8 @@ export function useLiveWaypoints(
       arrivalIcao,
       sid,
       star,
-      approach
+      approach,
+      runway
     ]
   )
 }

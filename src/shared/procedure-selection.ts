@@ -5,6 +5,7 @@
  */
 
 import type { AtcClearanceUpdate } from './atc-info-boxes'
+import { departureLine, type DepartureRunway } from './departure-line'
 import type { NavdataLeg, NavdataProcedureKind, ProcedureSelection } from './ipc'
 import {
   applyProcedureSelection,
@@ -196,14 +197,36 @@ function usableLegs(identifier: string | null, legs: NavdataLeg[] | null): Proce
 }
 
 /**
- * SimBrief's route with each selected procedure's fetched legs spliced in.
+ * SimBrief's route with each selected procedure's fetched legs spliced in and, when the departure runway is known, the line starting
+ * along that runway (departure-line.ts).
  *
  * @param airports The flight's airports and OFP.
  * @param selection The selection.
  * @param fetched The legs fetched for each lookup that applies.
+ * @param departureRunway The selected departure runway, when it is known.
  * @returns The route's waypoints.
  */
 export function assembleRoute(
+  airports: ProcedureAirports,
+  selection: ProcedureSelection,
+  fetched: FetchedProcedureLegs,
+  departureRunway: DepartureRunway | null = null
+): Waypoint[] {
+  const route = spliceProcedures(airports, selection, fetched)
+  if (!departureRunway) return route
+  // The line leaves along the runway: the OFP's first point is the airport itself, which the runway takes the place of.
+  const rest = route[0]?.ident === airports.depIcao ? route.slice(1) : route
+  const first = rest[0]
+  return [...departureLine(departureRunway, first ? [first.lon, first.lat] : null), ...rest]
+}
+
+/**
+ * @param airports The flight's airports and OFP.
+ * @param selection The selection.
+ * @param fetched The legs fetched for each lookup that applies.
+ * @returns SimBrief's route with the selected procedures spliced in.
+ */
+function spliceProcedures(
   airports: ProcedureAirports,
   selection: ProcedureSelection,
   fetched: FetchedProcedureLegs

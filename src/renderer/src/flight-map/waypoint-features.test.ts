@@ -39,6 +39,20 @@ describe('waypointFeatures', () => {
     expect(enrouteOnly.features[0]?.properties).toEqual({ ident: 'LAM', segment: 'enroute' })
   })
 
+  it('marks the points along the departure runway as the line’s only, and tags the first real fix of the SID instead', () => {
+    const runway = (ident: string): Waypoint => ({ ...waypoint(ident, 'sid'), runwayPoint: true })
+    const { features } = waypointFeatures(
+      [runway('RW27'), runway(''), waypoint('DET', 'sid'), waypoint('KAMI', 'sid')],
+      {
+        sid: 'DET2G',
+        star: null,
+        approach: null
+      }
+    )
+    expect(features.map((f) => f.properties.runway ?? false)).toEqual([true, true, false, false])
+    expect(features.map((f) => f.properties.tag ?? null)).toEqual([null, null, 'DET2G', null])
+  })
+
   it('keeps the ident, the segment and the position of every fix', () => {
     const [first] = waypointFeatures([{ ...waypoint('DET', 'sid'), lon: 1.5, lat: 51.2 }], {
       sid: 'DET2G',

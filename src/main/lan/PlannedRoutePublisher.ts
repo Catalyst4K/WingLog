@@ -21,7 +21,7 @@ export interface PlannedRoutePublisherDeps {
   db: WingLogDb
   hub: Pick<LiveHub, 'publish'>
   /** The cached procedure legs. */
-  navdata: Pick<NavdataProvider, 'getProcedureWaypoints'>
+  navdata: Pick<NavdataProvider, 'getProcedureWaypoints'> & Partial<Pick<NavdataProvider, 'listRunways'>>
   /** The flight being tracked, if any. */
   activeFlightId(): number | undefined
   /** The SID, STAR and approach last chosen on any screen, when there is one (the flight's saved choice otherwise). */
