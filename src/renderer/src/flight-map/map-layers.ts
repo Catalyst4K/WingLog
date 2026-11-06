@@ -173,7 +173,7 @@ interface WaypointFeatureCollection {
   type: 'FeatureCollection'
   features: {
     type: 'Feature'
-    properties: { ident: string; segment: string }
+    properties: { ident: string; segment: string; tag?: string }
     geometry: { type: 'Point'; coordinates: [number, number] }
   }[]
 }
