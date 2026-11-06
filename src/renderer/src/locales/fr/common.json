@@ -658,7 +658,10 @@
     "choiceNotConfirmed": "Impossible de joindre WingLog sur le PC. Les procédures n'y ont pas été modifiées.",
     "flightEnded": "Vol terminé",
     "autoDetectedComplete": "{{label}} a été automatiquement détecté comme terminé et enregistré dans votre carnet.",
-    "ok": "OK"
+    "ok": "OK",
+    "profile": {
+      "title": "Profil de la route"
+    }
   },
   "flightMap": {
     "stopCentering": "Arrêter de centrer sur l'appareil",

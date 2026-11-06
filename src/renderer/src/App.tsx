@@ -173,6 +173,7 @@ function CurrentPage(props: {
         )}
         {page === 'track' && (
           <TrackView
+            altitudeUnit={settings.altitudeUnit}
             windSpeedUnit={settings.windSpeedUnit}
             previewOfp={plan.dispatchOfp}
             telemetry={props.telemetry}

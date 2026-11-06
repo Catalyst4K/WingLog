@@ -658,7 +658,10 @@
     "choiceNotConfirmed": "No se pudo conectar con WingLog en el PC. Los procedimientos allí no se han cambiado.",
     "flightEnded": "Vuelo finalizado",
     "autoDetectedComplete": "{{label}} se detectó automáticamente como completado y se guardó en tu bitácora.",
-    "ok": "Aceptar"
+    "ok": "Aceptar",
+    "profile": {
+      "title": "Perfil de la ruta"
+    }
   },
   "flightMap": {
     "stopCentering": "Dejar de centrar en la aeronave",

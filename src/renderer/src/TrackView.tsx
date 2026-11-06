@@ -5,6 +5,7 @@ import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
 import type {
+  AltitudeUnit,
   DispatchOfp,
   LogbookFlight,
   MapLanguage,
@@ -23,6 +24,8 @@ import { parseTransitionAltitudes } from '@shared/route'
 import { StartFreeFlightDialog } from './StartFreeFlightDialog'
 import { runAsync } from './report-error'
 import { AutoTuneOnlineWarning } from './online/AutoTuneOnlineWarning'
+import { useProfileAircraft } from './track/use-profile-aircraft'
+import { RouteProfile } from './track/RouteProfile'
 import { ActiveFlightCard, FlightEndedDialog, FlightToolbar, NotTrackingCards } from './track/TrackCards'
 import { useFlightOfp, useFreeFlightBanner, useTrackedFlights, useTrackTimes } from './track/use-track-state'
 
@@ -77,6 +80,7 @@ export function TrackView(props: {
   onFlightEnded?: () => void
   /** Wind unit for the Weather dialog's METARs (Settings). */
   windSpeedUnit?: WindSpeedUnit
+  altitudeUnit?: AltitudeUnit
 }): React.JSX.Element {
   const { t } = useTranslation()
   const tracked = useTrackedFlights(props.onFlightEnded)
@@ -196,6 +200,7 @@ export function TrackView(props: {
   // A saved flight's route is the one the main process built, as on a second screen; a plan that is not a flight yet is assembled here
   // with the current selection spliced in, by the function Dispatch's preview uses (docs/plans/navdata-without-navigraph.md, Phase 5).
   const liveWaypoints = useShownRoute(previewFlight, airports, props.selection)
+  const profileAircraft = useProfileAircraft(props.telemetry, Boolean(active))
   const { sidIdent, starIdent, approachIdent } = props.selection
   const procedureNames = useMemo(
     () => ({ sid: sidIdent, star: starIdent, approach: approachIdent }),
@@ -288,6 +293,9 @@ export function TrackView(props: {
           trackLoading={tracked.trackLoading}
         />
       </div>
+
+      {/* The plan's altitude along the route, with the aircraft on it once it is flying. */}
+      <RouteProfile waypoints={liveWaypoints} aircraft={profileAircraft} altitudeUnit={props.altitudeUnit} />
 
       {confirmDialog}
 

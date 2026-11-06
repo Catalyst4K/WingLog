@@ -656,7 +656,10 @@
     "choiceNotConfirmed": "Couldn't reach WingLog on the PC. The procedures there weren't changed.",
     "flightEnded": "Flight ended",
     "autoDetectedComplete": "{{label}} was automatically detected as complete and saved to your logbook.",
-    "ok": "OK"
+    "ok": "OK",
+    "profile": {
+      "title": "Route profile"
+    }
   },
   "flightMap": {
     "stopCentering": "Stop centering on aircraft",
