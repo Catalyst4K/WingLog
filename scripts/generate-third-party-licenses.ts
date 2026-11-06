@@ -103,9 +103,9 @@ whose licence imposes obligations beyond attribution, so they're stated explicit
 
 const DATA_INTRO = `---
 
-## Bundled data
+## Bundled data and fonts
 
-The reference datasets below are vendored into the app. Their per-file provenance and terms
+The reference datasets and fonts below are vendored into the app. Their per-file provenance and terms
 are reproduced verbatim below, from \`resources/*.LICENSE.txt\` in the source repository.
 
 **Note on the airline database:** it is licensed under the Open Database License (ODbL)
@@ -126,7 +126,8 @@ const DATA_FILES = [
   {
     title: 'Aircraft type designators — ICAO Doc 8643 list',
     path: 'resources/icao-aircraft-types.LICENSE.txt'
-  }
+  },
+  { title: 'Fonts — Fira Sans and Fira Mono (SIL OFL 1.1)', path: 'src/renderer/src/fonts/LICENSE-Fira.txt' }
 ]
 
 const RUNTIME_NOTE = `---
