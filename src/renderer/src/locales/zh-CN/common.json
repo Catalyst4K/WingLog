@@ -45,21 +45,21 @@
       "feet": "英尺",
       "meters": "米",
       "hybrid": "混合",
-      "hybridHint": "“混合”会按实际计划所用的单位显示每一段爬升高度 — 标准高度层用英尺，进入按米分层的空域（例如中国）的航路则用米 — 而不是统一换算成同一种单位。",
+      "hybridHint": "“混合”按计划时使用的单位显示每次阶梯爬升：标准高度层用英尺，按米规划的航路（如中国）用米。",
       "appLanguage": "应用语言",
-      "appLanguageHint": "“跟随系统”会使用操作系统本身的语言，若本应用尚无对应翻译则回退为英文。真正的航空术语（ILS、STAR、SID、FL、QNH、ICAO 代码）以及来自 SimBrief 的内容始终保持英文。",
+      "appLanguageHint": "“系统”跟随 Windows。航空术语（ILS、SID、STAR、FL、QNH）和 SimBrief 的文字保持英文。",
       "mapLanguage": "地图语言",
-      "mapLanguageHint": "追踪和飞行日志地图上地名所用的语言。“本地”会以当地语言显示每个地名 — 与上面的应用语言互不影响。",
+      "mapLanguageHint": "地图上的地名。“本地”以各地自己的语言显示。",
       "metarWindSpeed": "METAR 风速",
       "knots": "节",
-      "metarWindSpeedHint": "签派中的原始 METAR 文本始终按报文原样显示 — 此设置只影响旁边另外显示的格式化风速行。",
+      "metarWindSpeedHint": "只改变格式化后的风向风速行；调度页上的原始 METAR 保持不变。",
       "landingDistances": "落地距离",
-      "landingDistancesHint": "飞行日志中某次落地卡片上的“距入口距离”“中线偏移”，以及其接地示意图所用的单位。下降率始终以 fpm 显示，速度与风速始终以节显示，不受此设置影响。",
+      "landingDistancesHint": "用于航班的着陆卡片和接地示意图。",
       "moreInfoFor": "关于{{label}}的更多信息"
     },
     "tracking": {
       "cardTitle": "跟踪",
-      "description": "两者默认开启。如果与你的模拟器配合出问题，可关闭其中一个，改用 {{track}} 页面上的按钮。",
+      "description": "默认都开启。若有问题可关闭其中一项，改用{{track}}上的按钮。",
       "autoStart": "自动开始跟踪",
       "autoStartOff": "关闭：在 {{dispatch}} 中点 {{fly}} 后，需自己在 {{track}} 页面点 {{startTracking}}。",
       "autoFinish": "自动结束航班",
@@ -79,7 +79,7 @@
       "minimizeLabel": "最小化窗口时",
       "taskbar": "任务栏",
       "tray": "系统托盘",
-      "description": "放入托盘后，WingLog 不占用任务栏，仍会继续记录航班并服务第二屏幕。点击托盘图标即可重新打开窗口。关闭窗口仍会退出 WingLog。"
+      "description": "在托盘中，WingLog 会继续追踪并服务第二屏幕。关闭窗口仍会退出。"
     },
     "credentials": {
       "cardTitle": "账号凭据",
@@ -95,7 +95,7 @@
     },
     "gsx": {
       "cardTitle": "GSX 地面服务",
-      "description": "将 GSX Pro 的配餐/加油/地面服务收据附加到飞行日志中对应的航班上。仅支持 Windows（GSX 本身也仅支持 Windows）；未开启前不会附加任何内容。",
+      "description": "把 GSX 的收据（餐饮、燃油、地勤）附到飞行日志中匹配的航班。",
       "enabled": "启用",
       "on": "开",
       "off": "关",
@@ -104,7 +104,7 @@
       "browse": "浏览…",
       "pathHint": "通常为 %APPDATA%\\Virtuali\\GSX\\Receipts。路径错误或不存在只会导致找不到收据 — 不会报错。",
       "displayCurrency": "显示货币",
-      "currencyHint": "GSX 总额会在你查看时按实时汇率换算 — 存储的数据本身不会被转换。"
+      "currencyHint": "查看时按当日汇率换算；不会保存换算后的金额。"
     },
     "gsxRemote": {
       "cardTitle": "GSX 远程控制",
@@ -136,7 +136,7 @@
       "fleetTitle": "机队",
       "fleetHint": "注册号、机型、航空公司及当前所在机场。导入时会跳过已存在的注册号。",
       "logbookTitle": "飞行日志",
-      "logbookHint": "每次已完成航班及其落地情况的摘要 — 并非完整备份（不含航路或 OFP 数据）。导入支持 WingLog 自身的文件格式，以及 SimToolkitPro 的 CSV。",
+      "logbookHint": "每个已完成航班及其着陆的摘要，不是完整备份。导入支持 WingLog 的文件和 SimToolkitPro 的 CSV。",
       "fileFormat": "文件格式",
       "regionLabel": "{{title}}数据",
       "import": "导入",
@@ -152,7 +152,7 @@
     },
     "cloudSync": {
       "cardTitle": "云同步",
-      "description": "在你的多台设备间同步机队和飞行日志数据。这是 WingLog 自身提供的服务，并非第三方 — 登录前不会有任何数据离开本机。",
+      "description": "通过 WingLog 自己的服务在你的多台电脑间同步机队和飞行日志。登录之前不会有任何数据离开此设备。",
       "logOut": "退出登录",
       "neverSyncedYet": "尚未同步过。",
       "lastSynced": "上次同步：{{date}}",
@@ -195,17 +195,17 @@
     },
     "onlineNetwork": {
       "cardTitle": "在线网络",
-      "description": "选择 VATSIM 或 IVAO，即可在 Track 地图上看到其交通、提交 SimBrief 计划的按钮、你机场的管制员，并在你在线时隐藏 BeyondATC。选择“无”则全部不显示。WingLog 只读取该网络的公开数据源，不会发送任何内容。",
+      "description": "在追踪页显示 VATSIM 或 IVAO 的交通和管制员、提交计划的按钮，并在联网时隐藏 BeyondATC。选“无”则全部关闭。只读取公开数据源，不会发送任何内容。",
       "network": "网络",
       "none": "无",
       "cid": "CID",
       "cidHint": "你的 VATSIM 会员号（可选），用于在交通中排除你自己的飞机。",
       "vid": "VID",
-      "vidHint": "你的 IVAO 会员号。IVAO 只向其会员显示其他飞行员，因此在输入之前交通保持关闭。",
+      "vidHint": "你的 IVAO 会员号。填写之前不会显示交通。",
       "keepBeyondAtc": "在线时保留 BeyondATC",
-      "keepBeyondAtcHint": "在线时，BeyondATC 的提示、滑行线、频率和阶梯爬升会被隐藏或静音，因为网络的管制员是唯一的声音。打开此项可保留它们。",
+      "keepBeyondAtcHint": "联网时 BeyondATC 的提示、滑行线、频率和阶梯爬升会被隐藏。开启此项以保留它们。",
       "simTrafficButton": "模拟器交通按钮",
-      "simTrafficButtonHint": "Track 地图上的青色飞机：模拟器自己的交通（BeyondATC 的及其他 AI）。关闭后，PC 和手机的地图上都不再显示该按钮。",
+      "simTrafficButtonHint": "追踪页地图上的青色飞机按钮（模拟器和 AI 交通）。关闭后，电脑和手机上都不再显示。",
       "atcAreas": "保持 ATC 区域为最新",
       "atcAreasHint": "WingLog 大约每周向 GitHub 查询一次社区项目 VAT-Spy 和 SimAware TRACON 的较新覆盖区域，只发送 WingLog 的版本号。",
       "atcAreasInUse": "使用中：VAT-Spy {{vatspy}}，TRACON {{tracon}}（{{source}}）。",
@@ -1068,7 +1068,7 @@
     },
     "settings": {
       "title": "更新",
-      "description": "WingLog 会向 GitHub 查询最新版本号，不会发送其他任何内容。是否安装更新始终由你决定，并且在记录飞行期间绝不会安装。",
+      "description": "向 GitHub 查询最新版本；不会发送其他内容。是否安装始终由你决定，追踪航班期间绝不会安装。",
       "autoCheck": "自动检查更新",
       "on": "开",
       "off": "关",
@@ -1146,7 +1146,7 @@
   "lan": {
     "settings": {
       "title": "第二屏幕",
-      "description": "在家庭网络中的手机或平板上显示实时地图。开启前它一直处于关闭状态，只会在家庭网络上监听，并且每台设备都必须用代码配对。",
+      "description": "在家庭网络中的手机或平板上显示实时地图。开启前保持关闭；每台设备都要用代码配对。",
       "enable": "第二屏幕",
       "on": "开",
       "off": "关",
@@ -1162,7 +1162,7 @@
       "lastSeen": "上次连接：{{when}}",
       "neverSeen": "从未连接",
       "revoke": "撤销",
-      "help": "无法连接？手机和这台电脑必须在同一个 Wi-Fi 下（不能是访客网络），这台电脑的网络应设为“专用”，并且防火墙必须允许 WingLog。",
+      "help": "无法连接？手机和这台电脑必须在同一 Wi-Fi（不能是访客网络），电脑的网络设为“专用”，并在防火墙中允许 WingLog。",
       "problem": {
         "noAdapter": "这台电脑没有可供监听的家庭网络连接。",
         "portInUse": "该端口已被占用，请换一个。",
@@ -1205,7 +1205,7 @@
     "behind": "你的模拟器导航数据是 Navigraph AIRAC {{cycle}}，但当前周期是 {{current}}。请在 Navigraph Hub 中更新。",
     "planMismatch": "此计划使用 AIRAC {{plan}} 制作，而你的模拟器是 {{sim}}。两者不同时，航路可能无法在模拟器中加载：请更新模拟器数据或重新规划航班。",
     "cardTitle": "导航数据",
-    "cardDescription": "你的模拟器使用的导航数据。WingLog 会保存从模拟器读取的每个机场的数据，并在模拟器数据变化时重新读取。",
+    "cardDescription": "你的模拟器使用的导航数据。模拟器数据变化时，WingLog 会重新读取每个机场。",
     "navigraph": "Navigraph AIRAC {{cycle}}，修订 {{revision}}",
     "navigraphValid": "Navigraph AIRAC {{cycle}}，修订 {{revision}}，有效至 {{validTo}}",
     "simOwn": "模拟器自带的数据。无法读取其周期，因此 WingLog 以 AIRAC 日历为准（当前周期 {{current}}）。",

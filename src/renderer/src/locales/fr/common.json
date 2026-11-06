@@ -47,21 +47,21 @@
       "feet": "Pieds",
       "meters": "Mètres",
       "hybrid": "Hybride",
-      "hybridHint": "« Hybride » affiche chaque palier de montée dans l'unité réellement planifiée — pieds pour un niveau standard, mètres pour une route entrant dans un espace aérien (ex. la Chine) qui assigne les niveaux en mètres — plutôt que de tout convertir dans une seule unité.",
+      "hybridHint": "« Hybride » affiche chaque montée par paliers dans l’unité où elle a été planifiée : pieds pour les niveaux standard, mètres là où une route est planifiée en mètres (Chine).",
       "appLanguage": "Langue de l'application",
-      "appLanguageHint": "« Système » suit la langue de votre système d'exploitation, avec repli sur l'anglais si l'application n'a pas encore de traduction pour elle. Les vrais termes aéronautiques (ILS, STAR, SID, FL, QNH, indicatifs OACI) et tout ce qui provient de SimBrief restent toujours en anglais.",
+      "appLanguageHint": "Système suit Windows. Les termes aéronautiques (ILS, SID, STAR, FL, QNH) et le texte de SimBrief restent en anglais.",
       "mapLanguage": "Langue de la carte",
-      "mapLanguageHint": "La langue des noms de lieux sur les cartes Suivi et Carnet. « Local » affiche chaque lieu dans sa propre langue — indépendamment de la langue de l'application ci-dessus.",
+      "mapLanguageHint": "Noms de lieux sur les cartes. « Local » affiche chaque lieu dans sa propre langue.",
       "metarWindSpeed": "Vitesse du vent METAR",
       "knots": "Nœuds",
-      "metarWindSpeedHint": "Le texte METAR brut dans Régulation reste toujours tel que reçu — ceci ne contrôle qu'une ligne de vent formatée séparément, affichée à côté.",
+      "metarWindSpeedHint": "Seule la ligne de vent mise en forme change ; le METAR brut dans Dispatch reste tel que reçu.",
       "landingDistances": "Distances d'atterrissage",
-      "landingDistancesHint": "Distance depuis le seuil et écart par rapport à l'axe sur la fiche d'atterrissage d'un vol du Carnet, ainsi que sur son schéma d'atterrissage. Le taux de toucher des roues reste en fpm et les vitesses/le vent restent en nœuds.",
+      "landingDistancesHint": "Utilisé sur la fiche d’atterrissage et le schéma de toucher d’un vol.",
       "moreInfoFor": "Plus d'informations sur {{label}}"
     },
     "tracking": {
       "cardTitle": "Suivi",
-      "description": "Les deux sont activés par défaut. Désactivez-en un s'il pose problème avec votre simulateur et utilisez plutôt les boutons de {{track}}.",
+      "description": "Les deux sont activées par défaut. Désactivez-en une si elle pose problème et utilisez les boutons de {{track}}.",
       "autoStart": "Démarrer le suivi automatiquement",
       "autoStartOff": "Désactivé : après {{fly}} dans {{dispatch}}, appuyez vous-même sur {{startTracking}} dans {{track}}.",
       "autoFinish": "Terminer les vols automatiquement",
@@ -81,7 +81,7 @@
       "minimizeLabel": "Quand je réduis la fenêtre",
       "taskbar": "Barre des tâches",
       "tray": "Zone de notification",
-      "description": "Dans la zone de notification, WingLog n’occupe pas la barre des tâches et continue le suivi et le second écran. Cliquez sur l’icône pour rouvrir la fenêtre. Fermer la fenêtre quitte toujours WingLog."
+      "description": "Dans la zone de notification, WingLog continue le suivi et le second écran. Fermer la fenêtre quitte toujours WingLog."
     },
     "credentials": {
       "cardTitle": "Identifiants",
@@ -97,7 +97,7 @@
     },
     "gsx": {
       "cardTitle": "Services au sol GSX",
-      "description": "Associe les reçus de catering/carburant/assistance de GSX Pro aux vols correspondants de votre Carnet. Windows uniquement (GSX lui-même est exclusif à Windows) ; rien n'est associé tant que ce n'est pas activé.",
+      "description": "Rattache les reçus GSX (restauration, carburant, assistance) aux vols correspondants de votre Carnet.",
       "enabled": "Activé",
       "on": "Activé",
       "off": "Désactivé",
@@ -106,7 +106,7 @@
       "browse": "Parcourir…",
       "pathHint": "Généralement %APPDATA%\\Virtuali\\GSX\\Receipts. Un chemin incorrect ou qui n'existe plus signifie simplement qu'aucun reçu n'est trouvé — jamais une erreur.",
       "displayCurrency": "Devise d'affichage",
-      "currencyHint": "Les totaux GSX sont convertis à l'aide d'un taux récupéré en direct au moment où vous les consultez — rien n'est stocké déjà converti."
+      "currencyHint": "Convertis au taux du jour à l’affichage ; rien n’est stocké converti."
     },
     "gsxRemote": {
       "cardTitle": "Contrôle à distance GSX",
@@ -138,7 +138,7 @@
       "fleetTitle": "Flotte",
       "fleetHint": "Immatriculation, type, exploitant et aéroport actuel. L'import ignore les immatriculations déjà présentes.",
       "logbookTitle": "Carnet",
-      "logbookHint": "Un résumé de chaque vol terminé, avec son atterrissage — pas une sauvegarde complète (pas de données de route ni d'OFP). L'import lit les propres fichiers de WingLog ainsi que les CSV SimToolkitPro.",
+      "logbookHint": "Un résumé de chaque vol terminé et de son atterrissage, pas une sauvegarde complète. L’import lit les fichiers WingLog et les CSV SimToolkitPro.",
       "fileFormat": "Format de fichier",
       "regionLabel": "Données {{title}}",
       "import": "Importer",
@@ -159,7 +159,7 @@
     },
     "cloudSync": {
       "cardTitle": "Synchronisation cloud",
-      "description": "Synchronise votre flotte et votre carnet entre vos appareils. C'est le service propre de WingLog, pas un tiers — rien ne quitte cet appareil tant que vous ne vous connectez pas.",
+      "description": "Synchronise Flotte et Carnet entre vos machines avec le service propre de WingLog. Rien ne quitte cet appareil avant la connexion.",
       "logOut": "Se déconnecter",
       "neverSyncedYet": "Jamais synchronisé.",
       "lastSynced": "Dernière synchronisation {{date}}",
@@ -202,17 +202,17 @@
     },
     "onlineNetwork": {
       "cardTitle": "Réseau en ligne",
-      "description": "Choisissez VATSIM ou IVAO pour son trafic sur la carte de Track, un bouton pour déposer votre plan SimBrief, les contrôleurs de vos aéroports et BeyondATC masqué pendant que vous êtes en ligne. Avec « Aucun », rien de tout cela n'apparaît. WingLog lit seulement le flux de données public du réseau ; rien n'est envoyé.",
+      "description": "Trafic et contrôleurs VATSIM ou IVAO sur Suivi, un bouton pour déposer votre plan et BeyondATC masqué en ligne. « Aucun » désactive tout. Seul le flux public est lu ; rien n’est envoyé.",
       "network": "Réseau",
       "none": "Aucun",
       "cid": "CID",
       "cidHint": "Votre numéro de membre VATSIM (facultatif). Il sert à exclure votre propre avion du trafic.",
       "vid": "VID",
-      "vidHint": "Votre numéro de membre IVAO. IVAO ne montre les autres pilotes qu'à ses membres : le trafic reste désactivé tant qu'il n'est pas saisi.",
+      "vidHint": "Votre numéro de membre IVAO. Le trafic reste désactivé tant qu’il n’est pas saisi.",
       "keepBeyondAtc": "Garder BeyondATC en ligne",
-      "keepBeyondAtcHint": "Pendant que vous êtes en ligne, les invites, la ligne de roulage, les fréquences et les montées par paliers de BeyondATC sont masquées ou muettes, car les contrôleurs du réseau sont la seule voix. Activez pour les garder.",
+      "keepBeyondAtcHint": "En ligne, les invites, la ligne de roulage, les fréquences et les montées par paliers de BeyondATC sont masqués. Activez cette option pour les garder.",
       "simTrafficButton": "Bouton du trafic du sim",
-      "simTrafficButtonHint": "Les avions turquoise sur la carte de Track : le trafic propre du sim (celui de BeyondATC et d'autres IA). Désactivé, le bouton disparaît de la carte, sur le PC et sur le téléphone.",
+      "simTrafficButtonHint": "Le bouton d’avion turquoise sur la carte de Suivi (trafic du simulateur et IA). Désactivé, il disparaît sur le PC et le téléphone.",
       "atcAreas": "Garder les zones ATC à jour",
       "atcAreasHint": "Environ une fois par semaine, WingLog demande à GitHub des zones de couverture plus récentes issues des projets communautaires VAT-Spy et SimAware TRACON. Il n’envoie rien d’autre que la version de WingLog.",
       "atcAreasInUse": "Utilisées : VAT-Spy {{vatspy}}, TRACON {{tracon}} ({{source}}).",
@@ -1078,7 +1078,7 @@
     },
     "settings": {
       "title": "Mises à jour",
-      "description": "WingLog demande à GitHub le numéro de la dernière version. Rien d'autre n'est envoyé. Installer une mise à jour reste toujours votre choix, et rien ne s'installe pendant l'enregistrement d'un vol.",
+      "description": "Interroge GitHub sur la dernière version ; rien d’autre n’est envoyé. L’installation reste toujours votre choix, et jamais pendant un vol suivi.",
       "autoCheck": "Rechercher automatiquement les mises à jour",
       "on": "Activé",
       "off": "Désactivé",
@@ -1156,7 +1156,7 @@
   "lan": {
     "settings": {
       "title": "Deuxième écran",
-      "description": "Affiche la carte en direct sur un téléphone ou une tablette de votre réseau domestique. Désactivé tant que vous ne l'activez pas, il n'écoute que sur votre réseau domestique, et chaque appareil doit être associé avec un code.",
+      "description": "Affiche la carte en direct sur un téléphone ou une tablette de votre réseau domestique. Désactivé jusqu’à ce que vous l’activiez ; chaque appareil est associé par un code.",
       "enable": "Deuxième écran",
       "on": "Activé",
       "off": "Désactivé",
@@ -1173,7 +1173,7 @@
       "lastSeen": "Vu pour la dernière fois {{when}}",
       "neverSeen": "Jamais connecté",
       "revoke": "Révoquer",
-      "help": "Impossible de se connecter ? Le téléphone et ce PC doivent être sur le même Wi-Fi (pas un réseau invité), le réseau de ce PC doit être défini sur Privé, et votre pare-feu doit autoriser WingLog.",
+      "help": "Impossible de se connecter ? Le téléphone et ce PC doivent être sur le même Wi-Fi (pas un réseau invité), le réseau du PC défini sur Privé et WingLog autorisé par le pare-feu.",
       "problem": {
         "noAdapter": "Ce PC n'a aucune connexion au réseau domestique sur laquelle écouter.",
         "portInUse": "Ce port est déjà utilisé. Choisissez-en un autre.",
@@ -1216,7 +1216,7 @@
     "behind": "Les données de navigation de votre simulateur sont Navigraph AIRAC {{cycle}}, mais le cycle actuel est {{current}}. Mettez-les à jour dans le Navigraph Hub.",
     "planMismatch": "Ce plan a été établi avec l’AIRAC {{plan}}, mais votre simulateur a {{sim}}. Une route peut ne pas se charger dans le simulateur lorsque les deux diffèrent : mettez à jour les données du simulateur ou planifiez de nouveau le vol.",
     "cardTitle": "Données de navigation",
-    "cardDescription": "Les données de navigation de votre simulateur. WingLog conserve ce qu’il lit dans le simulateur pour chaque aéroport et le relit lorsque les données du simulateur changent.",
+    "cardDescription": "Quelles données de navigation a votre simulateur. WingLog relit chaque aéroport quand les données du simulateur changent.",
     "navigraph": "Navigraph AIRAC {{cycle}}, révision {{revision}}",
     "navigraphValid": "Navigraph AIRAC {{cycle}}, révision {{revision}}, valide jusqu’au {{validTo}}",
     "simOwn": "Les données propres au simulateur. Son cycle ne peut pas être lu : WingLog se fie donc au calendrier AIRAC (cycle actuel {{current}}).",

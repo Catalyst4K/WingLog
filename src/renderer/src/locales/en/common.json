@@ -47,21 +47,21 @@
       "feet": "Feet",
       "meters": "Meters",
       "hybrid": "Hybrid",
-      "hybridHint": "\"Hybrid\" shows each step climb in whichever unit it was actually planned in — feet for a standard level, meters for a route crossing into airspace (e.g. China) that assigns levels in meters — rather than converting everything to one unit.",
+      "hybridHint": "\"Hybrid\" shows each step climb in the unit it was planned in: feet for standard levels, meters where a route is planned in meters (China).",
       "appLanguage": "App language",
-      "appLanguageHint": "\"System\" follows your OS's own language, falling back to English if this app doesn't have a translation for it yet. Real aviation terms (ILS, STAR, SID, FL, QNH, ICAO idents) and anything from SimBrief always stay in English.",
+      "appLanguageHint": "System follows Windows. Aviation terms (ILS, SID, STAR, FL, QNH) and SimBrief text stay in English.",
       "mapLanguage": "Map language",
-      "mapLanguageHint": "The language of place names on the Track and Logbook maps. \"Local\" shows each place in its own language — independent of the app language above.",
+      "mapLanguageHint": "Place names on the maps. Local shows each place in its own language.",
       "metarWindSpeed": "METAR wind speed",
       "knots": "Knots",
-      "metarWindSpeedHint": "The raw METAR text on Dispatch always stays as reported — this only controls a separate formatted wind line shown alongside it.",
+      "metarWindSpeedHint": "Only the formatted wind line changes; the raw METAR on Dispatch stays as reported.",
       "landingDistances": "Landing distances",
-      "landingDistancesHint": "Distance from threshold and centreline offset on a Logbook flight's landing card, and its touchdown diagram. Touchdown rate stays fpm and speeds/wind stay knots regardless.",
+      "landingDistancesHint": "Used on a flight’s landing card and touchdown diagram.",
       "moreInfoFor": "More info about {{label}}"
     },
     "tracking": {
       "cardTitle": "Tracking",
-      "description": "Both on by default. Switch one off if it misbehaves with your sim, and use the buttons on {{track}} instead.",
+      "description": "Both on by default. Switch one off if it misbehaves, and use the buttons on {{track}}.",
       "autoStart": "Start tracking automatically",
       "autoStartOff": "Off: after {{fly}} in {{dispatch}}, press {{startTracking}} on {{track}} yourself.",
       "autoFinish": "Finish flights automatically",
@@ -81,7 +81,7 @@
       "minimizeLabel": "When I minimise the window",
       "taskbar": "Taskbar",
       "tray": "System tray",
-      "description": "In the tray, WingLog takes no taskbar space and carries on tracking and serving the second screen. Click the tray icon to bring the window back. Closing the window still quits."
+      "description": "In the tray WingLog keeps tracking and serving the second screen. Closing the window still quits."
     },
     "credentials": {
       "cardTitle": "Credentials",
@@ -97,7 +97,7 @@
     },
     "gsx": {
       "cardTitle": "GSX ground services",
-      "description": "Attach GSX Pro's catering/fuel/handling receipts to matching flights in your Logbook. Windows only (GSX itself is Windows-only); nothing is attached until this is turned on.",
+      "description": "Attach GSX receipts (catering, fuel, handling) to matching flights in your Logbook.",
       "enabled": "Enabled",
       "on": "On",
       "off": "Off",
@@ -106,7 +106,7 @@
       "browse": "Browse…",
       "pathHint": "Usually %APPDATA%\\Virtuali\\GSX\\Receipts.",
       "displayCurrency": "Display currency",
-      "currencyHint": "GSX totals convert using a live rate fetched at the time you view them — nothing is stored converted."
+      "currencyHint": "Converted at today’s rate when you view them; nothing is stored converted."
     },
     "gsxRemote": {
       "cardTitle": "GSX Remote Control",
@@ -138,7 +138,7 @@
       "fleetTitle": "Fleet",
       "fleetHint": "Registration, type, operator and current airport. Importing skips registrations you already have.",
       "logbookTitle": "Logbook",
-      "logbookHint": "A summary of every completed flight, with its landing — not a full backup (no route or OFP data). Import reads WingLog's own files, and SimToolkitPro CSVs.",
+      "logbookHint": "A summary of each completed flight and landing, not a full backup. Import reads WingLog files and SimToolkitPro CSVs.",
       "fileFormat": "File format",
       "regionLabel": "{{title}} data",
       "import": "Import",
@@ -157,7 +157,7 @@
     },
     "cloudSync": {
       "cardTitle": "Cloud sync",
-      "description": "Sync Fleet and Logbook across your machines. This is WingLog's own service, not a third party — nothing leaves this device until you log in.",
+      "description": "Sync Fleet and Logbook across your machines with WingLog’s own service. Nothing leaves this device until you log in.",
       "logOut": "Log out",
       "neverSyncedYet": "Never synced yet.",
       "lastSynced": "Last synced {{date}}",
@@ -200,17 +200,17 @@
     },
     "onlineNetwork": {
       "cardTitle": "Online network",
-      "description": "Choose VATSIM or IVAO for its traffic on the Track map, a File button for your SimBrief plan, the controllers at your airports, and BeyondATC hidden while you are online. With None, none of it shows. WingLog only reads the network's public data feed; nothing is sent.",
+      "description": "VATSIM or IVAO traffic and controllers on Track, a File button for your plan, and BeyondATC hidden while online. None turns it all off. Only the public feed is read; nothing is sent.",
       "network": "Network",
       "none": "None",
       "cid": "CID",
       "cidHint": "Your VATSIM member number (optional). It is used to leave your own aircraft out of the traffic.",
       "vid": "VID",
-      "vidHint": "Your IVAO member number. IVAO shows other pilots only to its members, so traffic stays off until it is entered.",
+      "vidHint": "Your IVAO member number. Traffic stays off until it is entered.",
       "keepBeyondAtc": "Keep BeyondATC while online",
-      "keepBeyondAtcHint": "While you are online, BeyondATC's prompts, taxi line, frequencies and step climbs are hidden or silent, since the network's controllers are the only voice. Turn this on to keep them.",
+      "keepBeyondAtcHint": "Online, BeyondATC’s prompts, taxi line, frequencies and step climbs are hidden. Turn this on to keep them.",
       "simTrafficButton": "Sim traffic button",
-      "simTrafficButtonHint": "The teal aircraft on Track's map: the sim's own traffic (BeyondATC's and other AI). Off removes the button from the map, on the PC and the phone.",
+      "simTrafficButtonHint": "The teal aircraft button on Track’s map (sim and AI traffic). Off removes it from the PC and the phone.",
       "atcAreas": "Keep ATC areas up to date",
       "atcAreasHint": "Updates the ATC areas weekly from GitHub. Nothing else is sent.",
       "atcAreasInUse": "In use: VAT-Spy {{vatspy}}, TRACON {{tracon}} ({{source}}).",
@@ -1076,7 +1076,7 @@
     },
     "settings": {
       "title": "Updates",
-      "description": "WingLog asks GitHub for the latest release number. Nothing else is sent. Installing an update is always your choice, and it never installs while a flight is being tracked.",
+      "description": "Checks GitHub for the latest release; nothing else is sent. Installing is always your choice, and never during a tracked flight.",
       "autoCheck": "Check for updates automatically",
       "on": "On",
       "off": "Off",
@@ -1154,7 +1154,7 @@
   "lan": {
     "settings": {
       "title": "Second screen",
-      "description": "Show the live map on a phone or tablet on your home network. It is off until you turn it on, it only listens on your home network, and every device has to be paired with a code.",
+      "description": "Show the live map on a phone or tablet on your home network. Off until you turn it on; each device is paired with a code.",
       "enable": "Second screen",
       "on": "On",
       "off": "Off",
@@ -1171,7 +1171,7 @@
       "lastSeen": "Last seen {{when}}",
       "neverSeen": "Never connected",
       "revoke": "Revoke",
-      "help": "Can't connect? The phone and this PC must be on the same Wi-Fi (not a guest network), this PC's network should be set to Private, and your firewall must allow WingLog.",
+      "help": "Can’t connect? The phone and this PC must be on the same Wi-Fi (not a guest network), the PC’s network set to Private, and WingLog allowed through the firewall.",
       "problem": {
         "noAdapter": "This PC has no home-network connection to listen on.",
         "portInUse": "That port is already in use. Choose another.",
@@ -1214,7 +1214,7 @@
     "behind": "Your sim's navigation data is Navigraph AIRAC {{cycle}}, but {{current}} is the current cycle. Update it in the Navigraph Hub.",
     "planMismatch": "This plan was made with AIRAC {{plan}}, but your sim has {{sim}}. A route can fail to load in the sim when the two differ: update the sim's data or plan the flight again.",
     "cardTitle": "Navigation data",
-    "cardDescription": "Which navigation data your sim has. WingLog keeps what it reads from the sim for each airport, and reads it again when the sim's data changes.",
+    "cardDescription": "Which navigation data your sim has. WingLog re-reads each airport when the sim’s data changes.",
     "navigraph": "Navigraph AIRAC {{cycle}}, revision {{revision}}",
     "navigraphValid": "Navigraph AIRAC {{cycle}}, revision {{revision}}, valid until {{validTo}}",
     "simOwn": "The sim's own data. Its cycle cannot be read, so WingLog goes by the AIRAC calendar (current cycle {{current}}).",

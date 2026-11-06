@@ -461,12 +461,12 @@ describe('SettingsView', () => {
       // hints used to be permanent paragraphs; now they're behind an info popover, one per
       // row).
       expect(
-        screen.queryByText(/falling back to English if this app doesn't have a translation/)
+        screen.queryByText(/System follows Windows/)
       ).not.toBeInTheDocument()
 
       await user.click(screen.getByRole('button', { name: 'More info about App language' }))
       expect(
-        await screen.findByText(/falling back to English if this app doesn't have a translation/)
+        await screen.findByText(/System follows Windows/)
       ).toBeInTheDocument()
     })
 
@@ -474,7 +474,7 @@ describe('SettingsView', () => {
       // "Hybrid" isn't self-explanatory the way Feet/Meters are — hiding what it means
       // behind a click was a real regression, not a decluttering win (Callum).
       renderSettings()
-      expect(await screen.findByText(/rather than converting everything to one unit/)).toBeInTheDocument()
+      expect(await screen.findByText(/in the unit it was planned in/)).toBeInTheDocument()
       expect(screen.queryByRole('button', { name: 'More info about OFP altitudes' })).not.toBeInTheDocument()
     })
   })
@@ -580,7 +580,7 @@ describe('SettingsView', () => {
       const user = userEvent.setup()
       renderSettings()
       await user.click(screen.getByRole('tab', { name: 'GSX' }))
-      expect(await screen.findByText(/nothing is attached until this is turned on/)).toBeInTheDocument()
+      expect(await screen.findByText(/Attach GSX receipts/)).toBeInTheDocument()
       expect(screen.queryByText(/off by default/i)).not.toBeInTheDocument()
     })
 
@@ -1041,7 +1041,7 @@ describe('SettingsView', () => {
       const user = userEvent.setup()
       renderSettings()
       await user.click(screen.getByRole('tab', { name: 'Import and export' }))
-      expect(await screen.findByText(/nothing leaves this device until you log in/)).toBeInTheDocument()
+      expect(await screen.findByText(/Nothing leaves this device until you log in/)).toBeInTheDocument()
       expect(screen.queryByText(/off by default/i)).not.toBeInTheDocument()
     })
 

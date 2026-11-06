@@ -148,7 +148,7 @@ describe('OnlineNetworkCard', () => {
     render(<OnlineNetworkCard />)
     await userEvent.click(await screen.findByRole('button', { name: 'IVAO' }))
     expect(screen.getByText('VID')).toBeInTheDocument()
-    expect(screen.getByText(/IVAO shows other pilots only to its members/)).toBeInTheDocument()
+    expect(screen.getByText(/Traffic stays off until it is entered/)).toBeInTheDocument()
   })
 
   it('keeps only digits, at most ten, and saves the number when the field loses focus', async () => {

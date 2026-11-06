@@ -47,21 +47,21 @@
       "feet": "Fuß",
       "meters": "Meter",
       "hybrid": "Hybrid",
-      "hybridHint": "„Hybrid“ zeigt jeden Steigflug-Abschnitt in der Einheit, in der er tatsächlich geplant wurde — Fuß für ein Standard-Flugniveau, Meter für eine Strecke, die in einen Luftraum führt (z. B. China), der Flughöhen in Metern zuweist — statt alles in eine Einheit umzurechnen.",
+      "hybridHint": "„Hybrid“ zeigt jeden Stufensteigflug in der Einheit, in der er geplant wurde: Fuß für Standardflugflächen, Meter wo eine Route in Metern geplant ist (China).",
       "appLanguage": "App-Sprache",
-      "appLanguageHint": "„System“ folgt der Sprache deines Betriebssystems und weicht auf Englisch aus, wenn für diese Sprache noch keine Übersetzung existiert. Echte Luftfahrtbegriffe (ILS, STAR, SID, FL, QNH, ICAO-Kennungen) und alles von SimBrief bleiben immer auf Englisch.",
+      "appLanguageHint": "System folgt Windows. Luftfahrtbegriffe (ILS, SID, STAR, FL, QNH) und SimBrief-Texte bleiben Englisch.",
       "mapLanguage": "Kartensprache",
-      "mapLanguageHint": "Die Sprache der Ortsnamen auf den Karten von Flugverfolgung und Logbuch. „Lokal“ zeigt jeden Ort in seiner eigenen Sprache — unabhängig von der App-Sprache oben.",
+      "mapLanguageHint": "Ortsnamen auf den Karten. „Lokal“ zeigt jeden Ort in seiner eigenen Sprache.",
       "metarWindSpeed": "METAR-Windgeschwindigkeit",
       "knots": "Knoten",
-      "metarWindSpeedHint": "Der rohe METAR-Text in der Flugplanung bleibt immer wie gemeldet — dies steuert nur eine separat formatierte Windzeile daneben.",
+      "metarWindSpeedHint": "Nur die formatierte Windzeile ändert sich; das rohe METAR im Dispatch bleibt wie gemeldet.",
       "landingDistances": "Landedistanzen",
-      "landingDistancesHint": "Abstand zur Schwelle und seitlicher Versatz zur Mittellinie auf der Landekarte eines Logbuchflugs sowie im Aufsetzdiagramm. Die Sinkrate bleibt fpm, Geschwindigkeiten/Wind bleiben Knoten.",
+      "landingDistancesHint": "Wird auf der Landekarte und im Aufsetzdiagramm eines Fluges verwendet.",
       "moreInfoFor": "Mehr Infos zu {{label}}"
     },
     "tracking": {
       "cardTitle": "Tracking",
-      "description": "Beides standardmäßig an. Schalte eines aus, wenn es mit deinem Simulator Probleme macht, und nutze stattdessen die Schaltflächen unter {{track}}.",
+      "description": "Beide sind standardmäßig an. Schalte eine aus, wenn sie Probleme macht, und nutze stattdessen die Schaltflächen unter {{track}}.",
       "autoStart": "Tracking automatisch starten",
       "autoStartOff": "Aus: Nach {{fly}} in {{dispatch}} drückst du selbst {{startTracking}} unter {{track}}.",
       "autoFinish": "Flüge automatisch beenden",
@@ -81,7 +81,7 @@
       "minimizeLabel": "Wenn ich das Fenster minimiere",
       "taskbar": "Taskleiste",
       "tray": "Infobereich",
-      "description": "Im Infobereich belegt WingLog keinen Platz in der Taskleiste und zeichnet weiter auf und bedient den Zweitbildschirm. Mit einem Klick auf das Symbol erscheint das Fenster wieder. Beim Schließen des Fensters wird WingLog weiterhin beendet."
+      "description": "Im Tray verfolgt WingLog weiter und bedient den zweiten Bildschirm. Das Schließen des Fensters beendet WingLog weiterhin."
     },
     "credentials": {
       "cardTitle": "Zugangsdaten",
@@ -97,7 +97,7 @@
     },
     "gsx": {
       "cardTitle": "GSX-Bodendienste",
-      "description": "Verknüpft GSX-Pro-Belege für Catering/Betankung/Abfertigung mit passenden Flügen in deinem Logbuch. Nur Windows (GSX selbst ist Windows-only); es wird nichts angehängt, bis dies aktiviert ist.",
+      "description": "Hängt GSX-Belege (Catering, Treibstoff, Abfertigung) an passende Flüge im Logbuch.",
       "enabled": "Aktiviert",
       "on": "Ein",
       "off": "Aus",
@@ -106,7 +106,7 @@
       "browse": "Durchsuchen…",
       "pathHint": "Normalerweise %APPDATA%\\Virtuali\\GSX\\Receipts. Ein falscher oder nicht mehr vorhandener Pfad bedeutet nur, dass keine Belege gefunden werden — nie ein Fehler.",
       "displayCurrency": "Anzeigewährung",
-      "currencyHint": "GSX-Summen werden mit einem live abgerufenen Kurs zum Zeitpunkt der Anzeige umgerechnet — nichts wird umgerechnet gespeichert."
+      "currencyHint": "Beim Ansehen zum aktuellen Kurs umgerechnet; gespeichert wird nichts umgerechnet."
     },
     "gsxRemote": {
       "cardTitle": "GSX Remote Control",
@@ -138,7 +138,7 @@
       "fleetTitle": "Flotte",
       "fleetHint": "Kennzeichen, Typ, Betreiber und aktueller Flughafen. Beim Import werden bereits vorhandene Kennzeichen übersprungen.",
       "logbookTitle": "Logbuch",
-      "logbookHint": "Eine Zusammenfassung jedes abgeschlossenen Flugs mit seiner Landung — kein vollständiges Backup (keine Routen- oder OFP-Daten). Der Import liest WingLogs eigene Dateien sowie SimToolkitPro-CSVs.",
+      "logbookHint": "Eine Zusammenfassung jedes abgeschlossenen Fluges und jeder Landung, keine vollständige Sicherung. Der Import liest WingLog-Dateien und SimToolkitPro-CSVs.",
       "fileFormat": "Dateiformat",
       "regionLabel": "{{title}}-Daten",
       "import": "Importieren",
@@ -157,7 +157,7 @@
     },
     "cloudSync": {
       "cardTitle": "Cloud-Synchronisierung",
-      "description": "Synchronisiert Flotte und Logbuch über deine Geräte hinweg. Dies ist WingLogs eigener Dienst, kein Drittanbieter — nichts verlässt dieses Gerät, bis du dich anmeldest.",
+      "description": "Synchronisiert Flotte und Logbuch zwischen deinen Rechnern über WingLogs eigenen Dienst. Bis zur Anmeldung verlässt nichts dieses Gerät.",
       "logOut": "Abmelden",
       "neverSyncedYet": "Noch nie synchronisiert.",
       "lastSynced": "Zuletzt synchronisiert {{date}}",
@@ -200,17 +200,17 @@
     },
     "onlineNetwork": {
       "cardTitle": "Online-Netzwerk",
-      "description": "Wähle VATSIM oder IVAO für dessen Verkehr auf der Track-Karte, eine Schaltfläche zum Aufgeben deines SimBrief-Plans, die Lotsen an deinen Flughäfen und ein ausgeblendetes BeyondATC, solange du online bist. Mit „Keines“ wird nichts davon gezeigt. WingLog liest nur den öffentlichen Datenfeed des Netzwerks; es wird nichts gesendet.",
+      "description": "VATSIM- oder IVAO-Verkehr und Lotsen auf Track, eine Einreichen-Schaltfläche für deinen Plan und BeyondATC ausgeblendet, solange du online bist. „Keines“ schaltet alles aus. Es wird nur der öffentliche Feed gelesen; nichts wird gesendet.",
       "network": "Netzwerk",
       "none": "Keines",
       "cid": "CID",
       "cidHint": "Deine VATSIM-Mitgliedsnummer (optional). Damit wird dein eigenes Flugzeug aus dem Verkehr ausgelassen.",
       "vid": "VID",
-      "vidHint": "Deine IVAO-Mitgliedsnummer. IVAO zeigt andere Piloten nur seinen Mitgliedern, daher bleibt der Verkehr aus, bis sie eingetragen ist.",
+      "vidHint": "Deine IVAO-Mitgliedsnummer. Der Verkehr bleibt aus, bis sie eingetragen ist.",
       "keepBeyondAtc": "BeyondATC online beibehalten",
-      "keepBeyondAtcHint": "Solange du online bist, sind die Hinweise, die Rollroute, die Frequenzen und die Steigflug-Anfragen von BeyondATC ausgeblendet oder stumm, da nur die Lotsen des Netzwerks sprechen. Schalte dies ein, um sie zu behalten.",
+      "keepBeyondAtcHint": "Online sind die Hinweise, die Rollroute, die Frequenzen und die Stufensteigflüge von BeyondATC ausgeblendet. Schalte dies ein, um sie zu behalten.",
       "simTrafficButton": "Sim-Verkehr-Schaltfläche",
-      "simTrafficButtonHint": "Die türkisen Flugzeuge auf der Track-Karte: der eigene Verkehr des Sims (der von BeyondATC und andere KI). Aus entfernt die Schaltfläche von der Karte, am PC und auf dem Handy.",
+      "simTrafficButtonHint": "Die türkise Flugzeug-Schaltfläche auf der Track-Karte (Sim- und KI-Verkehr). Aus entfernt sie am PC und am Handy.",
       "atcAreas": "ATC-Gebiete aktuell halten",
       "atcAreasHint": "Etwa einmal pro Woche fragt WingLog bei GitHub nach neueren Abdeckungsgebieten aus den Community-Projekten VAT-Spy und SimAware TRACON. Es wird nur die Version von WingLog gesendet.",
       "atcAreasInUse": "In Gebrauch: VAT-Spy {{vatspy}}, TRACON {{tracon}} ({{source}}).",
@@ -1076,7 +1076,7 @@
     },
     "settings": {
       "title": "Updates",
-      "description": "WingLog fragt bei GitHub die neueste Versionsnummer ab. Sonst wird nichts gesendet. Ein Update installierst du immer selbst, und nie während ein Flug aufgezeichnet wird.",
+      "description": "Fragt GitHub nach der neuesten Version; sonst wird nichts gesendet. Die Installation ist immer deine Entscheidung und nie während eines verfolgten Fluges.",
       "autoCheck": "Automatisch nach Updates suchen",
       "on": "An",
       "off": "Aus",
@@ -1154,7 +1154,7 @@
   "lan": {
     "settings": {
       "title": "Zweiter Bildschirm",
-      "description": "Zeigt die Live-Karte auf einem Smartphone oder Tablet in deinem Heimnetzwerk. Die Funktion ist ausgeschaltet, bis du sie einschaltest, sie lauscht nur im Heimnetzwerk, und jedes Gerät muss per Code gekoppelt werden.",
+      "description": "Zeigt die Live-Karte auf Handy oder Tablet in deinem Heimnetz. Aus, bis du es einschaltest; jedes Gerät wird mit einem Code gekoppelt.",
       "enable": "Zweiter Bildschirm",
       "on": "An",
       "off": "Aus",
@@ -1171,7 +1171,7 @@
       "lastSeen": "Zuletzt gesehen {{when}}",
       "neverSeen": "Noch nie verbunden",
       "revoke": "Entfernen",
-      "help": "Keine Verbindung? Smartphone und PC müssen im selben WLAN sein (kein Gast-WLAN), das Netzwerk dieses PCs sollte als Privat eingestellt sein, und die Firewall muss WingLog zulassen.",
+      "help": "Keine Verbindung? Handy und PC müssen im selben WLAN sein (nicht im Gastnetz), das Netzwerk des PCs auf Privat stehen und WingLog durch die Firewall erlaubt sein.",
       "problem": {
         "noAdapter": "Dieser PC hat keine Heimnetzwerk-Verbindung, auf der gelauscht werden kann.",
         "portInUse": "Dieser Port wird bereits verwendet. Wähle einen anderen.",
@@ -1214,7 +1214,7 @@
     "behind": "Die Navigationsdaten deines Simulators sind Navigraph AIRAC {{cycle}}, aktuell ist aber der Zyklus {{current}}. Aktualisiere sie im Navigraph Hub.",
     "planMismatch": "Dieser Flugplan wurde mit AIRAC {{plan}} erstellt, dein Simulator hat aber {{sim}}. Eine Route kann im Simulator nicht laden, wenn beide abweichen: Aktualisiere die Daten des Simulators oder plane den Flug neu.",
     "cardTitle": "Navigationsdaten",
-    "cardDescription": "Welche Navigationsdaten dein Simulator hat. WingLog speichert, was es für jeden Flughafen aus dem Simulator liest, und liest es neu, wenn sich die Daten des Simulators ändern.",
+    "cardDescription": "Welche Navigationsdaten dein Sim hat. WingLog liest jeden Flughafen neu ein, wenn sich die Daten des Sims ändern.",
     "navigraph": "Navigraph AIRAC {{cycle}}, Revision {{revision}}",
     "navigraphValid": "Navigraph AIRAC {{cycle}}, Revision {{revision}}, gültig bis {{validTo}}",
     "simOwn": "Die eigenen Daten des Simulators. Ihr Zyklus lässt sich nicht lesen, daher richtet sich WingLog nach dem AIRAC-Kalender (aktueller Zyklus {{current}}).",
