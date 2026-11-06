@@ -1193,7 +1193,8 @@
     "offline": "Impossibile raggiungere il PC. Nuovo tentativo…",
     "noFlight": "Sul PC non è ancora tracciato nessun volo.",
     "simGone": "Il simulatore non è collegato a WingLog sul PC.",
-    "noPlan": "Non c’è ancora un piano di volo sul PC. Pianifica un volo in Dispatch sul PC."
+    "noPlan": "Non c’è ancora un piano di volo sul PC. Pianifica un volo in Dispatch sul PC.",
+    "sim": "Sim"
   },
   "lan": {
     "settings": {

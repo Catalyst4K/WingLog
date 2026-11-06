@@ -1191,7 +1191,8 @@
     "offline": "Can't reach the PC. Trying again…",
     "noFlight": "No flight is being tracked on the PC yet.",
     "simGone": "The sim isn't connected to WingLog on the PC.",
-    "noPlan": "No flight plan on the PC yet. Plan a flight in Dispatch on the PC."
+    "noPlan": "No flight plan on the PC yet. Plan a flight in Dispatch on the PC.",
+    "sim": "Sim"
   },
   "lan": {
     "settings": {

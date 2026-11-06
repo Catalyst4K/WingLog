@@ -164,7 +164,9 @@ function FlightMapView({
         ref={mapContainerRef}
         data-framed={mapVisible}
         className={cn(
-          'h-full min-h-64 w-full overflow-hidden rounded-xl border border-border transition-opacity duration-150',
+          'h-full min-h-64 w-full overflow-hidden transition-opacity duration-150',
+          // The phone's map runs to the edges of the screen; on the PC it is a panel.
+          !foldLayers && 'rounded-xl border border-border',
           !mapVisible && 'opacity-0'
         )}
       />
@@ -208,6 +210,7 @@ function FlightMapView({
         vfr={vfr}
         taxiChart={taxiChart}
         routeIsApproximate={routeIsApproximate}
+        phone={foldLayers}
         traffic={networkTraffic.traffic}
         simTraffic={{ layers: networkTraffic.layers, traffic: networkTraffic.simTraffic }}
         atc={{ layers: networkTraffic.layers, atc }}

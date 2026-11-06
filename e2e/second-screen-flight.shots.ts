@@ -141,6 +141,10 @@ test('the second screen follows a replayed flight, in portrait and landscape', a
       return app.windows().at(-1)!
     }
     const portrait = await open(390, 780)
+    // The replay's BeyondATC clearances open a dialog over the page now and then; it is dismissed whenever it blocks a click.
+    await portrait.addLocatorHandler(portrait.getByRole('button', { name: 'Dismiss' }), (button) =>
+      button.click()
+    )
     await portrait.getByLabel('Pairing code').fill(code)
     await portrait.getByRole('button', { name: 'Pair' }).click()
     await portrait.getByRole('navigation').waitFor()
@@ -155,8 +159,12 @@ test('the second screen follows a replayed flight, in portrait and landscape', a
 
     await portrait.waitForTimeout(6_000)
     await portrait.screenshot({ path: join(OUT, '1-portrait-early.png') })
-    await portrait.getByRole('button', { name: 'Show VFR overlay' }).click()
-    await portrait.getByRole('button', { name: 'Show taxi chart' }).click()
+    // A BeyondATC clearance from the replay may be waiting over the page; the layers are behind the Layers button.
+    for (const layer of ['Show VFR overlay', 'Show taxi chart']) {
+      await portrait.getByRole('button', { name: 'Layers' }).click()
+      await portrait.getByRole('button', { name: layer }).click()
+      await portrait.keyboard.press('Escape')
+    }
     await portrait.waitForTimeout(3_000)
     await portrait.screenshot({ path: join(OUT, '1b-portrait-vfr-taxi.png') })
     await portrait.getByRole('button', { name: 'Change procedures' }).click()

@@ -1193,7 +1193,8 @@
     "offline": "Impossible de joindre le PC. Nouvelle tentative…",
     "noFlight": "Aucun vol n'est encore suivi sur le PC.",
     "simGone": "Le simulateur n'est pas connecté à WingLog sur le PC.",
-    "noPlan": "Aucun plan de vol sur le PC pour l'instant. Planifiez un vol dans Dispatch sur le PC."
+    "noPlan": "Aucun plan de vol sur le PC pour l'instant. Planifiez un vol dans Dispatch sur le PC.",
+    "sim": "Sim"
   },
   "lan": {
     "settings": {

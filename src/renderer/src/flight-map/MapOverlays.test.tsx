@@ -404,11 +404,11 @@ describe('the layers on a small screen (the phone)', () => {
     return { onToggleVfr, onToggleTaxiChart }
   }
 
-  it('keeps follow and zoom in the column and puts every layer behind one Layers button', () => {
+  it('keeps follow in the column, with no zoom (the map is pinched), and puts every layer behind one Layers button', () => {
     folded()
     expect(screen.getByRole('button', { name: 'Layers' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /centering|Center/ })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Zoom in' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Zoom in' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /VFR/ })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /taxi chart/i })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /VATSIM/ })).not.toBeInTheDocument()
@@ -428,5 +428,32 @@ describe('the layers on a small screen (the phone)', () => {
     controls({ layers: LAYERS_ON, traffic: traffic('vatsim', 'shown'), onToggle: () => {} })
     expect(screen.queryByRole('button', { name: 'Layers' })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: /VATSIM/ })).toBeInTheDocument()
+  })
+})
+
+describe('the readout on the phone', () => {
+  function readout(phone: boolean): void {
+    render(
+      <MapPills
+        live
+        telemetry={null}
+        phase={undefined}
+        transition={null}
+        vfr={{ enabled: false, nearestText: null }}
+        taxiChart={{ enabled: false, loadingIcao: null }}
+        routeIsApproximate={false}
+        phone={phone}
+      />
+    )
+  }
+
+  it('is the three figures alone, with no words between them', () => {
+    readout(true)
+    expect(screen.queryByText(/Speed/)).not.toBeInTheDocument()
+  })
+
+  it('names each figure on the PC', () => {
+    readout(false)
+    expect(screen.getByText(/Speed/)).toBeInTheDocument()
   })
 })

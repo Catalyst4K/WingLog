@@ -123,8 +123,8 @@ describe('the Procedures button', () => {
       sockets[0].say({ t: 'snapshot', topics: {}, flight: FLIGHT_WITH_SELECTION })
     })
     expect(screen.getByRole('button', { name: 'Change procedures' })).toBeInTheDocument()
-    // A chip on the slim header, magenta because the procedures are the plan; its name stays Procedures…, whatever it shows.
-    expect(screen.getByRole('button', { name: 'Change procedures' })).toHaveClass('text-plan', 'rounded-full')
+    // A chip on the map, magenta because the procedures are the plan; its name stays Procedures…, whatever it shows.
+    expect(screen.getByRole('button', { name: 'Change procedures' })).toHaveClass('text-plan', 'rounded-lg')
     expect(screen.getByText('KAMI2A · SIER7B · ILS 27L')).toBeInTheDocument()
   })
 
@@ -479,8 +479,7 @@ describe('LanApp', () => {
       })
     })
     expect(screen.queryByText('No flight is being tracked on the PC yet.')).not.toBeInTheDocument()
-    expect(screen.getByText('SIA321 · WSSS → EGLL')).toBeInTheDocument()
-    expect(screen.getByText('9V-SKA · A388')).toBeInTheDocument()
+    expect(screen.getByText('SIA321 · A388 · WSSS → EGLL')).toBeInTheDocument()
     expect(mapProps.current?.route).toEqual([
       [103.9915, 1.3644],
       [-0.4614, 51.4775]
@@ -527,6 +526,7 @@ describe('LanApp', () => {
       })
     })
     expect(screen.getByText("The sim isn't connected to WingLog on the PC.")).toBeInTheDocument()
+    expect(screen.getByText('Sim').closest('[data-state]')).toHaveAttribute('data-state', 'gone')
     expect(mapProps.current?.telemetry).toBeNull()
 
     // It comes back: the banner goes and the readings return.
@@ -538,6 +538,7 @@ describe('LanApp', () => {
       })
     )
     expect(screen.queryByText("The sim isn't connected to WingLog on the PC.")).not.toBeInTheDocument()
+    expect(screen.getByText('Sim').closest('[data-state]')).toHaveAttribute('data-state', 'connected')
     expect(mapProps.current?.telemetry).toMatchObject({ latitude: 11 })
 
     // And it goes again.

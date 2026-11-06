@@ -25,6 +25,7 @@ import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { displayAltitude } from '../display-altitude'
 import type { TransitionAltitudes } from '@shared/route'
+import { cn } from '@/lib/utils'
 import { uiMemory } from '../ui-memory'
 import { msToKt } from '../units'
 
@@ -313,7 +314,13 @@ export function MapControls(props: {
   const { t } = useTranslation()
   const followLabel = props.followEnabled ? t('flightMap.stopCentering') : t('flightMap.centerOnAircraft')
   return (
-    <div className="absolute top-3 right-3 flex flex-col gap-1.5">
+    // On the phone (folded layers) the buttons are finger-sized and there is no zoom: the map is pinched (the canvas's r3-phone).
+    <div
+      className={cn(
+        'absolute top-3 right-3 flex flex-col gap-1.5',
+        props.foldLayers && 'gap-2 [&_button]:size-11'
+      )}
+    >
       {props.live && (
         <ToggleControl
           on={props.followEnabled}
@@ -325,12 +332,16 @@ export function MapControls(props: {
         </ToggleControl>
       )}
       {props.foldLayers ? <LayersMenu {...props} /> : <LayerControls {...props} />}
-      <ZoomControl label={t('flightMap.zoomIn')} onZoom={props.onZoomIn}>
-        <ZoomIn />
-      </ZoomControl>
-      <ZoomControl label={t('flightMap.zoomOut')} onZoom={props.onZoomOut}>
-        <ZoomOut />
-      </ZoomControl>
+      {!props.foldLayers && (
+        <>
+          <ZoomControl label={t('flightMap.zoomIn')} onZoom={props.onZoomIn}>
+            <ZoomIn />
+          </ZoomControl>
+          <ZoomControl label={t('flightMap.zoomOut')} onZoom={props.onZoomOut}>
+            <ZoomOut />
+          </ZoomControl>
+        </>
+      )}
     </div>
   )
 }
@@ -347,6 +358,8 @@ function TelemetryReadout(props: {
   telemetry: SimTelemetry | null | undefined
   phase: FlightPhase | undefined
   transition: TransitionAltitudes | null
+  /** On the phone: just the three figures, in a small panel, with no words between them. */
+  compact?: boolean
 }): React.JSX.Element {
   const { t } = useTranslation()
   const { telemetry } = props
@@ -365,6 +378,13 @@ function TelemetryReadout(props: {
       ).toLocaleString()} ft`
     : na
   const heading = telemetry ? `${Math.round(telemetry.headingTrueDeg)}°` : na
+  if (props.compact) {
+    return (
+      <div className="absolute bottom-3 left-3 rounded-lg bg-popover/90 px-3 py-1.5 font-mono text-[13px] text-popover-foreground backdrop-blur-sm">
+        {speed} · {altitude} · {heading}
+      </div>
+    )
+  }
   return (
     <div className={`absolute bottom-3 left-3 ${PILL_CLASS_NAME}`}>
       {t('flightMap.speed')} {speed} · {t('flightMap.altitude')} {altitude} · {t('flightMap.heading')}{' '}
@@ -457,6 +477,8 @@ function AtcPill(props: {
  */
 function TopLeftPills(props: {
   live: boolean
+  /** On the phone the Procedures chip sits at the very top left, so the pills start under it. */
+  belowChip?: boolean
   vfr: { enabled: boolean; nearestText: string | null }
   traffic?: NetworkTraffic | null
   simTraffic?: { layers: TrafficLayers | null; traffic: SimTraffic | null }
@@ -466,7 +488,12 @@ function TopLeftPills(props: {
   if (!props.live) return null
   const trafficProblem = trafficProblemKey(props.traffic)
   return (
-    <div className="absolute top-12 left-3 flex max-w-[calc(100%-4.5rem)] flex-col items-start gap-1.5">
+    <div
+      className={cn(
+        'absolute left-3 flex max-w-[calc(100%-4.5rem)] flex-col items-start gap-1.5',
+        props.belowChip ? 'top-[4.25rem]' : 'top-12'
+      )}
+    >
       {props.vfr.enabled && props.vfr.nearestText && <NearestAirfieldPill text={props.vfr.nearestText} />}
       {trafficProblem && props.traffic?.network && (
         <div className={PILL_CLASS_NAME}>
@@ -495,6 +522,8 @@ export function MapPills(props: {
   vfr: { enabled: boolean; nearestText: string | null }
   taxiChart: { enabled: boolean; loadingIcao: string | null }
   routeIsApproximate: boolean
+  /** The phone's map: the readout is the three figures alone, and the top-left pills start under the Procedures chip. */
+  phone?: boolean
   /** The network traffic's state, for the pill that says it cannot be shown. */
   traffic?: NetworkTraffic | null
   /** The sim traffic's state and the layers, for the pill that says the sim cannot be read. */
@@ -507,10 +536,16 @@ export function MapPills(props: {
   return (
     <>
       {live && (
-        <TelemetryReadout telemetry={props.telemetry} phase={props.phase} transition={props.transition} />
+        <TelemetryReadout
+          telemetry={props.telemetry}
+          phase={props.phase}
+          transition={props.transition}
+          compact={props.phone}
+        />
       )}
       <TopLeftPills
         live={live}
+        belowChip={props.phone}
         vfr={vfr}
         traffic={props.traffic}
         simTraffic={props.simTraffic}

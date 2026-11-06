@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 import { useTranslation } from 'react-i18next'
+import { ChevronDown } from 'lucide-react'
 import type {
   FlightPhase,
   LanFlight,
@@ -12,6 +13,7 @@ import type {
   TrackPoint
 } from '@shared/ipc'
 import { Button } from '@/components/ui/button'
+import { StatusLight } from '@/components/StatusLight'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { FlightMap } from '@/FlightMap'
 import { realIcao } from '@/display-icao'
@@ -75,18 +77,32 @@ function FlightBanner({
   phase: FlightPhase | undefined
 }): React.JSX.Element {
   const route = `${realIcao(flight.depIcao) ?? '—'} → ${realIcao(flight.arrIcao) ?? '—'}`
-  const aircraft = [flight.registration, flight.icaoType].filter(Boolean).join(' · ')
   return (
-    <div className="flex items-center justify-between gap-3 border-b border-border bg-card px-3 py-1.5 text-xs">
-      <span className="truncate font-mono font-medium">
-        {[flight.flightNumber, route].filter(Boolean).join(' · ')}
+    <div className="flex items-center justify-between gap-3">
+      <span className="truncate font-mono text-[13px] font-medium">
+        {[flight.flightNumber, flight.icaoType, route].filter(Boolean).join(' · ')}
       </span>
       <span className="flex shrink-0 items-center gap-2">
-        {aircraft && <span className="text-muted-foreground">{aircraft}</span>}
         <OnlineBadge />
         {phase && <PhaseLights phase={phase} compact />}
       </span>
     </div>
+  )
+}
+
+/**
+ * Whether the sim is connected to WingLog on the PC, as three dots and the word.
+ *
+ * @param props Whether the sim is connected.
+ * @returns The element.
+ */
+function SimLink({ connected }: { connected: boolean }): React.JSX.Element {
+  const { t } = useTranslation()
+  return (
+    <span className="inline-flex shrink-0 items-center gap-1.5" data-state={connected ? 'connected' : 'gone'}>
+      <StatusLight state={connected ? 'green' : 'off'} count={3} />
+      {t('lanPage.sim')}
+    </span>
   )
 }
 
@@ -100,15 +116,17 @@ function TimesBanner({ times }: { times: TrackTimes }): React.JSX.Element | null
   const { t } = useTranslation()
   if (times.elapsedMs === null && times.remainingMs === null && times.etaMs === null) return null
   return (
-    <div className="flex min-w-0 flex-1 items-center justify-between gap-2 text-xs text-muted-foreground">
+    <div className="flex min-w-0 flex-wrap items-center gap-x-2 text-xs whitespace-nowrap text-muted-foreground">
       <span>
         {t('trackView.times.et')}{' '}
         <span className="font-mono text-foreground">{formatElapsed(times.elapsedMs)}</span>
       </span>
+      <span aria-hidden="true">·</span>
       <span>
         {t('trackView.times.remaining')}{' '}
         <span className="font-mono text-foreground">{formatDuration(times.remainingMs)}</span>
       </span>
+      <span aria-hidden="true">·</span>
       <span>
         {t(times.etaIsPlanned ? 'trackView.times.etaPlanned' : 'trackView.times.eta')}{' '}
         <span className="font-mono text-foreground">{formatUtcTime(times.etaMs)}</span>
@@ -194,12 +212,12 @@ function ProceduresBar(props: {
       <DialogTrigger asChild>
         <Button
           type="button"
-          variant="outline"
-          size="sm"
+          variant="ghost"
           aria-label={t('trackView.proceduresEllipsis')}
-          className={`h-7 max-w-[60%] shrink-0 truncate rounded-full px-3 text-xs ${chosen ? 'font-mono text-plan' : 'font-normal text-muted-foreground'}`}
+          className={`absolute top-3 left-3 z-10 h-11 max-w-[calc(100%-5.5rem)] gap-2 rounded-lg bg-popover/90 px-3 font-mono text-[13px] font-normal backdrop-blur-sm hover:bg-popover ${chosen ? 'text-plan hover:text-plan' : 'text-muted-foreground'}`}
         >
-          {chosen || t('trackView.nothingSelectedYet')}
+          <span className="truncate">{chosen || t('trackView.nothingSelectedYet')}</span>
+          <ChevronDown className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
         </Button>
       </DialogTrigger>
       <DialogContent className="max-h-[88dvh] overflow-y-auto sm:max-w-2xl">
@@ -292,9 +310,13 @@ function FlightView(props: {
         snapshot={snapshot}
         times={times}
         phase={phase}
-        procedures={airports ? { airports, selection, onSelectionChange: choose, unconfirmed } : null}
+        simConnected={!simGone}
+        unconfirmed={unconfirmed}
       />
-      <div className="min-h-0 flex-1">
+      <div className="relative min-h-0 flex-1">
+        {snapshot && airports && (
+          <ProceduresBar airports={airports} selection={selection} onSelectionChange={choose} />
+        )}
         <FlightMap
           mapLanguage={mapLanguage}
           foldLayers
@@ -324,16 +346,11 @@ function FlightHeader(props: {
   snapshot: LanFlightSnapshot | null
   times: TrackTimes
   phase: FlightPhase | undefined
-  procedures: (Parameters<typeof ProceduresBar>[0] & { unconfirmed: boolean }) | null
+  simConnected: boolean
+  unconfirmed: boolean
 }): React.JSX.Element {
-  const { snapshot, times, procedures } = props
+  const { snapshot, times } = props
   const { t } = useTranslation()
-  // What the chip needs; whether the last choice is unconfirmed is a note of its own under the header.
-  const bar = procedures && {
-    airports: procedures.airports,
-    selection: procedures.selection,
-    onSelectionChange: procedures.onSelectionChange
-  }
   return (
     <>
       {!snapshot && (
@@ -341,16 +358,18 @@ function FlightHeader(props: {
           {t('lanPage.noFlight')}
         </p>
       )}
-      {snapshot && <FlightBanner flight={snapshot.flight} phase={props.phase} />}
-      <AutoTuneOnlineWarning />
-      <OnlineAtcSection />
       {snapshot && (
-        <div className="flex items-center justify-between gap-3 border-b border-border bg-card px-3 py-1">
-          <TimesBanner times={times} />
-          {bar && <ProceduresBar {...bar} />}
+        <div className="flex flex-col gap-1.5 border-b border-border bg-card px-3.5 pt-3 pb-2">
+          <FlightBanner flight={snapshot.flight} phase={props.phase} />
+          <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
+            <TimesBanner times={times} />
+            <SimLink connected={props.simConnected} />
+          </div>
         </div>
       )}
-      {snapshot && procedures?.unconfirmed && (
+      <AutoTuneOnlineWarning />
+      <OnlineAtcSection />
+      {snapshot && props.unconfirmed && (
         <p role="alert" className="border-b border-border bg-muted px-3 py-1.5 text-xs text-foreground">
           {t('trackView.choiceNotConfirmed')}
         </p>
