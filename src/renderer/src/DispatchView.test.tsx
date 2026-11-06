@@ -675,6 +675,17 @@ describe('DispatchView', () => {
       expect(screen.getByText('ABCDE')).toBeInTheDocument()
     })
 
+    it('draws the step climbs in magenta, the plan colour, and the figures in the mono face', async () => {
+      window.winglog = createWinglog({ dispatchFetchOfp: vi.fn().mockResolvedValue(makeOfp()) })
+      const user = userEvent.setup()
+      render(<Harness />)
+      await user.click(screen.getByRole('button', { name: 'Fetch latest OFP' }))
+
+      await screen.findByText('TA100: EGLL → EDDF (altn EDDL)')
+      expect(screen.getByText('ABCDE').parentElement).toHaveClass('text-plan')
+      expect(screen.getByText('Cost index').nextElementSibling).toHaveClass('font-mono')
+    })
+
     it('reminds which stand the aircraft last parked at when departing from that airport (stand-positions.md)', async () => {
       window.winglog = createWinglog({
         aircraftList: vi.fn().mockResolvedValue([makeAircraft()]),

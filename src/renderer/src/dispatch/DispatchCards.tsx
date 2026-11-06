@@ -51,7 +51,7 @@ function DetailField(props: { label: string; value: React.ReactNode }): React.JS
   return (
     <>
       <dt className="text-muted-foreground">{props.label}</dt>
-      <dd className="text-foreground">{props.value}</dd>
+      <dd className="font-mono text-foreground">{props.value}</dd>
     </>
   )
 }
@@ -239,19 +239,24 @@ export function OfpDetails(props: {
         ) : (
           <div className="flex flex-wrap gap-1.5">
             {ofp.stepClimbs.map((climb) => (
-              <Badge key={climb.atIdent} variant="outline" className="gap-1.5 font-normal">
-                <span className="text-muted-foreground">{climb.atIdent}</span>
-                <span className="font-mono tabular-nums text-foreground">
+              // Everything on Dispatch is the plan, so only the route and the step climbs are magenta (winglog-backend
+              // docs/plans/v2-design.md).
+              <span
+                key={climb.atIdent}
+                className="inline-flex items-center gap-1.5 rounded-md bg-muted px-2 py-0.5 font-mono text-xs text-plan"
+              >
+                <span>{climb.atIdent}</span>
+                <span className="tabular-nums">
                   {formatAltitude(climb.toAltitudeFt, altitudeUnit, climb.native)}
                 </span>
-              </Badge>
+              </span>
             ))}
           </div>
         )}
       </div>
       <div className="flex flex-col gap-1.5 text-sm">
         <span className="text-muted-foreground">{t('dispatchView.route')}</span>
-        <p className="max-h-16 overflow-auto text-foreground">{formatEnrouteOnly(ofp.ofpJson)}</p>
+        <p className="max-h-16 overflow-auto font-mono text-xs text-plan">{formatEnrouteOnly(ofp.ofpJson)}</p>
       </div>
     </>
   )
@@ -361,7 +366,7 @@ export function OfpCard(props: {
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         {airframeCapture && (
-          <div className="flex items-center justify-between gap-3 rounded-md border border-border bg-muted/50 p-3 text-sm">
+          <div className="flex items-center justify-between gap-3 rounded-md bg-muted/50 p-3 text-sm">
             <span className="text-foreground">
               {t('dispatchView.usedCustomAirframeNotSaved', {
                 registration: props.aircraft.find((a) => a.id === airframeCapture.aircraftId)?.registration
