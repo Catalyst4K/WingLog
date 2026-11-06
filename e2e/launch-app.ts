@@ -96,8 +96,9 @@ export async function launchApp(options: LaunchAppOptions = {}): Promise<Launche
   // to a software WebGL2 implementation when this is set, avoiding a real crash confirmed
   // live in Logbook's e2e test (FlightMap's maplibre-gl map failing to get a GPU context,
   // then crashing the renderer on unmount). Always on for every e2e launch, real or local —
-  // never set anywhere real usage runs, so it can't affect a real user.
-  env.WINGLOG_E2E_SOFTWARE_GL = '1'
+  // never set anywhere real usage runs, so it can't affect a real user. A machine with a real GPU can set it to an empty string
+  // in the shell to draw the maps on the GPU for screenshots (the software one drew nothing on the Mac, 2026-11-06).
+  env.WINGLOG_E2E_SOFTWARE_GL = process.env.WINGLOG_E2E_SOFTWARE_GL ?? '1'
   // The update check (updates/update-check.ts) asks GitHub 30 s after launch. Point it at a
   // closed local port so no e2e run ever reaches the real API; updates.spec.ts overrides
   // this with its own fake release server. Only honoured by an unpackaged build.

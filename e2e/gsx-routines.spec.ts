@@ -196,11 +196,10 @@ test.describe('GSX routines', () => {
       // With services under way Cancel first asks what to do with them (plan/gsx-routine-cancel).
       await progress.getByRole('button', { name: 'Cancel' }).click()
       await progress.getByRole('button', { name: 'Leave them running' }).click()
-      await expect(progress.getByRole('status')).toHaveText('Routine cancelled.')
+      // A plain cancel takes the routine off every screen at once (routine-driver.ts), it is not left saying "cancelled".
+      await expect(progress).toHaveCount(0)
       await page.getByRole('tab', { name: 'Ground services' }).click()
-      await expect(page.getByTestId('gsx-routine-progress').getByRole('status')).toHaveText(
-        'Routine cancelled.'
-      )
+      await expect(page.getByTestId('gsx-routine-progress')).toHaveCount(0)
     } finally {
       await cleanup()
       await server.stop()
