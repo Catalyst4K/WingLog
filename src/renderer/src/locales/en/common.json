@@ -623,7 +623,7 @@
     "usedCustomAirframeNotSaved": "This plan used a custom SimBrief airframe not saved to {{registration}}.",
     "saveThisAirframe": "Save this airframe",
     "fields": {
-      "aircraftOfp": "Aircraft (OFP)",
+      "aircraft": "Aircraft",
       "cruiseAltitude": "Cruise altitude",
       "scheduledOutIn": "Scheduled out / in",
       "plannedFuel": "Planned fuel",
@@ -651,9 +651,7 @@
     "discardThisPlan": "Discard this plan?",
     "canFetchAgain": "You can fetch it again from SimBrief.",
     "noOfpPdfAvailable": "No OFP PDF available for this plan.",
-    "alternateLabel": "Alternate {{altn}}",
-    "fromOfp": "from the OFP",
-    "matchesOfp": "Matches the OFP"
+    "alternateLabel": "Alternate {{altn}}",    "matches": "Matches"
   },
   "trackView": {
     "title": "Track",

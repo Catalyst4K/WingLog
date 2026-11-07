@@ -64,11 +64,11 @@ function withWinglog(overrides: Partial<WingLogApi> = {}): void {
   } as unknown as WingLogApi
 }
 
-/** Matches a progress line: the span holding the whole text, with the target (in the mono face) inside it, marked (OFP). */
+/** Matches a progress line: the span holding the whole text, with the target (in the mono face) inside it. */
 function progressLine(text: string) {
   return (_content: string, element: Element | null): boolean =>
     element?.tagName === 'SPAN' &&
-    element.textContent === `${text} (OFP)` &&
+    element.textContent === text &&
     element.querySelector(':scope > .font-mono') !== null
 }
 

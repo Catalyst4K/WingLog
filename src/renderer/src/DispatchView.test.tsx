@@ -567,12 +567,12 @@ describe('DispatchView', () => {
       await screen.findByRole('heading', { name: 'TA100 · EGLL → EDDF' })
       const fleetSelect = selectTriggerNear('Fleet aircraft')
       // The pre-chosen G-ABCD (id 1) stays selected rather than switching to the OFP's own
-      // registration match (id 2) — the "Matches the OFP" light shows only once G-EFGH is the one chosen.
-      expect(screen.queryByText('Matches the OFP')).not.toBeInTheDocument()
+      // registration match (id 2) — the "Matches" light shows only once G-EFGH is the one chosen.
+      expect(screen.queryByText('Matches')).not.toBeInTheDocument()
       await user.click(fleetSelect)
       await user.click(await screen.findByRole('option', { name: /G-EFGH/ }))
       expect(await within(fleetSelect).findByText(/G-EFGH/)).toBeInTheDocument()
-      expect(screen.getByText('Matches the OFP')).toBeInTheDocument()
+      expect(screen.getByText('Matches')).toBeInTheDocument()
     })
   })
 
@@ -699,16 +699,14 @@ describe('DispatchView', () => {
 
       await screen.findByRole('heading', { name: 'TA100 · EGLL → EDDF' })
       // Callum, 2026-11-06: the text on Dispatch is not coloured; the step climbs and the route carry a rule at their left
-      // and "from the OFP" an underline, in the plan's colour.
+      // in the plan's colour; nothing says "from the OFP", the whole page is the OFP.
       const stepClimbs = screen.getByText(/ABCDE/)
       const route = screen.getByText('Route').nextElementSibling as HTMLElement
-      const fromOfp = screen.getByText('from the OFP')
       for (const marked of [stepClimbs, route]) {
         expect(marked).toHaveClass('border-l-[3px]', 'border-plan')
         expect(marked).not.toHaveClass('text-plan')
       }
-      expect(fromOfp).toHaveClass('border-b-2', 'border-plan')
-      expect(fromOfp).not.toHaveClass('text-plan')
+      expect(screen.queryByText(/from the OFP/)).not.toBeInTheDocument()
       expect(screen.getByText('Cost index').nextElementSibling).toHaveClass('font-mono')
     })
 

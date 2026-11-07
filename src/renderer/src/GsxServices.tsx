@@ -25,8 +25,8 @@ import {
  * @returns The element, or null when there is nothing to show.
  */
 /**
- * A progress line, "15,357 / 81,488 kg (OFP)": what is done, then the target the plan asked for in the mono face and marked (OFP). Plan text is
- * never coloured; the plan is named instead.
+ * A progress line, "15,357 / 81,488 kg": what is done, then the target the plan asked for in the mono face. Plan text is never coloured,
+ * and the target needs no "(OFP)": a figure after a slash is plainly the target.
  *
  * @param props The line as the format functions write it.
  * @returns The element.
@@ -37,7 +37,7 @@ function ProgressText(props: { text: string }): React.JSX.Element {
   return (
     <span>
       {props.text.slice(0, at)} /{' '}
-      <span className="font-mono text-foreground">{props.text.slice(at + 3)}</span> (OFP)
+      <span className="font-mono text-foreground">{props.text.slice(at + 3)}</span>
     </span>
   )
 }

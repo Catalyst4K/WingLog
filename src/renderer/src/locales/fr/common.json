@@ -625,7 +625,7 @@
     "usedCustomAirframeNotSaved": "Ce plan utilisait une cellule SimBrief personnalisée non enregistrée sur {{registration}}.",
     "saveThisAirframe": "Enregistrer cette cellule",
     "fields": {
-      "aircraftOfp": "Appareil (OFP)",
+      "aircraft": "Appareil",
       "cruiseAltitude": "Altitude de croisière",
       "scheduledOutIn": "Départ / arrivée prévus",
       "plannedFuel": "Carburant prévu",
@@ -653,9 +653,7 @@
     "discardThisPlan": "Abandonner ce plan ?",
     "canFetchAgain": "Vous pouvez le récupérer à nouveau depuis SimBrief.",
     "noOfpPdfAvailable": "Aucun PDF d'OFP disponible pour ce plan.",
-    "alternateLabel": "Déroutement {{altn}}",
-    "fromOfp": "du OFP",
-    "matchesOfp": "Correspond à l’OFP"
+    "alternateLabel": "Déroutement {{altn}}",    "matches": "Correspond"
   },
   "trackView": {
     "title": "Suivi",

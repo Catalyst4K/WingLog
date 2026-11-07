@@ -616,7 +616,7 @@
     "usedCustomAirframeNotSaved": "此計畫使用了未儲存到 {{registration}} 的自訂 SimBrief 機型設定檔。",
     "saveThisAirframe": "儲存此機型設定檔",
     "fields": {
-      "aircraftOfp": "飛機（OFP）",
+      "aircraft": "飛機",
       "cruiseAltitude": "巡航高度",
       "scheduledOutIn": "預定推出／到達時間",
       "plannedFuel": "計畫燃油",
@@ -644,9 +644,7 @@
     "discardThisPlan": "放棄此計畫？",
     "canFetchAgain": "你可以稍後再次從 SimBrief 取得。",
     "noOfpPdfAvailable": "此計畫目前沒有可用的 OFP PDF。",
-    "alternateLabel": "備降 {{altn}}",
-    "fromOfp": "來自 OFP",
-    "matchesOfp": "與 OFP 一致"
+    "alternateLabel": "備降 {{altn}}",    "matches": "一致"
   },
   "trackView": {
     "title": "追蹤",

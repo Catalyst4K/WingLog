@@ -6,6 +6,7 @@ import { logger } from '../logging/logger'
 import { LiveHub } from '../live/LiveHub'
 import { hashToken } from './pairing'
 import {
+  pageSecurityPolicy,
   LAN_TOPICS,
   LanServer,
   ABUSE_FACTOR,
@@ -178,6 +179,17 @@ describe('LanServer', () => {
       expect((await get('/secret.js')).status).toBe(404)
       expect((await get('/', 'evil.example:80')).status).toBe(404)
       expect((await get('/', `${HOST}:${port}`, 'POST')).status).toBe(404)
+    })
+  })
+
+  describe('the page security policy', () => {
+    it('lets images come from the map host and the airline logo service, and fetches only from the map host and the server itself', () => {
+      const policy = pageSecurityPolicy('192.168.1.5:47321')
+      expect(policy).toContain(
+        "img-src 'self' data: blob: https://tiles.openfreemap.org https://images.kiwi.com"
+      )
+      expect(policy).toContain("connect-src 'self' ws://192.168.1.5:47321 https://tiles.openfreemap.org")
+      expect(policy.match(/connect-src[^;]*/)?.[0]).not.toContain('kiwi')
     })
   })
 

@@ -623,7 +623,7 @@
     "usedCustomAirframeNotSaved": "Dieser Plan verwendete eine benutzerdefinierte SimBrief-Zelle, die nicht bei {{registration}} gespeichert ist.",
     "saveThisAirframe": "Diese Zelle speichern",
     "fields": {
-      "aircraftOfp": "Flugzeug (OFP)",
+      "aircraft": "Flugzeug",
       "cruiseAltitude": "Reiseflughöhe",
       "scheduledOutIn": "Geplant Abflug / Ankunft",
       "plannedFuel": "Geplanter Treibstoff",
@@ -651,9 +651,7 @@
     "discardThisPlan": "Diesen Plan verwerfen?",
     "canFetchAgain": "Du kannst ihn erneut von SimBrief abrufen.",
     "noOfpPdfAvailable": "Kein OFP-PDF für diesen Plan verfügbar.",
-    "alternateLabel": "Ausweichflughafen {{altn}}",
-    "fromOfp": "aus dem OFP",
-    "matchesOfp": "Passt zum OFP"
+    "alternateLabel": "Ausweichflughafen {{altn}}",    "matches": "Passt"
   },
   "trackView": {
     "title": "Flugverfolgung",

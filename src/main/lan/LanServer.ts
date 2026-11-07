@@ -604,7 +604,8 @@ function logName(name: unknown): string {
 }
 
 /**
- * What the page may load: its own files, the map tiles and style from OpenFreeMap, and its WebSocket back to this server, nothing else.
+ * What the page may load: its own files, the map tiles and style from OpenFreeMap, the airline logos from images.kiwi.com (images only,
+ * the same service the PC's window uses), and its WebSocket back to this server, nothing else.
  *
  * @param host The host (with port) this server is bound to.
  * @returns The Content-Security-Policy header value.
@@ -612,7 +613,7 @@ function logName(name: unknown): string {
 export function pageSecurityPolicy(host: string): string {
   return [
     "default-src 'self'",
-    "img-src 'self' data: blob: https://tiles.openfreemap.org",
+    "img-src 'self' data: blob: https://tiles.openfreemap.org https://images.kiwi.com",
     `connect-src 'self' ws://${host} https://tiles.openfreemap.org`,
     "style-src 'self' 'unsafe-inline'",
     "worker-src 'self' blob:",

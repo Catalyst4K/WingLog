@@ -625,7 +625,7 @@
     "usedCustomAirframeNotSaved": "Questo piano ha usato una cellula SimBrief personalizzata non salvata su {{registration}}.",
     "saveThisAirframe": "Salva questa cellula",
     "fields": {
-      "aircraftOfp": "Aeromobile (OFP)",
+      "aircraft": "Aeromobile",
       "cruiseAltitude": "Quota di crociera",
       "scheduledOutIn": "Partenza / arrivo previsti",
       "plannedFuel": "Carburante pianificato",
@@ -653,9 +653,7 @@
     "discardThisPlan": "Scartare questo piano?",
     "canFetchAgain": "Puoi recuperarlo di nuovo da SimBrief.",
     "noOfpPdfAvailable": "Nessun PDF OFP disponibile per questo piano.",
-    "alternateLabel": "Alternato {{altn}}",
-    "fromOfp": "dall’OFP",
-    "matchesOfp": "Corrisponde all’OFP"
+    "alternateLabel": "Alternato {{altn}}",    "matches": "Corrisponde"
   },
   "trackView": {
     "title": "Monitoraggio",

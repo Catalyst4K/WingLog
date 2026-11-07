@@ -645,7 +645,7 @@
     "usedCustomAirframeNotSaved": "В этом плане использован пользовательский борт SimBrief, не сохранённый для {{registration}}.",
     "saveThisAirframe": "Сохранить этот борт",
     "fields": {
-      "aircraftOfp": "Воздушное судно (OFP)",
+      "aircraft": "Воздушное судно",
       "cruiseAltitude": "Крейсерская высота",
       "scheduledOutIn": "Плановые вылет / прилёт",
       "plannedFuel": "Плановое топливо",
@@ -676,9 +676,7 @@
     "discardThisPlan": "Отменить этот план?",
     "canFetchAgain": "Вы можете получить его снова из SimBrief.",
     "noOfpPdfAvailable": "PDF OFP для этого плана недоступен.",
-    "alternateLabel": "Запасной {{altn}}",
-    "fromOfp": "из OFP",
-    "matchesOfp": "Совпадает с OFP"
+    "alternateLabel": "Запасной {{altn}}",    "matches": "Совпадает"
   },
   "trackView": {
     "title": "Трек",

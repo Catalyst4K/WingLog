@@ -235,8 +235,7 @@ export function OfpHeading(props: { ofp: DispatchOfp; iata?: string | null }): R
       </div>
       {ofp.altnIcao && (
         <p className="m-0 text-sm text-muted-foreground">
-          {t('dispatchView.alternateLabel', { altn: ofp.altnIcao })} ·{' '}
-          <span className="border-b-2 border-plan">{t('dispatchView.fromOfp')}</span>
+          {t('dispatchView.alternateLabel', { altn: ofp.altnIcao })}
         </p>
       )}
     </div>
@@ -305,7 +304,7 @@ export function OfpDetails(props: {
   return (
     <>
       <dl className="m-0 grid grid-cols-[repeat(auto-fit,minmax(16rem,1fr))] gap-x-7">
-        <FigureRow label={t('dispatchView.fields.aircraftOfp')}>
+        <FigureRow label={t('dispatchView.fields.aircraft')}>
           {`${ofp.aircraftIcaoType} · ${ofp.aircraftRegistration}`}
         </FigureRow>
         <FigureRow label={t('dispatchView.fields.cruiseAltitude')}>
@@ -339,7 +338,7 @@ export function OfpDetails(props: {
 }
 
 /**
- * The fleet aircraft that will fly the OFP, with a light and "Matches the OFP" when it is the one the plan was made for.
+ * The fleet aircraft that will fly the OFP, with a light and "Matches" when it is the one the plan was made for.
  *
  * @param props The OFP, the fleet, the chosen aircraft and its change handler.
  * @returns The element.
@@ -361,7 +360,7 @@ function OfpAircraftPicker(props: {
         {matches && (
           <span className="inline-flex items-center gap-1.5 text-[13px] text-muted-foreground">
             <StatusLight state="green" />
-            {t('dispatchView.matchesOfp')}
+            {t('dispatchView.matches')}
           </span>
         )}
       </div>
