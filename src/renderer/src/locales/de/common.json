@@ -491,7 +491,9 @@
     "empty": "Diesem Flug wurden noch keine GSX-Belege zugeordnet — aktiviere GSX in den Einstellungen und scanne erneut.",
     "total": "Gesamt ({{code}})",
     "notailHint": "Möglicherweise dieser Flug — Kennzeichen auf dem Beleg unbekannt, daher nicht automatisch zugeordnet:",
-    "attach": "Zuordnen"
+    "attach": "Zuordnen",
+    "summary_one": "{{count}} Beleg · {{total}}",
+    "summary_other": "{{count}} Belege · {{total}}"
   },
   "procedureSelector": {
     "none": "Ohne",
@@ -833,7 +835,8 @@
     "planned": "Geplant",
     "flown": "Geflogen",
     "airportsTo": "{{dep}} nach {{arr}}",
-    "speedMode": "Geschwindigkeit als"
+    "speedMode": "Geschwindigkeit als",
+    "fuelPercentOfPlan": "{{pct}} % vom Plan"
   },
   "gsxRemoteView": {
     "title": "Bodendienste"

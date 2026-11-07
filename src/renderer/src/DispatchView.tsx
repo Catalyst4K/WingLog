@@ -267,9 +267,11 @@ export function DispatchView(props: {
           />
 
           {ofp && (
-            <Card className="rounded-md [--card-spacing:--spacing(5)]">
+            <Card className="rounded-b-md [--card-spacing:--spacing(5)]">
               <CardContent className="flex flex-col gap-3">
-                <h2 className="m-0 text-[17px] font-semibold">{t('dispatchView.procedures')}</h2>
+                <h2 className="m-0 font-display text-[17px] font-bold tracking-[-0.01em]">
+                  {t('dispatchView.procedures')}
+                </h2>
                 <NavdataCycleNote planAirac={ofp.airac} />
                 <ProcedureSelector
                   airports={ofp}

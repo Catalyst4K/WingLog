@@ -385,7 +385,7 @@ describe('TrackView', () => {
     /** The value shown after a readout's label (the label's own monospaced child). */
     const readout = (label: string): Element | null => {
       const element = screen.getByText(label)
-      return element.querySelector('.font-mono') ?? element.nextElementSibling
+      return element.querySelector('.font-mono, .font-display') ?? element.nextElementSibling
     }
 
     it('on the ground before takeoff: no ET or time remaining, and the planned arrival as the ETA', async () => {
@@ -977,8 +977,13 @@ describe('TrackView', () => {
     }
     renderTrack({ selection })
     await screen.findByText('Start tracking')
-    // The chosen procedures are the plan: magenta, in the mono face. Nothing chosen is quiet text instead.
-    expect(screen.getByText('DET2G · ABC1')).toHaveClass('text-plan', 'font-mono')
+    // The chosen procedures are the plan: plain text in the mono face with the plan's rule before it, never magenta text. Nothing chosen is
+    // quiet text instead.
+    const names = screen.getByText('DET2G · ABC1')
+    expect(names).toHaveClass('font-mono')
+    expect(names).not.toHaveClass('text-plan')
+    expect(names.parentElement).toHaveAttribute('data-testid', 'plan-mark')
+    expect(names.previousElementSibling).toHaveClass('bg-plan')
   })
 
   it('opens the Procedures dialog showing the live procedure selectors', async () => {

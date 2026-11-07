@@ -166,7 +166,8 @@ describe('GsxInvoicesCard', () => {
     render(<GsxInvoicesCard flightId={42} />)
 
     expect(await screen.findByText('Total (USD)')).toBeInTheDocument()
-    expect(screen.getByText(/150\.00/)).toBeInTheDocument()
+    // The total is on the heading's right (with the count) and on the total row.
+    expect(screen.getAllByText(/150\.00/)).toHaveLength(2)
   })
 
   it('omits the total row entirely when no invoice has a USD total', async () => {
@@ -321,7 +322,7 @@ describe('GsxInvoicesCard', () => {
     // date as the first (already resolved) — so the effect must recompute `missing` as
     // empty and return early rather than re-fetching that rate.
     await user.click(screen.getByText('Rescan'))
-    await waitFor(() => expect(screen.getByText(/120\.00/)).toBeInTheDocument())
+    await waitFor(() => expect(screen.getAllByText(/120\.00/).length).toBeGreaterThan(0))
     expect(fxGetRate).toHaveBeenCalledTimes(1)
   })
 

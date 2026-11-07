@@ -67,7 +67,7 @@ function MetarBody(props: {
   return (
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap items-center gap-x-3.5 gap-y-1.5">
-        <span className="text-[17px] font-semibold">{props.icao}</span>
+        <span className="font-display text-[17px] font-bold tracking-[-0.01em]">{props.icao}</span>
         {props.report.flightCategory && (
           <span className="inline-flex items-center gap-1.5 text-sm font-medium">
             <StatusLight state={FLIGHT_CATEGORY_LIGHT[props.report.flightCategory]} />

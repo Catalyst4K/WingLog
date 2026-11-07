@@ -16,7 +16,7 @@ export function StatCell(props: {
       <dt className="text-[13px] text-muted-foreground">{props.label}</dt>
       <dd className="m-0 mt-0.5 min-w-0 font-mono text-xl break-words text-foreground">{props.children}</dd>
       {props.plan !== undefined && props.plan !== null && (
-        <dd className="m-0 font-mono text-[13px] text-plan">{props.plan}</dd>
+        <dd className="m-0 font-mono text-[13px] text-muted-foreground">{props.plan}</dd>
       )}
     </div>
   )

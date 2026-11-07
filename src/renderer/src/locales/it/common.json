@@ -493,7 +493,9 @@
     "empty": "Nessuna ricevuta GSX ancora associata a questo volo — attiva GSX nelle Impostazioni e ripeti la scansione.",
     "total": "Totale ({{code}})",
     "notailHint": "Forse questo volo — immatricolazione sconosciuta sulla ricevuta, quindi non allegata automaticamente:",
-    "attach": "Allega"
+    "attach": "Allega",
+    "summary_one": "{{count}} ricevuta · {{total}}",
+    "summary_other": "{{count}} ricevute · {{total}}"
   },
   "procedureSelector": {
     "none": "Nessuna",
@@ -835,7 +837,8 @@
     "planned": "Pianificata",
     "flown": "Volata",
     "airportsTo": "{{dep}} per {{arr}}",
-    "speedMode": "Velocità mostrata come"
+    "speedMode": "Velocità mostrata come",
+    "fuelPercentOfPlan": "{{pct}} % del piano"
   },
   "gsxRemoteView": {
     "title": "Servizi di terra"

@@ -22,6 +22,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { AirlineLogo } from '../AirlineLogo'
+import { PlanMark } from '@/components/PlanMark'
 import { displayIcao, realIcao } from '../display-icao'
 import { flightLabel } from '../flight-label'
 import { FreeFlightAirport } from '../FreeFlightAirport'
@@ -56,9 +57,11 @@ function FlightIdentity(props: {
   const registration = props.aircraft?.registration ?? props.simRegistration
   return (
     <div className="flex flex-wrap items-center gap-x-7 gap-y-2">
-      <span className="flex items-center gap-2">
-        <AirlineLogo iata={props.aircraft?.operatorIata ?? null} />
-        <h2 className="m-0 text-[26px] font-semibold">{props.flightNumber}</h2>
+      <span className="flex items-center gap-3">
+        <AirlineLogo iata={props.aircraft?.operatorIata ?? null} size={30} />
+        <h2 className="m-0 font-display text-[32px] leading-[1.1] font-bold tracking-[-0.02em]">
+          {props.flightNumber}
+        </h2>
       </span>
       {(icaoType || registration) && (
         <span className="text-muted-foreground">{[icaoType, registration].filter(Boolean).join(' · ')}</span>
@@ -69,8 +72,8 @@ function FlightIdentity(props: {
 }
 
 /**
- * The ETA in the mono face and, beside it in magenta, the plan's time for the same moment; how far the estimate is off the schedule
- * follows it quietly (track-times.ts).
+ * The ETA large in Golos (the one figure in it) and, beside it quietly, the plan's time for the same moment; how far the estimate is off
+ * the schedule follows it (track-times.ts).
  *
  * @param props ETA and the offset from the schedule.
  * @returns The element.
@@ -84,9 +87,11 @@ function EtaReadout(props: { times: TrackTimes }): React.JSX.Element {
   return (
     <div className="text-sm text-muted-foreground">
       {t(times.etaIsPlanned ? 'trackView.times.etaPlanned' : 'trackView.times.eta')}{' '}
-      <span className="ml-1 font-mono text-[17px] text-foreground">{formatUtcTime(times.etaMs)}</span>
+      <span className="ml-1 font-display text-2xl font-bold tracking-[-0.02em] text-foreground">
+        {formatUtcTime(times.etaMs)}
+      </span>
       {planMs !== null && !times.etaIsPlanned && (
-        <span className="ml-2.5 font-mono text-plan">
+        <span className="ml-2.5 font-mono">
           {t('trackView.times.plan')} {formatUtcTime(planMs)}
         </span>
       )}
@@ -327,9 +332,9 @@ export function FlightToolbar(props: {
         {airports && !(airports.depIcao === 'ZZZZ' && airports.arrIcao === 'ZZZZ') && (
           <>
             <span className="text-sm text-muted-foreground">{t('trackView.procedures')}</span>
-            {/* The chosen procedures are the plan, so they are magenta (winglog-backend docs/plans/v2-design.md); none chosen is quiet text. */}
+            {/* The chosen procedures are the plan: plain text with the plan's rule (winglog-backend docs/plans/v2-design.md); none chosen is quiet text. */}
             {chosen.length > 0 ? (
-              <span className="font-mono text-[15px] text-plan">{chosen.join(' · ')}</span>
+              <PlanMark>{chosen.join(' · ')}</PlanMark>
             ) : (
               <span className="text-sm text-muted-foreground">{t('trackView.nothingSelectedYet')}</span>
             )}

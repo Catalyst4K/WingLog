@@ -127,7 +127,8 @@ const DATA_FILES = [
     title: 'Aircraft type designators — ICAO Doc 8643 list',
     path: 'resources/icao-aircraft-types.LICENSE.txt'
   },
-  { title: 'Fonts — Fira Sans and Fira Mono (SIL OFL 1.1)', path: 'src/renderer/src/fonts/LICENSE-Fira.txt' }
+  { title: 'Fonts — Fira Sans and Fira Mono (SIL OFL 1.1)', path: 'src/renderer/src/fonts/LICENSE-Fira.txt' },
+  { title: 'Font — Golos Text (SIL OFL 1.1)', path: 'src/renderer/src/fonts/LICENSE-Golos.txt' }
 ]
 
 const RUNTIME_NOTE = `---

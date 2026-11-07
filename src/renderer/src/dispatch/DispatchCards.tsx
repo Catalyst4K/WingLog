@@ -16,12 +16,13 @@ import { formatEnrouteOnly } from '@shared/route'
 import { formatAltitude, formatWeight, mToFt } from '../units'
 import { asyncHandler } from '../report-error'
 import { winglogApi } from '../data/winglog-api'
+import { AirlineLogo } from '../AirlineLogo'
 import { PrefileButtons } from '../online/PrefileButtons'
 import type { PlanForm } from './use-dispatch-state'
 import { useAirportName } from '../use-airport-name'
 
 /** A panel of the tab: the card colour, a 6 px corner, 20 px inside. */
-const PANEL_CLASS = 'rounded-md [--card-spacing:--spacing(5)]'
+const PANEL_CLASS = 'rounded-b-md [--card-spacing:--spacing(5)]'
 /** A field's label: quiet and small, above the control. */
 const LABEL_CLASS = 'text-[13px] font-normal text-muted-foreground'
 /** A code in the mono face. */
@@ -107,7 +108,9 @@ export function PlanFlightCard(props: {
     <Card className={PANEL_CLASS}>
       <CardContent className="flex flex-col gap-3">
         <div className="flex items-center justify-between gap-3">
-          <h2 className="m-0 text-[17px] font-semibold">{t('dispatchView.planAFlight')}</h2>
+          <h2 className="m-0 font-display text-[17px] font-bold tracking-[-0.01em]">
+            {t('dispatchView.planAFlight')}
+          </h2>
           <Button
             type="button"
             variant="outline"
@@ -216,17 +219,20 @@ export function PlanFlightCard(props: {
 /**
  * The plan's heading: the flight and its route, and the alternate the OFP names.
  *
- * @param props The OFP.
+ * @param props The OFP, and its airline's IATA code for the logo beside the title when the fleet aircraft that will fly it is known.
  * @returns The element.
  */
-export function OfpHeading(props: { ofp: DispatchOfp }): React.JSX.Element {
+export function OfpHeading(props: { ofp: DispatchOfp; iata?: string | null }): React.JSX.Element {
   const { t } = useTranslation()
   const { ofp } = props
   return (
     <div>
-      <h2 className="m-0 text-xl font-semibold">
-        {t('dispatchView.ofpTitle', { flightNumber: ofp.flightNumber, dep: ofp.depIcao, arr: ofp.arrIcao })}
-      </h2>
+      <div className="flex items-center gap-3">
+        <AirlineLogo iata={props.iata ?? null} size={26} />
+        <h2 className="m-0 font-display text-2xl leading-tight font-bold tracking-[-0.02em]">
+          {t('dispatchView.ofpTitle', { flightNumber: ofp.flightNumber, dep: ofp.depIcao, arr: ofp.arrIcao })}
+        </h2>
+      </div>
       {ofp.altnIcao && (
         <p className="m-0 text-sm text-muted-foreground">
           {t('dispatchView.alternateLabel', { altn: ofp.altnIcao })} ·{' '}
@@ -438,7 +444,10 @@ export function OfpCard(props: {
     <Card className={PANEL_CLASS}>
       <CardContent className="flex flex-col gap-3">
         <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
-          <OfpHeading ofp={ofp} />
+          <OfpHeading
+            ofp={ofp}
+            iata={props.aircraft.find((a) => a.id === props.selectedAircraftId)?.operatorIata ?? null}
+          />
           <div className="flex items-center gap-2">
             {alreadyFlown && <Badge variant="secondary">{t('dispatchView.flying')}</Badge>}
             <PrefileButtons file={(network) => winglogApi().onlinePrefileFromOfp(ofp.ofpJson, network)} />

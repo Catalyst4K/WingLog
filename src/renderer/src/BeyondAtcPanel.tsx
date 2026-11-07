@@ -41,9 +41,9 @@ const SPEAKER_KEY: Record<BeyondAtcTranscriptEntry['speaker'], string> = {
 }
 
 /** A panel of the page (the canvas's r3-beyondatc): the card colour, a 6 px corner, 20 px inside. */
-const PANEL = 'rounded-md [--card-spacing:--spacing(5)]'
+const PANEL = 'rounded-b-md [--card-spacing:--spacing(5)]'
 /** A panel's title. */
-const PANEL_TITLE = 'text-[17px] leading-snug font-semibold'
+const PANEL_TITLE = 'text-[17px] leading-snug font-bold tracking-[-0.01em]'
 
 function InfoField(props: { label: string; value: string; plan?: React.ReactNode }): React.JSX.Element {
   return (

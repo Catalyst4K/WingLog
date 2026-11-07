@@ -491,7 +491,9 @@
     "empty": "No GSX receipts matched to this flight yet — enable GSX in Settings and rescan.",
     "total": "Total ({{code}})",
     "notailHint": "Possibly this flight — tail unknown on the receipt, so not attached automatically:",
-    "attach": "Attach"
+    "attach": "Attach",
+    "summary_one": "{{count}} receipt · {{total}}",
+    "summary_other": "{{count}} receipts · {{total}}"
   },
   "procedureSelector": {
     "none": "None",
@@ -833,7 +835,8 @@
     "planned": "Planned",
     "flown": "Flown",
     "airportsTo": "{{dep}} to {{arr}}",
-    "speedMode": "Speed shown as"
+    "speedMode": "Speed shown as",
+    "fuelPercentOfPlan": "{{pct}} % of plan"
   },
   "gsxRemoteView": {
     "title": "Ground services"

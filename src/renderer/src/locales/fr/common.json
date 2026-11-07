@@ -493,7 +493,9 @@
     "empty": "Aucun reçu GSX associé à ce vol pour l'instant — activez GSX dans Paramètres et réanalysez.",
     "total": "Total ({{code}})",
     "notailHint": "Peut-être ce vol — immatriculation inconnue sur le reçu, donc non associé automatiquement :",
-    "attach": "Associer"
+    "attach": "Associer",
+    "summary_one": "{{count}} reçu · {{total}}",
+    "summary_other": "{{count}} reçus · {{total}}"
   },
   "procedureSelector": {
     "none": "Aucune",
@@ -835,7 +837,8 @@
     "planned": "Planifiée",
     "flown": "Volée",
     "airportsTo": "{{dep}} à {{arr}}",
-    "speedMode": "Vitesse affichée en"
+    "speedMode": "Vitesse affichée en",
+    "fuelPercentOfPlan": "{{pct}} % du plan"
   },
   "gsxRemoteView": {
     "title": "Services au sol"

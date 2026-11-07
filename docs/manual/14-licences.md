@@ -17,7 +17,7 @@ particular:
   Attribution-ShareAlike 4.0 licence. WingLog trims and rounds them, and keeps a newer copy up to date from the projects' releases on GitHub (Settings, Online
   network); the credit shows on the map while the areas are drawn.
 - **Airline data**: OpenFlights (Open Database License).
-- **Fonts**: Fira Sans and Fira Mono, bundled with WingLog under the SIL Open Font License 1.1.
+- **Fonts**: Fira Sans, Fira Mono and Golos Text, bundled with WingLog under the SIL Open Font License 1.1.
 - **Aircraft type designators**: the ICAO aircraft type designator list (MIT).
 - **Weather** is from the US National Weather Service's Aviation Weather Center
   (aviationweather.gov).

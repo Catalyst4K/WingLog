@@ -95,9 +95,14 @@ export function RouteProfile(props: {
     )
     .join(' ')
   return (
-    <figure className="m-0 flex flex-col gap-0.5" data-testid="route-profile">
-      <figcaption className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-xs text-muted-foreground">
-        <span>{t('trackView.profile.title')}</span>
+    <figure
+      className="m-0 flex flex-col gap-1 rounded-b-md border-t-[3px] border-foreground bg-card px-4 pt-2.5 pb-3"
+      data-testid="route-profile"
+    >
+      <figcaption className="flex min-h-9 flex-wrap items-center justify-between gap-x-4 gap-y-1 text-xs text-muted-foreground">
+        <span className="font-display text-[17px] leading-snug font-bold tracking-[-0.01em] text-foreground">
+          {t('trackView.profile.title')}
+        </span>
         <span className="flex flex-wrap items-center gap-3">
           <span className="font-mono">
             {formatAltitude(zoomed ? highestFt : profile.maxAltitudeFt, props.altitudeUnit ?? 'ft')} ·{' '}
@@ -111,7 +116,7 @@ export function RouteProfile(props: {
         preserveAspectRatio="none"
         role="img"
         aria-label={t('trackView.profile.title')}
-        className="h-20 w-full rounded-md bg-card"
+        className="h-20 w-full"
       >
         <line
           x1={PAD_LEFT}

@@ -9,6 +9,7 @@ import type { TFunction } from 'i18next'
 import type { FlightInvoice, GsxNotailCandidate } from '@shared/ipc'
 import { Button } from '@/components/ui/button'
 import { asyncHandler, runAsync } from './report-error'
+import { SectionHeading } from '@/components/SectionHeading'
 
 function serviceGroupLabel(group: FlightInvoice['serviceGroup'], t: TFunction): string {
   return t(`gsxInvoicesCard.serviceGroup.${group}`)
@@ -266,18 +267,26 @@ export function GsxInvoicesCard(props: { flightId: number }): React.JSX.Element 
 
   return (
     <section className="min-w-72 flex-[1_1_0]" aria-label={t('gsxInvoicesCard.title')}>
-      <div className="flex items-center justify-between gap-3 pb-2">
-        <h3 className="m-0 text-[17px] font-semibold">{t('gsxInvoicesCard.title')}</h3>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={asyncHandler('GsxInvoicesCard handleRescan', handleRescan)}
-          disabled={rescanning}
-        >
-          {rescanning ? t('gsxInvoicesCard.scanning') : t('gsxInvoicesCard.rescan')}
-        </Button>
-      </div>
+      <SectionHeading
+        level={3}
+        title={t('gsxInvoicesCard.title')}
+        aside={
+          <>
+            {invoices.length > 0 && hasAnyUsdTotal && (
+              <span>{t('gsxInvoicesCard.summary', { count: invoices.length, total: formattedTotal })}</span>
+            )}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={asyncHandler('GsxInvoicesCard handleRescan', handleRescan)}
+              disabled={rescanning}
+            >
+              {rescanning ? t('gsxInvoicesCard.scanning') : t('gsxInvoicesCard.rescan')}
+            </Button>
+          </>
+        }
+      />
       <div className="flex flex-col">
         {invoices.length === 0 ? (
           <p className="text-sm text-muted-foreground">{t('gsxInvoicesCard.empty')}</p>

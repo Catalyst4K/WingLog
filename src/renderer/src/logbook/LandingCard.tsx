@@ -17,6 +17,7 @@ import { TouchdownDiagram } from '../TouchdownDiagram'
 import { formatCentrelineOffset, formatPitchDeg, formatRunwayDistance, msToFpm, msToKt } from '../units'
 import { runAsync } from '../report-error'
 import { DETAIL_GRID_CLASS, DetailField } from './DetailField'
+import { SectionHeading } from '@/components/SectionHeading'
 
 /** The fuller companion to Fleet's per-aircraft history (docs/decisions.md,
  *  landing-analysis entry) — a Logbook entry is already the place for full flight detail,
@@ -202,7 +203,7 @@ export function LandingCard(props: {
   if (landings === undefined) {
     return (
       <section className="min-w-72 flex-[1_1_0]" aria-label={t('logbookView.landingCard.title')}>
-        <h3 className="m-0 pb-2 text-[17px] font-semibold">{t('logbookView.landingCard.title')}</h3>
+        <SectionHeading level={3} title={t('logbookView.landingCard.title')} />
         <Skeleton className="h-40 w-full" />
       </section>
     )
@@ -221,36 +222,38 @@ export function LandingCard(props: {
     // route map), not just the window. As on the canvas (r3-flight): a heading with the breakdown button, the score large, then the
     // measurements and the touchdown diagram.
     <section className="@container min-w-72 flex-[1_1_0]" aria-label={t('logbookView.landingCard.title')}>
-      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 pb-2">
-        <h3 className="m-0 text-[17px] font-semibold">
-          {t('logbookView.landingCard.title')}
-          {landing.icao || landing.runwayIdent
+      <SectionHeading
+        level={3}
+        title={`${t('logbookView.landingCard.title')}${
+          landing.icao || landing.runwayIdent
             ? ` · ${[landing.icao, landing.runwayIdent].filter(Boolean).join(' ')}`
-            : ''}
-        </h3>
-        <div className="flex items-center gap-2">
-          {landings.length > 1 && (
-            <LandingSwitcher
-              labels={labels}
-              ids={landings.map((l) => l.id)}
-              selectedIndex={selectedIndex}
-              onSelect={setSelectedIndex}
-            />
-          )}
-          {scoreResult && (
-            <LandingScoreBreakdownDialog
-              overall={scoreResult.score}
-              categories={scoreResult.categories}
-              unit={unit}
-              trigger={
-                <Button type="button" variant="outline">
-                  {t('logbookView.landingCard.scoreBreakdown')}
-                </Button>
-              }
-            />
-          )}
-        </div>
-      </div>
+            : ''
+        }`}
+        aside={
+          <>
+            {landings.length > 1 && (
+              <LandingSwitcher
+                labels={labels}
+                ids={landings.map((l) => l.id)}
+                selectedIndex={selectedIndex}
+                onSelect={setSelectedIndex}
+              />
+            )}
+            {scoreResult && (
+              <LandingScoreBreakdownDialog
+                overall={scoreResult.score}
+                categories={scoreResult.categories}
+                unit={unit}
+                trigger={
+                  <Button type="button" variant="outline">
+                    {t('logbookView.landingCard.scoreBreakdown')}
+                  </Button>
+                }
+              />
+            )}
+          </>
+        }
+      />
       <div className="flex items-baseline gap-3 pb-2.5">
         <span className="sr-only">{t('logbookView.landingCard.landingScore')}</span>
         <span className="font-mono text-[44px] leading-none font-medium">{scoreResult?.score ?? '—'}</span>

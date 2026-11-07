@@ -547,7 +547,7 @@ describe('LogbookView list', () => {
       expect(screen.getByText('Online').nextElementSibling).toHaveTextContent('No')
     })
 
-    it('shows a flight summary strip with the planned fuel in magenta beside the burn', async () => {
+    it('shows a flight summary strip with the planned fuel quietly under the burn', async () => {
       setWinglog({
         logbookListCompletedFlights: vi
           .fn()
@@ -561,7 +561,9 @@ describe('LogbookView list', () => {
       const burn = (await screen.findByText('Fuel burn')).nextElementSibling as HTMLElement
       expect(burn).toHaveTextContent('4,000 kg')
       expect(burn.nextElementSibling).toHaveTextContent('planned 4,200 kg')
-      expect(burn.nextElementSibling).toHaveClass('text-plan')
+      // The planned figure is quiet text: the plan's colour is for what is drawn, never for text.
+      expect(burn.nextElementSibling).toHaveClass('text-muted-foreground')
+      expect(burn.nextElementSibling).not.toHaveClass('text-plan')
     })
 
     it('shows no filter while no flight was flown online', async () => {

@@ -509,7 +509,11 @@
     "empty": "К этому рейсу пока не привязано ни одного чека GSX — включите GSX в настройках и пересканируйте.",
     "total": "Итого ({{code}})",
     "notailHint": "Возможно, этот рейс — регистрация на чеке неизвестна, поэтому не привязан автоматически:",
-    "attach": "Привязать"
+    "attach": "Привязать",
+    "summary_one": "{{count}} квитанция · {{total}}",
+    "summary_few": "{{count}} квитанции · {{total}}",
+    "summary_many": "{{count}} квитанций · {{total}}",
+    "summary_other": "{{count}} квитанции · {{total}}"
   },
   "procedureSelector": {
     "none": "Нет",
@@ -856,7 +860,8 @@
     "planned": "По плану",
     "flown": "Пролетено",
     "airportsTo": "{{dep}} — {{arr}}",
-    "speedMode": "Скорость в виде"
+    "speedMode": "Скорость в виде",
+    "fuelPercentOfPlan": "{{pct}} % от плана"
   },
   "gsxRemoteView": {
     "title": "Наземное обслуживание"

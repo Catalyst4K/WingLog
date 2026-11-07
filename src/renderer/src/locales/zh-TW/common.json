@@ -485,7 +485,8 @@
     "empty": "尚未比對到此航班的 GSX 收據 — 請在設定中啟用 GSX 並重新掃描。",
     "total": "總計（{{code}}）",
     "notailHint": "可能屬於此航班 — 收據上機尾號未知，因此未自動關聯：",
-    "attach": "關聯"
+    "attach": "關聯",
+    "summary_other": "{{count}} 張收據 · {{total}}"
   },
   "procedureSelector": {
     "none": "無",
@@ -826,7 +827,8 @@
     "planned": "計畫",
     "flown": "實飛",
     "airportsTo": "{{dep}}至{{arr}}",
-    "speedMode": "速度顯示為"
+    "speedMode": "速度顯示為",
+    "fuelPercentOfPlan": "計畫的 {{pct}}%"
   },
   "gsxRemoteView": {
     "title": "地面服務"

@@ -238,7 +238,9 @@ function CommandBar(props: {
       className="flex flex-col gap-3 rounded-md bg-card px-5 pt-4 pb-[18px]"
       aria-label={t('gsxRemotePanel.commands')}
     >
-      <h3 className="m-0 text-[17px] font-semibold text-foreground">{t('gsxRemotePanel.commands')}</h3>
+      <h3 className="m-0 font-display text-[17px] font-bold tracking-[-0.01em] text-foreground">
+        {t('gsxRemotePanel.commands')}
+      </h3>
       <div className="flex flex-col gap-2">
         {simbrief && (
           <SimbriefButton

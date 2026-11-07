@@ -159,7 +159,9 @@ export function ServicesList(props: { services: GsxRemoteServiceStatus[] }): Rea
   return (
     <section className="flex flex-col" aria-label={t('gsxRemotePanel.services')}>
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 pb-2">
-        <h3 className="m-0 text-[17px] font-semibold text-foreground">{t('gsxRemotePanel.services')}</h3>
+        <h3 className="m-0 font-display text-[17px] font-bold tracking-[-0.01em] text-foreground">
+          {t('gsxRemotePanel.services')}
+        </h3>
         <span className="text-[13px] text-muted-foreground">{t('gsxRemotePanel.servicesLegend')}</span>
       </div>
       <ul className="m-0 flex list-none flex-col p-0">

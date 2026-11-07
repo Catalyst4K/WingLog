@@ -24,6 +24,7 @@ import { isFreeFlight } from './logbook-format'
 import { FlightSummary } from './FlightSummary'
 import { AltitudeChart, FuelChart, SpeedChart } from './FlightCharts'
 import { LandingCard } from './LandingCard'
+import { SectionHeading } from '@/components/SectionHeading'
 import { useFlightProfile, useFlightRoute, useFlightTrack, useTrackEstimate } from './use-flight-detail'
 
 /**
@@ -195,31 +196,34 @@ function FlightDetail(props: {
 
       <div className="flex flex-wrap items-start gap-6">
         <section className="min-w-72 flex-[1.5_1_0]" aria-label={t('logbookView.route')}>
-          <div className="flex items-baseline justify-between pb-2">
-            <h3 className="m-0 text-[17px] font-semibold">{t('logbookView.route')}</h3>
-            <span className="flex gap-4 text-[13px] text-muted-foreground">
-              <span className="inline-flex items-center gap-1.5">
-                <svg width="22" height="6" aria-hidden="true" className="text-plan">
-                  <line
-                    x1="1"
-                    y1="3"
-                    x2="21"
-                    y2="3"
-                    stroke="currentColor"
-                    strokeWidth="1.8"
-                    strokeDasharray="5 3"
-                  />
-                </svg>
-                {t('logbookView.planned')}
+          <SectionHeading
+            level={3}
+            title={t('logbookView.route')}
+            aside={
+              <span className="flex gap-4">
+                <span className="inline-flex items-center gap-1.5">
+                  <svg width="22" height="6" aria-hidden="true" className="text-plan">
+                    <line
+                      x1="1"
+                      y1="3"
+                      x2="21"
+                      y2="3"
+                      stroke="currentColor"
+                      strokeWidth="1.8"
+                      strokeDasharray="5 3"
+                    />
+                  </svg>
+                  {t('logbookView.planned')}
+                </span>
+                <span className="inline-flex items-center gap-1.5">
+                  <svg width="22" height="6" aria-hidden="true" className="text-foreground">
+                    <line x1="1" y1="3" x2="21" y2="3" stroke="currentColor" strokeWidth="3.4" />
+                  </svg>
+                  {t('logbookView.flown')}
+                </span>
               </span>
-              <span className="inline-flex items-center gap-1.5">
-                <svg width="22" height="6" aria-hidden="true" className="text-foreground">
-                  <line x1="1" y1="3" x2="21" y2="3" stroke="currentColor" strokeWidth="3.4" />
-                </svg>
-                {t('logbookView.flown')}
-              </span>
-            </span>
-          </div>
+            }
+          />
           <div className="h-[min(44vh,420px)] min-h-64">
             <FlightMap
               live={false}

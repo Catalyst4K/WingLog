@@ -493,7 +493,9 @@
     "empty": "Aún no se ha asociado ningún recibo GSX a este vuelo — activa GSX en Ajustes y vuelve a escanear.",
     "total": "Total ({{code}})",
     "notailHint": "Posiblemente este vuelo — matrícula desconocida en el recibo, así que no se adjuntó automáticamente:",
-    "attach": "Adjuntar"
+    "attach": "Adjuntar",
+    "summary_one": "{{count}} recibo · {{total}}",
+    "summary_other": "{{count}} recibos · {{total}}"
   },
   "procedureSelector": {
     "none": "Ninguna",
@@ -835,7 +837,8 @@
     "planned": "Planificada",
     "flown": "Volada",
     "airportsTo": "{{dep}} a {{arr}}",
-    "speedMode": "Velocidad mostrada como"
+    "speedMode": "Velocidad mostrada como",
+    "fuelPercentOfPlan": "{{pct}} % del plan"
   },
   "gsxRemoteView": {
     "title": "Servicios de tierra"

@@ -3,6 +3,7 @@
 import { useTranslation } from 'react-i18next'
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import type { WeightUnit } from '@shared/ipc'
+import { SectionHeading } from '@/components/SectionHeading'
 import { SegmentButton, SegmentedGroup } from '../settings/ui/SettingsCard'
 import { formatWeight } from '../units'
 import type { FlightProfile } from './use-flight-detail'
@@ -59,11 +60,8 @@ function ChartSection(props: {
 }): React.JSX.Element {
   return (
     <section className="min-w-72 flex-[1_1_0]" aria-label={props.title}>
-      <div className="flex min-h-9 items-center justify-between gap-3 pb-2">
-        <h3 className="m-0 text-[17px] font-semibold">{props.title}</h3>
-        {props.aside}
-      </div>
-      <div className="h-[230px]">{props.children}</div>
+      <SectionHeading level={3} title={props.title} aside={props.aside} />
+      <div className="h-[230px] pt-2">{props.children}</div>
     </section>
   )
 }
@@ -202,15 +200,24 @@ export function FuelChart(props: {
 }): React.JSX.Element {
   const { t } = useTranslation()
   const most = Math.max(...props.data.map((d) => d.kg), 1)
+  const [planned, actual] = props.data
+  const percentOfPlan =
+    planned && actual && planned.kg > 0 ? Math.round((actual.kg / planned.kg) * 100) : null
   return (
     <section className="min-w-72 flex-[1_1_0]" aria-label={t('logbookView.fuelPlannedVsActual')}>
-      <h3 className="m-0 pb-2 text-[17px] font-semibold">{t('logbookView.fuelPlannedVsActual')}</h3>
+      <SectionHeading
+        level={3}
+        title={t('logbookView.fuelPlannedVsActual')}
+        aside={
+          percentOfPlan === null ? undefined : t('logbookView.fuelPercentOfPlan', { pct: percentOfPlan })
+        }
+      />
       {props.data.map((row, index) => {
         const planned = index === 0
         return (
           <div
             key={row.name}
-            className={`grid min-h-9 grid-cols-[5rem_minmax(0,1fr)_6rem] items-center gap-3 border-t border-border ${planned ? 'text-plan' : ''}`}
+            className={`grid min-h-9 grid-cols-[5rem_minmax(0,1fr)_6rem] items-center gap-3 border-t border-border`}
           >
             <span className="text-muted-foreground">{row.name}</span>
             <span className="h-2 rounded-sm bg-border" aria-hidden="true">
@@ -219,7 +226,7 @@ export function FuelChart(props: {
                 style={{ width: `${(row.kg / most) * 100}%` }}
               />
             </span>
-            <span className={`text-right font-mono ${planned ? 'text-plan' : 'text-foreground'}`}>
+            <span className={`text-right font-mono text-foreground`}>
               {formatWeight(row.kg, props.weightUnit)}
             </span>
           </div>

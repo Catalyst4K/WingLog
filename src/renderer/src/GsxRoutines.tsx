@@ -164,7 +164,9 @@ export function GsxRoutines(props: { canEdit: boolean }): React.JSX.Element {
       aria-label={t('gsxRoutines.title')}
     >
       <div className="mb-3 flex items-center justify-between gap-3">
-        <h3 className="m-0 text-[17px] font-semibold text-foreground">{t('gsxRoutines.title')}</h3>
+        <h3 className="m-0 font-display text-[17px] font-bold tracking-[-0.01em] text-foreground">
+          {t('gsxRoutines.title')}
+        </h3>
         {props.canEdit && (
           <span className="flex gap-1">
             <Button

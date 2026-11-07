@@ -27,9 +27,11 @@
 @custom-variant data-vertical (&[data-orientation='vertical']);
 
 @theme inline {
-  /* One family: Fira Sans for text, Fira Mono for idents, times, routes and figures (vendored in ./fonts, no network). */
+  /* Two typefaces, each with a job (v2 design, Round 6): Golos Text for anything bold or a title (tabs, headings, buttons, the flight number,
+   * the ETA); Fira Sans for running text and labels, Fira Mono for idents, times, routes and figures. Vendored in ./fonts, no network. */
   --font-sans: 'Fira Sans', system-ui, sans-serif;
-  --font-heading: 'Fira Sans', system-ui, sans-serif;
+  --font-display: 'Golos Text', 'Fira Sans', system-ui, sans-serif;
+  --font-heading: var(--font-display);
   --font-mono: 'Fira Mono', ui-monospace, monospace;
 
   --color-background: var(--background);

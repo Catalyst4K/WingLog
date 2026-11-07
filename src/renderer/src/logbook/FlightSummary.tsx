@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import type { Aircraft, Flight, WeightUnit } from '@shared/ipc'
 import { Badge } from '@/components/ui/badge'
 import { StatCell, StatStrip } from '@/components/StatStrip'
+import { AirlineLogo } from '../AirlineLogo'
 import { displayIcao } from '../display-icao'
 import { useAirportName } from '../use-airport-name'
 import { formatMinutes, formatWeight } from '../units'
@@ -41,11 +42,16 @@ export function FlightSummary(props: {
       <div className="flex flex-wrap items-baseline gap-x-[18px] gap-y-1">
         {flight.flightNumber ? (
           <>
-            <h2 className="m-0 text-[28px] font-semibold">{flight.flightNumber}</h2>
+            <span className="flex items-center gap-3">
+              <AirlineLogo iata={aircraft?.operatorIata ?? null} size={30} />
+              <h2 className="m-0 font-display text-[36px] leading-[1.1] font-bold tracking-[-0.02em]">
+                {flight.flightNumber}
+              </h2>
+            </span>
             <span className="font-mono text-lg">{route}</span>
           </>
         ) : (
-          <h2 className="m-0 font-mono text-[28px] font-semibold">{route}</h2>
+          <h2 className="m-0 font-mono text-[32px] leading-[1.1] font-medium">{route}</h2>
         )}
         {freeFlight && (
           <Badge variant="outline" className="text-xs font-normal">

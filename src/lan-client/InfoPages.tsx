@@ -68,7 +68,7 @@ function DispatchPage({
         windSpeedUnit={settings.windSpeedUnit}
       />
       {ofp ? (
-        <Card className="rounded-md [--card-spacing:--spacing(5)]">
+        <Card className="rounded-b-md [--card-spacing:--spacing(5)]">
           <CardContent className="flex flex-col gap-4">
             <OfpHeading ofp={ofp} />
             <OfpDetails ofp={ofp} weightUnit={settings.weightUnit} altitudeUnit={settings.altitudeUnit} />
