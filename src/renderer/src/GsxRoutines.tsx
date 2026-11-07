@@ -14,6 +14,7 @@ import type {
 import { Pencil } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { winglogApi } from './data/winglog-api'
 import { GsxRoutineEditor } from './GsxRoutineEditor'
 import { blankRoutine, copyRoutine, newRoutineId } from './gsx-routine-edit'
@@ -33,8 +34,8 @@ const STEP_DOT: Record<GsxRoutineServiceProgress, string> = {
 }
 
 /**
- * What Cancel does when services are under way (winglog-backend's docs/plans/gsx-routine-cancel.md): asks whether to abort them,
- * complete them, or leave them running, or to keep the routine going.
+ * What Cancel does when services are under way (winglog-backend's docs/plans/gsx-routine-cancel.md): a pop-up in the middle of the
+ * window asks whether to abort them, complete them, or leave them running, or to keep the routine going (also what Escape does).
  *
  * @param props The services under way, what to do with them, and how to go back.
  * @returns The element.
@@ -46,29 +47,32 @@ function CancelPrompt(props: {
 }): React.JSX.Element {
   const { t } = useTranslation()
   return (
-    <div
-      role="group"
-      aria-label={t('gsxRoutines.cancelPrompt.label')}
-      className="flex flex-col gap-2 rounded-md border border-border bg-background p-2"
-    >
-      <p className="text-xs text-foreground">
-        {t('gsxRoutines.cancelPrompt.question', { services: serviceList(t, props.services) })}
-      </p>
-      <div className="flex flex-wrap justify-end gap-1.5">
-        <Button type="button" variant="outline" size="sm" onClick={() => props.onChoose('abort')}>
-          {t('gsxRoutines.cancelPrompt.abort')}
-        </Button>
-        <Button type="button" variant="outline" size="sm" onClick={() => props.onChoose('complete')}>
-          {t('gsxRoutines.cancelPrompt.complete')}
-        </Button>
-        <Button type="button" variant="outline" size="sm" onClick={() => props.onChoose('leave')}>
-          {t('gsxRoutines.cancelPrompt.leave')}
-        </Button>
-        <Button type="button" variant="ghost" size="sm" onClick={props.onKeepGoing}>
-          {t('gsxRoutines.cancelPrompt.keepGoing')}
-        </Button>
-      </div>
-    </div>
+    <Dialog open onOpenChange={(isOpen) => !isOpen && props.onKeepGoing()}>
+      <DialogContent showCloseButton={false}>
+        <DialogHeader>
+          <DialogTitle className="font-display text-lg font-bold">
+            {t('gsxRoutines.cancelPrompt.label')}
+          </DialogTitle>
+          <DialogDescription>
+            {t('gsxRoutines.cancelPrompt.question', { services: serviceList(t, props.services) })}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="flex flex-col gap-2">
+          <Button type="button" variant="outline" className="h-10" onClick={() => props.onChoose('abort')}>
+            {t('gsxRoutines.cancelPrompt.abort')}
+          </Button>
+          <Button type="button" variant="outline" className="h-10" onClick={() => props.onChoose('complete')}>
+            {t('gsxRoutines.cancelPrompt.complete')}
+          </Button>
+          <Button type="button" variant="outline" className="h-10" onClick={() => props.onChoose('leave')}>
+            {t('gsxRoutines.cancelPrompt.leave')}
+          </Button>
+          <Button type="button" className="h-10" onClick={props.onKeepGoing}>
+            {t('gsxRoutines.cancelPrompt.keepGoing')}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
   )
 }
 
@@ -125,7 +129,7 @@ function RoutineProgress(props: {
           onKeepGoing={() => setIsAsking(false)}
         />
       )}
-      {progress.state === 'running' && !isEnding && !isAsking && (
+      {progress.state === 'running' && !isEnding && (
         <div className="flex justify-end">
           <Button
             type="button"

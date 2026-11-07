@@ -172,7 +172,7 @@ describe('GsxRoutines', () => {
         await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))
         expect(api.gsxRoutineCancel).toHaveBeenCalledTimes(1)
         expect(api.gsxRoutineCancel.mock.calls[0][0]).toBeUndefined()
-        expect(screen.queryByRole('group', { name: 'Cancel the routine' })).toBeNull()
+        expect(screen.queryByRole('dialog')).toBeNull()
       })
 
       it('asks what to do with the services under way, naming them', async () => {
@@ -180,12 +180,11 @@ describe('GsxRoutines', () => {
         render(<GsxRoutines canEdit />)
         await screen.findByTestId('gsx-routine-progress')
         await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))
-        const prompt = screen.getByRole('group', { name: 'Cancel the routine' })
+        const prompt = screen.getByRole('dialog', { name: 'Cancel the routine' })
         expect(
           within(prompt).getByText('Catering still running. What should happen to them?')
         ).toBeInTheDocument()
         expect(api.gsxRoutineCancel).not.toHaveBeenCalled()
-        expect(screen.queryByRole('button', { name: 'Cancel' })).toBeNull()
       })
 
       it.each([
@@ -210,7 +209,17 @@ describe('GsxRoutines', () => {
         await userEvent.click(screen.getByRole('button', { name: 'Keep the routine going' }))
         expect(api.gsxRoutineCancel).not.toHaveBeenCalled()
         expect(screen.getByRole('button', { name: 'Cancel' })).toBeInTheDocument()
-        expect(screen.queryByRole('group', { name: 'Cancel the routine' })).toBeNull()
+        expect(screen.queryByRole('dialog')).toBeNull()
+      })
+
+      it('also goes back, sending nothing, when Escape closes the pop-up', async () => {
+        const { api } = withWinglog({ progress: RUNNING })
+        render(<GsxRoutines canEdit />)
+        await screen.findByTestId('gsx-routine-progress')
+        await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+        await userEvent.keyboard('{Escape}')
+        expect(api.gsxRoutineCancel).not.toHaveBeenCalled()
+        expect(screen.queryByRole('dialog')).toBeNull()
       })
 
       it('says what it is doing while it aborts or completes, with no Cancel to press again', async () => {
