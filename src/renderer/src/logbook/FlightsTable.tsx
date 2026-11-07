@@ -32,13 +32,17 @@ export function LogbookStatsStrip(props: {
     </span>
   )
   return (
-    <p className="m-0 flex flex-wrap gap-x-6 gap-y-1 text-sm text-muted-foreground">
-      {stat(stats?.totalFlights ?? props.flightCount, t('logbookView.stats.totalFlights'))}
-      {stat(formatMinutes(stats?.totalBlockMinutes ?? null), t('logbookView.stats.totalFlightHours'))}
+    <p className="m-0 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
+      {stat(stats?.totalFlights ?? props.flightCount, t('fleetView.sortColumns.flights').toLowerCase())}
+      <span aria-hidden="true">·</span>
       {stat(
-        stats ? `${Math.round(stats.totalNm).toLocaleString()} nm` : '—',
-        t('logbookView.stats.totalMilesFlown')
+        formatMinutes(stats?.totalBlockMinutes ?? null),
+        t('logbookView.sortColumns.block').toLowerCase()
       )}
+      <span aria-hidden="true">·</span>
+      <span className="font-mono text-foreground">
+        {stats ? `${Math.round(stats.totalNm).toLocaleString()}\u00a0nm` : '—'}
+      </span>
     </p>
   )
 }
@@ -145,13 +149,13 @@ export function FlightsTable(props: {
                 <TableCell className="order-5 p-0 text-[13px] text-muted-foreground @3xl:p-2 @3xl:text-[length:inherit] before:mr-2.5 before:content-['·'] @3xl:before:content-none">
                   {props.registrationFor(f)}
                 </TableCell>
-                <TableCell className="order-5 p-0 text-[13px] text-muted-foreground @3xl:p-2 @3xl:text-[length:inherit] before:mr-2.5 before:content-['·'] @3xl:before:content-none font-mono @3xl:text-sm">
+                <TableCell className="order-5 p-0 text-[13px] text-muted-foreground @3xl:p-2 @3xl:text-[length:inherit] before:mr-2.5 before:content-['·'] @3xl:before:content-none font-mono @3xl:text-right @3xl:text-sm">
                   {formatMinutes(f.blockMinutes)}
                 </TableCell>
-                <TableCell className="order-5 p-0 text-[13px] text-muted-foreground @3xl:p-2 @3xl:text-[length:inherit] before:mr-2.5 before:content-['·'] @3xl:before:content-none font-mono @3xl:text-sm">
+                <TableCell className="order-5 p-0 text-[13px] text-muted-foreground @3xl:p-2 @3xl:text-[length:inherit] before:mr-2.5 before:content-['·'] @3xl:before:content-none font-mono @3xl:text-right @3xl:text-sm">
                   {formatWeight(f.fuelBurnKg, props.weightUnit)}
                 </TableCell>
-                <TableCell className="order-3 p-0 text-center @3xl:order-none @3xl:p-2">
+                <TableCell className="order-3 p-0 @3xl:order-none @3xl:p-2 @3xl:text-right">
                   <span className="inline-flex items-center gap-1.5">
                     <LandingScoreBadge score={props.scoreFor(f.id)} />
                     {landingCount > 1 && (

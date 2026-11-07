@@ -10,15 +10,15 @@ import { airportAndStand, formatDate } from './fleet-format'
 
 export type FleetSortKey = 'registration' | 'type' | 'airline' | 'location' | 'stand' | 'hours' | 'flights'
 
-function fleetSortColumns(t: TFunction): { key: FleetSortKey; label: string }[] {
+function fleetSortColumns(t: TFunction): { key: FleetSortKey; label: string; className?: string }[] {
   return [
-    { key: 'registration', label: t('fleetView.sortColumns.registration') },
-    { key: 'type', label: t('fleetView.sortColumns.type') },
+    { key: 'registration', label: t('fleetView.sortColumns.registration'), className: 'w-[120px]' },
+    { key: 'type', label: t('fleetView.sortColumns.type'), className: 'w-[90px]' },
     { key: 'airline', label: t('fleetView.sortColumns.airline') },
-    { key: 'location', label: t('fleetView.sortColumns.location') },
-    { key: 'stand', label: t('fleetView.sortColumns.stand') },
-    { key: 'hours', label: t('fleetView.sortColumns.hours') },
-    { key: 'flights', label: t('fleetView.sortColumns.flights') }
+    { key: 'location', label: t('fleetView.sortColumns.location'), className: 'w-[220px]' },
+    { key: 'stand', label: t('fleetView.sortColumns.stand'), className: 'w-[110px]' },
+    { key: 'hours', label: t('fleetView.sortColumns.hours'), className: 'w-[90px] text-right' },
+    { key: 'flights', label: t('fleetView.sortColumns.flights'), className: 'w-[80px] text-right' }
   ]
 }
 
@@ -52,6 +52,7 @@ export function ActiveFleetTable(props: {
                 activeKey={props.sortKey}
                 dir={props.sortDir}
                 onSort={props.onSort}
+                className={col.className}
               />
             ))}
           </TableRow>
@@ -85,10 +86,10 @@ export function ActiveFleetTable(props: {
                 <TableCell className="order-5 p-0 text-[13px] text-muted-foreground @3xl:p-2 @3xl:text-[length:inherit] before:mr-2.5 before:content-['·'] @3xl:before:content-none font-mono @3xl:text-[length:inherit]">
                   {where.stand ?? ''}
                 </TableCell>
-                <TableCell className="order-5 p-0 text-[13px] text-muted-foreground @3xl:p-2 @3xl:text-[length:inherit] before:mr-2.5 before:content-['·'] @3xl:before:content-none font-mono @3xl:text-[length:inherit] @3xl:text-foreground">
+                <TableCell className="order-5 p-0 text-[13px] text-muted-foreground @3xl:p-2 @3xl:text-[length:inherit] before:mr-2.5 before:content-['·'] @3xl:before:content-none font-mono @3xl:text-[length:inherit] @3xl:text-right @3xl:text-foreground">
                   {s ? s.totalHours.toFixed(1) : '0.0'}
                 </TableCell>
-                <TableCell className="order-5 p-0 text-[13px] text-muted-foreground @3xl:p-2 @3xl:text-[length:inherit] before:mr-2.5 before:content-['·'] @3xl:before:content-none font-mono @3xl:text-[length:inherit] @3xl:text-foreground">
+                <TableCell className="order-5 p-0 text-[13px] text-muted-foreground @3xl:p-2 @3xl:text-[length:inherit] before:mr-2.5 before:content-['·'] @3xl:before:content-none font-mono @3xl:text-[length:inherit] @3xl:text-right @3xl:text-foreground">
                   {s?.totalCycles ?? 0}
                 </TableCell>
               </TableRow>

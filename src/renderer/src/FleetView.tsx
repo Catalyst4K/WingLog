@@ -305,7 +305,7 @@ export function FleetView(props: {
   )
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="@container flex flex-col gap-6">
       <h1 className="sr-only">{t('fleetView.title')}</h1>
       {retiredAircraft.length === 0 ? (
         <>
@@ -315,7 +315,7 @@ export function FleetView(props: {
       ) : (
         <FolderTabs defaultValue="active" className="gap-0">
           <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
-            <FolderTabsList>
+            <FolderTabsList className="w-auto">
               <FolderTabsTrigger value="active">
                 {t('fleetView.activeTab', { count: activeAircraft.length })}
               </FolderTabsTrigger>

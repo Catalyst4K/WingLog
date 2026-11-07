@@ -14,6 +14,8 @@ import type {
   ProcedureSelection
 } from '@shared/ipc'
 import { EMPTY_BEYONDATC_STATE } from '@shared/beyondatc-state'
+import { AirlineLogo } from './AirlineLogo'
+import { useFlightAirlineIata } from './use-flight-airline'
 import { BeyondAtcAtisButton } from './BeyondAtcAtis'
 import { BeyondAtcActions, BeyondAtcRadios } from './BeyondAtcControls'
 import { AtcClearanceBackupLine } from './app/AtcClearanceBackup'
@@ -101,6 +103,7 @@ function planNote(
 function InfoCard(props: { state: BeyondAtcState; statusLine: React.ReactNode }): React.JSX.Element {
   const { t } = useTranslation()
   const { callsign, progress } = props.state
+  const iata = useFlightAirlineIata()
   return (
     <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 border-b border-border pb-4">
       <div className="flex flex-wrap items-baseline gap-x-5 gap-y-1.5">
@@ -108,9 +111,12 @@ function InfoCard(props: { state: BeyondAtcState; statusLine: React.ReactNode })
           <span className="text-sm text-muted-foreground">{t('beyondAtcPanel.noStatus')}</span>
         )}
         {callsign && (
-          <h2 className="m-0 font-display text-[32px] leading-[1.1] font-bold tracking-[-0.02em] text-foreground">
-            {callsign.full}
-          </h2>
+          <span className="flex items-center gap-3">
+            <AirlineLogo iata={iata} size={30} />
+            <h2 className="m-0 font-display text-[32px] leading-[1.1] font-bold tracking-[-0.02em] text-foreground">
+              {callsign.full}
+            </h2>
+          </span>
         )}
         {progress && (
           <span className="font-mono text-muted-foreground">

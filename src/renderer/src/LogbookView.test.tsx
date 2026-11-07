@@ -691,7 +691,9 @@ describe('LogbookView list', () => {
     render(<LogbookView weightUnit="kg" landingDistanceUnit="ft" />)
     await screen.findByText('TA100')
 
-    const totals = screen.getByText('Total flights')
+    // One quiet line of figures with a short word each: "0 flights · 0h 0m block · 0 nm" (r7-full-logbook).
+    const totals = screen.getByText('flights').closest('p') as HTMLElement
+    expect(totals).toHaveTextContent('flights·0h 0m block·0 nm')
     const flightsTab = screen.getByRole('tab', { name: 'Flights' })
     const table = screen.getByRole('table')
     // The tabs come first in the row and the totals follow on its right (r3-logbook).
@@ -704,7 +706,7 @@ describe('LogbookView list', () => {
     await user.keyboard('{ArrowRight}')
     expect(screen.getByRole('tab', { name: 'Landings' })).toHaveAttribute('data-state', 'active')
     expect(await screen.findByRole('columnheader', { name: /Touchdown rate/ })).toBeInTheDocument()
-    expect(screen.getByText('Total flights')).toBeInTheDocument()
+    expect(screen.getByText('flights')).toBeInTheDocument()
   })
 
   it('fetches landings up front so switching to the Landings tab is instant — no skeleton, no second fetch', async () => {

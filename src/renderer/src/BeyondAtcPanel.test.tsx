@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { act, fireEvent, render, screen, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type {
   BeyondAtcConnectionStatus,
@@ -106,6 +106,28 @@ describe('BeyondAtcPanel on a phone (compact)', () => {
 })
 
 describe('BeyondAtcPanel', () => {
+  it('puts the airline’s logo beside the callsign when the flight’s aircraft is in the fleet', async () => {
+    withWinglog({
+      beyondAtcGetState: vi
+        .fn()
+        .mockResolvedValue(
+          makeState({ callsign: { full: 'Singapore 830 Super', shortForm: 'Singapore 830' } })
+        ),
+      getPlannedRoute: vi.fn().mockResolvedValue({ flightId: 7, revision: 1, waypoints: [], selection: {} }),
+      flightList: vi.fn().mockResolvedValue([{ id: 7, aircraftId: 3 }]),
+      aircraftList: vi.fn().mockResolvedValue([{ id: 3, operatorIata: 'SQ' }])
+    })
+    const { container } = render(<BeyondAtcPanel />)
+    const heading = await screen.findByRole('heading', { name: 'Singapore 830 Super' })
+    await waitFor(() =>
+      expect(heading.parentElement?.querySelector('img')).toHaveAttribute(
+        'src',
+        expect.stringContaining('SQ')
+      )
+    )
+    expect(container.querySelectorAll('img')).toHaveLength(1)
+  })
+
   it('shows a not-configured message when BeyondATC integration is off', async () => {
     withWinglog({ settingsGetBeyondAtc: vi.fn().mockResolvedValue(makeSettings({ enabled: false })) })
     render(<BeyondAtcPanel />)

@@ -17,13 +17,13 @@ export const SORT_KEYS: SortKey[] = ['date', 'flight', 'route', 'aircraft', 'blo
  */
 export function sortColumns(t: TFunction): { key: SortKey; label: string; className?: string }[] {
   return [
-    { key: 'date', label: t('logbookView.sortColumns.date') },
-    { key: 'flight', label: t('logbookView.sortColumns.flight') },
+    { key: 'date', label: t('logbookView.sortColumns.date'), className: 'w-[168px]' },
+    { key: 'flight', label: t('logbookView.sortColumns.flight'), className: 'w-[140px]' },
     { key: 'route', label: t('logbookView.sortColumns.route') },
-    { key: 'aircraft', label: t('logbookView.sortColumns.aircraft') },
-    { key: 'block', label: t('logbookView.sortColumns.block') },
-    { key: 'fuel', label: t('logbookView.sortColumns.fuelBurn') },
-    { key: 'score', label: t('logbookView.sortColumns.landingScore'), className: 'text-center' }
+    { key: 'aircraft', label: t('logbookView.sortColumns.aircraft'), className: 'w-[150px]' },
+    { key: 'block', label: t('logbookView.sortColumns.block'), className: 'w-[90px] text-right' },
+    { key: 'fuel', label: t('logbookView.sortColumns.fuelBurn'), className: 'w-[120px] text-right' },
+    { key: 'score', label: t('logbookView.sortColumns.landingScore'), className: 'w-[150px] text-right' }
   ]
 }
 

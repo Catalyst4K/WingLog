@@ -187,13 +187,13 @@ export function LogbookView(props: {
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="@container flex flex-col gap-6">
       <h1 className="sr-only">{t('logbookView.title')}</h1>
 
       <FolderTabs defaultValue="flights" className="gap-0">
         {/* As on the canvas (r3-logbook): the tabs on the left, the totals quiet on the right of the same row. */}
         <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
-          <FolderTabsList>
+          <FolderTabsList className="w-auto">
             <FolderTabsTrigger value="flights">{t('logbookView.tabs.flights')}</FolderTabsTrigger>
             <FolderTabsTrigger value="landings">{t('logbookView.tabs.landings')}</FolderTabsTrigger>
           </FolderTabsList>
