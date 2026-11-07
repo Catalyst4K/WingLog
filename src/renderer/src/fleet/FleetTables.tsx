@@ -40,7 +40,7 @@ export function ActiveFleetTable(props: {
   const { t } = useTranslation()
   return (
     // As on the design canvas (r3-fleet-list): quiet headings, taller rows divided by hairlines with a hover, the figures in the mono face.
-    <div className="[&_tbody_tr]:h-[52px] [&_tbody_tr:hover]:bg-card [&_th]:text-[13px] [&_th]:font-normal [&_th]:text-muted-foreground">
+    <div className="border-t-[3px] border-foreground @3xl:border-t-0 @3xl:[&_tbody_tr]:h-[52px] [&_tbody_tr:hover]:bg-card [&_th]:text-[13px] [&_th]:font-normal [&_th]:text-muted-foreground [&_thead]:hidden @3xl:[&_thead]:table-header-group @3xl:[&_thead_tr]:border-t-[3px] @3xl:[&_thead_tr]:border-foreground">
       <Table>
         <TableHeader>
           <TableRow>
@@ -65,16 +65,32 @@ export function ActiveFleetTable(props: {
               props.lastParked.find((p) => p.aircraftId === a.id)
             )
             return (
-              <TableRow key={a.id} onClick={() => props.onOpen(a.id)} className="cursor-pointer">
-                <TableCell className="font-medium">{a.registration}</TableCell>
-                <TableCell className="font-mono text-sm">{a.icaoType}</TableCell>
-                <TableCell>
-                  <AirlineLabel operator={a.operator} operatorIata={a.operatorIata} />
+              <TableRow
+                key={a.id}
+                onClick={() => props.onOpen(a.id)}
+                className="cursor-pointer flex flex-wrap items-center gap-x-2.5 gap-y-0.5 px-2 py-2.5 after:order-4 after:h-0 after:basis-full after:content-[''] @3xl:table-row @3xl:p-0 @3xl:after:hidden"
+              >
+                <TableCell className="order-1 p-0 font-display font-bold tracking-[-0.01em] @3xl:order-none @3xl:p-2">
+                  {a.registration}
                 </TableCell>
-                <TableCell className="font-mono">{where.airport ?? '—'}</TableCell>
-                <TableCell className="font-mono text-muted-foreground">{where.stand ?? ''}</TableCell>
-                <TableCell className="font-mono">{s ? s.totalHours.toFixed(1) : '0.0'}</TableCell>
-                <TableCell className="font-mono">{s?.totalCycles ?? 0}</TableCell>
+                <TableCell className="order-2 p-0 font-mono text-sm @3xl:order-none @3xl:p-2">
+                  {a.icaoType}
+                </TableCell>
+                <TableCell className="order-3 ml-auto p-0 @3xl:order-none @3xl:ml-0 @3xl:p-2">
+                  <AirlineLabel operator={a.operator} operatorIata={a.operatorIata} size={20} />
+                </TableCell>
+                <TableCell className="order-5 p-0 text-[13px] text-muted-foreground @3xl:p-2 @3xl:text-[length:inherit] font-mono @3xl:text-[length:inherit] @3xl:text-foreground">
+                  {where.airport ?? '—'}
+                </TableCell>
+                <TableCell className="order-5 p-0 text-[13px] text-muted-foreground @3xl:p-2 @3xl:text-[length:inherit] before:mr-2.5 before:content-['·'] @3xl:before:content-none font-mono @3xl:text-[length:inherit]">
+                  {where.stand ?? ''}
+                </TableCell>
+                <TableCell className="order-5 p-0 text-[13px] text-muted-foreground @3xl:p-2 @3xl:text-[length:inherit] before:mr-2.5 before:content-['·'] @3xl:before:content-none font-mono @3xl:text-[length:inherit] @3xl:text-foreground">
+                  {s ? s.totalHours.toFixed(1) : '0.0'}
+                </TableCell>
+                <TableCell className="order-5 p-0 text-[13px] text-muted-foreground @3xl:p-2 @3xl:text-[length:inherit] before:mr-2.5 before:content-['·'] @3xl:before:content-none font-mono @3xl:text-[length:inherit] @3xl:text-foreground">
+                  {s?.totalCycles ?? 0}
+                </TableCell>
               </TableRow>
             )
           })}

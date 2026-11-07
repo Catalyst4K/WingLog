@@ -645,7 +645,7 @@ describe('LogbookView list', () => {
     expect(cells[0]).toHaveClass('font-mono')
     expect(cells[4]).toHaveClass('font-mono')
     expect(cells[5]).toHaveClass('font-mono')
-    expect(row.closest('table')?.parentElement?.parentElement?.className).toContain('[&_tbody_tr]:h-11')
+    expect(row.closest('table')?.parentElement?.parentElement?.className).toContain('[&_tbody_tr]:h-12')
   })
 
   it('marks a landing in the list by its tinted score alone: no light beside it, even for a firm or hard touchdown', async () => {

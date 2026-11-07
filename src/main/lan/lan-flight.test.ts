@@ -86,6 +86,7 @@ describe('lanFlightSnapshot', () => {
       schedInUtc: null,
       registration: '9V-SKA',
       icaoType: 'A388',
+      operatorIata: null,
       ofpJson: '{"general":{}}',
       selection: {
         departureRunway: null,
@@ -99,6 +100,18 @@ describe('lanFlightSnapshot', () => {
       }
     })
     expect(snapshot?.trackPoints).toEqual([])
+  })
+
+  it('gives the airline of the fleet aircraft, for the logo beside the flight number', () => {
+    const db = freshDb()
+    const aircraftId = createAircraft(db, {
+      registration: '9V-SKA',
+      icaoType: 'A388',
+      operator: 'Singapore Airlines',
+      operatorIata: 'SQ'
+    }).id
+    const flight = createFlight(db, { aircraftId, depIcao: 'WSSS', arrIcao: 'EGLL', flightNumber: 'SIA321' })
+    expect(lanFlightSnapshot(db, flight.id)?.flight.operatorIata).toBe('SQ')
   })
 
   it('gives the flight’s saved procedures, or the ones the PC’s window chose when it has chosen', () => {

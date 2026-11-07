@@ -244,7 +244,13 @@
       "navdata": "WingLog 為程序讀取的模擬器導航資料。",
       "data": "備份、遷移或清除機隊和飛行日誌。",
       "about": "版本、手冊和更新。"
-    }
+    },
+    "status": {
+      "devices_one": "{{count}} 支手機",
+      "devices_other": "{{count}} 支手機",
+      "updateReady": "更新已就緒"
+    },
+    "pagePicker": "設定頁面"
   },
   "app": {
     "tabs": {

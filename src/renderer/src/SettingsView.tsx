@@ -7,7 +7,6 @@ import { winglogApi } from './data/winglog-api'
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
-import type { TFunction } from 'i18next'
 import type {
   AltitudeUnit,
   AppLanguage,
@@ -23,9 +22,11 @@ import { UpdatesCard } from './UpdatesCard'
 import { LanCard } from './settings/LanCard'
 import { WindowCard } from './settings/WindowCard'
 import { SettingsCard } from './settings/ui/SettingsCard'
-import { StatusLight, type LightState } from '@/components/StatusLight'
+import type { LightState } from '@/components/StatusLight'
 import { Button } from '@/components/ui/button'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Tabs, TabsContent } from '@/components/ui/tabs'
+import { SettingsNav, type SettingsCategory } from './settings/SettingsNav'
+import { useSettingsNavStatus } from './settings/use-settings-nav-status'
 import { useResetSignal } from './hooks/use-reset-signal'
 import { asyncHandler, runAsync } from './report-error'
 import { BeyondAtcCard, CredentialsCard, GsxCard, GsxRemoteCard } from './settings/AddonCards'
@@ -41,58 +42,11 @@ import {
   useSimbriefCredentials
 } from './settings/use-settings-state'
 
-type SettingsCategory =
-  'general' | 'secondScreen' | 'accounts' | 'gsx' | 'beyondAtc' | 'online' | 'navdata' | 'data' | 'about'
 const DEFAULT_SETTINGS_CATEGORY: SettingsCategory = 'general'
 /** Every page is one column of sections (the width is SettingsCard's); the sections space themselves. */
 const PANEL = 'flex min-w-0 flex-col'
 /** A page's own box beside the list: room to the left of it, and the rest of the width. */
-const PAGE = 'min-w-0 flex-1 px-10 pt-1 pb-8'
-
-/** A page in the list down the side. */
-interface SettingsPage {
-  value: SettingsCategory
-  label: string
-  /** A light for add-ons that connect to something: green connected, amber turned on and waiting, off when turned off. Absent for other pages. */
-  light?: LightState
-}
-
-/**
- * @param t The translation function.
- * @param lights The lights for GSX Remote Control and BeyondATC.
- * @returns The pages down the side, in their three groups.
- */
-function settingsGroups(
-  t: TFunction,
-  lights: { gsxRemote: LightState; beyondAtc: LightState }
-): { label: string; pages: SettingsPage[] }[] {
-  return [
-    {
-      label: t('settingsView.groups.app'),
-      pages: [
-        { value: 'general', label: t('settingsView.categories.general') },
-        { value: 'secondScreen', label: t('settingsView.categories.secondScreen') }
-      ]
-    },
-    {
-      label: t('settingsView.groups.addons'),
-      pages: [
-        { value: 'accounts', label: t('settingsView.categories.accounts') },
-        { value: 'gsx', label: t('settingsView.categories.gsx'), light: lights.gsxRemote },
-        { value: 'beyondAtc', label: t('settingsView.categories.beyondAtc'), light: lights.beyondAtc },
-        { value: 'online', label: t('settingsView.categories.online') },
-        { value: 'navdata', label: t('settingsView.categories.navdata') }
-      ]
-    },
-    {
-      label: t('settingsView.groups.yourData'),
-      pages: [
-        { value: 'data', label: t('settingsView.categories.data') },
-        { value: 'about', label: t('settingsView.categories.about') }
-      ]
-    }
-  ]
-}
+const PAGE = 'min-w-0 flex-1 px-0 pt-1 pb-8 @3xl:px-10'
 
 /**
  * The light on an add-on's page: what the connection is doing, not only whether the add-on is switched on.
@@ -197,7 +151,9 @@ function SettingsPage(props: { category: SettingsCategory; children: React.React
   return (
     <div className={PANEL}>
       <header className="max-w-[760px]">
-        <h2 className="m-0 text-[26px] font-semibold">{t(`settingsView.categories.${props.category}`)}</h2>
+        <h2 className="m-0 font-display text-[34px] leading-[1.1] font-bold tracking-[-0.02em]">
+          {t(`settingsView.categories.${props.category}`)}
+        </h2>
         <p className="m-0 mt-1 text-sm text-muted-foreground">
           {t(`settingsView.pageLede.${props.category}`)}
         </p>
@@ -285,6 +241,7 @@ export function SettingsView(
   const beyondAtc = useBeyondAtcSettings(props.onBeyondAtcEnabledChange)
   const sync = useCloudSync()
   const data = useDataTransfer()
+  const navStatus = useSettingsNavStatus()
   const [appVersion, setAppVersion] = useState('')
   // Purely transient UI state, not persisted — this app has no routing beyond the top tab
   // bar, no reason to add any for a sub-navigation within one of its pages.
@@ -296,43 +253,24 @@ export function SettingsView(
   }, [])
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="@container flex flex-col gap-6">
       <h1 className="sr-only">{t('settingsView.title')}</h1>
 
       <Tabs
         orientation="vertical"
         value={category}
         onValueChange={(value) => setCategory(value as SettingsCategory)}
-        className="items-start gap-0"
+        className="flex-col items-start gap-0 @3xl:flex-row"
       >
-        <TabsList
-          variant="line"
-          className="w-[248px] shrink-0 gap-0 self-stretch border-r border-border py-1 pr-3 group-data-vertical/tabs:items-stretch"
-        >
-          {settingsGroups(t, {
+        <SettingsNav
+          category={category}
+          onChange={setCategory}
+          status={{
             gsxRemote: addonLight(gsxRemote.settings.enabled, gsxRemote.status.state),
-            beyondAtc: addonLight(beyondAtc.settings.enabled, beyondAtc.status.state)
-          }).map((group) => (
-            <div key={group.label} role="presentation" className="flex flex-col gap-0.5">
-              <span
-                aria-hidden="true"
-                className="px-2.5 pt-3.5 pb-1 text-xs font-semibold text-muted-foreground"
-              >
-                {group.label}
-              </span>
-              {group.pages.map(({ value, label, light }) => (
-                <TabsTrigger
-                  key={value}
-                  value={value}
-                  className="h-11 justify-between rounded-md px-2.5 text-[15px] font-normal text-muted-foreground after:hidden data-active:bg-card! data-active:font-semibold data-active:text-foreground"
-                >
-                  {label}
-                  {light && <StatusLight state={light} />}
-                </TabsTrigger>
-              ))}
-            </div>
-          ))}
-        </TabsList>
+            beyondAtc: addonLight(beyondAtc.settings.enabled, beyondAtc.status.state),
+            ...navStatus
+          }}
+        />
 
         <TabsContent value="general" className={PAGE}>
           <SettingsPage category="general">

@@ -419,18 +419,20 @@ describe('BeyondAtcPanel', () => {
         })
       })
 
-    it('says the clearance matches the plan, in magenta, when it does', async () => {
+    it('says the clearance matches the plan, in quiet text, when it does', async () => {
       withPlan('BIXAD2')
       render(<BeyondAtcPanel />)
       const note = await screen.findByText('= plan')
-      expect(note).toHaveClass('text-plan')
+      expect(note).toHaveClass('text-muted-foreground')
+      expect(note).not.toHaveClass('text-plan')
     })
 
-    it('shows the plan’s own procedure, in magenta, when ATC cleared another', async () => {
+    it('shows the plan’s own procedure, in quiet text, when ATC cleared another', async () => {
       withPlan('BIXAD1')
       render(<BeyondAtcPanel />)
       const note = await screen.findByText('plan BIXAD1')
-      expect(note).toHaveClass('text-plan')
+      expect(note).toHaveClass('text-muted-foreground')
+      expect(note).not.toHaveClass('text-plan')
     })
 
     it('says nothing when the plan has no choice for it', async () => {

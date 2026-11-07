@@ -251,7 +251,13 @@
       "navdata": "Les données de navigation du simulateur que WingLog lit pour les procédures.",
       "data": "Sauvegardez, déplacez ou effacez votre flotte et votre carnet.",
       "about": "Version, manuel et mises à jour."
-    }
+    },
+    "status": {
+      "devices_one": "{{count}} téléphone",
+      "devices_other": "{{count}} téléphones",
+      "updateReady": "Mise à jour prête"
+    },
+    "pagePicker": "Page des réglages"
   },
   "app": {
     "tabs": {

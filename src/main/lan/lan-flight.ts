@@ -75,6 +75,7 @@ export function lanFlightSnapshot(
       schedInUtc: flight.schedInUtc,
       registration: aircraft?.registration ?? null,
       icaoType: aircraft?.icaoType ?? null,
+      operatorIata: aircraft?.operatorIata ?? null,
       ofpJson: flight.ofpJson,
       selection: chosen ?? {
         departureRunway: flight.selectedDepartureRunway,

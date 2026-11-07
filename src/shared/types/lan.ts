@@ -52,6 +52,8 @@ export interface LanFlight {
   /** The aircraft's registration and ICAO type, when it is a fleet aircraft. */
   registration: string | null
   icaoType: string | null
+  /** The IATA code of the aircraft's airline, for the logo beside the flight number. */
+  operatorIata: string | null
   ofpJson: string | null
   /** The SID, STAR and approach chosen so far: the window's own choice if it has made one, else the flight's saved one. */
   selection: ProcedureSelection

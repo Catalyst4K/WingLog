@@ -59,7 +59,7 @@ function ChartSection(props: {
   children: React.ReactNode
 }): React.JSX.Element {
   return (
-    <section className="min-w-72 flex-[1_1_0]" aria-label={props.title}>
+    <section className="min-w-0 @3xl:flex-[1_1_0]" aria-label={props.title}>
       <SectionHeading level={3} title={props.title} aside={props.aside} />
       <div className="h-[230px] pt-2">{props.children}</div>
     </section>
@@ -204,7 +204,7 @@ export function FuelChart(props: {
   const percentOfPlan =
     planned && actual && planned.kg > 0 ? Math.round((actual.kg / planned.kg) * 100) : null
   return (
-    <section className="min-w-72 flex-[1_1_0]" aria-label={t('logbookView.fuelPlannedVsActual')}>
+    <section className="min-w-0 @3xl:flex-[1_1_0]" aria-label={t('logbookView.fuelPlannedVsActual')}>
       <SectionHeading
         level={3}
         title={t('logbookView.fuelPlannedVsActual')}

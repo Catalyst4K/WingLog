@@ -26,6 +26,8 @@ import {
 } from '@/track-times'
 import { ProcedureSelector } from '@/ProcedureSelector'
 import { PhaseLights } from '@/track/PhaseLights'
+import { PlanMark } from '@/components/PlanMark'
+import { AirlineLogo } from '@/AirlineLogo'
 import { AtcClearanceDialog } from '@/app/AppDialogs'
 import { useAtcClearancePrompt } from '@/app/use-prompts'
 import { AutoTuneOnlineWarning } from '@/online/AutoTuneOnlineWarning'
@@ -64,7 +66,8 @@ function useCollapsedAttribution(): void {
 }
 
 /**
- * The flight at a glance along the top: its number, the route, the aircraft, and the online badge while the pilot is online.
+ * The flight at a glance along the top: the airline's logo and the flight number in Golos, the route, the phase as dots and its name, and the
+ * online badge while the pilot is online. The aircraft's type is left to the PC (the route needs the room).
  *
  * @param props The flight being tracked.
  * @returns The element.
@@ -79,8 +82,14 @@ function FlightBanner({
   const route = `${realIcao(flight.depIcao) ?? '—'} → ${realIcao(flight.arrIcao) ?? '—'}`
   return (
     <div className="flex items-center justify-between gap-3">
-      <span className="truncate font-mono text-[13px] font-medium">
-        {[flight.flightNumber, flight.icaoType, route].filter(Boolean).join(' · ')}
+      <span className="flex min-w-0 items-center gap-2.5">
+        <AirlineLogo iata={flight.operatorIata} size={22} />
+        {flight.flightNumber && (
+          <span className="font-display text-[22px] leading-none font-bold tracking-[-0.02em]">
+            {flight.flightNumber}
+          </span>
+        )}
+        <span className="truncate font-mono text-[13px] font-medium">{route}</span>
       </span>
       <span className="flex shrink-0 items-center gap-2">
         <OnlineBadge />
@@ -129,7 +138,9 @@ function TimesBanner({ times }: { times: TrackTimes }): React.JSX.Element | null
       <span aria-hidden="true">·</span>
       <span>
         {t(times.etaIsPlanned ? 'trackView.times.etaPlanned' : 'trackView.times.eta')}{' '}
-        <span className="font-mono text-foreground">{formatUtcTime(times.etaMs)}</span>
+        <span className="font-display text-[15px] font-bold tracking-[-0.01em] text-foreground">
+          {formatUtcTime(times.etaMs)}
+        </span>
       </span>
     </div>
   )
@@ -214,9 +225,13 @@ function ProceduresBar(props: {
           type="button"
           variant="ghost"
           aria-label={t('trackView.proceduresEllipsis')}
-          className={`absolute top-3 left-3 z-10 h-11 max-w-[calc(100%-5.5rem)] gap-2 rounded-lg bg-popover/90 px-3 font-mono text-[13px] font-normal backdrop-blur-sm hover:bg-popover ${chosen ? 'text-plan hover:text-plan' : 'text-muted-foreground'}`}
+          className="absolute top-3 left-3 z-10 h-11 max-w-[calc(100%-5.5rem)] gap-2 rounded-lg bg-popover/90 px-3 font-mono text-[13px] font-normal backdrop-blur-sm hover:bg-popover"
         >
-          <span className="truncate">{chosen || t('trackView.nothingSelectedYet')}</span>
+          {chosen ? (
+            <PlanMark className="truncate font-mono text-[13px]">{chosen}</PlanMark>
+          ) : (
+            <span className="truncate text-muted-foreground">{t('trackView.nothingSelectedYet')}</span>
+          )}
           <ChevronDown className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
         </Button>
       </DialogTrigger>
@@ -359,7 +374,7 @@ function FlightHeader(props: {
         </p>
       )}
       {snapshot && (
-        <div className="flex flex-col gap-1.5 border-b border-border bg-card px-3.5 pt-3 pb-2">
+        <div className="flex flex-col gap-1.5 border-b-[3px] border-foreground bg-card px-3.5 pt-3 pb-2">
           <FlightBanner flight={snapshot.flight} phase={props.phase} />
           <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
             <TimesBanner times={times} />

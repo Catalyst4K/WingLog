@@ -82,7 +82,11 @@ function planNote(
   const planned = field && selection ? selection[field] : null
   if (typeof planned !== 'string' || planned === '') return null
   const same = cleared.trim().toUpperCase() === planned.trim().toUpperCase()
-  return <span className="ml-2 font-sans text-[13px] text-plan">{same ? '= plan' : `plan ${planned}`}</span>
+  return (
+    <span className="ml-2 font-mono text-[13px] text-muted-foreground">
+      {same ? '= plan' : `plan ${planned}`}
+    </span>
+  )
 }
 
 /**
@@ -103,7 +107,11 @@ function InfoCard(props: { state: BeyondAtcState; statusLine: React.ReactNode })
         {!callsign && !progress && (
           <span className="text-sm text-muted-foreground">{t('beyondAtcPanel.noStatus')}</span>
         )}
-        {callsign && <h2 className="m-0 text-2xl font-semibold text-foreground">{callsign.full}</h2>}
+        {callsign && (
+          <h2 className="m-0 font-display text-[32px] leading-[1.1] font-bold tracking-[-0.02em] text-foreground">
+            {callsign.full}
+          </h2>
+        )}
         {progress && (
           <span className="font-mono text-muted-foreground">
             {t('beyondAtcPanel.progress', { from: progress.from, to: progress.to, pct: progress.pct })}
@@ -507,11 +515,11 @@ export function BeyondAtcPanel(props: { compact?: boolean } = {}): React.JSX.Ele
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-5">
+    <div className="@container flex min-h-0 flex-1 flex-col gap-5">
       {/* The connection sits in the header, shown while connected too, so an idle session still confirms the link is live (real gap found live). */}
       <InfoCard state={state} statusLine={statusLine} />
       <LatestInstructionCard instruction={latestInstruction} arrival={arrival} />
-      <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 sm:grid-cols-[minmax(18rem,28rem)_minmax(18rem,1fr)]">
+      <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 @3xl:grid-cols-[minmax(18rem,28rem)_minmax(18rem,1fr)]">
         <div className="flex min-h-0 flex-col gap-4 self-start">
           <ActionsCard {...actionsProps} />
           <RadiosCard {...radiosProps} />

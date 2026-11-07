@@ -117,6 +117,10 @@ export function LogbookView(props: {
     return flight.simRegistration ?? '—'
   }
 
+  function operatorIataFor(flight: LogbookFlight): string | null {
+    return aircraft.find((a) => a.id === flight.aircraftId)?.operatorIata ?? null
+  }
+
   function scoreFor(flightId: number): number | null {
     return scores.find((s) => s.flightId === flightId)?.score ?? null
   }
@@ -228,6 +232,7 @@ export function LogbookView(props: {
             sortDir={sortDir}
             onSort={handleSort}
             registrationFor={registrationFor}
+            operatorIataFor={operatorIataFor}
             scoreFor={scoreFor}
             landingCountFor={landingCountFor}
             weightUnit={props.weightUnit}

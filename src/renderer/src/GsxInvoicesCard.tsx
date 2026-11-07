@@ -266,7 +266,7 @@ export function GsxInvoicesCard(props: { flightId: number }): React.JSX.Element 
   }
 
   return (
-    <section className="min-w-72 flex-[1_1_0]" aria-label={t('gsxInvoicesCard.title')}>
+    <section className="min-w-0 @3xl:flex-[1_1_0]" aria-label={t('gsxInvoicesCard.title')}>
       <SectionHeading
         level={3}
         title={t('gsxInvoicesCard.title')}

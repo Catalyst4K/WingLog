@@ -64,12 +64,12 @@ function withWinglog(overrides: Partial<WingLogApi> = {}): void {
   } as unknown as WingLogApi
 }
 
-/** Matches a progress line: the span holding the whole text, with the magenta target inside it. */
+/** Matches a progress line: the span holding the whole text, with the target (in the mono face) inside it, marked (OFP). */
 function progressLine(text: string) {
   return (_content: string, element: Element | null): boolean =>
     element?.tagName === 'SPAN' &&
-    element.textContent === text &&
-    element.querySelector(':scope > .text-plan') !== null
+    element.textContent === `${text} (OFP)` &&
+    element.querySelector(':scope > .font-mono') !== null
 }
 
 describe('GsxRemotePanel', () => {
@@ -646,8 +646,9 @@ describe('GsxRemotePanel', () => {
     ])
 
     expect(await screen.findByText(progressLine('15,357 / 81,488 kg'))).toBeInTheDocument()
-    // The target is the plan's, so it is magenta; what is done is not.
-    expect(screen.getByText('81,488 kg')).toHaveClass('text-plan')
+    // The target is the plan's: in the mono face, never magenta text.
+    expect(screen.getByText('81,488 kg')).toHaveClass('font-mono')
+    expect(screen.getByText('81,488 kg')).not.toHaveClass('text-plan')
     expect(screen.getByText(/24,272/)).toBeInTheDocument()
     expect(screen.queryByText(/pumping\\nfuel/)).not.toBeInTheDocument()
   })

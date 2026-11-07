@@ -98,7 +98,7 @@ function GateHeader(props: { gate: GsxRemoteGateInfo | null; connected: boolean 
       <div className="min-w-0">
         {props.gate && parking && (
           <>
-            <h2 className="m-0 text-[26px] leading-tight font-semibold text-foreground">
+            <h2 className="m-0 font-display text-[34px] leading-[1.1] font-bold tracking-[-0.02em] text-foreground">
               {parking.gateLabel}
             </h2>
             <p className="m-0 mt-0.5 text-[15px] text-muted-foreground">
@@ -235,7 +235,7 @@ function CommandBar(props: {
 
   return (
     <section
-      className="flex flex-col gap-3 rounded-md bg-card px-5 pt-4 pb-[18px]"
+      className="flex flex-col gap-3 rounded-b-md border-t-[3px] border-foreground bg-card px-5 pt-4 pb-[18px]"
       aria-label={t('gsxRemotePanel.commands')}
     >
       <h3 className="m-0 font-display text-[17px] font-bold tracking-[-0.01em] text-foreground">
@@ -465,25 +465,38 @@ export function GsxRemotePanel(props: { canEditRoutines?: boolean }): React.JSX.
         />
       )}
       <GateHeader gate={gate} connected={status.state === 'connected'} />
-      {/* As on the canvas (r3-gsx): the menu and the services on the left, the routines and the commands on the right; one column when narrow. */}
-      <div className="flex flex-col items-start gap-6 @2xl:flex-row">
-        <div className="flex w-full min-w-0 flex-col gap-5 @2xl:flex-[1.4_1_0]">
-          <MenuHeader
-            menu={menu}
-            onToggle={asyncHandler('GsxRemotePanel gsx.toggleMenu', () => live.command('gsx.toggleMenu'))}
-          />
-          <MenuEntries
-            menu={menu}
-            onPick={asyncHandler('GsxRemotePanel gsx.pickMenu', (index) =>
-              live.command('gsx.pickMenu', index)
-            )}
-            onSearch={asyncHandler('GsxRemotePanel gsx.search', (text) => live.command('gsx.search', text))}
-            atcStand={atcStand}
-          />
-          <ServicesList services={services} />
-        </div>
-        <div className="flex w-full min-w-0 flex-col gap-5 @2xl:flex-1">
+      {/* The page's order is the phone's: Routines, then Services with the GSX menu at its top, then Commands. From about 48 rem (the app's one
+          wrap width) the services take the left column, with the menu above them, and the routines and commands the right (r7-full-gsx). */}
+      <div className="grid grid-cols-1 items-start gap-6 @3xl:grid-cols-[1.4fr_1fr]">
+        <div className="min-w-0 @3xl:col-start-2 @3xl:row-start-1">
           <GsxRoutines canEdit={props.canEditRoutines ?? true} />
+        </div>
+        <div className="min-w-0 @3xl:col-start-1 @3xl:row-span-2 @3xl:row-start-1">
+          <ServicesList
+            services={services}
+            menu={
+              <div className="flex flex-col gap-5">
+                <MenuHeader
+                  menu={menu}
+                  onToggle={asyncHandler('GsxRemotePanel gsx.toggleMenu', () =>
+                    live.command('gsx.toggleMenu')
+                  )}
+                />
+                <MenuEntries
+                  menu={menu}
+                  onPick={asyncHandler('GsxRemotePanel gsx.pickMenu', (index) =>
+                    live.command('gsx.pickMenu', index)
+                  )}
+                  onSearch={asyncHandler('GsxRemotePanel gsx.search', (text) =>
+                    live.command('gsx.search', text)
+                  )}
+                  atcStand={atcStand}
+                />
+              </div>
+            }
+          />
+        </div>
+        <div className="min-w-0 @3xl:col-start-2 @3xl:row-start-2">
           <CommandBar
             commandBar={commandBar}
             onRun={asyncHandler('GsxRemotePanel gsx.runCommand', (id) => live.command('gsx.runCommand', id))}

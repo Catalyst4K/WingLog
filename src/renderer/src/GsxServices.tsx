@@ -3,6 +3,7 @@
 import { useTranslation } from 'react-i18next'
 import { ChevronRight } from 'lucide-react'
 import type { GsxRemoteServiceStatus } from '@shared/ipc'
+import { SectionHeading } from '@/components/SectionHeading'
 import { StatusLight, type LightState } from '@/components/StatusLight'
 import {
   formatCargoProgress,
@@ -24,7 +25,8 @@ import {
  * @returns The element, or null when there is nothing to show.
  */
 /**
- * A progress line, "15,357 / 81,488 kg": what is done in ink, the target (what the plan asked for) in magenta.
+ * A progress line, "15,357 / 81,488 kg (OFP)": what is done, then the target the plan asked for in the mono face and marked (OFP). Plan text is
+ * never coloured; the plan is named instead.
  *
  * @param props The line as the format functions write it.
  * @returns The element.
@@ -34,7 +36,8 @@ function ProgressText(props: { text: string }): React.JSX.Element {
   if (at < 0) return <span>{props.text}</span>
   return (
     <span>
-      {props.text.slice(0, at)} / <span className="text-plan">{props.text.slice(at + 3)}</span>
+      {props.text.slice(0, at)} /{' '}
+      <span className="font-mono text-foreground">{props.text.slice(at + 3)}</span> (OFP)
     </span>
   )
 }
@@ -146,31 +149,36 @@ function ServiceRow(props: { service: GsxRemoteServiceStatus }): React.JSX.Eleme
 }
 
 /**
- * The GSX services, with the ones that matter now shown and the rest collapsed.
+ * The GSX services, with the ones that matter now shown and the rest collapsed, opened by the section's rule. The GSX menu comes under
+ * the heading, or above the whole section from the page's wrap width up (the page's `@container`).
  *
- * @param props The services.
- * @returns The list, or nothing when there are no services.
+ * @param props The services, and the GSX menu.
+ * @returns The list with the menu, or just the menu when there are no services.
  */
-export function ServicesList(props: { services: GsxRemoteServiceStatus[] }): React.JSX.Element | null {
+export function ServicesList(props: {
+  services: GsxRemoteServiceStatus[]
+  menu: React.ReactNode
+}): React.JSX.Element {
   const { t } = useTranslation()
-  if (props.services.length === 0) return null
+  if (props.services.length === 0) return <>{props.menu}</>
   const visible = visibleServices(props.services)
   const hidden = hiddenServices(props.services)
   return (
     <section className="flex flex-col" aria-label={t('gsxRemotePanel.services')}>
-      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 pb-2">
-        <h3 className="m-0 font-display text-[17px] font-bold tracking-[-0.01em] text-foreground">
-          {t('gsxRemotePanel.services')}
-        </h3>
-        <span className="text-[13px] text-muted-foreground">{t('gsxRemotePanel.servicesLegend')}</span>
-      </div>
-      <ul className="m-0 flex list-none flex-col p-0">
+      <SectionHeading
+        className="order-1 @3xl:order-2"
+        level={3}
+        title={t('gsxRemotePanel.services')}
+        aside={t('gsxRemotePanel.servicesLegend')}
+      />
+      <div className="order-2 pt-1 pb-3 @3xl:order-1 @3xl:pb-6">{props.menu}</div>
+      <ul className="order-3 m-0 flex list-none flex-col p-0">
         {visible.map((service) => (
           <ServiceRow key={service.id} service={service} />
         ))}
       </ul>
       {hidden.length > 0 && (
-        <details className="group">
+        <details className="group order-4">
           <summary className="flex cursor-pointer list-none items-center gap-1 text-xs text-muted-foreground">
             <ChevronRight
               aria-hidden="true"

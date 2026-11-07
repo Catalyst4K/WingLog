@@ -148,7 +148,7 @@ function FlightDetail(props: {
       : null
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="@container flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
         <Button
           type="button"
@@ -194,8 +194,8 @@ function FlightDetail(props: {
 
       <FlightSummary flight={flight} aircraft={props.aircraft} weightUnit={weightUnit} />
 
-      <div className="flex flex-wrap items-start gap-6">
-        <section className="min-w-72 flex-[1.5_1_0]" aria-label={t('logbookView.route')}>
+      <div className="flex flex-col gap-6 @3xl:flex-row @3xl:items-start">
+        <section className="min-w-0 @3xl:flex-[1.5_1_0]" aria-label={t('logbookView.route')}>
           <SectionHeading
             level={3}
             title={t('logbookView.route')}
@@ -240,13 +240,13 @@ function FlightDetail(props: {
       </div>
 
       {profile.profile.length > 1 && (
-        <div className="flex flex-wrap items-start gap-6">
+        <div className="flex flex-col gap-6 @3xl:flex-row @3xl:items-start">
           <AltitudeChart profile={profile} />
           <SpeedChart profile={profile} speedMode={speedMode} onSpeedModeChange={setSpeedMode} />
         </div>
       )}
 
-      <div className="flex flex-wrap items-start gap-6">
+      <div className="flex flex-col gap-6 @3xl:flex-row @3xl:items-start">
         {fuelData && <FuelChart data={fuelData} weightUnit={weightUnit} />}
 
         <GsxInvoicesCard flightId={flight.id} />

@@ -244,7 +244,13 @@
       "navdata": "WingLog 为程序读取的模拟器导航数据。",
       "data": "备份、迁移或清除机队和飞行日志。",
       "about": "版本、手册和更新。"
-    }
+    },
+    "status": {
+      "devices_one": "{{count}} 部手机",
+      "devices_other": "{{count}} 部手机",
+      "updateReady": "更新已就绪"
+    },
+    "pagePicker": "设置页面"
   },
   "app": {
     "tabs": {

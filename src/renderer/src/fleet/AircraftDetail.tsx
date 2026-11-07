@@ -7,7 +7,8 @@ import type { Aircraft, AircraftLastParked, FleetStats } from '@shared/ipc'
 import { Button } from '@/components/ui/button'
 import { photoSourcesOf } from '@shared/aircraft-photo'
 import { AircraftPhoto } from '../AircraftPhoto'
-import { AircraftFlightsCard, AirlineLabel, LandingHistoryCard, SimBriefProfileCard } from './DetailCards'
+import { AircraftFlightsCard, LandingHistoryCard, SimBriefProfileCard } from './DetailCards'
+import { AirlineLogo } from '../AirlineLogo'
 import { formatDate, useLocationLabel } from './fleet-format'
 
 /**
@@ -153,7 +154,7 @@ export function AircraftDetail(props: {
   const currentIcao = a.currentIcao ?? s?.lastArrIcao ?? null
   const locationLabel = useLocationLabel()
   return (
-    <div className="flex flex-col gap-4">
+    <div className="@container flex flex-col gap-4">
       <DetailActions
         retired={isRetired(a)}
         replaced={a.replacedByAircraftId !== null}
@@ -167,15 +168,18 @@ export function AircraftDetail(props: {
 
       <RetirementNote aircraft={a} replacedBy={props.replacedBy} onViewAircraft={props.onViewAircraft} />
 
-      <div className="flex flex-wrap items-start gap-7">
-        <section className="@container min-w-0 flex-[1.25_1_16rem]" aria-label={a.registration}>
+      <div className="flex flex-col gap-7 @3xl:flex-row @3xl:items-start">
+        <section className="@container min-w-0 @3xl:flex-[1.25_1_0]" aria-label={a.registration}>
           <AircraftPhoto sources={photoSourcesOf(a)} alt={`${a.registration} ${a.icaoType}`} />
           <div className="mt-4 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-            <h2 className="m-0">
-              <span className="text-[34px] leading-tight font-semibold">{a.registration}</span>{' '}
-              <span className="ml-3 text-[17px] font-normal text-muted-foreground">{a.icaoType}</span>
+            <h2 className="m-0 flex flex-wrap items-center gap-x-3">
+              <AirlineLogo iata={a.operatorIata} size={30} />
+              <span className="font-display text-4xl leading-[1.1] font-bold tracking-[-0.02em]">
+                {a.registration}
+              </span>{' '}
+              <span className="text-[17px] font-normal text-muted-foreground">{a.icaoType}</span>
             </h2>
-            <AirlineLabel operator={a.operator} operatorIata={a.operatorIata} />
+            <span className="text-[15px]">{a.operator}</span>
           </div>
           <dl className="mt-4 mb-0 grid grid-cols-2 gap-x-5 gap-y-3 border-y border-border py-3.5 @lg:grid-cols-4">
             <Figure label={t('fleetView.detail.fields.currentAirport')}>
@@ -192,7 +196,7 @@ export function AircraftDetail(props: {
           <SimBriefProfileCard aircraft={a} />
         </section>
         <section
-          className="flex min-w-0 flex-[1_1_20rem] flex-col gap-6"
+          className="flex min-w-0 flex-col gap-6 @3xl:flex-[1_1_0]"
           aria-label={t('fleetView.flights.cardTitle')}
         >
           <AircraftFlightsCard aircraftId={a.id} onOpenFlight={props.onOpenFlight} />

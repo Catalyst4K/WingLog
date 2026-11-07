@@ -160,7 +160,7 @@ export function GsxRoutines(props: { canEdit: boolean }): React.JSX.Element {
 
   return (
     <section
-      className="flex flex-col rounded-md bg-card px-5 pt-4 pb-[18px]"
+      className="flex flex-col rounded-b-md border-t-[3px] border-foreground bg-card px-5 pt-4 pb-[18px]"
       aria-label={t('gsxRoutines.title')}
     >
       <div className="mb-3 flex items-center justify-between gap-3">

@@ -202,7 +202,7 @@ export function LandingCard(props: {
   // nothing, so the layout doesn't jump once the fetch resolves.
   if (landings === undefined) {
     return (
-      <section className="min-w-72 flex-[1_1_0]" aria-label={t('logbookView.landingCard.title')}>
+      <section className="min-w-0 @3xl:flex-[1_1_0]" aria-label={t('logbookView.landingCard.title')}>
         <SectionHeading level={3} title={t('logbookView.landingCard.title')} />
         <Skeleton className="h-40 w-full" />
       </section>
@@ -221,7 +221,7 @@ export function LandingCard(props: {
     // `@container` + `@lg:` rather than the viewport's `sm:`: the section's width depends on the layout around it (it sits beside the
     // route map), not just the window. As on the canvas (r3-flight): a heading with the breakdown button, the score large, then the
     // measurements and the touchdown diagram.
-    <section className="@container min-w-72 flex-[1_1_0]" aria-label={t('logbookView.landingCard.title')}>
+    <section className="@container min-w-0 @3xl:flex-[1_1_0]" aria-label={t('logbookView.landingCard.title')}>
       <SectionHeading
         level={3}
         title={`${t('logbookView.landingCard.title')}${

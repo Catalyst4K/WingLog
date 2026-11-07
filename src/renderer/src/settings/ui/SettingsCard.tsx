@@ -27,9 +27,12 @@ export function SettingsCard(props: {
   footer?: ReactNode
 }): React.JSX.Element {
   return (
-    <section data-slot="card" className="mt-[26px] flex w-full max-w-[760px] flex-col gap-1 first:mt-0">
+    <section
+      data-slot="card"
+      className="mt-7 flex w-full max-w-[760px] flex-col gap-1 border-t-[3px] border-foreground pt-2.5 first:mt-0"
+    >
       <header className="flex flex-col gap-1">
-        <h2 className="m-0 flex items-center justify-between gap-2 text-base font-semibold text-foreground">
+        <h2 className="m-0 flex items-center justify-between gap-2 font-display text-[17px] font-bold tracking-[-0.01em] text-foreground">
           <span>{props.title}</span>
           {props.status}
         </h2>

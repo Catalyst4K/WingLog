@@ -246,71 +246,81 @@ export function DispatchView(props: {
   const alreadyFlown = ofp != null && ofp.ofpId === props.dispatchedOfpId
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="@container flex flex-col gap-6">
       <h1 className="sr-only">{t('dispatchView.title')}</h1>
 
-      {/* As on the canvas (r3-dispatch): the plan form and procedures on the left, the weather above the fetched plan on the right. */}
-      <div className="flex flex-wrap items-start gap-5">
-        <div className="flex min-w-72 flex-[1_1_0] flex-col gap-5">
-          <PlanFlightCard
-            form={form}
-            aircraft={aircraft}
-            lastParked={lastParked}
-            generationAvailable={generationAvailable}
-            fetching={fetching}
-            generating={generating}
-            onChooseAircraft={handlePlanAircraftChange}
-            onFetch={handleFetch}
-            onGenerate={handleGenerate}
-            onOpenSimBrief={handleOpenSimBrief}
-            onAdvanced={() => setAdvancedOpen(true)}
-          />
+      {/* As on the canvas (r7-full-dispatch): the plan form and procedures on the left, the weather above the fetched plan on the right.
+          Below the app's wrap width (about 48 rem) the two columns dissolve into one in the phone's order: Plan a flight, Weather, the plan,
+          Procedures. */}
+      <div className="flex flex-col gap-5 @3xl:flex-row @3xl:items-start">
+        <div className="contents @3xl:flex @3xl:min-w-72 @3xl:flex-[1_1_0] @3xl:flex-col @3xl:gap-5">
+          <div className="order-1 min-w-0">
+            <PlanFlightCard
+              form={form}
+              aircraft={aircraft}
+              lastParked={lastParked}
+              generationAvailable={generationAvailable}
+              fetching={fetching}
+              generating={generating}
+              onChooseAircraft={handlePlanAircraftChange}
+              onFetch={handleFetch}
+              onGenerate={handleGenerate}
+              onOpenSimBrief={handleOpenSimBrief}
+              onAdvanced={() => setAdvancedOpen(true)}
+            />
+          </div>
 
           {ofp && (
-            <Card className="rounded-b-md [--card-spacing:--spacing(5)]">
-              <CardContent className="flex flex-col gap-3">
-                <h2 className="m-0 font-display text-[17px] font-bold tracking-[-0.01em]">
-                  {t('dispatchView.procedures')}
-                </h2>
-                <NavdataCycleNote planAirac={ofp.airac} />
-                <ProcedureSelector
-                  airports={ofp}
-                  selection={props.selection}
-                  onSelectionChange={props.onSelectionChange}
-                />
-              </CardContent>
-            </Card>
+            <div className="order-4 min-w-0">
+              <Card className="rounded-b-md [--card-spacing:--spacing(5)]">
+                <CardContent className="flex flex-col gap-3">
+                  <h2 className="m-0 font-display text-[17px] font-bold tracking-[-0.01em]">
+                    {t('dispatchView.procedures')}
+                  </h2>
+                  <NavdataCycleNote planAirac={ofp.airac} />
+                  <ProcedureSelector
+                    airports={ofp}
+                    selection={props.selection}
+                    onSelectionChange={props.onSelectionChange}
+                  />
+                </CardContent>
+              </Card>
+            </div>
           )}
         </div>
 
-        <div className="flex min-w-72 flex-[1.15_1_0] flex-col gap-5">
-          <MetarPanel
-            depIcao={metarAirports.depIcao}
-            arrIcao={metarAirports.arrIcao}
-            altnIcao={metarAirports.altnIcao}
-            windSpeedUnit={props.windSpeedUnit}
-          />
-
-          {ofp ? (
-            <OfpCard
-              ofp={ofp}
-              aircraft={aircraft}
-              lastParked={lastParked}
-              weightUnit={props.weightUnit}
-              altitudeUnit={props.altitudeUnit}
-              alreadyFlown={alreadyFlown}
-              saving={saving}
-              airframeCapture={airframeCapture}
-              selectedAircraftId={selectedAircraftId}
-              onSelectAircraft={setSelectedAircraftId}
-              onViewOfpPdf={handleViewOfpPdf}
-              onSaveAirframe={handleSaveAirframe}
-              onFly={handleFlyClick}
-              onDiscard={handleDiscardPlan}
+        <div className="contents @3xl:flex @3xl:min-w-72 @3xl:flex-[1.15_1_0] @3xl:flex-col @3xl:gap-5">
+          <div className="order-2 min-w-0">
+            <MetarPanel
+              depIcao={metarAirports.depIcao}
+              arrIcao={metarAirports.arrIcao}
+              altnIcao={metarAirports.altnIcao}
+              windSpeedUnit={props.windSpeedUnit}
             />
-          ) : (
-            <p className="text-sm text-muted-foreground">{t('dispatchView.planOrFetchPrompt')}</p>
-          )}
+          </div>
+
+          <div className="order-3 min-w-0">
+            {ofp ? (
+              <OfpCard
+                ofp={ofp}
+                aircraft={aircraft}
+                lastParked={lastParked}
+                weightUnit={props.weightUnit}
+                altitudeUnit={props.altitudeUnit}
+                alreadyFlown={alreadyFlown}
+                saving={saving}
+                airframeCapture={airframeCapture}
+                selectedAircraftId={selectedAircraftId}
+                onSelectAircraft={setSelectedAircraftId}
+                onViewOfpPdf={handleViewOfpPdf}
+                onSaveAirframe={handleSaveAirframe}
+                onFly={handleFlyClick}
+                onDiscard={handleDiscardPlan}
+              />
+            ) : (
+              <p className="text-sm text-muted-foreground">{t('dispatchView.planOrFetchPrompt')}</p>
+            )}
+          </div>
         </div>
       </div>
 

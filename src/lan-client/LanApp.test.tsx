@@ -123,9 +123,12 @@ describe('the Procedures button', () => {
       sockets[0].say({ t: 'snapshot', topics: {}, flight: FLIGHT_WITH_SELECTION })
     })
     expect(screen.getByRole('button', { name: 'Change procedures' })).toBeInTheDocument()
-    // A chip on the map, magenta because the procedures are the plan; its name stays Procedures…, whatever it shows.
-    expect(screen.getByRole('button', { name: 'Change procedures' })).toHaveClass('text-plan', 'rounded-lg')
-    expect(screen.getByText('KAMI2A · SIER7B · ILS 27L')).toBeInTheDocument()
+    // A chip on the map; the procedures are the plan, so plain text with the plan's rule before it; its name stays Procedures…, whatever it
+    // shows.
+    expect(screen.getByRole('button', { name: 'Change procedures' })).toHaveClass('rounded-lg')
+    const names = screen.getByText('KAMI2A · SIER7B · ILS 27L')
+    expect(names).not.toHaveClass('text-plan')
+    expect(names.previousElementSibling).toHaveClass('bg-plan')
   })
 
   it("follows a change made on the PC's own window, and ignores an announcement of nothing", () => {
@@ -479,7 +482,8 @@ describe('LanApp', () => {
       })
     })
     expect(screen.queryByText('No flight is being tracked on the PC yet.')).not.toBeInTheDocument()
-    expect(screen.getByText('SIA321 · A388 · WSSS → EGLL')).toBeInTheDocument()
+    expect(screen.getByText('SIA321')).toBeInTheDocument()
+    expect(screen.getByText('WSSS → EGLL')).toBeInTheDocument()
     expect(mapProps.current?.route).toEqual([
       [103.9915, 1.3644],
       [-0.4614, 51.4775]

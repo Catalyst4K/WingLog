@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { Aircraft, AircraftLanding, Flight } from '@shared/ipc'
 import { Button } from '@/components/ui/button'
+import { SectionHeading } from '@/components/SectionHeading'
 import { AirlineLogo } from '../AirlineLogo'
 import { LandingScoreBadge } from '../LandingScoreBadge'
 import { formatMinutes, msToFpm, msToKt } from '../units'
@@ -20,10 +21,11 @@ import { runAsync } from '../report-error'
 export function AirlineLabel(props: {
   operator: string | null
   operatorIata: string | null
+  size?: number
 }): React.JSX.Element {
   return (
-    <span className="flex items-center gap-1.5">
-      <AirlineLogo iata={props.operatorIata} />
+    <span className="flex items-center gap-2.5">
+      <AirlineLogo iata={props.operatorIata} size={props.size} />
       {props.operator ?? '—'}
     </span>
   )
@@ -136,9 +138,7 @@ export function LandingHistoryCard(props: { aircraftId: number }): React.JSX.Ele
 
   return (
     <section aria-label={t('fleetView.landingHistory.cardTitle')}>
-      <h3 className="m-0 pb-2 font-display text-[17px] font-bold tracking-[-0.01em]">
-        {t('fleetView.landingHistory.cardTitle')}
-      </h3>
+      <SectionHeading level={3} title={t('fleetView.landingHistory.cardTitle')} />
       {landings.length === 0 ? (
         <p className="m-0 border-t border-border pt-2 text-sm text-muted-foreground">
           {t('fleetView.landingHistory.empty')}
@@ -202,9 +202,7 @@ export function AircraftFlightsCard(props: {
 
   return (
     <section aria-label={t('fleetView.flights.cardTitle')}>
-      <h3 className="m-0 pb-2 font-display text-[17px] font-bold tracking-[-0.01em]">
-        {t('fleetView.flights.cardTitle')}
-      </h3>
+      <SectionHeading level={3} title={t('fleetView.flights.cardTitle')} />
       {flights.length === 0 ? (
         <p className="m-0 border-t border-border pt-2 text-sm text-muted-foreground">
           {t('fleetView.flights.empty')}

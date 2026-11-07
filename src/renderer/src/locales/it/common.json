@@ -251,7 +251,13 @@
       "navdata": "I dati di navigazione del simulatore che WingLog legge per le procedure.",
       "data": "Copia, sposta o cancella flotta e logbook.",
       "about": "Versione, manuale e aggiornamenti."
-    }
+    },
+    "status": {
+      "devices_one": "{{count}} telefono",
+      "devices_other": "{{count}} telefoni",
+      "updateReady": "Aggiornamento pronto"
+    },
+    "pagePicker": "Pagina delle impostazioni"
   },
   "app": {
     "tabs": {

@@ -635,7 +635,11 @@ describe('SettingsView', () => {
       const user = userEvent.setup()
       renderSettings()
       await user.click(screen.getByRole('tab', { name: 'GSX' }))
-      await user.click(await screen.findByRole('combobox'))
+      await screen.findByText('GSX Remote Control')
+      const currency = screen
+        .getAllByRole('combobox')
+        .find((c) => c.getAttribute('aria-label') !== 'Settings page')
+      await user.click(currency as HTMLElement)
       await user.click(await screen.findByRole('option', { name: /GBP/ }))
 
       expect(winglog.settingsSetGsx).toHaveBeenCalledWith(expect.objectContaining({ displayCurrency: 'GBP' }))

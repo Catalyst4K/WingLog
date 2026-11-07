@@ -249,7 +249,13 @@
       "navdata": "Die Navigationsdaten des Simulators, die WingLog für Verfahren liest.",
       "data": "Flotte und Logbuch sichern, verschieben oder löschen.",
       "about": "Version, Handbuch und Updates."
-    }
+    },
+    "status": {
+      "devices_one": "{{count}} Handy",
+      "devices_other": "{{count}} Handys",
+      "updateReady": "Update bereit"
+    },
+    "pagePicker": "Einstellungsseite"
   },
   "app": {
     "tabs": {
