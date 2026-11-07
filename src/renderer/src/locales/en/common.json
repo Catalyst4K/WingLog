@@ -1094,7 +1094,8 @@
       "runways": "RWY {{runways}}",
       "enroute": "En route"
     },
-    "changeFrequency": "Frequencies"
+    "changeFrequency": "Frequencies",
+    "automation": "Automation"
   },
   "storage": {
     "label": "Low disk space",

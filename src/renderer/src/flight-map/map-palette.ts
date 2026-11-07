@@ -46,7 +46,7 @@ const LIGHT: MapPalette = {
   area: '#e5e0d2',
   ink: '#1c1b19',
   ground: '#ebe8de',
-  plan: '#a61e6b',
+  plan: '#b3146f',
   quiet: '#5e594f',
   label: '#1c1b19',
   halo: '#ebe8de',

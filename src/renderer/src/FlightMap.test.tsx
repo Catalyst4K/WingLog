@@ -679,7 +679,7 @@ describe('FlightMap', () => {
 
   it('draws the plan thin, dashed and magenta beneath a thick solid ink track, and the estimated stretches like the recorded ones', async () => {
     const { map } = await renderReady({ route: [], trackPoints: [], live: true })
-    const plan = { 'line-color': '#a61e6b', 'line-width': 1.5, 'line-dasharray': [6, 4] }
+    const plan = { 'line-color': '#b3146f', 'line-width': 1.5, 'line-dasharray': [6, 4] }
     expect(map.layers[ROUTE_SOURCE_ID].paint).toEqual(plan)
     expect(map.layers[ROUTE_APPROXIMATE_LAYER_ID].paint).toEqual(plan)
     const flown = { 'line-color': '#1c1b19', 'line-width': 3 }

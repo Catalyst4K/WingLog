@@ -1123,7 +1123,8 @@
       "runways": "ВПП {{runways}}",
       "enroute": "На маршруте"
     },
-    "changeFrequency": "Частоты"
+    "changeFrequency": "Частоты",
+    "automation": "Автоматизация"
   },
   "storage": {
     "label": "Мало места на диске",

@@ -387,6 +387,52 @@ describe('SettingsView', () => {
     })
   })
 
+  describe('the list of pages', () => {
+    it('says how many phones are paired beside Second screen, with a light while one is connected', async () => {
+      setWinglog({
+        lanGetStatus: vi.fn().mockResolvedValue({
+          settings: { enabled: true, port: 8765 },
+          addresses: [],
+          listening: true,
+          url: 'http://192.168.1.2:8765/',
+          problem: null,
+          connections: 1,
+          pairing: null,
+          devices: [{ id: 1, name: 'Phone', pairedAt: '2026-11-06T10:00:00Z', lastSeenAt: null }]
+        })
+      })
+      renderSettings()
+      const tab = screen.getByRole('tab', { name: /Second screen/ })
+      expect(await within(tab).findByText('1 phone')).toBeInTheDocument()
+      expect(tab.querySelector('[data-state="green"]')).not.toBeNull()
+    })
+
+    it('says an update is ready beside About, with an amber light', async () => {
+      setWinglog({
+        onUpdateStatus: vi.fn((listener: (status: unknown) => void) => {
+          listener({ state: 'available', install: 'idle', currentVersion: '1.6.0', latest: null })
+          return () => {}
+        })
+      })
+      renderSettings()
+      const tab = screen.getByRole('tab', { name: /About and updates/ })
+      expect(await within(tab).findByText('Update ready')).toBeInTheDocument()
+      expect(tab.querySelector('[data-state="amber"]')).not.toBeNull()
+    })
+
+    it('has the same pages as a picker for a narrow window, which opens the page chosen', async () => {
+      const user = userEvent.setup()
+      renderSettings()
+      const picker = screen.getByRole('combobox', { name: 'Settings page' })
+      expect(picker).toHaveTextContent('General')
+      await user.click(picker)
+      await user.click(await screen.findByRole('option', { name: /Online network/ }))
+      await waitFor(() =>
+        expect(screen.getByRole('tab', { name: 'Online network' })).toHaveAttribute('aria-selected', 'true')
+      )
+    })
+  })
+
   describe('unit and theme settings', () => {
     it('calls onWeightUnitChange with the clicked option', async () => {
       const user = userEvent.setup()

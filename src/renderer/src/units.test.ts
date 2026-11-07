@@ -52,11 +52,11 @@ describe('formatWeight', () => {
   })
 
   it('formats kg rounded and thousands-separated', () => {
-    expect(formatWeight(65432, 'kg')).toBe('65,432 kg')
+    expect(formatWeight(65432, 'kg')).toBe('65,432\u00a0kg')
   })
 
   it('formats lb, converted and rounded', () => {
-    expect(formatWeight(1000, 'lb')).toBe(`${Math.round(kgToLb(1000)).toLocaleString()} lb`)
+    expect(formatWeight(1000, 'lb')).toBe(`${Math.round(kgToLb(1000)).toLocaleString()}\u00a0lb`)
   })
 })
 
@@ -66,54 +66,54 @@ describe('formatMinutes', () => {
   })
 
   it('formats whole hours and minutes', () => {
-    expect(formatMinutes(125)).toBe('2h 5m')
+    expect(formatMinutes(125)).toBe('2h\u00a05m')
   })
 
   it('rounds a fractional minute remainder', () => {
-    expect(formatMinutes(90.6)).toBe('1h 31m')
+    expect(formatMinutes(90.6)).toBe('1h\u00a031m')
   })
 
   it('formats zero minutes', () => {
-    expect(formatMinutes(0)).toBe('0h 0m')
+    expect(formatMinutes(0)).toBe('0h\u00a00m')
   })
 })
 
 describe('formatAltitude', () => {
   it('formats feet rounded to the nearest 100 (a real flight level), thousands-separated', () => {
-    expect(formatAltitude(35000, 'ft')).toBe('35,000 ft')
-    expect(formatAltitude(35000.6, 'ft')).toBe('35,000 ft')
+    expect(formatAltitude(35000, 'ft')).toBe('35,000\u00a0ft')
+    expect(formatAltitude(35000.6, 'ft')).toBe('35,000\u00a0ft')
   })
 
   it('rounds an odd feet value from a metric conversion to the nearest 100', () => {
-    // 11,300 m converted to feet is ~37,073.49 — no real flight level is that precise.
-    expect(formatAltitude(11300 / 0.3048, 'ft')).toBe('37,100 ft')
+    // 11,300\u00a0m converted to feet is ~37,073.49 — no real flight level is that precise.
+    expect(formatAltitude(11300 / 0.3048, 'ft')).toBe('37,100\u00a0ft')
   })
 
   it('converts to meters assuming the input is real feet', () => {
-    expect(formatAltitude(35000, 'm')).toBe('10,668 m')
+    expect(formatAltitude(35000, 'm')).toBe('10,668\u00a0m')
   })
 
   it('formats hybrid as plain feet when no native unit/value is given', () => {
     // Fallback for values with no per-point native unit (e.g. cruise altitude).
-    expect(formatAltitude(35000, 'hybrid')).toBe('35,000 ft')
+    expect(formatAltitude(35000, 'hybrid')).toBe('35,000\u00a0ft')
   })
 
   it('formats hybrid using the native unit/value when given, ignoring altitudeFt', () => {
     // A step climb's `native` field (from parseStepClimbs) is the unit/value the point
     // was actually coded in on the OFP — e.g. metres for a Chinese-airspace metric
     // level — so hybrid shows that directly rather than a feet conversion.
-    expect(formatAltitude(37073, 'hybrid', { unit: 'm', value: 11300 })).toBe('11,300 m')
-    expect(formatAltitude(33000, 'hybrid', { unit: 'ft', value: 33000 })).toBe('33,000 ft')
+    expect(formatAltitude(37073, 'hybrid', { unit: 'm', value: 11300 })).toBe('11,300\u00a0m')
+    expect(formatAltitude(33000, 'hybrid', { unit: 'ft', value: 33000 })).toBe('33,000\u00a0ft')
   })
 })
 
 describe('formatRunwayDistance', () => {
   it('formats metres directly, thousands-separated', () => {
-    expect(formatRunwayDistance(1234, 'm')).toBe('1,234 m')
+    expect(formatRunwayDistance(1234, 'm')).toBe('1,234\u00a0m')
   })
 
   it('converts to feet, rounded and thousands-separated', () => {
-    expect(formatRunwayDistance(400, 'ft')).toBe(`${Math.round(mToFt(400)).toLocaleString()} ft`)
+    expect(formatRunwayDistance(400, 'ft')).toBe(`${Math.round(mToFt(400)).toLocaleString()}\u00a0ft`)
   })
 })
 
@@ -137,18 +137,18 @@ describe('formatPitchDeg', () => {
 
 describe('formatCentrelineOffset', () => {
   it('shows a positive offset as right', () => {
-    expect(formatCentrelineOffset(3.6576, 'ft')).toBe('12 ft R')
+    expect(formatCentrelineOffset(3.6576, 'ft')).toBe('12\u00a0ft\u00a0R')
   })
 
   it('shows a negative offset as left, magnitude only', () => {
-    expect(formatCentrelineOffset(-2.4384, 'ft')).toBe('8 ft L')
+    expect(formatCentrelineOffset(-2.4384, 'ft')).toBe('8\u00a0ft\u00a0L')
   })
 
   it('formats in metres without converting', () => {
-    expect(formatCentrelineOffset(-5, 'm')).toBe('5 m L')
+    expect(formatCentrelineOffset(-5, 'm')).toBe('5\u00a0m\u00a0L')
   })
 
   it('shows no side letter exactly on the centreline', () => {
-    expect(formatCentrelineOffset(0, 'ft')).toBe('0 ft')
+    expect(formatCentrelineOffset(0, 'ft')).toBe('0\u00a0ft')
   })
 })

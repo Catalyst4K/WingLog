@@ -480,6 +480,15 @@ function createWinglog(overrides: Partial<WingLogApi> = {}): WingLogApi {
       skippedVersion: null
     }),
     onUpdateStatus: vi.fn().mockReturnValue(() => {}),
+    lanGetStatus: vi.fn().mockResolvedValue({
+      settings: { enabled: false, port: 8765 },
+      listening: false,
+      url: null,
+      problem: null,
+      connections: 0,
+      pairing: null,
+      devices: []
+    }),
     onCloseConfirmRequested: vi.fn().mockReturnValue(() => {}),
     closeConfirmAnswer: vi.fn().mockResolvedValue(undefined),
     getStorageStatus: vi.fn().mockResolvedValue({ freeBytes: null, level: 'ok', saveFailing: false }),

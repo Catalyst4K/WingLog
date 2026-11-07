@@ -54,6 +54,9 @@ export function unitToKg(value: number, unit: WeightUnit): number {
   return unit === 'kg' ? value : lbToKg(value)
 }
 
+/** A figure keeps its unit at the end of a line: the space between them does not break (the v2 wrap rule). */
+const NBSP = '\u00a0'
+
 /**
  * A weight in the display unit, rounded and thousands-separated.
  *
@@ -62,7 +65,7 @@ export function unitToKg(value: number, unit: WeightUnit): number {
  * @returns e.g. "12,345 lb", or a dash.
  */
 export function formatWeight(kg: number | null, unit: WeightUnit): string {
-  return kg == null ? '—' : `${Math.round(kgToUnit(kg, unit)).toLocaleString()} ${unit}`
+  return kg == null ? '—' : `${Math.round(kgToUnit(kg, unit)).toLocaleString()}${NBSP}${unit}`
 }
 
 /**
@@ -75,7 +78,7 @@ export function formatMinutes(min: number | null): string {
   if (min == null) return '—'
   const hours = Math.floor(min / 60)
   const minutes = Math.round(min % 60)
-  return `${hours}h ${minutes}m`
+  return `${hours}h${NBSP}${minutes}m`
 }
 
 /**
@@ -89,7 +92,7 @@ export function formatMinutes(min: number | null): string {
  */
 export function formatRunwayDistance(meters: number, unit: LandingDistanceUnit): string {
   const value = unit === 'ft' ? mToFt(meters) : meters
-  return `${Math.round(value).toLocaleString()} ${unit}`
+  return `${Math.round(value).toLocaleString()}${NBSP}${unit}`
 }
 
 /**
@@ -104,8 +107,8 @@ export function formatRunwayDistance(meters: number, unit: LandingDistanceUnit):
  */
 export function formatCentrelineOffset(meters: number, unit: LandingDistanceUnit): string {
   const magnitude = unit === 'ft' ? mToFt(Math.abs(meters)) : Math.abs(meters)
-  const side = meters > 0 ? ' R' : meters < 0 ? ' L' : ''
-  return `${Math.round(magnitude).toLocaleString()} ${unit}${side}`
+  const side = meters > 0 ? `${NBSP}R` : meters < 0 ? `${NBSP}L` : ''
+  return `${Math.round(magnitude).toLocaleString()}${NBSP}${unit}${side}`
 }
 
 /**
@@ -148,12 +151,12 @@ export function formatAltitude(
 ): string {
   switch (unit) {
     case 'ft':
-      return `${(Math.round(altitudeFt / 100) * 100).toLocaleString()} ft`
+      return `${(Math.round(altitudeFt / 100) * 100).toLocaleString()}${NBSP}ft`
     case 'm':
-      return `${Math.round(altitudeFt * METRES_PER_FOOT).toLocaleString()} m`
+      return `${Math.round(altitudeFt * METRES_PER_FOOT).toLocaleString()}${NBSP}m`
     case 'hybrid':
       return native
-        ? `${Math.round(native.value).toLocaleString()} ${native.unit}`
-        : `${Math.round(altitudeFt).toLocaleString()} ft`
+        ? `${Math.round(native.value).toLocaleString()}${NBSP}${native.unit}`
+        : `${Math.round(altitudeFt).toLocaleString()}${NBSP}ft`
   }
 }

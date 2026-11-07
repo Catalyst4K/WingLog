@@ -84,15 +84,15 @@ describe('describeCategoryTolerance', () => {
       'two distinct real physical hard limits (2026-09-26) rather than one shared tolerance',
     () => {
       expect(describeCategoryTolerance('distanceFromAimingPoint', 0, 500, 'm', 400, 500)).toBe(
-        'Ideal: touchdown on the aiming point. Score reaches 0 at the threshold (400 m short of ' +
-          "the aiming point) or at 500 m past it — this runway's own real touchdown-zone marking extent."
+        'Ideal: touchdown on the aiming point. Score reaches 0 at the threshold (400\u00a0m short of ' +
+          "the aiming point) or at 500\u00a0m past it — this runway's own real touchdown-zone marking extent."
       )
     }
   )
 
   it('describes centreline offset in the chosen distance unit', () => {
     expect(describeCategoryTolerance('centrelineOffset', 0, 12.5, 'ft')).toBe(
-      "Ideal: on the centreline. Score reaches 0 at 41 ft off it — half this runway's real width."
+      "Ideal: on the centreline. Score reaches 0 at 41\u00a0ft off it — half this runway's real width."
     )
   })
 

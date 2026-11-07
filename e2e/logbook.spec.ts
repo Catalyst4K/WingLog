@@ -57,7 +57,7 @@ test('browses to a completed flight, sees its landing/track detail, and deletes 
     await expect(window.getByText('EGLL → EGCC')).toBeVisible()
     await expect(window.getByRole('heading', { name: /^Landing/ })).toBeVisible()
     await expect(window.getByText('Touchdown rate')).toBeVisible()
-    await expect(window.getByText('23R', { exact: true })).toBeVisible()
+    await expect(window.getByRole('heading', { name: /Landing · .* 23R/ })).toBeVisible()
 
     // "Fill gaps from the flight plan": the seeded flight has no OFP, so the app says there is no route to follow
     // (the gap logic itself is unit-tested against flight 239's real route).

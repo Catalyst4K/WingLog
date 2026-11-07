@@ -1085,7 +1085,8 @@
       "runways": "跑道 {{runways}}",
       "enroute": "航路"
     },
-    "changeFrequency": "频率"
+    "changeFrequency": "频率",
+    "automation": "自动化"
   },
   "storage": {
     "label": "磁盘空间不足",

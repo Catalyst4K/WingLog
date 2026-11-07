@@ -81,9 +81,16 @@ describe('BeyondAtcPanel on a phone (compact)', () => {
     })
     render(<BeyondAtcPanel compact />)
     expect(await screen.findByRole('textbox', { name: 'COM1 frequency' })).toBeVisible()
+    expect(screen.queryByRole('button', { name: 'Radios…' })).not.toBeInTheDocument()
+    // The three switches sit behind one Automation row, which says how they are set.
+    expect(screen.queryByRole('group', { name: 'Auto-tune' })).not.toBeInTheDocument()
+    const automation = screen.getByRole('button', { name: /Automation/ })
+    expect(automation).toHaveAttribute('aria-expanded', 'false')
+    expect(automation).toHaveTextContent('Auto-tune on · Auto-respond off · Auto step climb off')
+    await userEvent.click(automation)
     expect(screen.getByRole('group', { name: 'Auto-tune' })).toBeInTheDocument()
     expect(screen.getByRole('group', { name: 'Auto-respond' })).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Radios…' })).not.toBeInTheDocument()
+    expect(screen.getByRole('group', { name: 'Auto step climb' })).toBeInTheDocument()
   })
 
   it('keeps everything else in one column that scrolls with the page: instruction, actions and the transcript', async () => {

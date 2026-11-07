@@ -89,7 +89,7 @@ for (const [width, height] of [
 
       await openFromMore(page, 'BeyondATC')
       await expect(page.getByRole('button', { name: 'Request IFR Clearance' })).toBeInViewport()
-      await expect(page.getByRole('button', { name: 'Frequencies' }).first()).toBeVisible()
+      await expect(page.getByRole('textbox', { name: 'COM1 frequency' })).toBeVisible()
       await expectNoHorizontalScroll(page)
 
       await openFromMore(page, 'Ground services')
@@ -139,5 +139,50 @@ test('at the default window width every tab label sits on one line, under its un
     await cleanup()
     await gsx.stop()
     await beyondAtc.stop()
+  }
+})
+
+test('the wrap rule: one width for the whole app, with the pages stacked in the phone’s order below it', async () => {
+  const gsx = await FakeGsxRemoteServer.start()
+  const { app, window: page, cleanup } = await launchApp()
+  try {
+    await page.evaluate((port) => {
+      const api = (globalThis as unknown as Window).winglog
+      return api.settingsSetGsxRemote({ enabled: true, host: '127.0.0.1', port })
+    }, gsx.port)
+    await gsx.waitForConnection()
+    gsx.sendSnapshot(VHHH_BOOT_SNAPSHOT)
+    await page.reload()
+
+    const topOf = async (name: string): Promise<number> =>
+      (await page.getByRole('region', { name }).boundingBox())!.y
+    const leftOf = async (name: string): Promise<number> =>
+      (await page.getByRole('region', { name }).boundingBox())!.x
+
+    // Wide: the services on the left, the routines and commands on the right.
+    await setWidth(app, 1200, 900)
+    await page.getByRole('tab', { name: 'Ground services' }).click()
+    await expect(page.getByRole('region', { name: 'Services' })).toBeVisible()
+    expect(await leftOf('Services')).toBeLessThan(await leftOf('Routines'))
+    expect(await leftOf('Commands')).toBeGreaterThan(await leftOf('Services'))
+
+    // Narrow: one column, Routines, then Services, then Commands.
+    await setWidth(app, 760, 1100)
+    await expect(page.getByRole('region', { name: 'Services' })).toBeVisible()
+    expect(await topOf('Routines')).toBeLessThan(await topOf('Services'))
+    expect(await topOf('Services')).toBeLessThan(await topOf('Commands'))
+    expect(await leftOf('Routines')).toBeCloseTo(await leftOf('Services'), 0)
+
+    // Settings: the list of pages down the side when wide, a picker above the page when narrow.
+    await setWidth(app, 1200, 900)
+    await page.getByRole('tab', { name: 'Settings' }).click()
+    await expect(page.getByRole('combobox', { name: 'Settings page' })).toBeHidden()
+    await expect(page.getByRole('tab', { name: 'General' })).toBeVisible()
+    await setWidth(app, 760, 900)
+    await expect(page.getByRole('combobox', { name: 'Settings page' })).toBeVisible()
+    await expect(page.getByRole('tab', { name: 'General' })).toBeHidden()
+  } finally {
+    await cleanup()
+    await gsx.stop()
   }
 })

@@ -379,7 +379,7 @@ function CompactLayout(props: {
       <InfoCard state={props.state} statusLine={props.statusLine} />
       <LatestInstructionCard instruction={props.instruction} arrival={props.arrival} />
       <ActionsCard {...props.actions} />
-      <RadiosCard {...props.radios} />
+      <RadiosCard {...props.radios} compact />
       <div className="flex h-80 flex-col">
         <TranscriptCard entries={props.transcript} />
       </div>

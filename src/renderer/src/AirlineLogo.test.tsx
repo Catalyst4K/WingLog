@@ -17,6 +17,18 @@ describe('AirlineLogo', () => {
     expect(img).toHaveAttribute('src', 'https://images.kiwi.com/airlines/32/BA.png')
   })
 
+  it('is 16 px by default and as big as asked in a headline, the badge too', () => {
+    const { container, rerender } = render(<AirlineLogo iata="BA" />)
+    expect(container.querySelector('img')).toHaveStyle({ width: '16px', height: '16px' })
+    rerender(<AirlineLogo iata="BA" size={30} />)
+    expect(container.querySelector('img')).toHaveStyle({ width: '30px', height: '30px' })
+    fireEvent.error(container.querySelector('img')!)
+    expect(container.querySelector('[data-testid="airline-logo-badge"]')).toHaveStyle({
+      width: '30px',
+      height: '30px'
+    })
+  })
+
   it('swaps in a badge showing the IATA code when the image fails to load', () => {
     const { container, getByTestId } = render(<AirlineLogo iata="zz" />)
     fireEvent.error(container.querySelector('img')!)

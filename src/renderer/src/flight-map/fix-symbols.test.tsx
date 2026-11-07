@@ -72,7 +72,7 @@ describe('addFixSymbols', () => {
 
 describe('mapPalette', () => {
   it('has the plan in magenta and the flown track in ink, in both themes', () => {
-    expect(mapPalette(false)).toMatchObject({ plan: '#a61e6b', ink: '#1c1b19', atc: '#2a62a3' })
+    expect(mapPalette(false)).toMatchObject({ plan: '#b3146f', ink: '#1c1b19', atc: '#2a62a3' })
     expect(mapPalette(true)).toMatchObject({ plan: '#e26aae', ink: '#ece9e1', atc: '#7fb0e8' })
   })
 

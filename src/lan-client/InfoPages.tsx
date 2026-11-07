@@ -59,7 +59,9 @@ function DispatchPage({
   const ofp = useMemo(() => readOfp(flight?.ofpJson ?? null), [flight?.ofpJson])
   return (
     <div className="flex flex-col gap-3 p-3">
-      <h1 className="font-heading text-xl font-semibold">{t('app.tabs.dispatch')}</h1>
+      <h1 className="font-display text-[28px] leading-[1.1] font-bold tracking-[-0.02em]">
+        {t('app.tabs.dispatch')}
+      </h1>
       <MetarPanel
         compact
         depIcao={realIcao(flight?.depIcao)}
@@ -96,14 +98,18 @@ export function InfoPage(props: {
   if (props.page === 'gsx') {
     return (
       <div className="flex flex-col gap-3 p-3">
-        <h1 className="font-heading text-xl font-semibold">{t('gsxRemoteView.title')}</h1>
+        <h1 className="font-display text-[28px] leading-[1.1] font-bold tracking-[-0.02em]">
+          {t('gsxRemoteView.title')}
+        </h1>
         <GsxRemotePanel canEditRoutines={false} />
       </div>
     )
   }
   return (
     <div className="flex min-h-full flex-col gap-3 p-3" data-testid="beyondatc-page">
-      <h1 className="font-heading text-xl font-semibold">{t('beyondAtcView.title')}</h1>
+      <h1 className="font-display text-[28px] leading-[1.1] font-bold tracking-[-0.02em]">
+        {t('beyondAtcView.title')}
+      </h1>
       <BeyondAtcPanel compact />
     </div>
   )

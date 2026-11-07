@@ -1096,7 +1096,8 @@
       "runways": "Pista {{runways}}",
       "enroute": "En ruta"
     },
-    "changeFrequency": "Frecuencias"
+    "changeFrequency": "Frecuencias",
+    "automation": "Automatización"
   },
   "storage": {
     "label": "Poco espacio en disco",

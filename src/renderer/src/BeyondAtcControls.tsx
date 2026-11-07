@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Loader2 } from 'lucide-react'
+import { ChevronDown, Loader2 } from 'lucide-react'
 import type {
   BeyondAtcCom2,
   BeyondAtcFacility,
@@ -376,6 +376,8 @@ export interface BeyondAtcRadiosProps {
    *  docs/plans/beyondatc-auto-step-climb.md). */
   stepClimb: BeyondAtcStepClimbStatus
   onSetStepClimb: (enabled: boolean) => void
+  /** On the phone the three switches sit behind one Automation row that says how they are set (Round 7). */
+  compact?: boolean
 }
 
 function flightLevel(feet: number): string {
@@ -481,36 +483,93 @@ function FrequencyRowPair(props: BeyondAtcRadiosProps): React.JSX.Element {
 }
 
 /**
- * COM1 and COM2, the frequency picker, and the auto tune, respond and step climb toggles, with a warning above them while auto tune is on
- * and the pilot is online.
+ * The auto tune, respond and step climb switches.
+ *
+ * @param props The radios' props.
+ * @returns The element.
+ */
+function AutomationToggles(props: BeyondAtcRadiosProps): React.JSX.Element {
+  const { t } = useTranslation()
+  return (
+    <div className="flex flex-col">
+      <AutoToggle
+        label={t('beyondAtcPanel.settings.autoTune')}
+        value={props.autoTune}
+        onSet={props.onSetAutoTune}
+      />
+      <AutoToggle
+        label={t('beyondAtcPanel.settings.autoRespond')}
+        value={props.autoRespond}
+        onSet={props.onSetAutoRespond}
+      />
+      <AutoToggle
+        label={t('beyondAtcPanel.settings.stepClimb')}
+        value={props.stepClimb.enabled}
+        onSet={props.onSetStepClimb}
+      />
+    </div>
+  )
+}
+
+/**
+ * The phone's one Automation row: how the three are set in a line, and a tap opens the switches under it.
+ *
+ * @param props The radios' props.
+ * @returns The element.
+ */
+function AutomationMenu(props: BeyondAtcRadiosProps): React.JSX.Element {
+  const { t } = useTranslation()
+  const [open, setOpen] = useState(false)
+  const word = (on: boolean | null): string =>
+    on === null
+      ? t('beyondAtcPanel.settings.unknown')
+      : t(on ? 'beyondAtcPanel.settings.on' : 'beyondAtcPanel.settings.off').toLowerCase()
+  const summary = [
+    `${t('beyondAtcPanel.settings.autoTune')} ${word(props.autoTune)}`,
+    `${t('beyondAtcPanel.settings.autoRespond')} ${word(props.autoRespond)}`,
+    `${t('beyondAtcPanel.settings.stepClimb')} ${word(props.stepClimb.enabled)}`
+  ].join(' · ')
+  return (
+    <div className="flex flex-col gap-2">
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+        className="flex min-h-12 items-center justify-between gap-3 text-left"
+      >
+        <span className="flex min-w-0 flex-col">
+          <span className="font-display text-sm font-bold tracking-[-0.01em]">
+            {t('beyondAtcPanel.automation')}
+          </span>
+          <span className="text-xs text-muted-foreground">{summary}</span>
+        </span>
+        <ChevronDown
+          aria-hidden="true"
+          className={`size-4 shrink-0 text-muted-foreground transition-transform ${open ? 'rotate-180' : ''}`}
+        />
+      </button>
+      {open && (
+        <div className="rounded-md border border-input px-3">
+          <AutomationToggles {...props} />
+        </div>
+      )}
+    </div>
+  )
+}
+
+/**
+ * COM1 and COM2, the frequency picker, and the auto tune, respond and step climb toggles (behind one Automation row on the phone), with a
+ * warning above them while auto tune is on and the pilot is online.
  *
  * @param props What is tuned, the frequencies on offer, the toggles and their handlers.
  * @returns The element.
  */
 export function BeyondAtcRadios(props: BeyondAtcRadiosProps): React.JSX.Element {
-  const { t } = useTranslation()
-
   return (
     <div className="flex flex-col gap-3">
       <FrequencyRows {...props} />
       <AutoTuneOnlineWarning />
-      <div className="flex flex-col">
-        <AutoToggle
-          label={t('beyondAtcPanel.settings.autoTune')}
-          value={props.autoTune}
-          onSet={props.onSetAutoTune}
-        />
-        <AutoToggle
-          label={t('beyondAtcPanel.settings.autoRespond')}
-          value={props.autoRespond}
-          onSet={props.onSetAutoRespond}
-        />
-        <AutoToggle
-          label={t('beyondAtcPanel.settings.stepClimb')}
-          value={props.stepClimb.enabled}
-          onSet={props.onSetStepClimb}
-        />
-      </div>
+      {props.compact ? <AutomationMenu {...props} /> : <AutomationToggles {...props} />}
       <StepClimbStatusLine status={props.stepClimb} />
     </div>
   )
