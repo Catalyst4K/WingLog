@@ -68,12 +68,12 @@ const PLAN_FIELDS: Partial<Record<InstructionFieldKey, keyof ProcedureSelection>
 
 /**
  * What the pilot's plan says beside what ATC cleared (winglog-backend docs/plans/v2-design.md, "BeyondATC"): the plan is magenta. The
- * same as the plan is just "= plan"; a different one shows the plan's.
+ * same as the plan needs no note (it is what was expected); a different one shows the plan's.
  *
  * @param key The instruction field.
  * @param cleared What ATC cleared.
  * @param selection The procedures the pilot chose for the flight, or null when none are.
- * @returns The note, or nothing when the plan has no choice for this field.
+ * @returns The note, or nothing when the plan has no choice for this field or ATC cleared the same.
  */
 function planNote(
   key: InstructionFieldKey,
@@ -83,12 +83,8 @@ function planNote(
   const field = PLAN_FIELDS[key]
   const planned = field && selection ? selection[field] : null
   if (typeof planned !== 'string' || planned === '') return null
-  const same = cleared.trim().toUpperCase() === planned.trim().toUpperCase()
-  return (
-    <span className="ml-2 font-mono text-[13px] text-muted-foreground">
-      {same ? '= plan' : `plan ${planned}`}
-    </span>
-  )
+  if (cleared.trim().toUpperCase() === planned.trim().toUpperCase()) return null
+  return <span className="ml-2 font-mono text-[13px] text-muted-foreground">{`plan ${planned}`}</span>
 }
 
 /**
