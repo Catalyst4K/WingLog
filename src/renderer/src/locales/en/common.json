@@ -875,6 +875,8 @@
     "newName": "My routine",
     "edit": "Edit {{name}}",
     "editButton": "Edit",
+
+    "editHint": "Editing: choose a routine to change it, or press Edit again to finish.",
     "cancel": "Cancel",
     "stageOf": "Stage {{stage}} of {{count}}",
     "services": {

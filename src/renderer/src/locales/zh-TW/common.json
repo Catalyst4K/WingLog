@@ -866,6 +866,8 @@
     "newName": "我的流程",
     "edit": "編輯 {{name}}",
     "editButton": "編輯",
+
+    "editHint": "編輯中：選擇一個例程進行修改，或再按一次「編輯」結束。",
     "cancel": "取消",
     "stageOf": "第 {{stage}} 階段，共 {{count}} 階段",
     "services": {

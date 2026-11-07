@@ -877,6 +877,8 @@
     "newName": "Mi rutina",
     "edit": "Editar {{name}}",
     "editButton": "Editar",
+
+    "editHint": "Edición: elige una rutina para cambiarla, o pulsa Editar de nuevo para terminar.",
     "cancel": "Cancelar",
     "stageOf": "Etapa {{stage}} de {{count}}",
     "services": {

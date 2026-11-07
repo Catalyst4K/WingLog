@@ -115,6 +115,17 @@ describe('GsxRoutines', () => {
       expect(screen.queryByRole('button', { name: 'Edit Arrival' })).toBeNull()
     })
 
+    it('says plainly that it is editing, with a hint that goes when it is switched off', async () => {
+      withWinglog()
+      render(<GsxRoutines canEdit />)
+      const toggle = await screen.findByRole('button', { name: 'Edit', pressed: false })
+      expect(screen.queryByText(/choose a routine to change it/i)).toBeNull()
+      await userEvent.click(toggle)
+      expect(screen.getByText(/choose a routine to change it/i)).toBeInTheDocument()
+      await userEvent.click(toggle)
+      expect(screen.queryByText(/choose a routine to change it/i)).toBeNull()
+    })
+
     it('lets a routine be edited while another runs, though it cannot be started', async () => {
       withWinglog({ progress: RUNNING })
       render(<GsxRoutines canEdit />)

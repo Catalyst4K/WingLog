@@ -11,6 +11,8 @@ import type {
   GsxRoutineProgress,
   GsxRoutineServiceProgress
 } from '@shared/gsx-routine-progress'
+import { Pencil } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { winglogApi } from './data/winglog-api'
 import { GsxRoutineEditor } from './GsxRoutineEditor'
@@ -171,8 +173,7 @@ export function GsxRoutines(props: { canEdit: boolean }): React.JSX.Element {
           <span className="flex gap-1">
             <Button
               type="button"
-              variant="ghost"
-              className="text-muted-foreground"
+              variant="outline"
               onClick={() =>
                 setEditing({
                   routine: blankRoutine(newRoutineId(), t('gsxRoutines.newName')),
@@ -184,23 +185,28 @@ export function GsxRoutines(props: { canEdit: boolean }): React.JSX.Element {
             </Button>
             <Button
               type="button"
-              variant="ghost"
-              className={isEditMode ? 'bg-muted text-foreground' : 'text-muted-foreground'}
+              variant={isEditMode ? 'default' : 'outline'}
               aria-pressed={isEditMode}
               onClick={() => setIsEditMode(!isEditMode)}
             >
+              <Pencil data-icon="inline-start" />
               {t('gsxRoutines.editButton')}
             </Button>
           </span>
         )}
       </div>
+      {isEditMode && <p className="mt-0 mb-3 text-sm text-muted-foreground">{t('gsxRoutines.editHint')}</p>}
       <ul className="m-0 flex list-none flex-wrap items-center gap-2 p-0" aria-label={t('gsxRoutines.title')}>
         {routines.map((routine) => (
           <li key={routine.id}>
             <Button
               type="button"
               variant="outline"
-              className={`h-12 px-4 ${progress?.routineId === routine.id ? 'border-foreground font-semibold' : ''}`}
+              className={cn(
+                'h-12 px-4',
+                progress?.routineId === routine.id && 'border-foreground font-semibold',
+                isEditMode && 'border-dashed border-foreground'
+              )}
               disabled={isRunning && !isEditMode}
               aria-label={isEditMode ? t('gsxRoutines.edit', { name: routineName(t, routine) }) : undefined}
               onClick={
@@ -215,6 +221,7 @@ export function GsxRoutines(props: { canEdit: boolean }): React.JSX.Element {
                     )
               }
             >
+              {isEditMode && <Pencil data-icon="inline-start" />}
               {routineName(t, routine)}
             </Button>
           </li>
