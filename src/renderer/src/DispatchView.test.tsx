@@ -691,14 +691,24 @@ describe('DispatchView', () => {
       expect(weather.compareDocumentPosition(figures) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     })
 
-    it('draws the step climbs in magenta, the plan colour, and the figures in the mono face', async () => {
+    it('marks the plan with a magenta rule, never magenta text, and draws the figures in the mono face', async () => {
       window.winglog = createWinglog({ dispatchFetchOfp: vi.fn().mockResolvedValue(makeOfp()) })
       const user = userEvent.setup()
       render(<Harness />)
       await user.click(screen.getByRole('button', { name: 'Fetch latest OFP' }))
 
       await screen.findByRole('heading', { name: 'TA100 · EGLL → EDDF' })
-      expect(screen.getByText(/ABCDE/)).toHaveClass('text-plan')
+      // Callum, 2026-11-06: the text on Dispatch is not coloured; the step climbs and the route carry a rule at their left
+      // and "from the OFP" an underline, in the plan's colour.
+      const stepClimbs = screen.getByText(/ABCDE/)
+      const route = screen.getByText('Route').nextElementSibling as HTMLElement
+      const fromOfp = screen.getByText('from the OFP')
+      for (const marked of [stepClimbs, route]) {
+        expect(marked).toHaveClass('border-l-[3px]', 'border-plan')
+        expect(marked).not.toHaveClass('text-plan')
+      }
+      expect(fromOfp).toHaveClass('border-b-2', 'border-plan')
+      expect(fromOfp).not.toHaveClass('text-plan')
       expect(screen.getByText('Cost index').nextElementSibling).toHaveClass('font-mono')
     })
 

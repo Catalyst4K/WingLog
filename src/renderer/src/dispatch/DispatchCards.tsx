@@ -230,7 +230,7 @@ export function OfpHeading(props: { ofp: DispatchOfp }): React.JSX.Element {
       {ofp.altnIcao && (
         <p className="m-0 text-sm text-muted-foreground">
           {t('dispatchView.alternateLabel', { altn: ofp.altnIcao })} ·{' '}
-          <span className="text-plan">{t('dispatchView.fromOfp')}</span>
+          <span className="border-b-2 border-plan">{t('dispatchView.fromOfp')}</span>
         </p>
       )}
     </div>
@@ -254,7 +254,7 @@ function FigureRow(props: { label: string; children: React.ReactNode }): React.J
 }
 
 /**
- * The step climbs, as one line in the plan's colour: "VHHH 10,400 m · IGNAK 10,100 m".
+ * The step climbs, as one line marked by the plan's rule: "VHHH 10,400 m · IGNAK 10,100 m".
  *
  * @param props The OFP and the altitude unit.
  * @returns The element.
@@ -268,9 +268,9 @@ function StepClimbs(props: { ofp: DispatchOfp; altitudeUnit: AltitudeUnit }): Re
       {ofp.stepClimbs.length === 0 ? (
         <span className="text-sm">{t('dispatchView.none')}</span>
       ) : (
-        // Everything on Dispatch is the plan, so only the route and the step climbs are magenta (winglog-backend
-        // docs/plans/v2-design.md).
-        <p className="m-0 font-mono text-sm leading-relaxed text-plan">
+        // Everything on Dispatch is the plan, so the route and the step climbs are marked by a magenta rule at their
+        // left, in plain text: no coloured text on Dispatch (winglog-backend docs/plans/v2-design.md).
+        <p className="m-0 border-l-[3px] border-plan pl-2.5 font-mono text-sm leading-relaxed">
           {ofp.stepClimbs
             .map(
               (climb) => `${climb.atIdent} ${formatAltitude(climb.toAltitudeFt, altitudeUnit, climb.native)}`
@@ -324,7 +324,7 @@ export function OfpDetails(props: {
       <StepClimbs ofp={ofp} altitudeUnit={altitudeUnit} />
       <div className="flex flex-col gap-1">
         <span className="text-[13px] text-muted-foreground">{t('dispatchView.route')}</span>
-        <p className="m-0 max-h-16 overflow-auto font-mono text-[13px] leading-relaxed text-plan">
+        <p className="m-0 max-h-16 overflow-auto border-l-[3px] border-plan pl-2.5 font-mono text-[13px] leading-relaxed">
           {formatEnrouteOnly(ofp.ofpJson)}
         </p>
       </div>
