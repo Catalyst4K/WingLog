@@ -17,7 +17,13 @@ import {
 import { clearSession, saveSession, type StoredSession } from '../backend/session-store'
 import { join } from 'node:path'
 import { backupBeforeFirstSync } from '../db/backup'
-import { getLastSyncCompletedAt, getSetting, setLastSyncCompletedAt, setSetting } from '../db/settings-repo'
+import {
+  clearCloudSyncCursors,
+  getLastSyncCompletedAt,
+  getSetting,
+  setLastSyncCompletedAt,
+  setSetting
+} from '../db/settings-repo'
 import type { WingLogDb } from '../db/client'
 import { runSync } from './sync-engine'
 
@@ -104,6 +110,9 @@ export class CloudSyncController {
       const backupKey = `firstSyncBackup:${this.session.email}`
       if (getSetting(this.db, backupKey) === undefined) {
         const backup = backupBeforeFirstSync(this.dbPath, join(this.userDataPath, 'backups'))
+        // The cursors belong to the account the device last synced with. A new account starts empty, so with the old cursors it would be sent only
+        // what changed since, and never the rest. The first sync with an account sends and fetches everything.
+        clearCloudSyncCursors(this.db)
         setSetting(this.db, backupKey, backup ?? 'no database file')
       }
       const result = await runSync(this.db, { syncPull, syncPush }, this.session, this.dbPath)

@@ -2,7 +2,7 @@ import { join } from 'node:path'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import { createDb, type WingLogDb } from '../db/client'
-import { getLastSyncCompletedAt } from '../db/settings-repo'
+import { getLastSyncCompletedAt, getLastSyncedAt, setLastSyncedAt } from '../db/settings-repo'
 import type { StoredSession } from '../backend/session-store'
 import type { SyncResult } from './sync-engine'
 import { CloudSyncController } from './cloud-sync-controller'
@@ -205,6 +205,21 @@ describe('CloudSyncController', () => {
 
       expect(order).toEqual(['backup', 'sync', 'sync'])
       expect(backupBeforeFirstSync).toHaveBeenCalledWith('/fake/db/path', join('/fake/userdata', 'backups'))
+    })
+
+    it('forgets the cursors of the account before it, once, so a new account is sent everything', async () => {
+      loaded = SESSION
+      setLastSyncedAt(db, 'flight', '2026-09-01T00:00:00.000Z')
+      runSync.mockResolvedValue(okResult)
+      const controller = new CloudSyncController(db, '/fake/db/path', '/fake/userdata', loaded)
+
+      await controller.syncNow()
+      expect(getLastSyncedAt(db, 'flight')).toBeNull()
+
+      // What a sync leaves behind is kept by the next one: the account is no longer new.
+      setLastSyncedAt(db, 'flight', '2026-11-08T00:00:00.000Z')
+      await controller.syncNow()
+      expect(getLastSyncedAt(db, 'flight')).toBe('2026-11-08T00:00:00.000Z')
     })
 
     it('does not sync, and tries again next time, when the snapshot fails', async () => {
