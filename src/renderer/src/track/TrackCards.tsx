@@ -371,7 +371,7 @@ export function FlightToolbar(props: {
               {t('trackView.weatherEllipsis')}
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-md">
+          <DialogContent className="sm:max-w-xl">
             <DialogHeader>
               <DialogTitle>{t('trackView.weather')}</DialogTitle>
             </DialogHeader>
