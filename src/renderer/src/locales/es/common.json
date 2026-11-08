@@ -184,7 +184,12 @@
       "signingUp": "Registrando…",
       "loggedInToast": "Sesión iniciada.",
       "accountCreatedToast": "Cuenta creada e iniciada sesión.",
-      "syncedToast": "Sincronizado."
+      "syncedToast": "Sincronizado.",
+      "deleteAccount": "Eliminar mi cuenta",
+      "deleteExplain": "Elimina tu cuenta en la nube y la copia de tu flota y tu cuaderno de bitácora guardada en el servicio de WingLog. Los datos de este ordenador se conservan. No se puede deshacer.",
+      "deleteConfirm": "Eliminar la cuenta definitivamente",
+      "deleteCancel": "Cancelar",
+      "accountDeletedToast": "Cuenta eliminada."
     },
     "about": {
       "description": "Un compañero personal de gestión de flota, despacho, seguimiento en vivo y bitácora para Microsoft Flight Simulator.",

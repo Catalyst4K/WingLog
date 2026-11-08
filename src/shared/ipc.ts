@@ -482,6 +482,8 @@ export interface WingLogApi {
   /** "Log out this device" — the stored session is cleared locally regardless of whether
    *  the backend round-trip to invalidate it server-side succeeds. */
   authLogout: () => Promise<SyncStatus>
+  /** Deletes the cloud account and everything stored in it, for the right password; the data on this computer stays. Rejects for a wrong password. */
+  authDeleteAccount: (password: string) => Promise<SyncStatus>
   /** Triggers one pull-then-push cycle across all synced tables and returns the resulting
    *  status. Throws only if not logged in; a network/server failure during the sync
    *  itself surfaces via the returned status's lastError instead, so a single try/catch

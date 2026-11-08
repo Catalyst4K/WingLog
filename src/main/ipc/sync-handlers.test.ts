@@ -17,7 +17,8 @@ function fakeCloudSync(loggedIn: boolean): Record<string, ReturnType<typeof vi.f
     syncNow: vi.fn(() => Promise.resolve()),
     login: vi.fn(),
     signup: vi.fn(),
-    logout: vi.fn()
+    logout: vi.fn(),
+    deleteAccount: vi.fn()
   }
 }
 
@@ -81,6 +82,7 @@ describe('sync IPC handlers', () => {
       IpcChannels.authLogin,
       IpcChannels.authSignup,
       IpcChannels.authLogout,
+      IpcChannels.authDeleteAccount,
       IpcChannels.syncNow,
       IpcChannels.syncStatus
     ]) {
@@ -95,11 +97,23 @@ describe('sync IPC handlers', () => {
     invoke(IpcChannels.authLogin, 'pilot@example.com', 'secret')
     invoke(IpcChannels.authSignup, 'pilot@example.com', 'secret', 'INVITE')
     invoke(IpcChannels.authLogout)
+    invoke(IpcChannels.authDeleteAccount, 'secret')
     invoke(IpcChannels.syncNow)
     expect(invoke(IpcChannels.syncStatus)).toEqual({ loggedIn: true })
     expect(cloudSync.login).toHaveBeenCalledWith('pilot@example.com', 'secret')
     expect(cloudSync.signup).toHaveBeenCalledWith('pilot@example.com', 'secret', 'INVITE')
     expect(cloudSync.logout).toHaveBeenCalled()
+    expect(cloudSync.deleteAccount).toHaveBeenCalledWith('secret')
     expect(cloudSync.syncNow).toHaveBeenCalled()
+  })
+
+  it('refuses to delete the account for a password that is not a text of a sensible length', () => {
+    const cloudSync = fakeCloudSync(true)
+    const { ipcMain, invoke } = fakeIpc()
+    registerSyncHandlers(ipcMain, { cloudSync: cloudSync as unknown as CloudSyncController, enabled: true })
+    for (const bad of [undefined, 5, '', 'x'.repeat(1025)]) {
+      expect(() => invoke(IpcChannels.authDeleteAccount, bad)).toThrow('Invalid password')
+    }
+    expect(cloudSync.deleteAccount).not.toHaveBeenCalled()
   })
 })

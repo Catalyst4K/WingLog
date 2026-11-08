@@ -390,6 +390,8 @@ export interface CloudSyncState {
   logIn: (event: React.FormEvent) => Promise<void>
   signUp: (event: React.FormEvent) => Promise<void>
   logOut: () => Promise<void>
+  /** Deletes the cloud account for the password; the data on this computer stays. Resolves true when it was deleted. */
+  deleteAccount: (password: string) => Promise<boolean>
   syncNow: () => Promise<void>
 }
 
@@ -456,6 +458,17 @@ export function useCloudSync(): CloudSyncState {
     setStatus(await winglogApi().authLogout())
   }
 
+  async function deleteAccount(accountPassword: string): Promise<boolean> {
+    try {
+      setStatus(await winglogApi().authDeleteAccount(accountPassword))
+      toast.success(t('settingsView.cloudSync.accountDeletedToast'))
+      return true
+    } catch (err) {
+      toastError(err)
+      return false
+    }
+  }
+
   async function syncNow(): Promise<void> {
     setStatus((current) => ({ ...current, syncing: true }))
     const next = await winglogApi().syncNow()
@@ -478,6 +491,7 @@ export function useCloudSync(): CloudSyncState {
     logIn,
     signUp,
     logOut,
+    deleteAccount,
     syncNow
   }
 }

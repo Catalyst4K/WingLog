@@ -7,8 +7,9 @@ import type { StoredSession } from '../backend/session-store'
 import type { SyncResult } from './sync-engine'
 import { CloudSyncController } from './cloud-sync-controller'
 
-const { backupBeforeFirstSync, saveSession, clearSession, login, logout, provision, runSync } = vi.hoisted(
-  () => ({
+const { backupBeforeFirstSync, saveSession, clearSession, login, logout, deleteAccount, provision, runSync } =
+  vi.hoisted(() => ({
+    deleteAccount: vi.fn(),
     backupBeforeFirstSync: vi.fn(),
     saveSession: vi.fn(),
     clearSession: vi.fn(),
@@ -16,11 +17,17 @@ const { backupBeforeFirstSync, saveSession, clearSession, login, logout, provisi
     logout: vi.fn(),
     provision: vi.fn(),
     runSync: vi.fn()
-  })
-)
+  }))
 
 vi.mock('../backend/session-store', () => ({ saveSession, clearSession }))
-vi.mock('../backend/sync-client', () => ({ login, logout, provision, syncPull: vi.fn(), syncPush: vi.fn() }))
+vi.mock('../backend/sync-client', () => ({
+  login,
+  logout,
+  deleteAccount,
+  provision,
+  syncPull: vi.fn(),
+  syncPush: vi.fn()
+}))
 vi.mock('../db/backup', () => ({ backupBeforeFirstSync }))
 vi.mock('./sync-engine', () => ({ runSync }))
 
@@ -44,6 +51,7 @@ describe('CloudSyncController', () => {
     clearSession.mockReset()
     login.mockReset()
     logout.mockReset().mockResolvedValue(undefined)
+    deleteAccount.mockReset().mockResolvedValue(undefined)
     provision.mockReset()
     runSync.mockReset()
     backupBeforeFirstSync.mockReset().mockReturnValue('/fake/userdata/backups/before-first-sync-1.db')
@@ -116,6 +124,42 @@ describe('CloudSyncController', () => {
       lastError: null
     })
     expect(getLastSyncCompletedAt(db)).toBeNull()
+  })
+
+  describe('deleting the account', () => {
+    it('deletes it on the service with the password, then signs out and forgets the cloud cursors, keeping the twin link’s', async () => {
+      loaded = SESSION
+      setLastSyncedAt(db, 'flight', '2026-11-01T00:00:00.000Z')
+      setLastSyncedAt(db, 'lan:flight', '2026-11-08T00:00:00.000Z')
+      const controller = new CloudSyncController(db, '/fake/db/path', '/fake/userdata', loaded)
+
+      const status = await controller.deleteAccount('the password')
+
+      expect(deleteAccount).toHaveBeenCalledWith(SESSION.email, 'the password')
+      expect(clearSession).toHaveBeenCalledWith('/fake/userdata')
+      expect(status.loggedIn).toBe(false)
+      expect(getLastSyncedAt(db, 'flight')).toBeNull()
+      expect(getLastSyncedAt(db, 'lan:flight')).toBe('2026-11-08T00:00:00.000Z')
+    })
+
+    it('stays signed in, and deletes nothing here, when the service refuses', async () => {
+      loaded = SESSION
+      setLastSyncedAt(db, 'flight', '2026-11-01T00:00:00.000Z')
+      deleteAccount.mockRejectedValue(new Error('invalid email or password'))
+      const controller = new CloudSyncController(db, '/fake/db/path', '/fake/userdata', loaded)
+
+      await expect(controller.deleteAccount('wrong')).rejects.toThrow('invalid email or password')
+
+      expect(clearSession).not.toHaveBeenCalled()
+      expect(controller.getStatus().loggedIn).toBe(true)
+      expect(getLastSyncedAt(db, 'flight')).toBe('2026-11-01T00:00:00.000Z')
+    })
+
+    it('refuses when not signed in, without calling the service', async () => {
+      const controller = new CloudSyncController(db, '/fake/db/path', '/fake/userdata', null)
+      await expect(controller.deleteAccount('x')).rejects.toThrow()
+      expect(deleteAccount).not.toHaveBeenCalled()
+    })
   })
 
   it('refuses to sync when not logged in', async () => {

@@ -177,7 +177,12 @@
       "signingUp": "正在註冊…",
       "loggedInToast": "已登入。",
       "accountCreatedToast": "帳號已建立並登入。",
-      "syncedToast": "已同步。"
+      "syncedToast": "已同步。",
+      "deleteAccount": "刪除我的帳戶",
+      "deleteExplain": "刪除您的雲端帳戶，以及存放在 WingLog 服務上的機隊與飛行日誌副本。此電腦上的資料會保留。此操作無法復原。",
+      "deleteConfirm": "永久刪除帳戶",
+      "deleteCancel": "取消",
+      "accountDeletedToast": "帳戶已刪除。"
     },
     "about": {
       "description": "適用於 Microsoft Flight Simulator 的個人機隊管理、簽派、即時航跡追蹤與飛行日誌隨行應用程式。",

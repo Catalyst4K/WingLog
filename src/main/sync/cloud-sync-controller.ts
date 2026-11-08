@@ -10,6 +10,7 @@ import { t } from '../i18n'
 import {
   login as backendLogin,
   logout as backendLogout,
+  deleteAccount as backendDeleteAccount,
   provision as backendProvision,
   syncPull,
   syncPush
@@ -87,6 +88,29 @@ export class CloudSyncController {
       // shouldn't leave the user stuck "logged in" on this device.
       await backendLogout(this.session.email, this.session.token).catch(() => {})
     }
+    return this.forgetSession()
+  }
+
+  /**
+   * Deletes the cloud account and everything stored in it (the right to erasure; winglog-backend's docs/plans/cloud-sync-v2.md, section 4).
+   * The data on this computer stays. The password is asked for again so a signed-in session left open cannot delete the account.
+   *
+   * @param password The account's password.
+   * @returns The signed-out status.
+   * @throws When not signed in, or the backend refuses (a wrong password): then nothing is deleted and the session stays.
+   */
+  async deleteAccount(password: string): Promise<SyncStatus> {
+    if (!this.session) throw new Error(t('errors.notLoggedIn'))
+    await backendDeleteAccount(this.session.email, password)
+    // A later account on this computer is sent everything, not only what changed since this one's last sync.
+    clearCloudSyncCursors(this.db)
+    return this.forgetSession()
+  }
+
+  /**
+   * @returns The signed-out status, after the session and the last-synced time are forgotten here.
+   */
+  private forgetSession(): SyncStatus {
     this.session = null
     clearSession(this.userDataPath)
     this.lastSyncedAt = null

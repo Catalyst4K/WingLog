@@ -71,6 +71,17 @@ export async function provision(email: string, password: string, inviteCode: str
 }
 
 /**
+ * `POST /auth/delete`: deletes the account on the backend, and everything stored in it, for the right password.
+ *
+ * @param email The account.
+ * @param password The account's password, sent once and never stored.
+ * @throws When the backend refuses (a wrong password).
+ */
+export async function deleteAccount(email: string, password: string): Promise<void> {
+  await postJson('/auth/delete', { email, password })
+}
+
+/**
  * Ends the session on the backend.
  *
  * @param email The account.

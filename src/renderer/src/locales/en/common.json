@@ -182,7 +182,12 @@
       "signingUp": "Signing up…",
       "loggedInToast": "Logged in.",
       "accountCreatedToast": "Account created and logged in.",
-      "syncedToast": "Synced."
+      "syncedToast": "Synced.",
+      "deleteAccount": "Delete my account",
+      "deleteExplain": "Deletes your cloud account and the copy of your fleet and logbook stored on WingLog’s service. The data on this computer stays. This can’t be undone.",
+      "deleteConfirm": "Delete account permanently",
+      "deleteCancel": "Cancel",
+      "accountDeletedToast": "Account deleted."
     },
     "about": {
       "description": "A personal fleet-management, dispatch, live-tracking and logbook companion for Microsoft Flight Simulator.",

@@ -1,6 +1,6 @@
 /** Settings → Import and export: Fleet and Logbook import and export, and cloud sync. */
 
-import { useId } from 'react'
+import { useId, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { DataFormat } from '@shared/ipc'
 import { Button } from '@/components/ui/button'
@@ -98,6 +98,62 @@ export function DataCard(props: { data: DataTransferState }): React.JSX.Element 
 }
 
 /**
+ * Delete my account: a button that opens a short confirmation asking for the password again.
+ *
+ * @param props The cloud sync's state and actions.
+ * @returns The element.
+ */
+function DeleteAccount(props: { sync: CloudSyncState }): React.JSX.Element {
+  const { t } = useTranslation()
+  const [open, setOpen] = useState(false)
+  const [password, setPassword] = useState('')
+  const [deleting, setDeleting] = useState(false)
+  const passwordId = useId()
+
+  async function confirm(event: React.FormEvent): Promise<void> {
+    event.preventDefault()
+    setDeleting(true)
+    const deleted = await props.sync.deleteAccount(password)
+    // Deleted: the card is signed out and this goes with it. Not deleted: the password stays for another try.
+    if (!deleted) setDeleting(false)
+  }
+
+  if (!open) {
+    return (
+      <SettingRow label={t('settingsView.cloudSync.deleteExplain')}>
+        <Button type="button" variant="outline" size="sm" onClick={() => setOpen(true)}>
+          {t('settingsView.cloudSync.deleteAccount')}
+        </Button>
+      </SettingRow>
+    )
+  }
+  return (
+    <form onSubmit={asyncHandler('SettingsView handleDeleteAccount', confirm)} className="flex flex-col gap-2">
+      <p className="text-sm text-destructive">{t('settingsView.cloudSync.deleteExplain')}</p>
+      <label htmlFor={passwordId} className="text-sm">
+        {t('settingsView.cloudSync.password')}
+      </label>
+      <Input
+        id={passwordId}
+        type="password"
+        autoComplete="current-password"
+        value={password}
+        onChange={(event) => setPassword(event.target.value)}
+        required
+      />
+      <div className="flex gap-2">
+        <Button type="submit" variant="destructive" size="sm" disabled={deleting || password.length === 0}>
+          {t('settingsView.cloudSync.deleteConfirm')}
+        </Button>
+        <Button type="button" variant="outline" size="sm" onClick={() => setOpen(false)} disabled={deleting}>
+          {t('settingsView.cloudSync.deleteCancel')}
+        </Button>
+      </div>
+    </form>
+  )
+}
+
+/**
  * The signed-in account: who, when it last synced, and Sync now.
  *
  * @param props The cloud sync's state and actions.
@@ -140,6 +196,7 @@ function CloudAccount(props: { sync: CloudSyncState }): React.JSX.Element {
           {status.lastError}
         </p>
       )}
+      <DeleteAccount sync={props.sync} />
     </>
   )
 }

@@ -267,6 +267,7 @@ const api: WingLogApi = {
   authSignup: (email: string, password: string, inviteCode: string) =>
     ipcRenderer.invoke(IpcChannels.authSignup, email, password, inviteCode),
   authLogout: () => ipcRenderer.invoke(IpcChannels.authLogout),
+  authDeleteAccount: (password: string) => ipcRenderer.invoke(IpcChannels.authDeleteAccount, password),
   syncNow: () => ipcRenderer.invoke(IpcChannels.syncNow),
   syncStatus: () => ipcRenderer.invoke(IpcChannels.syncStatus),
   appGetVersion: () => ipcRenderer.invoke(IpcChannels.appGetVersion),

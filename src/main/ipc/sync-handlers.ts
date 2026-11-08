@@ -12,6 +12,9 @@ import type { CloudSyncController } from '../sync/cloud-sync-controller'
 /** How long after the last local change the background sync runs, in milliseconds. */
 export const BACKGROUND_SYNC_DELAY_MS = 2000
 
+/** The longest password sent to the service, as its own limit (1024) has it. */
+const MAX_PASSWORD_CHARS = 1024
+
 /**
  * The push-on-mutation half of cloud sync (winglog-backend/docs/plans/cloud-sync-v2.md #3).
  *
@@ -81,6 +84,11 @@ export function registerSyncHandlers(
     cloudSync.signup(email, password, inviteCode)
   )
   ipcMain.handle(IpcChannels.authLogout, () => cloudSync.logout())
+  ipcMain.handle(IpcChannels.authDeleteAccount, (_event, password: unknown) => {
+    if (typeof password !== 'string' || password.length === 0 || password.length > MAX_PASSWORD_CHARS)
+      throw new Error('Invalid password')
+    return cloudSync.deleteAccount(password)
+  })
   ipcMain.handle(IpcChannels.syncNow, () => cloudSync.syncNow())
   ipcMain.handle(IpcChannels.syncStatus, () => cloudSync.getStatus())
 }

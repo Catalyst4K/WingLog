@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { login, logout, provision, syncPull, syncPush } from './sync-client'
+import { deleteAccount, login, logout, provision, syncPull, syncPush } from './sync-client'
 
 function fetchMock(status: number, body: unknown) {
   return vi.fn<
@@ -70,6 +70,22 @@ describe('logout', () => {
     const [url, init] = mock.mock.calls[0]
     expect(url).toBe('https://flightdeck-backend.callum-jones5.workers.dev/auth/logout')
     expect(JSON.parse(init?.body as string)).toEqual({ email: 'callum@example.com', token: 'tok' })
+  })
+})
+
+describe('deleteAccount', () => {
+  it('posts email and password to /auth/delete, and fails when the backend refuses', async () => {
+    const mock = fetchMock(200, { ok: true })
+    vi.stubGlobal('fetch', mock)
+    await deleteAccount('callum@example.com', 'a long enough password')
+    const [url, init] = mock.mock.calls[0]
+    expect(url).toBe('https://flightdeck-backend.callum-jones5.workers.dev/auth/delete')
+    expect(JSON.parse(init?.body as string)).toEqual({
+      email: 'callum@example.com',
+      password: 'a long enough password'
+    })
+    vi.stubGlobal('fetch', fetchMock(401, { error: 'invalid email or password' }))
+    await expect(deleteAccount('callum@example.com', 'wrong')).rejects.toThrow()
   })
 })
 

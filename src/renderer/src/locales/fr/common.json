@@ -184,7 +184,12 @@
       "signingUp": "Inscription…",
       "loggedInToast": "Connecté.",
       "accountCreatedToast": "Compte créé et connecté.",
-      "syncedToast": "Synchronisé."
+      "syncedToast": "Synchronisé.",
+      "deleteAccount": "Supprimer mon compte",
+      "deleteExplain": "Supprime votre compte cloud et la copie de votre flotte et de votre carnet de vol stockée sur le service de WingLog. Les données de cet ordinateur sont conservées. Cette action est irréversible.",
+      "deleteConfirm": "Supprimer définitivement le compte",
+      "deleteCancel": "Annuler",
+      "accountDeletedToast": "Compte supprimé."
     },
     "about": {
       "description": "Un compagnon personnel de gestion de flotte, de régulation, de suivi en direct et de carnet de vol pour Microsoft Flight Simulator.",

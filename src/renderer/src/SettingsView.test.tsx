@@ -1354,6 +1354,42 @@ describe('SettingsView', () => {
       expect(winglog.authLogout).toHaveBeenCalled()
       expect(await screen.findByLabelText('Email')).toBeInTheDocument()
     })
+
+    it('deletes the account after asking for the password again, and signs out', async () => {
+      const winglog = setWinglog({
+        syncStatus: vi.fn().mockResolvedValue(makeSyncStatus({ loggedIn: true, email: 'pilot@example.com' })),
+        authDeleteAccount: vi.fn().mockResolvedValue(makeSyncStatus())
+      })
+      const user = userEvent.setup()
+      renderSettings()
+      await user.click(screen.getByRole('tab', { name: 'Import and export' }))
+      await user.click(await screen.findByRole('button', { name: 'Delete my account' }))
+      const confirm = screen.getByRole('button', { name: 'Delete account permanently' })
+      expect(confirm).toBeDisabled()
+      await user.type(screen.getByLabelText('Password'), 'the right password')
+      await user.click(confirm)
+      expect(winglog.authDeleteAccount).toHaveBeenCalledWith('the right password')
+      expect(await screen.findByLabelText('Email')).toBeInTheDocument()
+      expect(toast.success).toHaveBeenCalledWith('Account deleted.')
+    })
+
+    it('keeps the account and shows the error when the password is refused, and lets the user cancel', async () => {
+      const winglog = setWinglog({
+        syncStatus: vi.fn().mockResolvedValue(makeSyncStatus({ loggedIn: true, email: 'pilot@example.com' })),
+        authDeleteAccount: vi.fn().mockRejectedValue(new Error('invalid email or password'))
+      })
+      const user = userEvent.setup()
+      renderSettings()
+      await user.click(screen.getByRole('tab', { name: 'Import and export' }))
+      await user.click(await screen.findByRole('button', { name: 'Delete my account' }))
+      await user.type(screen.getByLabelText('Password'), 'wrong password')
+      await user.click(screen.getByRole('button', { name: 'Delete account permanently' }))
+      await waitFor(() => expect(toast.error).toHaveBeenCalled())
+      expect(winglog.authDeleteAccount).toHaveBeenCalledTimes(1)
+      expect(screen.getByRole('button', { name: 'Log out' })).toBeInTheDocument()
+      await user.click(screen.getByRole('button', { name: 'Cancel' }))
+      expect(screen.getByRole('button', { name: 'Delete my account' })).toBeInTheDocument()
+    })
   })
 
   describe('About', () => {
