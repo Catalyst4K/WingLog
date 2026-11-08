@@ -49,8 +49,15 @@ menu, tap a routine's name to start it. Three come with WingLog:
 - **Turnaround clean**: Deboarding, then Cleaning, Lavatory and Water.
 
 While a routine runs, the page shows which stage it's in, where each service is, and what it's
-waiting for. **Cancel** stops it. WingLog asks GSX for one service at a time, opening GSX's menu and
+waiting for. WingLog asks GSX for one service at a time, opening GSX's menu and
 picking the service by its name, so it still works if GSX's menu changes while a service runs.
+
+- **Cancel.** With nothing under way, it stops the routine at once. If services it asked for are still
+  running, WingLog asks what to do with them: **Abort** them, **Complete** them now, **Leave** them
+  running (the routine stops and GSX carries on by itself), or **Keep the routine going**. Abort and
+  Complete work through GSX's own "Service in progress" menu, one service at a time; a service that
+  doesn't respond within ten seconds is left as it is and the status line says so. Services you
+  started yourself in GSX are never touched.
 
 - **Questions GSX asks.** Which handling or catering operator to use is yours to answer, unless the
   routine is set to **Answer GSX's own default for me**. The refuelling level is yours unless the
