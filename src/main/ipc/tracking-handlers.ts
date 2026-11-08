@@ -7,6 +7,7 @@
  */
 import type { IpcMain } from 'electron'
 import { isRetired } from '@shared/aircraft'
+import type { FlightRelayPort } from '../host-link/flight-relay'
 import {
   IpcChannels,
   type ActiveTracking,
@@ -47,6 +48,8 @@ export interface TrackingHandlerDeps {
   onFlightsChanged?: () => void
   /** A client's answer for the flight being tracked on the sim PC, which it does not track itself: used when it has one. */
   mirroredActive?: () => ActiveTracking | null
+  /** On a client, where Fly, Start, Finish, Stop and Cancel go: to the sim PC, which is where the sim is. Left out on a host. */
+  relay?: FlightRelayPort
 }
 
 /**
@@ -101,11 +104,15 @@ export function registerTrackingHandlers(ipcMain: IpcMain, deps: TrackingHandler
   const { db, trackingController, autoStartDetector, releaseReplay, scheduleBackgroundSync } = deps
 
   ipcMain.handle(IpcChannels.trackingStart, (_event, flightId: number) => {
+    if (deps.relay) return deps.relay.start(flightId)
     autoStartDetector.disarm()
     trackingController.start(flightId)
     releaseReplay()
+    return undefined
   })
   ipcMain.handle(IpcChannels.trackingStartFree, (_event, input: StartFreeFlightInput) => {
+    // A free flight is the sim's aircraft as it is: the sim is on the other computer.
+    if (deps.relay) throw new Error(t('errors.freeFlightOnSimPc'))
     const { simRegistration, simIcaoType } = freeFlightAircraft(db, input)
     autoStartDetector.disarm()
     const flightId = trackingController.startFree({
@@ -127,8 +134,8 @@ export function registerTrackingHandlers(ipcMain: IpcMain, deps: TrackingHandler
       input: { atcId: string; atcModel: string; title: string; latitude: number; longitude: number }
     ) => getFreeFlightPrefill((title) => getAircraftIdForTitle(db, title), input)
   )
-  ipcMain.handle(IpcChannels.trackingStop, () => trackingController.stop())
-  ipcMain.handle(IpcChannels.trackingFinish, () => trackingController.finish())
+  ipcMain.handle(IpcChannels.trackingStop, () => deps.relay?.stop() ?? trackingController.stop())
+  ipcMain.handle(IpcChannels.trackingFinish, () => deps.relay?.finish() ?? trackingController.finish())
   ipcMain.handle(
     IpcChannels.trackingGetActive,
     () => deps.mirroredActive?.() ?? trackingController.getActive() ?? null
@@ -196,13 +203,15 @@ export function registerFlightHandlers(ipcMain: IpcMain, deps: TrackingHandlerDe
     autoStartDetector.arm(flight.id, getLastTelemetry(), flight.depIcao)
     scheduleBackgroundSync()
     onFlightsChanged?.()
-    return flight
+    // On a client the flight is planned here and flown there: the sim PC is told once it has the flight.
+    return deps.relay ? deps.relay.fly(flight.id).then(() => flight) : flight
   })
   ipcMain.handle(IpcChannels.flightCancel, (_event, id: number) => {
     abandonFlight(db, id)
     autoStartDetector.disarm()
     scheduleBackgroundSync()
     onFlightsChanged?.()
+    return deps.relay?.cancel(id)
   })
   ipcMain.handle(IpcChannels.flightDeleteLocationImpact, (_event, id: number) => {
     return getDeleteLocationImpact(db, id) ?? null

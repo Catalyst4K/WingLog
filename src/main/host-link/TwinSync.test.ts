@@ -168,10 +168,11 @@ describe('TwinSync', () => {
   it('runs one sync at a time, and once more when asked during one', async () => {
     const { twin, ask, release, states, cleanup } = sync()
     const first = twin.run()
-    await twin.run()
-    await twin.run()
+    const during = [twin.run(), twin.run()]
     release()
     await first
+    // Whoever asked during the sync hears how the next one went.
+    expect(await Promise.all(during)).toEqual([true, true])
     // Four tables pulled in the first run, four again in the one asked for while it ran, however many times it was asked.
     expect(ask.mock.calls.filter(([name]) => name === 'sync.pull')).toHaveLength(8)
     expect(states).toEqual(['syncing', 'idle', 'syncing', 'idle'])
@@ -188,7 +189,7 @@ describe('TwinSync', () => {
 
   it('says it failed, keeps the last good time, and does not throw', async () => {
     const { twin, cleanup } = sync({ fail: true })
-    await expect(twin.run()).resolves.toBeUndefined()
+    await expect(twin.run()).resolves.toBe(false)
     expect(twin.status()).toEqual({ state: 'error', lastSyncedAt: null })
     cleanup()
   })

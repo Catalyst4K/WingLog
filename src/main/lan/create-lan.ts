@@ -36,6 +36,7 @@ import type { LiveCommand } from '@shared/live'
 import { fetchMetars } from '../weather/metar-client'
 import { LanController } from './LanController'
 import { twinSyncQueries } from './twin-sync'
+import { twinFlightQueries, type FlightControl } from './twin-flight'
 import { onLocalWrite } from '../sync/local-write-hints'
 import { lanFlightKey, lanFlightSnapshot } from './lan-flight'
 import { LanServer, type StaticFile } from './LanServer'
@@ -47,6 +48,8 @@ export interface CreateLanDeps {
   db: WingLogDb
   /** The database file's path: where a twin's sync conflicts are logged, next to it. */
   dbPath: string
+  /** What a twin may make this computer do with a flight (fly, start, finish, stop, cancel). */
+  flightControl: FlightControl
   liveHub: Pick<LiveHub, 'subscribe' | 'snapshot' | 'publish'>
   trackingController: Pick<TrackingController, 'getActive' | 'on'>
   /** The procedure choice for the flight shown: the one every screen follows. */
@@ -175,6 +178,7 @@ export function lanQueries(
 export function createLan({
   db,
   dbPath,
+  flightControl,
   liveHub,
   trackingController,
   selection,
@@ -229,6 +233,7 @@ export function createLan({
     },
     queries: {
       ...twinSyncQueries(db, dbPath),
+      ...twinFlightQueries(flightControl),
       ...lanQueries(navdata, {
         display: () => ({
           weightUnit: getWeightUnit(db),

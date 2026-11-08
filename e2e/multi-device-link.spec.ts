@@ -113,6 +113,40 @@ test('a client pairs with the host by address and code, follows its sim and keep
         expect(await client.window.evaluate(() => window.winglog.hostLinkGetStatus())).toMatchObject({
           sync: { state: 'idle' }
         })
+        // A flight is planned on the client and flown on the host, where the sim is: Fly sends it across, Start tracks it there, Finish ends it.
+        const planned = await client.window.evaluate(async () => {
+          const aircraft = (await window.winglog.aircraftList()).find((a) => a.registration === 'G-HOST')
+          return window.winglog.flightCreate({
+            aircraftId: aircraft?.id ?? 0,
+            depIcao: 'EGLL',
+            arrIcao: 'EGCC',
+            flightNumber: 'MAC1'
+          })
+        })
+        await expect
+          .poll(
+            () =>
+              host.window.evaluate(async () =>
+                (await window.winglog.flightList())
+                  .filter((f) => f.status === 'planned')
+                  .map((f) => f.flightNumber)
+              ),
+            { timeout: 30_000 }
+          )
+          .toEqual(['MAC1'])
+        await client.window.evaluate((id) => window.winglog.trackingStart(id), planned.id)
+        await expect
+          .poll(() => host.window.evaluate(async () => (await window.winglog.trackingGetActive()) !== null), {
+            timeout: 30_000
+          })
+          .toBe(true)
+        await client.window.evaluate(() => window.winglog.trackingFinish())
+        await expect
+          .poll(() => host.window.evaluate(async () => (await window.winglog.trackingGetActive()) === null), {
+            timeout: 30_000
+          })
+          .toBe(true)
+
         // The host starts tracking a flight; the client's own Track screen reads it as its own flight, found by uuid, with the host's
         // track so far, though the client tracks nothing and its flight ids are not the host's.
         const hostFlight = await host.window.evaluate(async () => {

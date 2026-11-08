@@ -11,6 +11,7 @@ import { runLogged } from './logging/run-logged'
 import type { LiveHub } from './live/LiveHub'
 import { HostLink } from './host-link/HostLink'
 import { mapFlightTopic, type FlightMirror } from './host-link/flight-mirror'
+import type { FlightRelay } from './host-link/flight-relay'
 import { registerHostLinkHandlers } from './host-link/client-ipc'
 import { fileHostLinkStore } from './host-link/host-link-store'
 import { LanSyncClient } from './host-link/lan-sync-client'
@@ -28,6 +29,7 @@ import { onLocalWrite } from './sync/local-write-hints'
  * @param deps.db The database that is kept in step with the sim PC's.
  * @param deps.dbPath The database file's path, where conflicts are logged next to it.
  * @param deps.mirror The flight the sim PC is tracking, as this computer's own screens read it.
+ * @param deps.relay Where Fly, Start, Finish and Cancel go: to the sim PC.
  */
 export function startClientServices(deps: {
   liveHub: LiveHub
@@ -36,8 +38,9 @@ export function startClientServices(deps: {
   db: WingLogDb
   dbPath: string
   mirror: FlightMirror
+  relay: FlightRelay
 }): void {
-  const { liveHub, window, handled, db, dbPath, mirror } = deps
+  const { liveHub, window, handled, db, dbPath, mirror, relay } = deps
   const sync = new TwinSync({
     db,
     dbPath,
@@ -58,6 +61,7 @@ export function startClientServices(deps: {
     onFlight: (flight, track) => (flight ? mirror.setFlight(flight, track) : mirror.clear())
   })
   registerHostLinkHandlers(ipcMain, { link, hub: liveHub, handled })
+  relay.bind(sync, (name, ...args) => link.query(name, ...args))
   // Each time a sync ends well the lists on screen can be read again: rows may have come in.
   let lastSeen: string | null = null
   sync.onChange(() => {

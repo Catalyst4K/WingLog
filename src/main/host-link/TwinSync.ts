@@ -33,6 +33,7 @@ export class TwinSync implements TwinSyncPort {
   private current: TwinSyncStatus = { state: 'idle', lastSyncedAt: null }
   private running = false
   private again = false
+  private waiting: { promise: Promise<boolean> } | null = null
   private timer: NodeJS.Timeout | null = null
   private readonly listeners: (() => void)[] = []
 
@@ -70,14 +71,20 @@ export class TwinSync implements TwinSyncPort {
     this.timer = null
   }
 
-  /** Runs one sync now, or, when one is under way, again straight after it. Never rejects: a failure is the status's error. */
-  async run(): Promise<void> {
-    if (!this.deps.canSync()) return
+  /**
+   * Runs one sync now, or, when one is under way, again straight after it; resolves when the sync asked for has ended.
+   * Never rejects: a failure is the status's error.
+   *
+   * @returns True when the sync ended well, false when the link is down or it failed.
+   */
+  async run(): Promise<boolean> {
+    if (!this.deps.canSync()) return false
     if (this.running) {
       this.again = true
-      return
+      return (await this.waiting?.promise) ?? false
     }
     this.running = true
+    const waiting = this.startWaiting()
     this.set({ state: 'syncing', lastSyncedAt: this.current.lastSyncedAt })
     try {
       const result = await runSync(
@@ -94,10 +101,23 @@ export class TwinSync implements TwinSyncPort {
     } finally {
       this.running = false
     }
+    const ok = this.current.state === 'idle'
+    // A change made during this sync gets one more, and whoever asked during it hears that one's result.
+    let result = ok
     if (this.again) {
       this.again = false
-      await this.run()
+      result = await this.run()
     }
+    waiting.settle(result)
+    return result
+  }
+
+  /** @returns What those who ask during a sync wait on. */
+  private startWaiting(): { settle: (ok: boolean) => void } {
+    let settle: (ok: boolean) => void = () => {}
+    const promise = new Promise<boolean>((resolve) => (settle = resolve))
+    this.waiting = { promise }
+    return { settle }
   }
 
   private set(next: TwinSyncStatus): void {

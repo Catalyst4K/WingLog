@@ -5,6 +5,7 @@
 import { runLogged } from './logging/run-logged'
 import { join } from 'node:path'
 import { app, ipcMain, shell } from 'electron'
+import type { FlightControl } from './lan/twin-flight'
 import { type WingLogDb } from './db/client'
 import { getLiveFlight } from './db/flight-repo'
 import { SimConnectService } from './sim/SimConnectService'
@@ -103,7 +104,15 @@ function startOnlineNetwork(
 function startSecondScreen(
   deps: Pick<
     Parameters<typeof createLan>[0],
-    'db' | 'dbPath' | 'liveHub' | 'trackingController' | 'selection' | 'navdata' | 'addOnCommands' | 'atis'
+    | 'db'
+    | 'dbPath'
+    | 'flightControl'
+    | 'liveHub'
+    | 'trackingController'
+    | 'selection'
+    | 'navdata'
+    | 'addOnCommands'
+    | 'atis'
   >
 ): void {
   const lan = createLan({
@@ -128,6 +137,7 @@ function startSecondScreen(
 export function startHostServices(deps: {
   db: WingLogDb
   dbPath: string
+  flightControl: FlightControl
   liveHub: LiveHub
   devDiagnostics: DevDiagnostics | undefined
   sim: SimConnectService | ReplaySimConnectService
@@ -154,6 +164,7 @@ export function startHostServices(deps: {
   startSecondScreen({
     db,
     dbPath,
+    flightControl: deps.flightControl,
     liveHub,
     trackingController,
     selection: deps.selection,

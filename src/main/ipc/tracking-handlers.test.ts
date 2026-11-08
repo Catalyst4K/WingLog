@@ -142,6 +142,62 @@ describe('tracking and flight IPC handlers', () => {
     expect(register()(IpcChannels.trackingGetActive)).toEqual({ flightId: 9, phase: 'taxi' })
   })
 
+  describe('on a client, which sends flight commands to the sim PC', () => {
+    const relay = {
+      fly: vi.fn(() => Promise.resolve()),
+      start: vi.fn(() => Promise.resolve()),
+      finish: vi.fn(() => Promise.resolve()),
+      stop: vi.fn(() => Promise.resolve()),
+      cancel: vi.fn(() => Promise.resolve())
+    }
+
+    function registerWithRelay(): ReturnType<typeof fakeIpc>['invoke'] {
+      deps = { ...deps, relay }
+      return register()
+    }
+
+    it('sends start, finish and stop to the sim PC and does nothing here', async () => {
+      const invoke = registerWithRelay()
+      await invoke(IpcChannels.trackingStart, 4)
+      await invoke(IpcChannels.trackingFinish)
+      await invoke(IpcChannels.trackingStop)
+      expect(relay.start).toHaveBeenCalledWith(4)
+      expect(relay.finish).toHaveBeenCalled()
+      expect(relay.stop).toHaveBeenCalled()
+      expect(tracking.start).not.toHaveBeenCalled()
+      expect(tracking.finish).not.toHaveBeenCalled()
+      expect(autoStartDetector.disarm).not.toHaveBeenCalled()
+    })
+
+    it('plans a flight here and has the sim PC fly it, and cancels it there too', async () => {
+      const invoke = registerWithRelay()
+      const aircraftId = createAircraft(db, { registration: 'G-MACX', icaoType: 'A320' }).id
+      const flight = (await invoke(IpcChannels.flightCreate, {
+        aircraftId,
+        depIcao: 'EGLL',
+        arrIcao: 'EGCC'
+      })) as { id: number }
+      expect(relay.fly).toHaveBeenCalledWith(flight.id)
+      await invoke(IpcChannels.flightCancel, flight.id)
+      expect(relay.cancel).toHaveBeenCalledWith(flight.id)
+    })
+
+    it('refuses a free flight, which is the sim aircraft as it is, on the other computer', () => {
+      const invoke = registerWithRelay()
+      expect(() =>
+        invoke(IpcChannels.trackingStartFree, {
+          aircraftId: null,
+          simRegistration: null,
+          simIcaoType: null,
+          depIcao: 'EGLL',
+          arrIcao: 'EGCC',
+          flightNumber: null
+        })
+      ).toThrow()
+      expect(tracking.startFree).not.toHaveBeenCalled()
+    })
+  })
+
   it('passes stop, finish and the active flight to the controller', () => {
     const invoke = register()
     invoke(IpcChannels.trackingStop)

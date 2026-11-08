@@ -9,12 +9,14 @@ import { backfillAircraftPhotos } from './aircraft-lookup/photo-backfill'
 import { planespottersUserAgent } from './aircraft-lookup/planespotters-client'
 import { join } from 'node:path'
 import { canHostSim, canShowTray, currentPlatform, quitsWhenAllWindowsClose } from './platform/platform'
-import { appCapabilities } from '@shared/run-mode'
+import { appCapabilities, type AppCapabilities } from '@shared/run-mode'
 import { registerInertHandlers, trackHandledChannels } from './client-mode'
 import { registerRunModeHandlers } from './ipc/run-mode-handlers'
 import { startHostServices } from './host-services'
 import { startClientServices } from './client-services'
 import { FlightMirror } from './host-link/flight-mirror'
+import { FlightRelay } from './host-link/flight-relay'
+import { flightControl as makeFlightControl, type FlightControl } from './lan/twin-flight'
 import { getFlightIdByUuid } from './db/flight-repo'
 import { CloseGuard } from './window/CloseGuard'
 import { CloseQuestion } from './window/CloseQuestion'
@@ -330,6 +332,34 @@ function startFleetAndLookups(
 }
 
 /**
+ * The updates, the window's behaviour, and the settings, app and run mode IPC.
+ *
+ * @param deps The database, the window, tracking, and what this run is.
+ */
+function registerAppAreas(deps: {
+  db: WingLogDb
+  window: BrowserWindow
+  trackingController: TrackingController
+  capabilities: AppCapabilities
+}): void {
+  const { db, window, trackingController, capabilities } = deps
+  // The window's edge takes the page's ground colour instead of the system accent (window-edge.ts).
+  const refreshWindowEdges = keepWindowEdgesInStep(() => getTheme(db))
+  refreshWindowEdges()
+  const updateService = startUpdates(db, window, () => trackingController.getActive() !== undefined)
+  app.on('before-quit', () => updateService.stop())
+  const trayController = startWindowBehaviour(db, window, trackingController)
+  registerSettingsHandlers(ipcMain, {
+    db,
+    trackingController,
+    trayController,
+    onThemeChanged: refreshWindowEdges
+  })
+  registerAppHandlers(ipcMain, { updateService })
+  registerRunModeHandlers(ipcMain, { db, capabilities })
+}
+
+/**
  * Cloud sync (winglog-backend/docs/plans/cloud-sync.md) — off by default, and the only feature that talks to winglog-backend for anything
  * beyond the stateless SimBrief signing route. Constructed before any mutating handler, so each can trigger a background sync after a
  * successful write. Pull-on-launch: one sync at startup when a session already exists, so this device picks up whatever changed elsewhere
@@ -357,12 +387,13 @@ function startCloudSync(
  * Registers the tracking and flight IPC, and applies the auto-finish setting.
  *
  * @param deps The database, the sim, tracking and what they tell when flights change.
+ * @returns What a twin may make this computer do with a flight.
  */
 function registerTrackingAreas(
   deps: Omit<Parameters<typeof registerTrackingHandlers>[1], 'getLastTelemetry' | 'releaseReplay'> & {
     sim: SimConnectService | ReplaySimConnectService
   }
-): void {
+): FlightControl {
   const { sim, ...rest } = deps
   const trackingDeps = {
     ...rest,
@@ -375,6 +406,8 @@ function registerTrackingAreas(
   registerTrackingHandlers(ipcMain, trackingDeps)
   registerFlightHandlers(ipcMain, trackingDeps)
   rest.trackingController.setAutoFinish(getTrackingSettings(rest.db).autoFinish)
+  // What a twin may make this computer do with a flight, built from the same pieces the window's buttons use.
+  return makeFlightControl({ ...trackingDeps, trackingController: rest.trackingController })
 }
 
 /**
@@ -401,9 +434,6 @@ function startApp(cloudSession: StoredSession | null): void {
   // way to move around; a bare File/Edit/Window bar above it was clutter, not useful.
   Menu.setApplicationMenu(null)
   const window = createWindow()
-  // The window's edge takes the page's ground colour instead of the system accent (window-edge.ts).
-  const refreshWindowEdges = keepWindowEdgesInStep(() => getTheme(db))
-  refreshWindowEdges()
   startStorageMaintenance(sqlite, backedUp)
   // Live state (sim, tracking, GSX Remote, BeyondATC) goes through one hub, and the window
   // is its first subscriber (winglog-backend's docs/plans/live-data-seam.md, part A).
@@ -415,6 +445,7 @@ function startApp(cloudSession: StoredSession | null): void {
   const { cloudSync, scheduleBackgroundSync } = startCloudSync(db, dbPath, cloudSession)
   // The flight the sim PC is tracking, as a client sees it (idle on a host).
   const flightMirror = new FlightMirror((uuid) => getFlightIdByUuid(db, uuid))
+  const flightRelay = new FlightRelay(db)
 
   registerLogbookHandlers(ipcMain, {
     db,
@@ -461,9 +492,10 @@ function startApp(cloudSession: StoredSession | null): void {
   })
   app.on('before-quit', flightServices.stop)
 
-  registerTrackingAreas({
+  const flightControl = registerTrackingAreas({
     db,
     mirroredActive: () => flightMirror.active(),
+    relay: isClient ? flightRelay : undefined,
     sim,
     trackingController,
     autoStartDetector,
@@ -473,11 +505,20 @@ function startApp(cloudSession: StoredSession | null): void {
 
   registerGsxHandlers(ipcMain, { db, window, scheduleBackgroundSync })
   if (isClient)
-    startClientServices({ liveHub, window, handled: handledChannels, db, dbPath, mirror: flightMirror })
+    startClientServices({
+      liveHub,
+      window,
+      handled: handledChannels,
+      db,
+      dbPath,
+      mirror: flightMirror,
+      relay: flightRelay
+    })
   else {
     startHostServices({
       db,
       dbPath,
+      flightControl,
       liveHub,
       devDiagnostics,
       sim,
@@ -491,18 +532,7 @@ function startApp(cloudSession: StoredSession | null): void {
   registerSyncHandlers(ipcMain, { cloudSync, enabled: __WINGLOG_CLOUD_SYNC_ENABLED__ })
 
   startDiskSpaceWarning(liveHub, trackingController)
-
-  const updateService = startUpdates(db, window, () => trackingController.getActive() !== undefined)
-  app.on('before-quit', () => updateService.stop())
-  const trayController = startWindowBehaviour(db, window, trackingController)
-  registerSettingsHandlers(ipcMain, {
-    db,
-    trackingController,
-    trayController,
-    onThemeChanged: refreshWindowEdges
-  })
-  registerAppHandlers(ipcMain, { updateService })
-  registerRunModeHandlers(ipcMain, { db, capabilities })
+  registerAppAreas({ db, window, trackingController, capabilities })
 
   registerNavdataHandlers(ipcMain, { navdataProvider, readSignature: readNavdataSignature })
   recordParkedStandOnCompletion(db, sim, trackingController, navdataProvider)

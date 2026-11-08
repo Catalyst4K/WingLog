@@ -43,11 +43,25 @@ export const LAN_QUERY_KINDS: Record<string, LanQueryKind> = {
   'navdata.procedureWaypoints': FAST_KEPT,
   // A twin's sync (multi-device Part 4): they read and write the database, so they sit in the slow lane and are never kept.
   'sync.pull': SLOW,
-  'sync.push': SLOW
+  'sync.push': SLOW,
+  // A twin's flight commands (multi-device Part 3): quick, and the answer says whether the sim PC took them.
+  'flight.fly': FAST,
+  'flight.start': FAST,
+  'flight.finish': FAST,
+  'flight.stop': FAST,
+  'flight.cancel': FAST
 }
 
 /** The lookups only a twin (another WingLog) may ask: a phone or tablet is refused them as if they did not exist. */
-export const TWIN_ONLY_QUERIES: readonly string[] = ['sync.pull', 'sync.push']
+export const TWIN_ONLY_QUERIES: readonly string[] = [
+  'sync.pull',
+  'sync.push',
+  'flight.fly',
+  'flight.start',
+  'flight.finish',
+  'flight.stop',
+  'flight.cancel'
+]
 
 /**
  * @param name A lookup's name.
