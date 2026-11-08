@@ -83,7 +83,11 @@
       "minimizeLabel": "最小化視窗時",
       "taskbar": "工作列",
       "tray": "系統匣",
-      "description": "在系統匣中，WingLog 會繼續追蹤並服務第二螢幕。關閉視窗仍會結束。"
+      "description": "在系統匣中，WingLog 會繼續追蹤並服務第二螢幕。關閉視窗仍會結束。",
+      "backgroundLabel": "在背景執行",
+      "backgroundNote": "WingLog 在系統匣啟動，不顯示視窗，並繼續記錄飛行與服務您的其他 WingLog。點擊系統匣圖示即可開啟。",
+      "startWithWindowsLabel": "隨 Windows 啟動",
+      "startWithWindowsNote": "登入時啟動 WingLog。"
     },
     "credentials": {
       "cardTitle": "帳號憑證",

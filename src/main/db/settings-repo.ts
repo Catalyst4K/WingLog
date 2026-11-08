@@ -62,6 +62,8 @@ const BEYONDATC_ENABLED_KEY = 'beyondAtcEnabled'
 const BEYONDATC_HOST_KEY = 'beyondAtcHost'
 const UPDATE_CHECK_ENABLED_KEY = 'updateCheckEnabled'
 const MINIMIZE_TO_TRAY_KEY = 'minimizeToTray'
+const HOST_ONLY_KEY = 'hostOnly'
+const START_WITH_WINDOWS_KEY = 'startWithWindows'
 const UPDATE_SKIPPED_VERSION_KEY = 'updateSkippedVersion'
 
 /**
@@ -571,6 +573,40 @@ export function getMinimizeToTray(db: WingLogDb): boolean {
  */
 export function setMinimizeToTray(db: WingLogDb, minimizeToTray: boolean): void {
   setSetting(db, MINIMIZE_TO_TRAY_KEY, minimizeToTray ? '1' : '0')
+}
+
+/**
+ * Whether WingLog runs in the background: it starts in the tray with no window.
+ *
+ * @param db The database.
+ * @returns True when it does. Off unless the pilot chose it.
+ */
+export function getHostOnly(db: WingLogDb): boolean {
+  return getSetting(db, HOST_ONLY_KEY) === '1'
+}
+
+/**
+ * @param db The database.
+ * @param hostOnly True to start in the tray with no window.
+ */
+export function setHostOnly(db: WingLogDb, hostOnly: boolean): void {
+  setSetting(db, HOST_ONLY_KEY, hostOnly ? '1' : '0')
+}
+
+/**
+ * @param db The database.
+ * @returns Whether WingLog is to start when the user signs in to Windows. Off unless the pilot chose it.
+ */
+export function getStartWithWindows(db: WingLogDb): boolean {
+  return getSetting(db, START_WITH_WINDOWS_KEY) === '1'
+}
+
+/**
+ * @param db The database.
+ * @param startWithWindows True to start WingLog at sign-in.
+ */
+export function setStartWithWindows(db: WingLogDb, startWithWindows: boolean): void {
+  setSetting(db, START_WITH_WINDOWS_KEY, startWithWindows ? '1' : '0')
 }
 
 /**

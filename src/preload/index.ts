@@ -16,7 +16,7 @@ import {
   type StorageStatus,
   type UpdateSettings,
   type UpdateStatus,
-  type WindowSettings,
+  type WindowSettingsPatch,
   type BeyondAtcStepClimbStatus,
   type BeyondAtcArrivalClearance,
   type DataFormat,
@@ -424,7 +424,7 @@ const api: WingLogApi = {
   },
   closeConfirmAnswer: (close: boolean) => ipcRenderer.invoke(IpcChannels.closeConfirmAnswer, close),
   settingsGetWindow: () => ipcRenderer.invoke(IpcChannels.settingsGetWindow),
-  settingsSetWindow: (settings: Pick<WindowSettings, 'minimizeToTray'>) =>
+  settingsSetWindow: (settings: WindowSettingsPatch) =>
     ipcRenderer.invoke(IpcChannels.settingsSetWindow, settings),
   getStorageStatus: () => ipcRenderer.invoke(IpcChannels.storageGetStatus),
   onStorageStatus: (listener: (status: StorageStatus) => void) => {

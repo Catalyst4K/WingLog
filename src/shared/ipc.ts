@@ -106,6 +106,7 @@ import type {
   UpdateSettings,
   UpdateStatus,
   WindowSettings,
+  WindowSettingsPatch,
   WeightUnit,
   WindSpeedUnit
 } from './types/settings'
@@ -678,7 +679,7 @@ export interface WingLogApi {
   onCloseConfirmRequested: (listener: () => void) => () => void
   closeConfirmAnswer: (close: boolean) => Promise<void>
   settingsGetWindow: () => Promise<WindowSettings>
-  settingsSetWindow: (settings: Pick<WindowSettings, 'minimizeToTray'>) => Promise<void>
+  settingsSetWindow: (settings: WindowSettingsPatch) => Promise<void>
   /** The room left on the drive holding WingLog's data, and whether saving is failing: for the first render of the low-disk warning. */
   getStorageStatus: () => Promise<StorageStatus>
   /** Pushed when the free space crosses a warning level, or saving starts or stops failing. */

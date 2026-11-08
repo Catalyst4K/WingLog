@@ -85,7 +85,11 @@
       "minimizeLabel": "Al minimizar la ventana",
       "taskbar": "Barra de tareas",
       "tray": "Bandeja del sistema",
-      "description": "En la bandeja WingLog sigue registrando y sirviendo la segunda pantalla. Cerrar la ventana sigue cerrando WingLog."
+      "description": "En la bandeja WingLog sigue registrando y sirviendo la segunda pantalla. Cerrar la ventana sigue cerrando WingLog.",
+      "backgroundLabel": "Ejecutar en segundo plano",
+      "backgroundNote": "WingLog se inicia en la bandeja sin ventana y sigue registrando vuelos y atendiendo a tus otros WingLog. Haz clic en el icono de la bandeja para abrirlo.",
+      "startWithWindowsLabel": "Iniciar con Windows",
+      "startWithWindowsNote": "Inicia WingLog al iniciar sesión."
     },
     "credentials": {
       "cardTitle": "Credenciales",

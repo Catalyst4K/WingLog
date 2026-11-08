@@ -54,7 +54,18 @@ export interface WindowSettings {
   minimizeToTray: boolean
   /** Whether this install can show a tray icon at all (Windows only for now). */
   trayAvailable: boolean
+  /** Run in the background: WingLog starts in the tray with no window, and keeps tracking and serving other WingLogs. Off by default. */
+  hostOnly: boolean
+  /** Whether "run in the background" is offered: a multi-device build, as the sim PC's host, where a tray exists. */
+  backgroundAvailable: boolean
+  /** WingLog starts when the user signs in to Windows. Off by default. */
+  startWithWindows: boolean
+  /** Whether "start with Windows" is offered: only an installed copy can add itself to the sign-in list. */
+  startWithWindowsAvailable: boolean
 }
+
+/** What the window settings can be changed to; anything left out stays as it is. */
+export type WindowSettingsPatch = Partial<Pick<WindowSettings, 'minimizeToTray' | 'hostOnly' | 'startWithWindows'>>
 
 /** First-launch setup (winglog-backend's docs/plans/first-launch-setup.md). */
 export interface SetupState {

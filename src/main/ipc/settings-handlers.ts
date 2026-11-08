@@ -16,7 +16,8 @@ import {
   type TrackingSettings,
   type GsxSettings,
   type UpdateSettings,
-  type WindowSettings
+  type WindowSettings,
+  type WindowSettingsPatch
 } from '@shared/ipc'
 import type { WingLogDb } from '../db/client'
 import type { TrackingController } from '../tracking/TrackingController'
@@ -45,11 +46,33 @@ import {
   getUpdateSettings,
   setUpdateSettings,
   getMinimizeToTray,
-  setMinimizeToTray
+  setMinimizeToTray,
+  getHostOnly,
+  setHostOnly,
+  getStartWithWindows,
+  setStartWithWindows
 } from '../db/settings-repo'
 import { setMainLanguage } from '../i18n'
 import { checkGsxFirstLaunch } from '../db/gsx-first-launch'
 import { getSetupState, getSetupContext, setSetupCompleted } from '../setup/first-run'
+
+/**
+ * @param settings What the renderer sent for the window settings.
+ * @returns The booleans it set, and nothing else.
+ * @throws When it is not an object with at least one of them, or one is not a boolean.
+ */
+function windowPatch(settings: unknown): WindowSettingsPatch {
+  if (typeof settings !== 'object' || settings === null) throw new Error('Invalid window settings')
+  const patch: WindowSettingsPatch = {}
+  for (const key of ['minimizeToTray', 'hostOnly', 'startWithWindows'] as const) {
+    const value = (settings as Record<string, unknown>)[key]
+    if (value === undefined) continue
+    if (typeof value !== 'boolean') throw new Error('Invalid window settings')
+    patch[key] = value
+  }
+  if (Object.keys(patch).length === 0) throw new Error('Invalid window settings')
+  return patch
+}
 
 /** What the settings channels need. */
 export interface SettingsHandlerDeps {
@@ -60,6 +83,15 @@ export interface SettingsHandlerDeps {
   trayController: Pick<TrayController, 'sync' | 'isAvailable'>
   /** The window's edge takes the new theme's colour as soon as the theme changes. */
   onThemeChanged?: () => void
+  /** What running in the background and starting with Windows need from this computer; left out, neither is offered. */
+  background?: {
+    /** Whether "run in the background" is offered (a multi-device build, the sim PC's host, a tray). */
+    available: boolean
+    /** Whether "start with Windows" is offered (an installed copy). */
+    loginItemAvailable: boolean
+    /** Adds WingLog to, or removes it from, what starts at sign-in. */
+    setLoginItem: (open: boolean) => void
+  }
 }
 
 /**
@@ -70,7 +102,7 @@ export interface SettingsHandlerDeps {
  */
 export function registerSettingsHandlers(
   ipcMain: IpcMain,
-  { db, trackingController, trayController, onThemeChanged }: SettingsHandlerDeps
+  { db, trackingController, trayController, onThemeChanged, background }: SettingsHandlerDeps
 ): void {
   ipcMain.handle(IpcChannels.settingsGetSimbriefUsername, () => getSimbriefUsername(db) ?? null)
 
@@ -157,13 +189,21 @@ export function registerSettingsHandlers(
 
   ipcMain.handle(IpcChannels.settingsGetWindow, (): WindowSettings => ({
     minimizeToTray: getMinimizeToTray(db),
-    trayAvailable: trayController.isAvailable
+    trayAvailable: trayController.isAvailable,
+    hostOnly: getHostOnly(db),
+    backgroundAvailable: background?.available === true,
+    startWithWindows: getStartWithWindows(db),
+    startWithWindowsAvailable: background?.loginItemAvailable === true
   }))
 
   ipcMain.handle(IpcChannels.settingsSetWindow, (_event, settings: unknown) => {
-    const minimizeToTray = (settings as Pick<WindowSettings, 'minimizeToTray'> | null)?.minimizeToTray
-    if (typeof minimizeToTray !== 'boolean') throw new Error('Invalid window settings')
-    setMinimizeToTray(db, minimizeToTray)
+    const patch = windowPatch(settings)
+    if (patch.minimizeToTray !== undefined) setMinimizeToTray(db, patch.minimizeToTray)
+    if (patch.hostOnly !== undefined) setHostOnly(db, patch.hostOnly)
+    if (patch.startWithWindows !== undefined) {
+      setStartWithWindows(db, patch.startWithWindows)
+      background?.setLoginItem(patch.startWithWindows)
+    }
     trayController.sync()
   })
 }

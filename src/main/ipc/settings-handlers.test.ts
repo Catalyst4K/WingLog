@@ -63,15 +63,53 @@ describe('settings IPC handlers', () => {
   })
 
   it('reads and saves the minimise-to-tray choice, tells the tray, and refuses anything else', () => {
-    expect(invoke(IpcChannels.settingsGetWindow)).toEqual({ minimizeToTray: false, trayAvailable: true })
+    const off = {
+      trayAvailable: true,
+      hostOnly: false,
+      backgroundAvailable: false,
+      startWithWindows: false,
+      startWithWindowsAvailable: false
+    }
+    expect(invoke(IpcChannels.settingsGetWindow)).toEqual({ ...off, minimizeToTray: false })
     invoke(IpcChannels.settingsSetWindow, { minimizeToTray: true })
-    expect(invoke(IpcChannels.settingsGetWindow)).toEqual({ minimizeToTray: true, trayAvailable: true })
+    expect(invoke(IpcChannels.settingsGetWindow)).toEqual({ ...off, minimizeToTray: true })
     expect(syncTray).toHaveBeenCalledTimes(1)
     expect(() => invoke(IpcChannels.settingsSetWindow, { minimizeToTray: 'yes' })).toThrow(
       'Invalid window settings'
     )
     expect(() => invoke(IpcChannels.settingsSetWindow, null)).toThrow('Invalid window settings')
+    expect(() => invoke(IpcChannels.settingsSetWindow, {})).toThrow('Invalid window settings')
+    expect(() => invoke(IpcChannels.settingsSetWindow, { hostOnly: 1 })).toThrow('Invalid window settings')
     expect(syncTray).toHaveBeenCalledTimes(1)
+  })
+
+  it('saves run-in-the-background and start-with-Windows, adds or removes the sign-in entry, and leaves other choices alone', () => {
+    const setLoginItem = vi.fn()
+    const ipc = fakeIpc()
+    registerSettingsHandlers(ipc.ipcMain, {
+      db,
+      trackingController: { setAutoFinish: vi.fn() },
+      trayController: { sync: syncTray, isAvailable: true },
+      background: { available: true, loginItemAvailable: true, setLoginItem }
+    })
+    const call = (channel: string, ...args: unknown[]) => ipc.invoke(channel, ...args)
+    call(IpcChannels.settingsSetWindow, { minimizeToTray: true })
+    call(IpcChannels.settingsSetWindow, { hostOnly: true })
+    call(IpcChannels.settingsSetWindow, { startWithWindows: true })
+    expect(call(IpcChannels.settingsGetWindow)).toEqual({
+      minimizeToTray: true,
+      trayAvailable: true,
+      hostOnly: true,
+      backgroundAvailable: true,
+      startWithWindows: true,
+      startWithWindowsAvailable: true
+    })
+    expect(setLoginItem).toHaveBeenCalledTimes(1)
+    expect(setLoginItem).toHaveBeenCalledWith(true)
+    call(IpcChannels.settingsSetWindow, { startWithWindows: false })
+    expect(setLoginItem).toHaveBeenLastCalledWith(false)
+    // Each change tells the tray, so its icon follows.
+    expect(syncTray).toHaveBeenCalledTimes(4)
   })
 
   it('switches the main-process language with the OS locale, and reports that locale', () => {

@@ -85,7 +85,11 @@
       "minimizeLabel": "Wenn ich das Fenster minimiere",
       "taskbar": "Taskleiste",
       "tray": "Infobereich",
-      "description": "Im Tray verfolgt WingLog weiter und bedient den zweiten Bildschirm. Das Schließen des Fensters beendet WingLog weiterhin."
+      "description": "Im Tray verfolgt WingLog weiter und bedient den zweiten Bildschirm. Das Schließen des Fensters beendet WingLog weiterhin.",
+      "backgroundLabel": "Im Hintergrund laufen",
+      "backgroundNote": "WingLog startet im Infobereich ohne Fenster und verfolgt weiter und bedient Ihre anderen WingLogs. Zum Öffnen auf das Symbol im Infobereich klicken.",
+      "startWithWindowsLabel": "Mit Windows starten",
+      "startWithWindowsNote": "Startet WingLog bei der Anmeldung."
     },
     "credentials": {
       "cardTitle": "Zugangsdaten",

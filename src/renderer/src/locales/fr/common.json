@@ -85,7 +85,11 @@
       "minimizeLabel": "Quand je réduis la fenêtre",
       "taskbar": "Barre des tâches",
       "tray": "Zone de notification",
-      "description": "Dans la zone de notification, WingLog continue le suivi et le second écran. Fermer la fenêtre quitte toujours WingLog."
+      "description": "Dans la zone de notification, WingLog continue le suivi et le second écran. Fermer la fenêtre quitte toujours WingLog.",
+      "backgroundLabel": "Exécuter en arrière-plan",
+      "backgroundNote": "WingLog démarre dans la zone de notification sans fenêtre, et continue le suivi et le service de vos autres WingLog. Cliquez sur l’icône pour l’ouvrir.",
+      "startWithWindowsLabel": "Démarrer avec Windows",
+      "startWithWindowsNote": "Lance WingLog à l’ouverture de session."
     },
     "credentials": {
       "cardTitle": "Identifiants",

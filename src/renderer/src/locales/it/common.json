@@ -85,7 +85,11 @@
       "minimizeLabel": "Quando riduco a icona la finestra",
       "taskbar": "Barra delle applicazioni",
       "tray": "Area di notifica",
-      "description": "Nell’area di notifica WingLog continua a tracciare e a servire il secondo schermo. Chiudere la finestra chiude comunque WingLog."
+      "description": "Nell’area di notifica WingLog continua a tracciare e a servire il secondo schermo. Chiudere la finestra chiude comunque WingLog.",
+      "backgroundLabel": "Esegui in background",
+      "backgroundNote": "WingLog si avvia nell’area di notifica senza finestra e continua a tracciare e a servire gli altri WingLog. Clicca l’icona per aprirlo.",
+      "startWithWindowsLabel": "Avvia con Windows",
+      "startWithWindowsNote": "Avvia WingLog all’accesso."
     },
     "credentials": {
       "cardTitle": "Credenziali",

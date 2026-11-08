@@ -2,11 +2,11 @@
 
 import { useEffect, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import type { WindowSettings } from '@shared/ipc'
+import type { WindowSettings, WindowSettingsPatch } from '@shared/ipc'
 import { winglogApi } from '../data/winglog-api'
 import { runAsync } from '../report-error'
 import { SegmentedRow } from '../SettingsFields'
-import { SettingsCard } from './ui/SettingsCard'
+import { OnOffControl, SettingRow, SettingsCard } from './ui/SettingsCard'
 
 type MinimizeChoice = 'taskbar' | 'tray'
 
@@ -27,10 +27,13 @@ export function WindowCard(props: { title?: string; lead?: ReactNode }): React.J
   const trayAvailable = settings?.trayAvailable === true
   if (!trayAvailable && !props.lead) return null
 
+  function change(patch: WindowSettingsPatch): void {
+    setSettings((current) => current && { ...current, ...patch })
+    runAsync('WindowCard settingsSetWindow', winglogApi().settingsSetWindow(patch))
+  }
+
   function choose(choice: MinimizeChoice): void {
-    const minimizeToTray = choice === 'tray'
-    setSettings((current) => current && { ...current, minimizeToTray })
-    runAsync('WindowCard settingsSetWindow', winglogApi().settingsSetWindow({ minimizeToTray }))
+    change({ minimizeToTray: choice === 'tray' })
   }
 
   return (
@@ -47,6 +50,34 @@ export function WindowCard(props: { title?: string; lead?: ReactNode }): React.J
           onChange={choose}
           note={t('settingsView.window.description')}
         />
+      )}
+      {settings?.backgroundAvailable && (
+        <SettingRow
+          label={t('settingsView.window.backgroundLabel')}
+          note={t('settingsView.window.backgroundNote')}
+        >
+          <OnOffControl
+            label={t('settingsView.window.backgroundLabel')}
+            enabled={settings.hostOnly}
+            onText={t('lan.settings.on')}
+            offText={t('lan.settings.off')}
+            onChange={(hostOnly) => change({ hostOnly })}
+          />
+        </SettingRow>
+      )}
+      {settings?.startWithWindowsAvailable && (
+        <SettingRow
+          label={t('settingsView.window.startWithWindowsLabel')}
+          note={t('settingsView.window.startWithWindowsNote')}
+        >
+          <OnOffControl
+            label={t('settingsView.window.startWithWindowsLabel')}
+            enabled={settings.startWithWindows}
+            onText={t('lan.settings.on')}
+            offText={t('lan.settings.off')}
+            onChange={(startWithWindows) => change({ startWithWindows })}
+          />
+        </SettingRow>
       )}
     </SettingsCard>
   )

@@ -12,6 +12,10 @@ import {
   getUpdateSettings,
   getMinimizeToTray,
   setMinimizeToTray,
+  getHostOnly,
+  setHostOnly,
+  getStartWithWindows,
+  setStartWithWindows,
   getGsxRemoteSettings,
   getGsxRoutines,
   getHiddenBuiltInRoutines,
@@ -252,6 +256,19 @@ describe('settings repo', () => {
     expect(getMinimizeToTray(db)).toBe(true)
     setMinimizeToTray(db, false)
     expect(getMinimizeToTray(db)).toBe(false)
+  })
+
+  it('runs with a window and does not start with Windows unless the pilot chose it', () => {
+    expect(getHostOnly(db)).toBe(false)
+    expect(getStartWithWindows(db)).toBe(false)
+    setHostOnly(db, true)
+    setStartWithWindows(db, true)
+    expect(getHostOnly(db)).toBe(true)
+    expect(getStartWithWindows(db)).toBe(true)
+    setHostOnly(db, false)
+    setStartWithWindows(db, false)
+    expect(getHostOnly(db)).toBe(false)
+    expect(getStartWithWindows(db)).toBe(false)
   })
 
   it('defaults the last-synced-completed timestamp to null when never set', () => {

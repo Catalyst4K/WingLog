@@ -85,7 +85,11 @@
       "minimizeLabel": "When I minimise the window",
       "taskbar": "Taskbar",
       "tray": "System tray",
-      "description": "In the tray WingLog keeps tracking and serving the second screen. Closing the window still quits."
+      "description": "In the tray WingLog keeps tracking and serving the second screen. Closing the window still quits.",
+      "backgroundLabel": "Run in the background",
+      "backgroundNote": "WingLog starts in the tray with no window, and keeps tracking and serving your other WingLogs. Click the tray icon to open it.",
+      "startWithWindowsLabel": "Start with Windows",
+      "startWithWindowsNote": "Starts WingLog when you sign in."
     },
     "credentials": {
       "cardTitle": "Credentials",

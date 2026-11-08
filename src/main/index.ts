@@ -44,6 +44,7 @@ import {
   getTheme,
   getRunMode,
   getMinimizeToTray,
+  getHostOnly,
   getSkippedUpdateVersion,
   getTrackingSettings,
   getUpdateSettings,
@@ -59,6 +60,7 @@ import { registerLookupHandlers } from './ipc/lookup-handlers'
 import { registerAppHandlers } from './ipc/app-handlers'
 import { registerSettingsHandlers } from './ipc/settings-handlers'
 import { keepWindowEdgesInStep } from './window-edge'
+import { backgroundOffer, startsHidden, type BackgroundOffer } from './window/background'
 import { registerDispatchHandlers } from './ipc/dispatch-handlers'
 import { registerNavdataHandlers } from './ipc/navdata-handlers'
 import { createNavdataSignatureReader, signatureFilesFor } from './navdata/sim-navdata-signature'
@@ -348,12 +350,18 @@ function registerAppAreas(deps: {
   refreshWindowEdges()
   const updateService = startUpdates(db, window, () => trackingController.getActive() !== undefined)
   app.on('before-quit', () => updateService.stop())
-  const trayController = startWindowBehaviour(db, window, trackingController)
+  const offer = backgroundOfferFor(capabilities)
+  const trayController = startWindowBehaviour(db, window, trackingController, offer)
   registerSettingsHandlers(ipcMain, {
     db,
     trackingController,
     trayController,
-    onThemeChanged: refreshWindowEdges
+    onThemeChanged: refreshWindowEdges,
+    background: {
+      available: offer.available,
+      loginItemAvailable: offer.loginItemAvailable,
+      setLoginItem: (openAtLogin) => app.setLoginItemSettings({ openAtLogin })
+    }
   })
   registerAppHandlers(ipcMain, { updateService })
   registerRunModeHandlers(ipcMain, { db, capabilities })
@@ -433,7 +441,7 @@ function startApp(cloudSession: StoredSession | null): void {
   // No native menu bar — in-app navigation (the top tab bar in App.tsx) is the only
   // way to move around; a bare File/Edit/Window bar above it was clutter, not useful.
   Menu.setApplicationMenu(null)
-  const window = createWindow()
+  const window = createWindow(startHiddenAtLaunch(db, capabilities))
   startStorageMaintenance(sqlite, backedUp)
   // Live state (sim, tracking, GSX Remote, BeyondATC) goes through one hub, and the window
   // is its first subscriber (winglog-backend's docs/plans/live-data-seam.md, part A).
@@ -546,7 +554,7 @@ function startApp(cloudSession: StoredSession | null): void {
   if (isClient) registerInertHandlers(ipcMain, handledChannels)
 
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow()
+    if (BrowserWindow.getAllWindows().length === 0) createWindow(false)
   })
 }
 
@@ -557,18 +565,21 @@ function startApp(cloudSession: StoredSession | null): void {
  * @param db The database, which holds the setting.
  * @param window The main window.
  * @param trackingController Says whether a flight is being tracked, for the tray's tooltip.
+ * @param offer Whether running in the background is offered, which keeps the tray icon up.
  * @returns The controller, so Settings can apply a change at once.
  */
 function startWindowBehaviour(
   db: WingLogDb,
   window: BrowserWindow,
-  trackingController: TrackingController
+  trackingController: TrackingController,
+  offer: BackgroundOffer
 ): TrayController {
   const iconPath = trayIconPath(app.isPackaged, process.resourcesPath, app.getAppPath())
   const controller = new TrayController({
     window,
     isTrayAvailable: canShowTray(),
-    isMinimizeToTray: () => getMinimizeToTray(db),
+    // Running in the background keeps the tray icon up, so the window can always be got back.
+    isMinimizeToTray: () => getMinimizeToTray(db) || startsHidden(offer, getHostOnly(db)),
     isFlightActive: () => trackingController.getActive() !== undefined,
     createTray: (actions) => createElectronTray(iconPath, actions),
     quit: () => app.quit(),
@@ -594,6 +605,28 @@ function startWindowBehaviour(
     onError: (error) => logger.warn('close confirmation failed:', error)
   }).start()
   return controller
+}
+
+/**
+ * @param capabilities What this run is.
+ * @returns What running in the background and starting with Windows are offered here.
+ */
+function backgroundOfferFor(capabilities: AppCapabilities): BackgroundOffer {
+  return backgroundOffer({
+    capabilities,
+    trayAvailable: canShowTray(),
+    isPackaged: app.isPackaged,
+    platform: currentPlatform()
+  })
+}
+
+/**
+ * @param db The database.
+ * @param capabilities What this run is.
+ * @returns Whether the window is left hidden at start, the app running from the tray alone.
+ */
+function startHiddenAtLaunch(db: WingLogDb, capabilities: AppCapabilities): boolean {
+  return startsHidden(backgroundOfferFor(capabilities), getHostOnly(db))
 }
 
 /**
@@ -629,9 +662,10 @@ function showWindow(window: BrowserWindow): void {
  * Creates the main window, hidden until it is ready to show, with the preload script, and loads
  * the renderer: the dev server while developing, the built page otherwise.
  *
+ * @param startHidden True when running in the background: the window stays hidden until the tray icon opens it.
  * @returns The window.
  */
-function createWindow(): BrowserWindow {
+function createWindow(startHidden: boolean): BrowserWindow {
   const window = new BrowserWindow({
     width: 1100,
     height: 720,
@@ -642,7 +676,10 @@ function createWindow(): BrowserWindow {
     }
   })
 
-  window.on('ready-to-show', () => showWindow(window))
+  // Running in the background: the window stays hidden until the tray icon opens it.
+  window.on('ready-to-show', () => {
+    if (!startHidden) showWindow(window)
+  })
 
   if (!app.isPackaged && process.env['ELECTRON_RENDERER_URL']) {
     runLogged('load renderer', window.loadURL(process.env['ELECTRON_RENDERER_URL']))
