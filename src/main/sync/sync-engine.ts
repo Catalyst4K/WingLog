@@ -22,14 +22,19 @@ import {
   upsertAircraftByUuid
 } from '../db/aircraft-repo'
 import type { WingLogDb } from '../db/client'
-import { listFlightInvoicesForSync, upsertFlightInvoiceByUuid } from '../db/flight-invoice-repo'
+import {
+  hasInvoiceUnderOtherUuid,
+  listFlightInvoicesForSync,
+  upsertFlightInvoiceByUuid
+} from '../db/flight-invoice-repo'
+import { findLiveFlightByContent } from '../db/flight-match-repo'
 import {
   getFlightIdByUuid,
   getFlightUuidById,
   listFlightsForSync,
   upsertFlightByUuid
 } from '../db/flight-repo'
-import { listLandingsForSync, upsertLandingByUuid } from '../db/landing-repo'
+import { hasLandingUnderOtherUuid, listLandingsForSync, upsertLandingByUuid } from '../db/landing-repo'
 import { getLastSyncedAt, getSetting, setLastSyncedAt, setSetting } from '../db/settings-repo'
 import { SYNC_TABLES, type SyncRow, type SyncTable } from '../backend/sync-client'
 import { aircraft, flight, flightInvoice, landing } from '../db/schema'
@@ -208,14 +213,23 @@ function linkPulledReplacements(db: WingLogDb, applied: SyncRow[]): void {
 
 // --- flight -----------------------------------------------------------------------------
 
+/**
+ * The local uuid of a flight that another device holds under a different uuid: the same route and the same out-time. Landings and
+ * receipts refer to a flight by uuid, so they follow the alias too.
+ *
+ * @param db The database.
+ * @param uuid The uuid on the incoming flight, or on a landing's or receipt's reference to it.
+ * @returns The local uuid it stands for, or the same uuid when it has no alias.
+ */
+function resolveFlightUuid(db: WingLogDb, uuid: string): string {
+  return getSetting(db, `flightAlias:${uuid}`) ?? uuid
+}
+
 function serializeFlight(db: WingLogDb, row: ReturnType<typeof listFlightsForSync>[number]): SyncRow | null {
-  // A free flight tracked with no fleet aircraft (free-flight-tracking.md's "don't add to
-  // fleet" option) has no aircraftId at all, and cloud-sync.md's row shape has no field for
-  // that case yet — stays local-only for now, same as the "no uuid" case below, rather than
-  // widening the sync payload without a matching decision recorded.
-  if (row.aircraftId == null) return null
-  const aircraftUuid = getAircraftUuidById(db, row.aircraftId)
-  if (!aircraftUuid) return null // parent aircraft has no uuid yet — shouldn't happen, see schema.ts
+  // A free flight tracked with no fleet aircraft (free-flight-tracking.md's "don't add to fleet" option) has no aircraftId. It syncs with a
+  // null aircraftUuid: the flight's own simRegistration and simIcaoType already say which aircraft it was.
+  const aircraftUuid = row.aircraftId == null ? null : getAircraftUuidById(db, row.aircraftId)
+  if (row.aircraftId != null && !aircraftUuid) return null // parent aircraft has no uuid yet — shouldn't happen, see schema.ts
   return {
     uuid: row.uuid as string,
     updatedAt: row.updatedAt as string,
@@ -235,21 +249,37 @@ function applyFlight(db: WingLogDb, row: SyncRow): ApplyResult {
   const data = parseRowData(row.data)
   if (
     !data ||
-    typeof data.aircraftUuid !== 'string' ||
+    !(data.aircraftUuid === null || typeof data.aircraftUuid === 'string') ||
     typeof data.depIcao !== 'string' ||
     typeof data.arrIcao !== 'string'
   ) {
     return { ok: false, error: 'malformed flight data' }
   }
-  const aircraftId = getAircraftIdByUuid(db, resolveAircraftUuid(db, data.aircraftUuid))
-  if (aircraftId === undefined) return { ok: false, error: `unknown aircraft ${data.aircraftUuid}` }
+  // A null aircraftUuid is a free flight with no fleet aircraft.
+  let aircraftId: number | null = null
+  if (data.aircraftUuid !== null) {
+    const found = getAircraftIdByUuid(db, resolveAircraftUuid(db, data.aircraftUuid))
+    if (found === undefined) return { ok: false, error: `unknown aircraft ${data.aircraftUuid}` }
+    aircraftId = found
+  }
   const checked = validateSyncFields(flight, data, ['aircraftId'])
   if (!checked.ok) return checked
+  let uuid = resolveFlightUuid(db, row.uuid)
+  if (getFlightIdByUuid(db, uuid) === undefined && typeof data.actualOutUtc === 'string') {
+    // The same real flight under another uuid: this device was set up from the same history. Merge into it, and keep its aircraft: the
+    // incoming aircraft may be the same one under an old registration, which this device never matched.
+    const same = findLiveFlightByContent(db, data.depIcao, data.arrIcao, data.actualOutUtc)
+    if (same) {
+      setSetting(db, `flightAlias:${row.uuid}`, same.uuid)
+      uuid = same.uuid
+      aircraftId = same.aircraftId
+    }
+  }
   try {
     const applied = upsertFlightByUuid(db, {
       ...checked.fields,
       aircraftId,
-      uuid: row.uuid,
+      uuid,
       updatedAt: row.updatedAt
     } as Parameters<typeof upsertFlightByUuid>[1])
     return { ok: true, applied }
@@ -280,8 +310,12 @@ function serializeLanding(
 function applyLanding(db: WingLogDb, row: SyncRow): ApplyResult {
   const data = parseRowData(row.data)
   if (!data || typeof data.flightUuid !== 'string') return { ok: false, error: 'malformed landing data' }
-  const flightId = getFlightIdByUuid(db, data.flightUuid)
+  const flightId = getFlightIdByUuid(db, resolveFlightUuid(db, data.flightUuid))
   if (flightId === undefined) return { ok: false, error: `unknown flight ${data.flightUuid}` }
+  // The flight is one that both devices already had: a landing it already has under another uuid is the same touchdown.
+  if (hasLandingUnderOtherUuid(db, flightId, typeof data.seq === 'number' ? data.seq : 1, row.uuid)) {
+    return { ok: true, applied: false }
+  }
   const checked = validateSyncFields(landing, data, ['flightId'])
   if (!checked.ok) return checked
   try {
@@ -328,8 +362,9 @@ function applyFlightInvoice(db: WingLogDb, row: SyncRow): ApplyResult {
   if (!data || typeof data.flightUuid !== 'string' || typeof data.receiptId !== 'string') {
     return { ok: false, error: 'malformed flightInvoice data' }
   }
-  const flightId = getFlightIdByUuid(db, data.flightUuid)
+  const flightId = getFlightIdByUuid(db, resolveFlightUuid(db, data.flightUuid))
   if (flightId === undefined) return { ok: false, error: `unknown flight ${data.flightUuid}` }
+  if (hasInvoiceUnderOtherUuid(db, flightId, data.receiptId, row.uuid)) return { ok: true, applied: false }
   const checked = validateSyncFields(flightInvoice, data, ['flightId'])
   if (!checked.ok) return checked
   try {

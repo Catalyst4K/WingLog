@@ -3,7 +3,7 @@
  * flight and never edited, and deleting the flight soft-deletes them.
  */
 import { randomUUID } from 'node:crypto'
-import { and, eq, isNull } from 'drizzle-orm'
+import { and, eq, isNull, ne } from 'drizzle-orm'
 import type { FlightInvoice } from '@shared/ipc'
 import type { StoredInvoiceInput } from '../gsx/scan'
 import { flightInvoice } from './schema'
@@ -130,4 +130,35 @@ export function upsertFlightInvoiceByUuid(
   if (existing) db.update(flightInvoice).set(input).where(eq(flightInvoice.uuid, input.uuid)).run()
   else db.insert(flightInvoice).values(input).run()
   return true
+}
+
+/**
+ * Whether the flight already has this receipt under a different uuid: the same GSX receipt, read in on two devices.
+ *
+ * @param db The database.
+ * @param flightId The local flight.
+ * @param receiptId GSX's id for the receipt.
+ * @param uuid The uuid of the incoming receipt.
+ * @returns True when another live row holds that receipt.
+ */
+export function hasInvoiceUnderOtherUuid(
+  db: WingLogDb,
+  flightId: number,
+  receiptId: string,
+  uuid: string
+): boolean {
+  return (
+    db
+      .select({ id: flightInvoice.id })
+      .from(flightInvoice)
+      .where(
+        and(
+          eq(flightInvoice.flightId, flightId),
+          eq(flightInvoice.receiptId, receiptId),
+          isNull(flightInvoice.deletedAt),
+          ne(flightInvoice.uuid, uuid)
+        )
+      )
+      .get() !== undefined
+  )
 }

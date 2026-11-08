@@ -3,7 +3,7 @@
  * show, newest first. Deleting a flight soft-deletes its landings with it.
  */
 import { randomUUID } from 'node:crypto'
-import { and, asc, desc, eq, isNull } from 'drizzle-orm'
+import { and, asc, desc, eq, isNull, ne } from 'drizzle-orm'
 import type { AircraftLandingRow, Landing, NewLanding } from '@shared/ipc'
 import { aircraft, flight, landing } from './schema'
 import type { WingLogDb } from './client'
@@ -226,4 +226,36 @@ export function upsertLandingByUuid(
   if (existing) db.update(landing).set(input).where(eq(landing.uuid, input.uuid)).run()
   else db.insert(landing).values(input).run()
   return true
+}
+
+/**
+ * Whether the flight already has this landing under a different uuid. Two devices that each recorded (or imported) the
+ * same landing of the same flight hold it twice, and only one may exist per flight and touchdown number.
+ *
+ * @param db The database.
+ * @param flightId The local flight.
+ * @param seq The touchdown number on the flight.
+ * @param uuid The uuid of the incoming landing.
+ * @returns True when another live landing has that place.
+ */
+export function hasLandingUnderOtherUuid(
+  db: WingLogDb,
+  flightId: number,
+  seq: number,
+  uuid: string
+): boolean {
+  return (
+    db
+      .select({ id: landing.id })
+      .from(landing)
+      .where(
+        and(
+          eq(landing.flightId, flightId),
+          eq(landing.seq, seq),
+          isNull(landing.deletedAt),
+          ne(landing.uuid, uuid)
+        )
+      )
+      .get() !== undefined
+  )
 }

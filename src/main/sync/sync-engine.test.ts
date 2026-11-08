@@ -11,7 +11,7 @@ import { addInvoicesForFlight, listInvoicesForFlight } from '../db/flight-invoic
 import { createFlight } from '../db/flight-repo'
 import { createLanding, getLandingByFlight } from '../db/landing-repo'
 import { getLastSyncedAt } from '../db/settings-repo'
-import { aircraft, flight, flightInvoice } from '../db/schema'
+import { aircraft, flight, flightInvoice, landing } from '../db/schema'
 import type { SyncRow, SyncTable } from '../backend/sync-client'
 import { MAX_PUSH_ROWS, MAX_ROW_DATA_BYTES, runSync, splitPushBatches, type SyncClient } from './sync-engine'
 
@@ -810,6 +810,255 @@ describe('sync-engine', () => {
       const rows = db.select().from(aircraft).all()
       expect(rows).toHaveLength(1)
       expect(rows[0]).toMatchObject({ id: mine.id, icaoType: 'A320' })
+    })
+  })
+
+  describe('the same flight held by two devices under different uuids', () => {
+    const OUT = '2026-04-12T22:52:00.000Z'
+    const LATER = '2099-01-01T00:00:00.000Z'
+    const LANDING = {
+      seq: 1,
+      icao: null,
+      touchdownTsUtc: '2026-04-12T23:30:00.000Z',
+      verticalSpeedMs: -1.2,
+      gForce: 1.3,
+      pitchDeg: 2,
+      bankDeg: 0.5,
+      headingTrueDeg: 270,
+      indicatedAirspeedMs: 70,
+      groundSpeedMs: 68,
+      windSpeedMs: 5,
+      windDirectionDeg: 260,
+      touchdownSource: 'derived'
+    } as const
+
+    /** The flight another device has: the same route and out-time, its own uuid. */
+    const theirFlight = (aircraftUuid: string | null, fields: Record<string, unknown> = {}): SyncRow => ({
+      uuid: 'their-flight',
+      updatedAt: LATER,
+      data: JSON.stringify({
+        aircraftUuid,
+        depIcao: 'EGLL',
+        arrIcao: 'ZBAA',
+        status: 'completed',
+        actualOutUtc: OUT,
+        ...fields
+      })
+    })
+
+    /** A completed flight on this device, out at OUT. */
+    function myFlight(): { aircraftId: number; flightId: number } {
+      const plane = createAircraft(db, { registration: 'G-ABCD', icaoType: 'A320' })
+      const created = createFlight(db, { aircraftId: plane.id, depIcao: 'EGLL', arrIcao: 'ZBAA' })
+      db.update(flight).set({ status: 'completed', actualOutUtc: OUT }).where(eq(flight.id, created.id)).run()
+      return { aircraftId: plane.id, flightId: created.id }
+    }
+
+    it('merges the other device’s copy into this one, keeps this device’s aircraft, and does not add a second flight', async () => {
+      const mine = myFlight()
+      // The other device calls the aircraft something else (it was renamed there), so it never matched G-ABCD.
+      server.seed('aircraft', {
+        uuid: 'their-aircraft',
+        updatedAt: LATER,
+        data: JSON.stringify({ registration: 'G-OLDX', icaoType: 'A320' })
+      })
+      server.seed('flight', theirFlight('their-aircraft', { fuelBurnKg: 1234 }))
+
+      const result = await runSync(db, server, SESSION, dbPath)
+      await runSync(db, server, SESSION, dbPath)
+
+      expect(result.tables.flight.skipped).toEqual([])
+      const flights = db.select().from(flight).all()
+      expect(flights).toHaveLength(1)
+      // The newer content is applied; the aircraft stays the one this device already had.
+      expect(flights[0]).toMatchObject({ id: mine.flightId, aircraftId: mine.aircraftId, fuelBurnKg: 1234 })
+    })
+
+    it('leaves this device’s own newer edit alone', async () => {
+      const mine = myFlight()
+      db.update(flight)
+        .set({ fuelBurnKg: 999, updatedAt: '2100-01-01T00:00:00.000Z' })
+        .where(eq(flight.id, mine.flightId))
+        .run()
+      server.seed('flight', theirFlight('unused', { fuelBurnKg: 1234 }))
+      server.seed('aircraft', {
+        uuid: 'unused',
+        updatedAt: LATER,
+        data: JSON.stringify({ registration: 'G-OLDX', icaoType: 'A320' })
+      })
+
+      await runSync(db, server, SESSION, dbPath)
+
+      const flights = db.select().from(flight).all()
+      expect(flights).toHaveLength(1)
+      expect(flights[0]?.fuelBurnKg).toBe(999)
+    })
+
+    it('does not merge flights that went out at different times, or that have not gone out yet', async () => {
+      myFlight()
+      server.seed('flight', theirFlight(null, { actualOutUtc: '2026-04-13T22:52:00.000Z' }))
+      server.seed('flight', {
+        ...theirFlight(null, { actualOutUtc: null, status: 'planned' }),
+        uuid: 'their-planned'
+      })
+
+      await runSync(db, server, SESSION, dbPath)
+
+      expect(db.select().from(flight).all()).toHaveLength(3)
+    })
+
+    it('does not merge into a flight this device deleted', async () => {
+      const mine = myFlight()
+      db.update(flight)
+        .set({ deletedAt: '2026-11-01T00:00:00.000Z' })
+        .where(eq(flight.id, mine.flightId))
+        .run()
+      server.seed('flight', theirFlight(null))
+
+      await runSync(db, server, SESSION, dbPath)
+
+      expect(
+        db
+          .select()
+          .from(flight)
+          .all()
+          .filter((f) => f.deletedAt === null)
+      ).toHaveLength(1)
+    })
+
+    it('attaches the other device’s landing and receipt to the merged flight', async () => {
+      const mine = myFlight()
+      server.seed('flight', theirFlight(null))
+      server.seed('landing', {
+        uuid: 'their-landing',
+        updatedAt: LATER,
+        data: JSON.stringify({ ...LANDING, flightUuid: 'their-flight' })
+      })
+      server.seed('flightInvoice', {
+        uuid: 'their-invoice',
+        updatedAt: LATER,
+        data: JSON.stringify({
+          flightUuid: 'their-flight',
+          serviceGroup: 'fuel',
+          receiptId: 'r1',
+          issuedUtc: '2026-04-12T22:00:00Z',
+          icao: 'EGLL',
+          tail: 'G-ABCD',
+          sourceHtmlPath: '/tmp/r1.html',
+          receiptJson: '{}'
+        })
+      })
+
+      const result = await runSync(db, server, SESSION, dbPath)
+
+      expect(result.tables.landing.skipped).toEqual([])
+      expect(result.tables.flightInvoice.skipped).toEqual([])
+      expect(getLandingByFlight(db, mine.flightId)).toBeDefined()
+      expect(listInvoicesForFlight(db, mine.flightId)).toHaveLength(1)
+    })
+
+    it('does not add a second landing or receipt the merged flight already has', async () => {
+      const mine = myFlight()
+      createLanding(db, {
+        flightId: mine.flightId,
+        ...LANDING,
+        headwindMs: null,
+        crosswindMs: null,
+        crabDeg: null,
+        runwayIdent: null,
+        distanceFromThresholdM: null,
+        centrelineOffsetM: null,
+        flapSetting: null,
+        runwaySource: null
+      })
+      addInvoicesForFlight(db, mine.flightId, [
+        {
+          serviceGroup: 'fuel',
+          receiptId: 'r1',
+          issuedUtc: '2026-04-12T22:00:00Z',
+          icao: 'EGLL',
+          tail: 'G-ABCD',
+          operator: null,
+          totalUsd: 1,
+          totalText: '£1',
+          sourceHtmlPath: '/tmp/r1.html',
+          receiptJson: '{}'
+        }
+      ])
+      server.seed('flight', theirFlight(null))
+      server.seed('landing', {
+        uuid: 'their-landing',
+        updatedAt: LATER,
+        data: JSON.stringify({ ...LANDING, flightUuid: 'their-flight' })
+      })
+      server.seed('flightInvoice', {
+        uuid: 'their-invoice',
+        updatedAt: LATER,
+        data: JSON.stringify({
+          flightUuid: 'their-flight',
+          serviceGroup: 'fuel',
+          receiptId: 'r1',
+          issuedUtc: '2026-04-12T22:00:00Z',
+          icao: 'EGLL',
+          tail: 'G-ABCD',
+          sourceHtmlPath: '/tmp/r1.html',
+          receiptJson: '{}'
+        })
+      })
+
+      const result = await runSync(db, server, SESSION, dbPath)
+
+      expect(result.tables.landing.skipped).toEqual([])
+      expect(result.tables.flightInvoice.skipped).toEqual([])
+      expect(db.select().from(landing).all()).toHaveLength(1)
+      expect(listInvoicesForFlight(db, mine.flightId)).toHaveLength(1)
+    })
+  })
+
+  describe('a free flight with no fleet aircraft', () => {
+    it('syncs to another device with no aircraft, keeping the registration and type the sim reported', async () => {
+      const plane = createAircraft(db, { registration: 'G-ABCD', icaoType: 'A320' })
+      const created = createFlight(db, { aircraftId: plane.id, depIcao: 'VHHH', arrIcao: 'VHHH' })
+      db.update(flight)
+        .set({
+          aircraftId: null,
+          simRegistration: 'B-456',
+          simIcaoType: 'SF50',
+          status: 'completed',
+          actualOutUtc: '2026-09-18T20:36:54.508Z'
+        })
+        .where(eq(flight.id, created.id))
+        .run()
+
+      const pushed = await runSync(db, server, SESSION, dbPath)
+
+      expect(pushed.tables.flight.pushed).toBe(1)
+      const wire = JSON.parse(
+        (await server.syncPull(SESSION.email, SESSION.token, 'flight', null))[0].data
+      ) as Record<string, unknown>
+      expect(wire.aircraftUuid).toBeNull()
+      const other = createDb(':memory:')
+      migrate(other.db, { migrationsFolder: 'drizzle' })
+      const result = await runSync(other.db, server, SESSION, join(tempDir, 'other.db'))
+      expect(result.tables.flight.skipped).toEqual([])
+      expect(other.db.select().from(flight).get()).toMatchObject({
+        aircraftId: null,
+        simRegistration: 'B-456',
+        simIcaoType: 'SF50',
+        depIcao: 'VHHH'
+      })
+    })
+
+    it('still skips a flight whose aircraftUuid is missing altogether', async () => {
+      server.seed('flight', {
+        uuid: 'broken',
+        updatedAt: '2099-01-01T00:00:00.000Z',
+        data: JSON.stringify({ depIcao: 'EGLL', arrIcao: 'EGCC' })
+      })
+
+      const result = await runSync(db, server, SESSION, dbPath)
+
+      expect(result.tables.flight.skipped).toEqual(['broken'])
     })
   })
 })
