@@ -229,6 +229,23 @@
       "client": "Un autre PC",
       "description": "Sur un ordinateur qui se connecte à WingLog sur le PC du simulateur, choisissez « Un autre PC ».",
       "restart": "Pris en compte au prochain démarrage de WingLog."
+    },
+    "hostLink": {
+      "cardTitle": "PC du simulateur",
+      "description": "Connectez cet ordinateur à WingLog sur le PC où tourne le simulateur. Là-bas, activez Deuxième écran (Réglages → Données) et saisissez l’adresse et le code d’appairage affichés.",
+      "states": {
+        "connected": "Connecté",
+        "connecting": "Connexion…",
+        "offline": "Injoignable, nouvel essai",
+        "wrong-code": "Code incorrect",
+        "unpaired": "Non appairé"
+      },
+      "pairedWith": "Appairé avec {{address}}",
+      "forget": "Oublier ce PC du simulateur",
+      "addressLabel": "Adresse",
+      "codeLabel": "Code d’appairage",
+      "connect": "Se connecter",
+      "badAddress": "Saisissez l’adresse du PC du simulateur avec son port, une adresse de votre réseau domestique, par exemple 192.168.1.20:5051."
     }
   },
   "app": {
@@ -251,8 +268,16 @@
         "disconnected": "déconnecté"
       },
       "badge": "SimConnect : {{state}}",
-      "simPcBadge": "PC du simulateur : non connecté",
-      "simPcNotConnected": "Non connecté au PC du simulateur"
+      "simPcBadge": "PC du simulateur : {{state}}",
+      "simPcNotConnected": "Non connecté au PC du simulateur",
+      "simPcStates": {
+        "connected": "connecté",
+        "connecting": "connexion",
+        "offline": "injoignable",
+        "unpaired": "non appairé",
+        "wrong-code": "non appairé"
+      },
+      "simPcConnected": "Connecté au PC du simulateur"
     },
     "orphanedFlight": {
       "resumeTitle": "Reprendre le suivi ?",

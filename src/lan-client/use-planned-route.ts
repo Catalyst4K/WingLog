@@ -3,7 +3,7 @@
 import { useEffect, useMemo } from 'react'
 import type { LanFlightSnapshot } from '@shared/ipc'
 import { segmentWaypoints, type Waypoint } from '@shared/route'
-import type { LanConnection } from './lan-connection'
+import type { LanConnection } from '@shared/lan-connection'
 import { useTopic } from './use-link'
 
 /** How long a flight can be shown without a route from the PC before the page tells the PC, in milliseconds. */

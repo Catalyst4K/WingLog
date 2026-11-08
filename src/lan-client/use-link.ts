@@ -2,7 +2,7 @@
 
 import { useSyncExternalStore } from 'react'
 import type { LiveTopic, LiveTopics } from '@shared/live'
-import type { LanConnection, LanLinkState } from './lan-connection'
+import type { LanConnection, LanLinkState } from '@shared/lan-connection'
 
 /**
  * @param link The link to the PC.

@@ -3,7 +3,7 @@ import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { EMPTY_BEYONDATC_STATE } from '@shared/beyondatc-state'
 import { LanApp } from './LanApp'
-import { LanConnection, type LinkSocket, type TokenStore } from './lan-connection'
+import { LanConnection, type LinkSocket, type TokenStore } from '@shared/lan-connection'
 import { LiveClientContext } from '@/live/LiveClient'
 import { lanLiveClient } from './lan-live-client'
 

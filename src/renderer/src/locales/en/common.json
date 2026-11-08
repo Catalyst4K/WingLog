@@ -227,6 +227,23 @@
       "client": "Another PC",
       "description": "On a computer that connects to WingLog on the sim PC, choose “Another PC”.",
       "restart": "Takes effect the next time WingLog starts."
+    },
+    "hostLink": {
+      "cardTitle": "Sim PC",
+      "description": "Connect this computer to WingLog on the PC the sim runs on. There, turn on Second screen (Settings → Data) and enter the address and pairing code it shows.",
+      "states": {
+        "connected": "Connected",
+        "connecting": "Connecting…",
+        "offline": "Not reachable, trying again",
+        "wrong-code": "Wrong code",
+        "unpaired": "Not paired"
+      },
+      "pairedWith": "Paired with {{address}}",
+      "forget": "Forget this sim PC",
+      "addressLabel": "Address",
+      "codeLabel": "Pairing code",
+      "connect": "Connect",
+      "badAddress": "Enter the sim PC’s address with its port, an address on your home network, such as 192.168.1.20:5051."
     }
   },
   "app": {
@@ -249,8 +266,16 @@
         "disconnected": "disconnected"
       },
       "badge": "SimConnect: {{state}}",
-      "simPcBadge": "Sim PC: not connected",
-      "simPcNotConnected": "Not connected to the sim PC"
+      "simPcBadge": "Sim PC: {{state}}",
+      "simPcNotConnected": "Not connected to the sim PC",
+      "simPcStates": {
+        "connected": "connected",
+        "connecting": "connecting",
+        "offline": "not reachable",
+        "unpaired": "not paired",
+        "wrong-code": "not paired"
+      },
+      "simPcConnected": "Connected to the sim PC"
     },
     "orphanedFlight": {
       "resumeTitle": "Resume tracking?",

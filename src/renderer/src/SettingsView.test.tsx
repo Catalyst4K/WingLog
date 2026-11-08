@@ -63,6 +63,8 @@ function createWinglog(overrides: Record<string, unknown> = {}): typeof window.w
     appGetVersion: vi.fn().mockResolvedValue('1.2.3'),
     appGetCapabilities: vi.fn().mockResolvedValue({ runMode: 'host', canHostSim: true, multiDevice: false }),
     settingsGetRunMode: vi.fn().mockResolvedValue(null),
+    hostLinkGetStatus: vi.fn().mockResolvedValue({ state: 'unpaired', address: null, hostSim: null }),
+    onHostLinkStatus: vi.fn(() => () => {}),
     settingsSetRunMode: vi.fn().mockResolvedValue(undefined),
     settingsGetUpdates: vi.fn().mockResolvedValue({ checkEnabled: true }),
     settingsSetUpdates: vi.fn().mockResolvedValue(undefined),
@@ -294,6 +296,8 @@ describe('SettingsView', () => {
         await user.click(screen.getByRole('tab', { name: 'Data' }))
         expect(await screen.findByRole('region', { name: 'Fleet data' })).toBeInTheDocument()
         expect(screen.queryByText('Second screen')).not.toBeInTheDocument()
+        // Pairing with the sim PC takes its place.
+        expect(screen.getByText('Connect this computer to WingLog', { exact: false })).toBeInTheDocument()
       })
 
       it('still shows every host setting on a host', async () => {

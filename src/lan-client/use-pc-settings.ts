@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import type { AltitudeUnit, AppLanguage, MapLanguage, Theme, WeightUnit, WindSpeedUnit } from '@shared/ipc'
-import type { LanConnection } from './lan-connection'
+import type { LanConnection } from '@shared/lan-connection'
 import { useLinkState } from './use-link'
 
 /** The PC's settings a page shows figures by. */

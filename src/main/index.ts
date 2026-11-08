@@ -13,6 +13,7 @@ import { appCapabilities } from '@shared/run-mode'
 import { registerInertHandlers, trackHandledChannels } from './client-mode'
 import { registerRunModeHandlers } from './ipc/run-mode-handlers'
 import { startHostServices } from './host-services'
+import { startClientServices } from './client-services'
 import { CloseGuard } from './window/CloseGuard'
 import { CloseQuestion } from './window/CloseQuestion'
 import { registerWindowHandlers } from './ipc/window-handlers'
@@ -374,7 +375,13 @@ function startApp(cloudSession: StoredSession | null): void {
   registerDispatchHandlers(ipcMain, { db })
 
   const { sim, replayStreams } = connectSim()
-  registerSimHandlers(ipcMain, { sim, liveHub })
+  registerSimHandlers(ipcMain, {
+    sim,
+    liveHub,
+    currentStatus: isClient
+      ? () => liveHub.snapshot().simConnectionStatus ?? { state: 'disconnected' }
+      : undefined
+  })
   if (!isClient) sim.start()
   app.on('before-quit', () => sim.stop())
 
@@ -420,7 +427,8 @@ function startApp(cloudSession: StoredSession | null): void {
   trackingController.setAutoFinish(getTrackingSettings(db).autoFinish)
 
   registerGsxHandlers(ipcMain, { db, window, scheduleBackgroundSync })
-  if (!isClient) {
+  if (isClient) startClientServices({ liveHub, window, handled: handledChannels })
+  else {
     startHostServices({
       db,
       liveHub,

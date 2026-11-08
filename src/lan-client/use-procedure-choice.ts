@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { LanFlightSnapshot, ProcedureSelection } from '@shared/ipc'
 import { emptyProcedureSelection } from '@shared/procedure-selection'
-import type { LanConnection } from './lan-connection'
+import type { LanConnection } from '@shared/lan-connection'
 import {
   choose as chooseSelection,
   CONFIRM_MS,

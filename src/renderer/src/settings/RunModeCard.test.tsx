@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { AppCapabilities, RunMode } from '@shared/ipc'
 import { CapabilitiesProvider } from '../app/capabilities'
@@ -41,7 +41,10 @@ describe('RunModeCard', () => {
   it('shows a choice saved for the next launch', async () => {
     setup({ runMode: 'host', canHostSim: true, multiDevice: true }, 'client')
     renderCard()
-    expect(await screen.findByRole('button', { name: 'Another PC' })).toHaveAttribute('aria-pressed', 'true')
+    await screen.findByRole('button', { name: 'Another PC' })
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Another PC' })).toHaveAttribute('aria-pressed', 'true')
+    )
     expect(screen.getByText('Takes effect the next time WingLog starts.')).toBeInTheDocument()
   })
 

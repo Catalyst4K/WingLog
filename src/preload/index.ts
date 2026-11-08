@@ -10,6 +10,7 @@ import {
   type BeyondAtcSettings,
   type BeyondAtcState,
   type BeyondAtcTranscriptEntry,
+  type HostLinkStatus,
   type LanSettings,
   type StorageStatus,
   type UpdateSettings,
@@ -460,6 +461,15 @@ const api: WingLogApi = {
   setupGetContext: () => ipcRenderer.invoke(IpcChannels.setupGetContext),
   setupComplete: () => ipcRenderer.invoke(IpcChannels.setupComplete),
   lanGetStatus: () => ipcRenderer.invoke(IpcChannels.lanGetStatus),
+  hostLinkGetStatus: () => ipcRenderer.invoke(IpcChannels.hostLinkGetStatus),
+  hostLinkPair: (address: string, code: string) =>
+    ipcRenderer.invoke(IpcChannels.hostLinkPair, address, code),
+  hostLinkForget: () => ipcRenderer.invoke(IpcChannels.hostLinkForget),
+  onHostLinkStatus: (listener: (status: HostLinkStatus) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, status: HostLinkStatus): void => listener(status)
+    ipcRenderer.on(IpcChannels.hostLinkStatus, handler)
+    return () => ipcRenderer.removeListener(IpcChannels.hostLinkStatus, handler)
+  },
   lanSetSettings: (settings: LanSettings) => ipcRenderer.invoke(IpcChannels.lanSetSettings, settings),
   lanStartPairing: () => ipcRenderer.invoke(IpcChannels.lanStartPairing),
   lanStopPairing: () => ipcRenderer.invoke(IpcChannels.lanStopPairing),

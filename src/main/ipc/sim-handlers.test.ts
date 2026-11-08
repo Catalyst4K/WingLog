@@ -19,6 +19,20 @@ describe('sim IPC handlers', () => {
     ])
     expect(invoke(IpcChannels.simConnectionStatusGet)).toEqual({ state: 'connected' })
   })
+
+  it('answers the status from the sim PC on a client, which has no sim of its own (the channel is registered once)', () => {
+    const sim = Object.assign(new EventEmitter(), { getStatus: () => ({ state: 'disconnected' }) })
+    const { ipcMain, invoke } = fakeIpc()
+    registerSimHandlers(ipcMain, {
+      sim: sim as unknown as SimStatusSource,
+      liveHub: { publish: vi.fn() },
+      currentStatus: () => ({ state: 'connected', simConnectVersion: '0.4' })
+    })
+    expect(invoke(IpcChannels.simConnectionStatusGet)).toEqual({
+      state: 'connected',
+      simConnectVersion: '0.4'
+    })
+  })
 })
 
 describe('diagnostics IPC handlers', () => {

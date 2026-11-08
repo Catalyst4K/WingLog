@@ -4,7 +4,7 @@ import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { FlightMapProps } from '@/FlightMap'
 import { LanApp } from './LanApp'
-import { LanConnection, type LinkSocket, type TokenStore } from './lan-connection'
+import { LanConnection, type LinkSocket, type TokenStore } from '@shared/lan-connection'
 
 // The choice is sent again after CONFIRM_MS and the notice goes after NOTICE_MS: shortened so the tests need not wait.
 vi.mock('./selection-sync', async (original) => ({

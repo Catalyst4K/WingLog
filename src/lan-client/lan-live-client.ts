@@ -1,7 +1,7 @@
 /** The renderer's LiveClient seam, over the PC link instead of Electron's preload: the page's panels read the same topics. */
 
 import type { LiveClient } from '@/live/LiveClient'
-import type { LanConnection } from './lan-connection'
+import type { LanConnection } from '@shared/lan-connection'
 
 /**
  * @param link The link to the PC.

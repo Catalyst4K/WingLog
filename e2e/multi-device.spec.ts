@@ -29,7 +29,7 @@ test('a client starts none of the host services and offers none of their setting
     try {
       const capabilities = await client.window.evaluate(() => window.winglog.appGetCapabilities())
       expect(capabilities).toMatchObject({ runMode: 'client', multiDevice: true })
-      await expect(client.window.getByText('Sim PC: not connected')).toBeVisible()
+      await expect(client.window.getByText('Sim PC: not paired')).toBeVisible()
       await expect(client.window.getByText(/SimConnect:/)).toHaveCount(0)
       // Nothing started the second screen: its channel is answered with nothing, not a status.
       expect(await client.window.evaluate(() => window.winglog.lanGetStatus())).toBeUndefined()
@@ -44,7 +44,8 @@ test('a client starts none of the host services and offers none of their setting
       await expect(client.window.getByText('Online network')).toHaveCount(0)
       await client.window.getByRole('tab', { name: 'Data' }).click()
       await expect(client.window.getByText('Where the sim runs')).toBeVisible()
-      await expect(client.window.getByText('Second screen')).toHaveCount(0)
+      await expect(client.window.getByText('Second screen', { exact: true })).toHaveCount(0)
+      await expect(client.window.getByRole('textbox', { name: 'Pairing code' })).toBeVisible()
       // Fleet, Logbook and Dispatch are the client's own and work as ever.
       await client.window.getByRole('tab', { name: 'Fleet' }).click()
       await expect(client.window.getByRole('heading', { name: 'Fleet' })).toBeVisible()

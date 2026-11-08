@@ -4,7 +4,7 @@
  */
 
 import { useEffect, useRef } from 'react'
-import type { LanConnection } from './lan-connection'
+import type { LanConnection } from '@shared/lan-connection'
 import { useTopic } from './use-link'
 
 /** The least time between two reports of a taxi line: it is pushed every second of a taxi, and the PC writes one a minute anyway. */

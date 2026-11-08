@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, renderHook } from '@testing-library/react'
 import type { LiveTopic, TaxiRoute } from '@shared/live'
-import type { LanConnection } from './lan-connection'
+import type { LanConnection } from '@shared/lan-connection'
 import { useReportScriptErrors, useReportTaxiRoute } from './use-reports'
 
 function fakeLink() {

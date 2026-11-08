@@ -3,7 +3,7 @@ import { act, renderHook } from '@testing-library/react'
 import type { LanFlightSnapshot, ProcedureSelection } from '@shared/ipc'
 import type { LiveTopic, PlannedRoute } from '@shared/live'
 import { emptyProcedureSelection } from '@shared/procedure-selection'
-import type { LanConnection, LanLinkState } from './lan-connection'
+import type { LanConnection, LanLinkState } from '@shared/lan-connection'
 import { CONFIRM_MS, MAX_ATTEMPTS } from './selection-sync'
 import { useProcedureChoice } from './use-procedure-choice'
 

@@ -20,6 +20,7 @@ import { trackingLabels } from './tracking-labels'
 import { UpdatesCard } from './UpdatesCard'
 import { LanCard } from './settings/LanCard'
 import { RunModeCard } from './settings/RunModeCard'
+import { HostLinkCard } from './settings/HostLinkCard'
 import { useCapabilities } from './app/capabilities-context'
 import { WindowCard } from './settings/WindowCard'
 import { SettingsCard } from './settings/ui/SettingsCard'
@@ -263,7 +264,7 @@ export function SettingsView(
           {/* v8 ignore next -- vitest.config.ts's `define` fixes the flag at `true`, so the
                 "hidden in a public build" arm of this && can't be exercised in this test run. */}
           {__WINGLOG_CLOUD_SYNC_ENABLED__ && <CloudSyncCard sync={sync} />}
-          {!isClient && <LanCard />}
+          {isClient ? <HostLinkCard /> : <LanCard />}
           <RunModeCard />
         </TabsContent>
 

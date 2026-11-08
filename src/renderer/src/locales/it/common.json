@@ -229,6 +229,23 @@
       "client": "Un altro PC",
       "description": "Su un computer che si collega a WingLog sul PC del simulatore, scegli «Un altro PC».",
       "restart": "Si applica al prossimo avvio di WingLog."
+    },
+    "hostLink": {
+      "cardTitle": "PC del simulatore",
+      "description": "Collega questo computer a WingLog sul PC dove gira il simulatore. Lì attiva Secondo schermo (Impostazioni → Dati) e inserisci l’indirizzo e il codice di associazione mostrati.",
+      "states": {
+        "connected": "Connesso",
+        "connecting": "Connessione…",
+        "offline": "Non raggiungibile, riprovo",
+        "wrong-code": "Codice errato",
+        "unpaired": "Non associato"
+      },
+      "pairedWith": "Associato a {{address}}",
+      "forget": "Dimentica questo PC del simulatore",
+      "addressLabel": "Indirizzo",
+      "codeLabel": "Codice di associazione",
+      "connect": "Connetti",
+      "badAddress": "Inserisci l’indirizzo del PC del simulatore con la porta, un indirizzo della tua rete domestica, ad esempio 192.168.1.20:5051."
     }
   },
   "app": {
@@ -251,8 +268,16 @@
         "disconnected": "disconnesso"
       },
       "badge": "SimConnect: {{state}}",
-      "simPcBadge": "PC del simulatore: non connesso",
-      "simPcNotConnected": "Non connesso al PC del simulatore"
+      "simPcBadge": "PC del simulatore: {{state}}",
+      "simPcNotConnected": "Non connesso al PC del simulatore",
+      "simPcStates": {
+        "connected": "connesso",
+        "connecting": "connessione",
+        "offline": "non raggiungibile",
+        "unpaired": "non associato",
+        "wrong-code": "non associato"
+      },
+      "simPcConnected": "Connesso al PC del simulatore"
     },
     "orphanedFlight": {
       "resumeTitle": "Riprendere il tracciamento?",

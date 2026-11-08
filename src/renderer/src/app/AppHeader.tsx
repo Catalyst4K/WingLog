@@ -9,6 +9,7 @@ import { TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { DevBuildBadge } from '../DevBuildBadge'
 import { OnlineBadge } from '../online/OnlineBadge'
 import { useCapabilities } from './capabilities-context'
+import { useHostLinkStatus } from './use-host-link'
 
 /**
  * The tabs, in order. GSX Remote Control and BeyondATC's own tabs are gated on their settings'
@@ -78,6 +79,7 @@ export function AppHeader(props: {
 }): React.JSX.Element {
   const { t } = useTranslation()
   const isClient = useCapabilities().runMode === 'client'
+  const hostLink = useHostLinkStatus(isClient)
   const { simStatus } = props
   return (
     // Narrow windows (a second monitor, and later a tablet or phone): tabs drop to icons
@@ -111,8 +113,18 @@ export function AppHeader(props: {
         {/* Not below sm: the tabs and the connection badge only just fit at 360 px. */}
         <OnlineBadge className="hidden sm:inline-flex" />
         {isClient ? (
-          <Badge variant="secondary" title={t('app.connection.simPcNotConnected')} className="shrink-0">
-            {t('app.connection.simPcBadge')}
+          <Badge
+            variant={hostLink?.state === 'connected' ? 'default' : 'secondary'}
+            title={t(
+              hostLink?.state === 'connected'
+                ? 'app.connection.simPcConnected'
+                : 'app.connection.simPcNotConnected'
+            )}
+            className="shrink-0"
+          >
+            {t('app.connection.simPcBadge', {
+              state: t(`app.connection.simPcStates.${hostLink?.state ?? 'unpaired'}`)
+            })}
           </Badge>
         ) : (
           <Badge

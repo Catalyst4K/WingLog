@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { LanConnection, type LinkSocket } from './lan-connection'
+import { LanConnection, type LinkSocket } from '@shared/lan-connection'
 import { lanLiveClient } from './lan-live-client'
 
 class FakeSocket implements LinkSocket {

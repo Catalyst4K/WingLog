@@ -222,6 +222,23 @@
       "client": "另一台電腦",
       "description": "在連線至模擬器電腦上 WingLog 的電腦上，選擇「另一台電腦」。",
       "restart": "下次啟動 WingLog 時生效。"
+    },
+    "hostLink": {
+      "cardTitle": "模擬器電腦",
+      "description": "將這台電腦連線到執行模擬器的電腦上的 WingLog。在那台電腦上開啟「第二螢幕」（設定 → 資料），輸入它顯示的位址與配對碼。",
+      "states": {
+        "connected": "已連線",
+        "connecting": "連線中…",
+        "offline": "無法連線，正在重試",
+        "wrong-code": "配對碼錯誤",
+        "unpaired": "未配對"
+      },
+      "pairedWith": "已與 {{address}} 配對",
+      "forget": "忘記這台模擬器電腦",
+      "addressLabel": "位址",
+      "codeLabel": "配對碼",
+      "connect": "連線",
+      "badAddress": "請輸入模擬器電腦的位址與連接埠，需為家用網路中的位址，例如 192.168.1.20:5051。"
     }
   },
   "app": {
@@ -244,8 +261,16 @@
         "disconnected": "已斷線"
       },
       "badge": "SimConnect：{{state}}",
-      "simPcBadge": "模擬器電腦：未連線",
-      "simPcNotConnected": "未連線至模擬器電腦"
+      "simPcBadge": "模擬器電腦：{{state}}",
+      "simPcNotConnected": "未連線至模擬器電腦",
+      "simPcStates": {
+        "connected": "已連線",
+        "connecting": "連線中",
+        "offline": "無法連線",
+        "unpaired": "未配對",
+        "wrong-code": "未配對"
+      },
+      "simPcConnected": "已連線至模擬器電腦"
     },
     "orphanedFlight": {
       "resumeTitle": "恢復追蹤？",

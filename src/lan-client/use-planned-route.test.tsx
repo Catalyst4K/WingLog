@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { act, renderHook } from '@testing-library/react'
 import type { LanFlightSnapshot } from '@shared/ipc'
 import type { LiveTopic, PlannedRoute } from '@shared/live'
-import type { LanConnection } from './lan-connection'
+import type { LanConnection } from '@shared/lan-connection'
 import { usePlannedWaypoints } from './use-planned-route'
 
 const OFP = JSON.stringify({

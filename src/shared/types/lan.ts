@@ -80,3 +80,23 @@ export type LanServerMessage =
    * device has too many waiting or sent too fast: asking again after `retryAfterMs` may work, and is worth doing.
    */
   | { t: 'result'; id: number; data?: unknown; error?: true; busy?: true; retryAfterMs?: number }
+
+/** Where a client's link to the sim PC's WingLog stands (winglog-backend's docs/plans/multi-device.md, Part 2). */
+export type HostLinkState =
+  /** No sim PC has been paired. */
+  | 'unpaired'
+  | 'connecting'
+  | 'connected'
+  /** The link dropped; trying again. */
+  | 'offline'
+  /** The code was wrong, or the host's pairing window had closed. */
+  | 'wrong-code'
+
+/** What Settings and the header show of a client's link. */
+export interface HostLinkStatus {
+  state: HostLinkState
+  /** The sim PC's `host:port`, once one has been paired or entered. */
+  address: string | null
+  /** The sim PC's own SimConnect state, as the host last said it; null before it has. */
+  hostSim: 'connected' | 'connecting' | 'disconnected' | null
+}

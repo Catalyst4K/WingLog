@@ -30,7 +30,7 @@ import type {
   BeyondAtcStepClimbStatus,
   BeyondAtcTranscriptEntry
 } from './types/beyondatc'
-import type { LanSettings, LanStatus } from './types/lan'
+import type { HostLinkStatus, LanSettings, LanStatus } from './types/lan'
 import type { DispatchOfp, DispatchOpenSimBriefParams } from './types/dispatch'
 import type {
   ActiveTracking,
@@ -490,6 +490,14 @@ export interface WingLogApi {
   /** The packaged app's version (package.json's, via Electron's app.getVersion()) —
    *  Settings' About card, so a bug report can include which build it's from. */
   appGetVersion: () => Promise<string>
+  /** A client's link to the sim PC's WingLog: where it stands (multi-device builds, client mode). */
+  hostLinkGetStatus: () => Promise<HostLinkStatus>
+  /** Pairs with the sim PC at `address` (`host:port`, a home-network address) using the code its Second screen card shows. */
+  hostLinkPair: (address: string, code: string) => Promise<HostLinkStatus>
+  /** Forgets the sim PC: closes the link and deletes the stored token. */
+  hostLinkForget: () => Promise<void>
+  /** Called whenever the link's status changes. */
+  onHostLinkStatus: (listener: (status: HostLinkStatus) => void) => () => void
   /** What this run of the app is: the host that talks to the sim, or a client of the sim PC's WingLog, and what that allows. */
   appGetCapabilities: () => Promise<AppCapabilities>
   /** Writes a renderer failure to main.log as a warning: what was being done, and the error's
