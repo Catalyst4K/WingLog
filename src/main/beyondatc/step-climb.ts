@@ -65,6 +65,8 @@ export interface StepClimbDeps {
 export class StepClimbController extends EventEmitter<{ status: [BeyondAtcStepClimbStatus] }> {
   private state: StepClimbState = INITIAL_STEP_CLIMB_STATE
   private lastEmitted = ''
+  /** Closes a level list that turns up after a request gave up on it; stopped when the next request starts. */
+  private stopLateMenuWatch: (() => void) | null = null
   private readonly request: typeof requestAltitude
   private readonly now: () => number
   private readonly writeLog: (message: string) => void
@@ -131,8 +133,11 @@ export class StepClimbController extends EventEmitter<{ status: [BeyondAtcStepCl
   private send(session: AltitudeRequestSession, target: StepClimbTarget): void {
     const key = roundLevel(target.altitudeFt)
     const attempt = this.state.attempts[key]?.count ?? 0
+    this.stopLateMenuWatch?.()
+    this.stopLateMenuWatch = null
     this.request(session, target.altitudeFt)
-      .then(({ outcome }) => {
+      .then(({ outcome, stopWatching }) => {
+        this.stopLateMenuWatch = stopWatching ?? null
         const result = settleRequest(this.state, {
           altitudeFt: target.altitudeFt,
           reason: target.reason,

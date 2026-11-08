@@ -350,7 +350,7 @@ function findUpcomingStep(
     ? undefined
     : s.plan.steps.find(
         (step) =>
-          step.order >= s.progress &&
+          (step.order >= s.progress || isOwed(s, step)) &&
           step.altitudeFt > clearedFt + STEP_THRESHOLD_FT &&
           !s.dropped.includes(roundLevel(step.altitudeFt))
       )
@@ -367,6 +367,19 @@ function findUpcomingStep(
     )
   }
   return { upcoming, upcomingDistance }
+}
+
+/**
+ * A step that was asked for and not granted (BeyondATC was busy, the request timed out) is still wanted after the aircraft
+ * passes its fix, and still asked for when the retry is due, until it is dropped after MAX_ATTEMPTS. Flight 262: a request at
+ * 8 nm from the fix failed, and the retry two minutes on, 16 nm past it, was never made.
+ *
+ * @param s The draft state.
+ * @param step A planned step.
+ * @returns Whether the step has been asked for already.
+ */
+function isOwed(s: StepClimbState, step: StepTarget): boolean {
+  return s.attempts[roundLevel(step.altitudeFt)] !== undefined
 }
 
 /**
@@ -390,7 +403,11 @@ function pickTarget(
   upcomingDistance: number | null
 ): StepClimbTarget | null {
   const candidates: StepClimbTarget[] = []
-  if (upcoming && upcomingDistance !== null && upcomingDistance <= leadDistanceNm(t.groundSpeedMs)) {
+  if (
+    upcoming &&
+    upcomingDistance !== null &&
+    (upcomingDistance <= leadDistanceNm(t.groundSpeedMs) || isOwed(s, upcoming))
+  ) {
     candidates.push({ altitudeFt: upcoming.altitudeFt, reason: 'simbrief' })
   }
   if (s.fcu && now - s.fcu.since >= FCU_SETTLE_MS && s.fcu.valueFt > clearedFt + STEP_THRESHOLD_FT) {

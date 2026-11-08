@@ -374,6 +374,24 @@ describe('StepClimbController', () => {
     expect(statuses.at(-1)?.nextStep?.ident).toBe('KAMUD') // moved on to the next step
   })
 
+  it('keeps watching for a level list that turns up late, until the next request starts (flight 262)', async () => {
+    const { controller, request, advance } = setup({ outcomes: ['granted'] })
+    const stopWatching = vi.fn()
+    request.mockImplementationOnce(async () => ({ outcome: 'noMenu', label: null, stopWatching }))
+    controller.setEnabled(true)
+    const near = telemetry({ longitude: 29.9 })
+
+    controller.onTelemetry(near)
+    await flush()
+    expect(request).toHaveBeenCalledTimes(1)
+    expect(stopWatching).not.toHaveBeenCalled()
+
+    advance(121_000)
+    controller.onTelemetry(near)
+    expect(request).toHaveBeenCalledTimes(2)
+    expect(stopWatching).toHaveBeenCalledTimes(1)
+  })
+
   it('moves past a step point already behind the aircraft instead of waiting on it forever', () => {
     const { controller, request, statuses } = setup()
     controller.setEnabled(true)
