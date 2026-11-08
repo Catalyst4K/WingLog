@@ -192,13 +192,13 @@ test.describe('GSX routines', () => {
       await expect.poll(() => gsx.picks).toEqual(['Request Catering service', 'Request Refueling'])
       await phone.screenshot({ path: 'release/sim/gsx-routines/phone-running.png', animations: 'disabled' })
 
-      // Cancel from the phone is seen on the PC window as well.
+      // Cancel from the phone asks what to do with the services under way (Catering and Refueling were requested); leaving them running
+      // stops the routine and clears it from the phone and from the PC window.
       await progress.getByRole('button', { name: 'Cancel' }).click()
-      await expect(progress.getByRole('status')).toHaveText('Routine cancelled.')
+      await phone.getByRole('button', { name: 'Leave them running' }).click()
+      await expect(progress).toHaveCount(0)
       await page.getByRole('tab', { name: 'Ground services' }).click()
-      await expect(page.getByTestId('gsx-routine-progress').getByRole('status')).toHaveText(
-        'Routine cancelled.'
-      )
+      await expect(page.getByTestId('gsx-routine-progress')).toHaveCount(0)
     } finally {
       await cleanup()
       await server.stop()
