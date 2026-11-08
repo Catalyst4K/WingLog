@@ -7,7 +7,7 @@
  * - the line never points behind the aircraft for more than MAX_BEHIND_S in a row while it moves, and never goes missing once drawn.
  *
  * Writes release/sim/taxi-reroute-fuzz/index.html and results.json (gitignored). Environment: TAXI_FUZZ_N (routes per airport and end type,
- * default 40), TAXI_FUZZ_ONLY (airport codes, comma separated), TAXI_FUZZ_SEED.
+ * default 40), TAXI_FUZZ_ONLY (airport codes, comma separated), TAXI_FUZZ_DEVIATION (deviations, comma separated), TAXI_FUZZ_SEED.
  */
 import { writeFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -42,6 +42,9 @@ it('re-routes the taxi line after each deviation', async () => {
     const n = Number(process.env.TAXI_FUZZ_N ?? 40)
     const seed = Number(process.env.TAXI_FUZZ_SEED ?? 1)
     const only = process.env.TAXI_FUZZ_ONLY?.split(',')
+    const deviations = DEVIATIONS.filter(
+      (d) => !process.env.TAXI_FUZZ_DEVIATION || process.env.TAXI_FUZZ_DEVIATION.split(',').includes(d)
+    )
     const airports = loadGeneratorAirports(db, only)
     const results: RunResult[] = []
     const sections: ReportSection[] = []
@@ -50,7 +53,7 @@ it('re-routes the taxi line after each deviation', async () => {
       const cases = (['holding-point', 'stand', 'hold-short'] as const).flatMap((e) =>
         sampleCases(airport, e, n, seed)
       )
-      for (const deviation of DEVIATIONS) {
+      for (const deviation of deviations) {
         const rows: { result: RunResult; figure: string }[] = []
         for (const c of cases) {
           const drive = fuzzDrive(graph, c.truth, deviation)

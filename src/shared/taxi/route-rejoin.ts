@@ -109,7 +109,8 @@ function candidateLine(
   fromSegment: number,
   { index, state }: Candidate
 ): TracedRoute {
-  const nodes = nodesBack(ways, state, Infinity).reverse().slice(2)
+  const full = nodesBack(ways, state, Infinity).reverse()
+  const nodes = full.slice(2)
   const point = (n: number): [number, number] => {
     const node = itemAt(graph.nodes, n, 'taxi node')
     return [node.lon, node.lat]
@@ -117,7 +118,7 @@ function candidateLine(
   if (index === null) return nodes.map(point)
   // The way back ends where it first meets the cleared route, which is followed from there: the shortest way may run on past
   // cleared taxiways to a join near the end, skipping the stretch ATC cleared (EGLL flight 239's last leg).
-  const onRoute = firstOnRoute(graph, nodes, route, fromSegment, index)
+  const onRoute = firstOnRoute(graph, full, route, fromSegment, index)
   return [...nodes.slice(0, onRoute.at + 1).map(point), ...route.slice(onRoute.index + 1)]
 }
 
@@ -186,10 +187,13 @@ export function nodeAheadOnTaxiway(
 }
 
 /**
- * Where a way back first meets the cleared route.
+ * Where a way back first meets the cleared route, and can follow it on without a turn an airliner can't make. A node of the cleared
+ * route just ahead of an aircraft facing back along it is on the way back, but following the route from there is a hairpin the search
+ * never priced (it priced the loop that avoids it): the way back runs on to a join where the turn onto the route is a real one
+ * (taxi-rules-2.md step 1, WSSS stop-and-turn runs).
  *
  * @param graph The graph.
- * @param nodes The way back, from the aircraft's node to its join.
+ * @param full The way back with the nose's two points first (tail, nose), then the nodes from the aircraft's node to its join.
  * @param route The cleared route.
  * @param fromSegment The furthest segment driven; only later points count.
  * @param joinIndex The route index of the way back's last node, used if no earlier node is on the route.
@@ -197,11 +201,12 @@ export function nodeAheadOnTaxiway(
  */
 function firstOnRoute(
   graph: Graph,
-  nodes: number[],
+  full: number[],
   route: TracedRoute,
   fromSegment: number,
   joinIndex: number
 ): { at: number; index: number } {
+  const nodes = full.slice(2)
   const indexOf = new Map<number, number>()
   for (let i = Math.max(0, fromSegment); i < route.length; i++) {
     const [lon, lat] = itemAt(route, i, 'route point')
@@ -210,9 +215,30 @@ function firstOnRoute(
   }
   for (const [at, n] of nodes.entries()) {
     const index = indexOf.get(n)
-    if (index !== undefined) return { at, index }
+    if (index === undefined) continue
+    const onward = routeNodeAt(graph, route, index + 1)
+    const turn =
+      onward === undefined
+        ? 0
+        : turnCost(graph, turnedBefore(graph, full.slice(0, at + 3).reverse()), [
+            itemAt(full, at + 1, 'route node'),
+            n,
+            onward
+          ])
+    if (turn === 0) return { at, index }
   }
   return { at: nodes.length - 1, index: joinIndex }
+}
+
+/**
+ * @param graph The graph.
+ * @param route The cleared route.
+ * @param i A point's index in the route.
+ * @returns The point's node, or undefined past the route's end or off the network (a stand's own point).
+ */
+function routeNodeAt(graph: Graph, route: TracedRoute, i: number): number | undefined {
+  const point = route[i]
+  return point ? graph.nodeIndex.get(nodeKey(point[1], point[0])) : undefined
 }
 
 /**

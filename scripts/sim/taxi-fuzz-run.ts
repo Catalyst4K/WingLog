@@ -11,6 +11,7 @@ import { initialBearingDeg } from '@shared/geo'
 import type { TaxiClearance } from '@shared/taxi/clearance'
 import { routeProblems } from '@shared/taxi/route-checks'
 import { angleBetweenDeg } from '@shared/taxi/route-graph'
+import { namedRuns } from '@shared/taxi/route-repeats'
 import { LiveHub } from '../../src/main/live/LiveHub'
 import { TaxiRouteService } from '../../src/main/taxi/TaxiRouteService'
 import { logger } from '../../src/main/logging/logger'
@@ -46,6 +47,22 @@ export interface RunResult {
   problems: string[]
   /** The slowest sample, ms. */
   maxSampleMs: number
+  /** The first re-route that failed routeProblems, with where the aircraft was; null when none did. */
+  badReroute: BadReroute | null
+  /** The first moment the line had pointed behind the aircraft for too long, with how many re-routes had come by then; null when it never did. */
+  behind: { t: number; reroutesSoFar: number; from: LonLat; headingDeg: number; line: LonLat[] } | null
+}
+
+/** A re-route that failed routeProblems (the evidence for taxi-rules-2.md step 1: is it the line or the check?). */
+export interface BadReroute {
+  /** Seconds into the run. */
+  t: number
+  from: LonLat
+  headingDeg: number
+  line: LonLat[]
+  problems: string[]
+  /** What the same checks say about the track the aircraft then drove to the end: when it fails too, the situation forces the problem. */
+  driveProblems: string[]
 }
 
 /**
@@ -119,13 +136,16 @@ export async function runDrive(
   const problemCodes = new Set<string>()
   const rerouteTimes: number[] = []
   let maxSampleMs = 0
+  let badReroute: BadReroute | null = null
+  let behind: RunResult['behind'] = null
   let behindRun = 0
   let drawn = false
   try {
     telemetry(drive.samples[0], drive.startHeadingDeg)
     hub.publish('beyondAtcState', { ...EMPTY_BEYONDATC_STATE, infoBoxes: boxesFor(clearance) })
     await new Promise((r) => setTimeout(r, 0))
-    for (const s of drive.samples.slice(1)) {
+    for (const [index, s] of drive.samples.entries()) {
+      if (index === 0) continue
       const before = vi.mocked(logger.info).mock.calls.length
       const startedAt = performance.now()
       telemetry(s, s.headingDeg)
@@ -140,21 +160,46 @@ export async function runDrive(
         if (rerouted) {
           rerouteTimes.push(s.t)
           const end = route.line[route.line.length - 1]
-          const problems = routeProblems(route.line, {
+          // A re-route has no clearance wording, and an aircraft facing back along its taxiway (a stop and a turn) can only go forward by
+          // a loop round a block that drives that taxiway again: the one it is on is allowed a second run (taxi-rules-2.md step 1; the
+          // maps of these lines are loops, not hairpins).
+          const onTaxiway = namedRuns(route.line, airport.segments)[0]
+          const request = {
             segments: airport.segments,
-            taxiways: [],
+            taxiways: onTaxiway ? [onTaxiway, onTaxiway] : [],
             holdingPoint: null,
             from: { lat: s.lat, lon: s.lon },
             end: { lat: end[1], lon: end[0] },
             headingDeg: null
-          })
+          }
+          const problems = routeProblems(route.line, request)
           if (problems.length > 0) {
             failures.add('reroute-with-problems')
             problems.forEach((p) => problemCodes.add(p))
+            if (!badReroute) {
+              const driven: LonLat[] = drive.samples.slice(index).map((d) => [d.lon, d.lat])
+              badReroute = {
+                t: s.t,
+                from: [s.lon, s.lat],
+                headingDeg: s.headingDeg,
+                line: route.line,
+                problems,
+                driveProblems: driven.length >= 2 ? routeProblems(driven, request) : []
+              }
+            }
           }
         }
         behindRun = s.groundSpeedMs > MOVING_MS && pointsBehind(route.line, s.headingDeg) ? behindRun + 1 : 0
-        if (behindRun > MAX_BEHIND_S) failures.add('points-behind')
+        if (behindRun > MAX_BEHIND_S) {
+          failures.add('points-behind')
+          behind ??= {
+            t: s.t,
+            reroutesSoFar: rerouteTimes.length,
+            from: [s.lon, s.lat],
+            headingDeg: s.headingDeg,
+            line: route.line
+          }
+        }
       } else if (drawn && s.groundSpeedMs > MOVING_MS && !route) {
         failures.add('line-lost')
       }
@@ -184,7 +229,9 @@ export async function runDrive(
       reroutes: rerouteTimes.length,
       failures: [...failures],
       problems: [...problemCodes],
-      maxSampleMs: Math.round(maxSampleMs * 10) / 10
+      maxSampleMs: Math.round(maxSampleMs * 10) / 10,
+      badReroute,
+      behind
     }
   }
 }
