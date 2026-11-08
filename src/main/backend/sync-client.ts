@@ -22,14 +22,21 @@ export interface SyncRow {
  * @param path The route, from the base URL.
  * @param body Sent as JSON.
  * @param headers Extra request headers.
+ * @param timeoutMs How long to wait for the whole call before giving up, so a stalled connection cannot hold a sync open for ever.
  * @returns The response's JSON.
  * @throws The backend's own error message, or the HTTP status.
  */
-async function postJson<T>(path: string, body: unknown, headers?: Record<string, string>): Promise<T> {
+async function postJson<T>(
+  path: string,
+  body: unknown,
+  headers?: Record<string, string>,
+  timeoutMs = 30_000
+): Promise<T> {
   const res = await fetch(`${BACKEND_BASE_URL}${path}`, {
     method: 'POST',
     headers: { 'content-type': 'application/json', ...headers },
-    body: JSON.stringify(body)
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(timeoutMs)
   })
   if (!res.ok) {
     const errorBody = (await res.json().catch(() => null)) as { error?: string } | null
@@ -114,23 +121,67 @@ export async function logout(email: string, token: string): Promise<void> {
   await postJson('/auth/logout', { email, token })
 }
 
+/** One page of a pull: the rows, the cursor to ask from next, and whether there is a further page. */
+export interface SyncPage {
+  rows: SyncRow[]
+  cursor: number
+  more: boolean
+}
+
+/** A sync call carries up to 20 MB, so it gets longer than an account call, but not for ever (audit L6). */
+const SYNC_TIMEOUT_MS = 120_000
+
+const BAD_ANSWER = 'The backend answered with something unexpected.'
+
 /**
- * Pulls one table's rows changed since the cursor.
+ * @param value Something the backend sent.
+ * @returns True when it is a list of text.
+ */
+function isTextList(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((item) => typeof item === 'string')
+}
+
+/**
+ * Pulls one page of a table's rows after the cursor, in the order the backend wrote them, so no row is skipped whatever its time.
  *
  * @param email The account.
  * @param token Its session.
  * @param table The table to pull.
- * @param since The cursor: rows changed after this ISO time, or null for all.
- * @returns The changed rows.
+ * @param cursor The `cursor` of the last page for this table, or null for everything.
+ * @returns The page.
+ * @throws When the backend refuses, or answers with something that is not a page.
  */
-export async function syncPull(
+export async function syncPullPage(
   email: string,
   token: string,
   table: SyncTable,
-  since: string | null
-): Promise<SyncRow[]> {
-  const { rows } = await postJson<{ rows: SyncRow[] }>('/sync/pull', { email, token, table, since })
-  return rows
+  cursor: number | null
+): Promise<SyncPage> {
+  const page = await postJson<Partial<SyncPage>>(
+    '/sync/pull',
+    { email, token, table, cursor },
+    undefined,
+    SYNC_TIMEOUT_MS
+  )
+  const rowsOk =
+    Array.isArray(page.rows) &&
+    page.rows.every(
+      (row) =>
+        typeof row === 'object' &&
+        row !== null &&
+        typeof row.uuid === 'string' &&
+        typeof row.updatedAt === 'string' &&
+        typeof row.data === 'string'
+    )
+  if (
+    !rowsOk ||
+    !Number.isSafeInteger(page.cursor) ||
+    (page.cursor as number) < 0 ||
+    typeof page.more !== 'boolean'
+  ) {
+    throw new Error(BAD_ANSWER)
+  }
+  return { rows: page.rows as SyncRow[], cursor: page.cursor as number, more: page.more }
 }
 
 /**
@@ -140,13 +191,25 @@ export async function syncPull(
  * @param token Its session.
  * @param table The table to push.
  * @param rows The local rows changed since the last push.
- * @returns The uuids the backend stored, and the ones it rejected as older than its copy.
+ * @returns The uuids the backend stored, the ones it rejected as older than its copy, and the ones it refused as not valid.
+ * @throws When the backend refuses, or answers with something that is not a result.
  */
 export async function syncPush(
   email: string,
   token: string,
   table: SyncTable,
   rows: SyncRow[]
-): Promise<{ upserted: string[]; rejected: string[] }> {
-  return postJson('/sync/push', { email, token, table, rows })
+): Promise<{ upserted: string[]; rejected: string[]; refused: string[] }> {
+  const result = await postJson<{ upserted?: unknown; rejected?: unknown; refused?: unknown }>(
+    '/sync/push',
+    { email, token, table, rows },
+    undefined,
+    SYNC_TIMEOUT_MS
+  )
+  // An older Worker does not send `refused`; that is the same as none.
+  const refused = result.refused === undefined ? [] : result.refused
+  if (!isTextList(result.upserted) || !isTextList(result.rejected) || !isTextList(refused)) {
+    throw new Error(BAD_ANSWER)
+  }
+  return { upserted: result.upserted, rejected: result.rejected, refused }
 }

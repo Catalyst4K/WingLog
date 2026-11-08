@@ -17,7 +17,8 @@ const {
   logout,
   deleteAccount,
   provision,
-  runSync
+  runCursorSync,
+  resetPeer
 } = vi.hoisted(() => ({
   deleteAccount: vi.fn(),
   forgotPassword: vi.fn(),
@@ -28,7 +29,8 @@ const {
   login: vi.fn(),
   logout: vi.fn(),
   provision: vi.fn(),
-  runSync: vi.fn()
+  runCursorSync: vi.fn(),
+  resetPeer: vi.fn()
 }))
 
 vi.mock('../backend/session-store', () => ({ saveSession, clearSession }))
@@ -39,11 +41,11 @@ vi.mock('../backend/sync-client', () => ({
   forgotPassword,
   resetPassword,
   provision,
-  syncPull: vi.fn(),
+  syncPullPage: vi.fn(),
   syncPush: vi.fn()
 }))
 vi.mock('../db/backup', () => ({ backupBeforeFirstSync }))
-vi.mock('./sync-engine', () => ({ runSync }))
+vi.mock('./cursor-sync', () => ({ runCursorSync, resetPeer }))
 
 const SESSION: StoredSession = {
   email: 'callum.jones5@btinternet.com',
@@ -69,7 +71,7 @@ describe('CloudSyncController', () => {
     forgotPassword.mockReset().mockResolvedValue(undefined)
     resetPassword.mockReset().mockResolvedValue(undefined)
     provision.mockReset()
-    runSync.mockReset()
+    runCursorSync.mockReset()
     backupBeforeFirstSync.mockReset().mockReturnValue('/fake/userdata/backups/before-first-sync-1.db')
   })
 
@@ -190,10 +192,8 @@ describe('CloudSyncController', () => {
   })
 
   describe('deleting the account', () => {
-    it('deletes it on the service with the password, then signs out and forgets the cloud cursors, keeping the twin link’s', async () => {
+    it('deletes it on the service with the password, then signs out and forgets the cloud cursors', async () => {
       loaded = SESSION
-      setLastSyncedAt(db, 'flight', '2026-11-01T00:00:00.000Z')
-      setLastSyncedAt(db, 'lan:flight', '2026-11-08T00:00:00.000Z')
       const controller = new CloudSyncController(db, '/fake/db/path', '/fake/userdata', loaded)
 
       const status = await controller.deleteAccount('the password')
@@ -201,8 +201,7 @@ describe('CloudSyncController', () => {
       expect(deleteAccount).toHaveBeenCalledWith(SESSION.email, 'the password')
       expect(clearSession).toHaveBeenCalledWith('/fake/userdata')
       expect(status.loggedIn).toBe(false)
-      expect(getLastSyncedAt(db, 'flight')).toBeNull()
-      expect(getLastSyncedAt(db, 'lan:flight')).toBe('2026-11-08T00:00:00.000Z')
+      expect(resetPeer).toHaveBeenCalledWith(db, 'cloud')
     })
 
     it('stays signed in, and deletes nothing here, when the service refuses', async () => {
@@ -228,7 +227,7 @@ describe('CloudSyncController', () => {
   it('refuses to sync when not logged in', async () => {
     const controller = new CloudSyncController(db, '/fake/db/path', '/fake/userdata', loaded)
     await expect(controller.syncNow()).rejects.toThrow('Not logged in')
-    expect(runSync).not.toHaveBeenCalled()
+    expect(runCursorSync).not.toHaveBeenCalled()
   })
 
   it('runs a sync and records the completion time', async () => {
@@ -237,12 +236,12 @@ describe('CloudSyncController', () => {
       syncedAt: '2026-09-11T12:00:00.000Z',
       tables: {} as SyncResult['tables']
     }
-    runSync.mockResolvedValue(result)
+    runCursorSync.mockResolvedValue(result)
     const controller = new CloudSyncController(db, '/fake/db/path', '/fake/userdata', loaded)
 
     const status = await controller.syncNow()
 
-    expect(runSync).toHaveBeenCalledWith(db, expect.any(Object), SESSION, '/fake/db/path')
+    expect(runCursorSync).toHaveBeenCalledWith(db, expect.any(Object), SESSION, '/fake/db/path', 'cloud')
     expect(status.syncing).toBe(false)
     expect(status.lastSyncedAt).toBe('2026-09-11T12:00:00.000Z')
     expect(status.lastError).toBeNull()
@@ -252,7 +251,7 @@ describe('CloudSyncController', () => {
   it('does not start a second sync while one is already running', async () => {
     loaded = SESSION
     let resolveSync: (result: SyncResult) => void = () => {}
-    runSync.mockReturnValue(
+    runCursorSync.mockReturnValue(
       new Promise<SyncResult>((resolve) => {
         resolveSync = resolve
       })
@@ -263,14 +262,14 @@ describe('CloudSyncController', () => {
     const secondStatus = await controller.syncNow()
 
     expect(secondStatus.syncing).toBe(true)
-    expect(runSync).toHaveBeenCalledTimes(1)
+    expect(runCursorSync).toHaveBeenCalledTimes(1)
     resolveSync({ syncedAt: '2026-09-11T12:00:00.000Z', tables: {} as SyncResult['tables'] })
     await first
   })
 
   it('records a sync failure and surfaces it in status without clearing the session', async () => {
     loaded = SESSION
-    runSync.mockRejectedValue(new Error('server unreachable'))
+    runCursorSync.mockRejectedValue(new Error('server unreachable'))
     const controller = new CloudSyncController(db, '/fake/db/path', '/fake/userdata', loaded)
 
     const status = await controller.syncNow()
@@ -282,7 +281,7 @@ describe('CloudSyncController', () => {
 
   it('clears the session when a sync fails because it is invalid or expired', async () => {
     loaded = SESSION
-    runSync.mockRejectedValue(new Error('invalid or expired session'))
+    runCursorSync.mockRejectedValue(new Error('invalid or expired session'))
     const controller = new CloudSyncController(db, '/fake/db/path', '/fake/userdata', loaded)
 
     const status = await controller.syncNow()
@@ -301,7 +300,7 @@ describe('CloudSyncController', () => {
         order.push('backup')
         return '/fake/userdata/backups/before-first-sync-1.db'
       })
-      runSync.mockImplementation(async () => {
+      runCursorSync.mockImplementation(async () => {
         order.push('sync')
         return okResult
       })
@@ -316,17 +315,16 @@ describe('CloudSyncController', () => {
 
     it('forgets the cursors of the account before it, once, so a new account is sent everything', async () => {
       loaded = SESSION
-      setLastSyncedAt(db, 'flight', '2026-09-01T00:00:00.000Z')
-      runSync.mockResolvedValue(okResult)
+      runCursorSync.mockResolvedValue(okResult)
       const controller = new CloudSyncController(db, '/fake/db/path', '/fake/userdata', loaded)
 
       await controller.syncNow()
-      expect(getLastSyncedAt(db, 'flight')).toBeNull()
+      expect(resetPeer).toHaveBeenCalledTimes(1)
+      expect(resetPeer).toHaveBeenCalledWith(db, 'cloud')
 
       // What a sync leaves behind is kept by the next one: the account is no longer new.
-      setLastSyncedAt(db, 'flight', '2026-11-08T00:00:00.000Z')
       await controller.syncNow()
-      expect(getLastSyncedAt(db, 'flight')).toBe('2026-11-08T00:00:00.000Z')
+      expect(resetPeer).toHaveBeenCalledTimes(1)
     })
 
     it('does not sync, and tries again next time, when the snapshot fails', async () => {
@@ -334,16 +332,16 @@ describe('CloudSyncController', () => {
       backupBeforeFirstSync.mockImplementationOnce(() => {
         throw new Error('disk full')
       })
-      runSync.mockResolvedValue(okResult)
+      runCursorSync.mockResolvedValue(okResult)
       const controller = new CloudSyncController(db, '/fake/db/path', '/fake/userdata', loaded)
 
       const failed = await controller.syncNow()
-      expect(runSync).not.toHaveBeenCalled()
+      expect(runCursorSync).not.toHaveBeenCalled()
       expect(failed.lastError).toBe('disk full')
 
       await controller.syncNow()
       expect(backupBeforeFirstSync).toHaveBeenCalledTimes(2)
-      expect(runSync).toHaveBeenCalledTimes(1)
+      expect(runCursorSync).toHaveBeenCalledTimes(1)
     })
   })
 })

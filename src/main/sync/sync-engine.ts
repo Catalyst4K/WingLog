@@ -13,6 +13,7 @@
  */
 import { appendFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
+import { eq } from 'drizzle-orm'
 import {
   getAircraftIdByUuid,
   getAircraftUuidByRegistration,
@@ -80,7 +81,13 @@ function conflictLogPath(dbPath: string): string {
   return join(dirname(dbPath), 'sync-conflicts.log')
 }
 
-function logSyncEvent(dbPath: string, event: Record<string, unknown>): void {
+/**
+ * Appends one line to sync-conflicts.log, next to the database: a row that lost, was refused, or could not be applied or sent.
+ *
+ * @param dbPath The database file's path.
+ * @param event What happened, as fields.
+ */
+export function logSyncEvent(dbPath: string, event: Record<string, unknown>): void {
   appendFileSync(
     conflictLogPath(dbPath),
     JSON.stringify({ loggedAt: new Date().toISOString(), ...event }) + '\n'
@@ -127,8 +134,9 @@ function omit<T extends Record<string, unknown>>(obj: T, keys: string[]): Record
 /** Outcome of applying one pulled row locally. `applied: false` means the row was a
  *  legitimate last-write-wins loser against this device's own not-yet-pushed local edit
  *  (see upsertAircraftByUuid's comment) — distinct from `ok: false`, which means the row
- *  itself couldn't be applied at all (malformed data, unresolved parent reference). */
-export type ApplyResult = { ok: true; applied: boolean } | { ok: false; error: string }
+ *  itself couldn't be applied at all (malformed data, unresolved parent reference). `uuid` is the local uuid the row was written under: the one its alias points to when it
+ *  was merged into a row this device already had, which is the row a sync mark has to go on. */
+export type ApplyResult = { ok: true; applied: boolean; uuid: string } | { ok: false; error: string }
 
 // --- aircraft ---------------------------------------------------------------------------
 
@@ -192,7 +200,7 @@ function applyAircraft(db: WingLogDb, row: SyncRow): ApplyResult {
       uuid,
       updatedAt: row.updatedAt
     } as Parameters<typeof upsertAircraftByUuid>[1])
-    return { ok: true, applied }
+    return { ok: true, applied, uuid }
   } catch (err) {
     /* v8 ignore start -- better-sqlite3 always throws real Error instances; the String(err)
      * arm exists only for TypeScript's sake (a catch variable is typed `unknown`), not a
@@ -209,7 +217,7 @@ function applyAircraft(db: WingLogDb, row: SyncRow): ApplyResult {
  * @param db The database.
  * @param applied The aircraft rows that were applied this pull.
  */
-function linkPulledReplacements(db: WingLogDb, applied: SyncRow[]): void {
+export function linkPulledReplacements(db: WingLogDb, applied: SyncRow[]): void {
   for (const row of applied) {
     const replacedBy = parseRowData(row.data)?.replacedByAircraftUuid
     if (typeof replacedBy === 'string') {
@@ -325,7 +333,7 @@ function applyFlight(db: WingLogDb, row: SyncRow): ApplyResult {
       uuid,
       updatedAt: row.updatedAt
     } as Parameters<typeof upsertFlightByUuid>[1])
-    return { ok: true, applied }
+    return { ok: true, applied, uuid }
   } catch (err) {
     /* v8 ignore start -- unlike aircraft (unique registration) or landing/flightInvoice
      * (required fields the malformed-data check above doesn't cover), the flight table has
@@ -357,7 +365,7 @@ function applyLanding(db: WingLogDb, row: SyncRow): ApplyResult {
   if (flightId === undefined) return { ok: false, error: `unknown flight ${data.flightUuid}` }
   // The flight is one that both devices already had: a landing it already has under another uuid is the same touchdown.
   if (hasLandingUnderOtherUuid(db, flightId, typeof data.seq === 'number' ? data.seq : 1, row.uuid)) {
-    return { ok: true, applied: false }
+    return { ok: true, applied: false, uuid: row.uuid }
   }
   const checked = validateSyncFields(landing, data, ['flightId'])
   if (!checked.ok) return checked
@@ -368,7 +376,7 @@ function applyLanding(db: WingLogDb, row: SyncRow): ApplyResult {
       uuid: row.uuid,
       updatedAt: row.updatedAt
     } as Parameters<typeof upsertLandingByUuid>[1])
-    return { ok: true, applied }
+    return { ok: true, applied, uuid: row.uuid }
   } catch (err) {
     /* v8 ignore start -- see applyAircraft's identical catch for why the String(err) arm is
      * excluded. */
@@ -407,7 +415,7 @@ function applyFlightInvoice(db: WingLogDb, row: SyncRow): ApplyResult {
   }
   const flightId = getFlightIdByUuid(db, resolveFlightUuid(db, data.flightUuid))
   if (flightId === undefined) return { ok: false, error: `unknown flight ${data.flightUuid}` }
-  if (hasInvoiceUnderOtherUuid(db, flightId, data.receiptId, row.uuid)) return { ok: true, applied: false }
+  if (hasInvoiceUnderOtherUuid(db, flightId, data.receiptId, row.uuid)) return { ok: true, applied: false, uuid: row.uuid }
   const checked = validateSyncFields(flightInvoice, data, ['flightId'])
   if (!checked.ok) return checked
   try {
@@ -417,7 +425,7 @@ function applyFlightInvoice(db: WingLogDb, row: SyncRow): ApplyResult {
       uuid: row.uuid,
       updatedAt: row.updatedAt
     } as Parameters<typeof upsertFlightInvoiceByUuid>[1])
-    return { ok: true, applied }
+    return { ok: true, applied, uuid: row.uuid }
   } catch (err) {
     /* v8 ignore start -- see applyAircraft's identical catch for why the String(err) arm is
      * excluded. */
@@ -450,6 +458,35 @@ export function listAndSerializeForPush(db: WingLogDb, table: SyncTable, since: 
       return listFlightInvoicesForSync(db, since)
         .map((row) => serializeFlightInvoice(db, row))
         .filter((row): row is SyncRow => row !== null)
+  }
+}
+
+/**
+ * One local row as a sync row, looked up by its uuid: what a counted change is sent as.
+ *
+ * @param db The database.
+ * @param table The table the row is in.
+ * @param uuid The row's uuid.
+ * @returns The row, or null when it is gone or cannot be sent yet (its parent has no uuid).
+ */
+export function serializeChange(db: WingLogDb, table: SyncTable, uuid: string): SyncRow | null {
+  switch (table) {
+    case 'aircraft': {
+      const row = db.select().from(aircraft).where(eq(aircraft.uuid, uuid)).get()
+      return row ? serializeAircraft(db, row) : null
+    }
+    case 'flight': {
+      const row = db.select().from(flight).where(eq(flight.uuid, uuid)).get()
+      return row ? serializeFlight(db, row) : null
+    }
+    case 'landing': {
+      const row = db.select().from(landing).where(eq(landing.uuid, uuid)).get()
+      return row ? serializeLanding(db, row) : null
+    }
+    case 'flightInvoice': {
+      const row = db.select().from(flightInvoice).where(eq(flightInvoice.uuid, uuid)).get()
+      return row ? serializeFlightInvoice(db, row) : null
+    }
   }
 }
 

@@ -3,7 +3,7 @@
  * default for a missing or unknown stored value (a hand-edited row, or one from a newer version), so
  * a bad row never reaches the UI.
  */
-import { and, eq, like, notLike } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import { APP_LANGUAGE_OPTIONS } from '@shared/app-language'
 import { parseRunMode, type RunMode } from '@shared/run-mode'
 import {
@@ -469,17 +469,6 @@ export function getLastSyncedAt(db: WingLogDb, table: string): string | null {
  */
 export function setLastSyncedAt(db: WingLogDb, table: string, isoTimestamp: string): void {
   setSetting(db, `lastSyncedAt:${table}`, isoTimestamp)
-}
-
-/**
- * Forgets the cloud account's per-table sync cursors, so the next sync pulls and pushes every row. The twin link's cursors (`lan:`) are left alone.
- *
- * @param db The database.
- */
-export function clearCloudSyncCursors(db: WingLogDb): void {
-  db.delete(appSetting)
-    .where(and(like(appSetting.key, 'lastSyncedAt:%'), notLike(appSetting.key, 'lastSyncedAt:lan:%')))
-    .run()
 }
 
 const LAST_SYNC_COMPLETED_KEY = 'lastSyncCompletedAt'

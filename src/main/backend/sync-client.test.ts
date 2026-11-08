@@ -6,7 +6,7 @@ import {
   login,
   logout,
   provision,
-  syncPull,
+  syncPullPage,
   syncPush
 } from './sync-client'
 
@@ -124,33 +124,66 @@ describe('deleteAccount', () => {
   })
 })
 
-describe('syncPull', () => {
-  it('returns the rows from the response', async () => {
-    const rows = [{ uuid: 'a', updatedAt: '2026-09-04T00:00:00Z', data: '{}' }]
-    vi.stubGlobal('fetch', fetchMock(200, { rows }))
+describe('syncPullPage', () => {
+  const row = { uuid: 'a', updatedAt: '2026-09-04T00:00:00.000Z', data: '{}' }
 
-    const result = await syncPull('callum@example.com', 'tok', 'aircraft', null)
+  it('asks for the page after the cursor and returns the rows, the next cursor and whether there is more', async () => {
+    const mock = fetchMock(200, { rows: [row], cursor: 7, more: true })
+    vi.stubGlobal('fetch', mock)
 
-    expect(result).toEqual(rows)
+    const page = await syncPullPage('callum@example.com', 'tok', 'aircraft', 3)
+
+    expect(page).toEqual({ rows: [row], cursor: 7, more: true })
+    const [url, init] = mock.mock.calls[0]
+    expect(url).toBe('https://flightdeck-backend.callum-jones5.workers.dev/sync/pull')
+    expect(JSON.parse(init?.body as string)).toEqual({
+      email: 'callum@example.com',
+      token: 'tok',
+      table: 'aircraft',
+      cursor: 3
+    })
+    expect(init?.signal).toBeInstanceOf(AbortSignal)
+  })
+
+  it('asks for everything with a null cursor', async () => {
+    const mock = fetchMock(200, { rows: [], cursor: 0, more: false })
+    vi.stubGlobal('fetch', mock)
+    await syncPullPage('callum@example.com', 'tok', 'flight', null)
+    expect(JSON.parse(mock.mock.calls[0][1]?.body as string).cursor).toBeNull()
   })
 
   it('surfaces a 401 as a thrown error, distinguishable from a network failure', async () => {
     vi.stubGlobal('fetch', fetchMock(401, { error: 'invalid or expired session' }))
-    await expect(syncPull('callum@example.com', 'tok', 'aircraft', null)).rejects.toThrow(
+    await expect(syncPullPage('callum@example.com', 'tok', 'aircraft', null)).rejects.toThrow(
       'invalid or expired session'
+    )
+  })
+
+  it.each([
+    ['rows that are not rows', { rows: [{ uuid: 'a' }], cursor: 1, more: false }],
+    ['rows that are not a list', { rows: 'x', cursor: 1, more: false }],
+    ['a null row', { rows: [null], cursor: 1, more: false }],
+    ['a cursor that is not a whole number', { rows: [], cursor: 1.5, more: false }],
+    ['a negative cursor', { rows: [], cursor: -1, more: false }],
+    ['a missing cursor', { rows: [], more: false }],
+    ['a more that is not true or false', { rows: [], cursor: 1, more: 'yes' }]
+  ])('refuses an answer with %s', async (_name, body) => {
+    vi.stubGlobal('fetch', fetchMock(200, body))
+    await expect(syncPullPage('callum@example.com', 'tok', 'aircraft', null)).rejects.toThrow(
+      'The backend answered with something unexpected.'
     )
   })
 })
 
 describe('syncPush', () => {
-  it('posts the table and rows, returns upserted/rejected', async () => {
-    const mock = fetchMock(200, { upserted: ['a'], rejected: ['b'] })
+  it('posts the table and rows, returns upserted, rejected and refused', async () => {
+    const mock = fetchMock(200, { upserted: ['a'], rejected: ['b'], refused: ['c'] })
     vi.stubGlobal('fetch', mock)
     const rows = [{ uuid: 'a', updatedAt: '2026-09-04T00:00:00Z', data: '{}' }]
 
     const result = await syncPush('callum@example.com', 'tok', 'flight', rows)
 
-    expect(result).toEqual({ upserted: ['a'], rejected: ['b'] })
+    expect(result).toEqual({ upserted: ['a'], rejected: ['b'], refused: ['c'] })
     const [, init] = mock.mock.calls[0]
     expect(JSON.parse(init?.body as string)).toEqual({
       email: 'callum@example.com',
@@ -158,5 +191,34 @@ describe('syncPush', () => {
       table: 'flight',
       rows
     })
+  })
+
+  it('takes an older Worker’s answer, which has no refused list, as none refused', async () => {
+    vi.stubGlobal('fetch', fetchMock(200, { upserted: ['a'], rejected: [] }))
+    const result = await syncPush('callum@example.com', 'tok', 'flight', [])
+    expect(result).toEqual({ upserted: ['a'], rejected: [], refused: [] })
+  })
+
+  it.each([
+    ['upserted that is not a list of text', { upserted: [1], rejected: [], refused: [] }],
+    ['rejected that is missing', { upserted: [], refused: [] }],
+    ['refused that is not a list', { upserted: [], rejected: [], refused: 'x' }]
+  ])('refuses an answer with %s', async (_name, body) => {
+    vi.stubGlobal('fetch', fetchMock(200, body))
+    await expect(syncPush('callum@example.com', 'tok', 'flight', [])).rejects.toThrow(
+      'The backend answered with something unexpected.'
+    )
+  })
+
+  it('gives each sync call a time limit, so a stalled connection cannot hold a sync open for ever', async () => {
+    const limit = vi.spyOn(AbortSignal, 'timeout')
+    vi.stubGlobal('fetch', fetchMock(200, { upserted: [], rejected: [] }))
+    await syncPush('callum@example.com', 'tok', 'flight', [])
+    vi.stubGlobal('fetch', fetchMock(200, { rows: [], cursor: 0, more: false }))
+    await syncPullPage('callum@example.com', 'tok', 'flight', null)
+    vi.stubGlobal('fetch', fetchMock(200, { token: 't', expiresAt: 'x' }))
+    await login('callum@example.com', 'a password')
+    expect(limit.mock.calls.map(([ms]) => ms)).toEqual([120_000, 120_000, 30_000])
+    limit.mockRestore()
   })
 })

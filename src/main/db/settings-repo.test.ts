@@ -13,7 +13,6 @@ import {
   getMinimizeToTray,
   setMinimizeToTray,
   getHostOnly,
-  clearCloudSyncCursors,
   setHostOnly,
   getStartWithWindows,
   setStartWithWindows,
@@ -270,16 +269,6 @@ describe('settings repo', () => {
     setStartWithWindows(db, false)
     expect(getHostOnly(db)).toBe(false)
     expect(getStartWithWindows(db)).toBe(false)
-  })
-
-  it('forgets the cloud cursors and keeps the twin link’s', () => {
-    setLastSyncedAt(db, 'aircraft', '2026-09-01T00:00:00.000Z')
-    setLastSyncedAt(db, 'flight', '2026-09-02T00:00:00.000Z')
-    setLastSyncedAt(db, 'lan:flight', '2026-11-08T00:00:00.000Z')
-    clearCloudSyncCursors(db)
-    expect(getLastSyncedAt(db, 'aircraft')).toBeNull()
-    expect(getLastSyncedAt(db, 'flight')).toBeNull()
-    expect(getLastSyncedAt(db, 'lan:flight')).toBe('2026-11-08T00:00:00.000Z')
   })
 
   it('defaults the last-synced-completed timestamp to null when never set', () => {
