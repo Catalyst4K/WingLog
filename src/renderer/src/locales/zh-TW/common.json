@@ -277,6 +277,22 @@
       "codeLabel": "配對碼",
       "connect": "連線",
       "badAddress": "請輸入模擬器電腦的位址與連接埠，需為家用網路中的位址，例如 192.168.1.20:5051。"
+    },
+    "twin": {
+      "cardTitle": "其他 WingLog",
+      "description": "讓您家用網路中另一台電腦上的 WingLog 作為本機的孿生運作：它的飛行日誌與機隊會與本電腦保持同步，並即時顯示本電腦的模擬器。",
+      "enable": "允許其他 WingLog",
+      "paired_other": "已配對 {{count}} 個",
+      "notReachable": "在您的家用網路中無法連線。",
+      "address": "位址",
+      "pairButton": "配對另一個 WingLog",
+      "pairingCode": "配對碼",
+      "pairingNote": "在另一個 WingLog 中開啟 設定 → 模擬器電腦，貼上配對文字，或輸入位址與此配對碼。",
+      "copy": "複製配對文字",
+      "copied": "已複製",
+      "close": "關閉",
+      "devices": "已配對的 WingLog",
+      "noDevices": "沒有已配對的其他 WingLog。"
     }
   },
   "app": {

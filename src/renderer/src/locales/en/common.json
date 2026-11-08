@@ -282,6 +282,23 @@
       "codeLabel": "Pairing code",
       "connect": "Connect",
       "badAddress": "Enter the sim PC’s address with its port, an address on your home network, such as 192.168.1.20:5051."
+    },
+    "twin": {
+      "cardTitle": "Other WingLogs",
+      "description": "Let WingLog on another computer on your home network work as a twin of this one: its logbook and fleet are kept in step with this PC's, and it shows this PC's sim live.",
+      "enable": "Allow other WingLogs",
+      "paired_one": "{{count}} paired",
+      "paired_other": "{{count}} paired",
+      "notReachable": "Not reachable on your home network.",
+      "address": "Address",
+      "pairButton": "Pair another WingLog",
+      "pairingCode": "Pairing code",
+      "pairingNote": "On the other WingLog, open Settings → Sim PC and paste the pairing text, or enter the address and this code.",
+      "copy": "Copy pairing text",
+      "copied": "Copied",
+      "close": "Close",
+      "devices": "Paired WingLogs",
+      "noDevices": "No other WingLog is paired."
     }
   },
   "app": {

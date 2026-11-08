@@ -54,3 +54,35 @@ export function parseHostAddress(text: string): string | null {
   if (port < 1 || port > 65535) return null
   return isPrivateIpv4(host) || isLocalName(host) ? `${host}:${port}` : null
 }
+
+/** The scheme of the pairing text the host offers to copy. */
+const PAIRING_SCHEME = 'winglog-pair://'
+
+/**
+ * The text the host offers to copy so another WingLog can pair with one paste: its address and the pairing code.
+ *
+ * @param address The host's `host:port`.
+ * @param code The 6-digit pairing code.
+ * @returns For example `winglog-pair://192.168.1.20:5051/123456`.
+ */
+export function formatPairingText(address: string, code: string): string {
+  return `${PAIRING_SCHEME}${address}/${code}`
+}
+
+/**
+ * Reads what was pasted into the address field: the pairing text, or an address with the code after it (a space, a comma or a slash), or
+ * only an address.
+ *
+ * @param text What was pasted or typed.
+ * @returns The home-network address and the code if there was one, or null when there is no usable address.
+ */
+export function parsePairingText(text: string): { address: string; code: string | null } | null {
+  const trimmed = text.trim()
+  const body = trimmed.toLowerCase().startsWith(PAIRING_SCHEME)
+    ? trimmed.slice(PAIRING_SCHEME.length)
+    : trimmed
+  const match = /^(\S+?)(?:[\s,/]+(\d{6}))?\/?$/.exec(body)
+  if (!match) return null
+  const address = parseHostAddress(match[1] as string)
+  return address ? { address, code: match[2] ?? null } : null
+}

@@ -78,7 +78,8 @@ export class HostLink {
     this.close()
     this.address = address
     this.token = null
-    this.open()?.pair(code)
+    // Another WingLog pairs as a twin, with the code of the host's Pair another WingLog, not the second screen's.
+    this.open()?.pair(code, 'twin')
     this.emit()
   }
 

@@ -213,9 +213,14 @@ export function createLan({
       })
     },
     devices: {
-      add: (name, tokenHash) => addLanDevice(db, name, tokenHash, new Date().toISOString()),
+      add: (name, tokenHash, kind) => addLanDevice(db, name, tokenHash, new Date().toISOString(), kind),
       find: (tokenHash) => findActiveLanDevice(db, tokenHash),
       touch: (id) => touchLanDevice(db, id, new Date().toISOString())
+    },
+    // Each kind of device has its own switch; the server runs while either is on, and refuses a token of a kind that is off.
+    enabledKinds: () => {
+      const settings = getLanSettings(db)
+      return { screen: settings.enabled, twin: settings.twinEnabled }
     },
     queries: lanQueries(navdata, {
       display: () => ({

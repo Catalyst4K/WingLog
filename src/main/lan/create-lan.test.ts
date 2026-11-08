@@ -255,7 +255,7 @@ describe('createLan', () => {
       testAddress: '127.0.0.1'
     })
     const port = await freePort()
-    setLanSettings(db, { enabled: true, port })
+    setLanSettings(db, { enabled: true, port, twinEnabled: false })
     await lan.init()
     const { code } = lan.startPairing().pairing!
     const messages: Record<string, unknown>[] = []
@@ -298,7 +298,7 @@ describe('createLan', () => {
     setAppLanguage(db, 'system')
     setTheme(db, 'dark')
     const port = await freePort()
-    setLanSettings(db, { enabled: true, port })
+    setLanSettings(db, { enabled: true, port, twinEnabled: false })
     await lan.init()
     const { code } = lan.startPairing().pairing!
     const messages: Record<string, unknown>[] = []
@@ -319,7 +319,7 @@ describe('createLan', () => {
   it('serves the built page and pairs a device once switched on, keeping only its token hash', async () => {
     const { db, hub, lan } = build()
     const port = await freePort()
-    setLanSettings(db, { enabled: true, port })
+    setLanSettings(db, { enabled: true, port, twinEnabled: false })
     await lan.init()
     expect(lan.getStatus().url).toBe(`http://127.0.0.1:${port}/`)
 

@@ -4,6 +4,7 @@ import { useId, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { parsePairingText } from '@shared/host-address'
 import { useHostLinkStatus } from '../app/use-host-link'
 import { winglogApi } from '../data/winglog-api'
 import { runAsync } from '../report-error'
@@ -34,6 +35,21 @@ export function HostLinkCard(): React.JSX.Element {
 
   const state = status?.state ?? 'unpaired'
   const paired = state !== 'unpaired' && status?.address
+
+  /**
+   * Takes what was typed or pasted. The host's pairing text carries its address and the code, so one paste fills both fields.
+   *
+   * @param value The field's new text.
+   */
+  function enterAddress(value: string): void {
+    const parsed = parsePairingText(value)
+    if (parsed?.code) {
+      setAddress(parsed.address)
+      setCode(parsed.code)
+    } else {
+      setAddress(value)
+    }
+  }
 
   function connect(): void {
     setProblem(false)
@@ -69,7 +85,7 @@ export function HostLinkCard(): React.JSX.Element {
               value={address}
               placeholder="192.168.1.20:5051"
               inputMode="url"
-              onChange={(event) => setAddress(event.target.value)}
+              onChange={(event) => enterAddress(event.target.value)}
               className="w-56 font-mono"
             />
           </SettingRow>

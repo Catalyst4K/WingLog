@@ -34,14 +34,14 @@ async function freePort(): Promise<number> {
 
 /** An in-memory stand-in for the lan_device table, keyed the way the real one is. */
 function deviceStore() {
-  const rows = new Map<string, number>()
+  const rows = new Map<string, { id: number; kind: 'screen' | 'twin' }>()
   const seen: number[] = []
   return {
     rows,
     seen,
     devices: {
-      add: (_name: string, tokenHash: string) => {
-        rows.set(tokenHash, rows.size + 1)
+      add: (_name: string, tokenHash: string, kind: 'screen' | 'twin' = 'screen') => {
+        rows.set(tokenHash, { id: rows.size + 1, kind })
         return rows.size
       },
       find: (tokenHash: string) => rows.get(tokenHash) ?? null,
@@ -304,13 +304,78 @@ describe('LanServer', () => {
 
     it('reports whether a pairing window is open: only until its code is used', async () => {
       const { server, connect } = await setup()
-      expect(server.pairingOpen).toBe(false)
+      expect(server.pairingOpen()).toBe(false)
       const { code } = server.openPairing()
-      expect(server.pairingOpen).toBe(true)
+      expect(server.pairingOpen()).toBe(true)
       const client = await connect()
       client.send({ t: 'pair', code })
       await client.message('paired')
-      expect(server.pairingOpen).toBe(false)
+      expect(server.pairingOpen()).toBe(false)
+    })
+
+    describe('a twin and a second screen pair separately', () => {
+      it('takes a twin only with the twin code, and records its kind', async () => {
+        const store = deviceStore()
+        const { server, connect } = await setup({ devices: store.devices })
+        const screen = server.openPairing('screen')
+        const twin = server.openPairing('twin')
+        expect(screen.code).not.toBe(twin.code)
+        expect(server.pairingOpen('screen')).toBe(true)
+        expect(server.pairingOpen('twin')).toBe(true)
+        // The second screen's code is no good for a device that says it is a twin.
+        const wrong = await connect()
+        wrong.send({ t: 'pair', code: screen.code, name: 'Mac', kind: 'twin' })
+        await wrong.message('denied')
+        const right = await connect()
+        right.send({ t: 'pair', code: twin.code, name: 'WingLog on MAC', kind: 'twin' })
+        await right.message('paired')
+        expect([...store.rows.values()].map((row) => row.kind)).toEqual(['twin'])
+        // The twin's window is spent; the second screen's is still open for a phone.
+        expect(server.pairingOpen('twin')).toBe(false)
+        expect(server.pairingOpen('screen')).toBe(true)
+        const phone = await connect()
+        phone.send({ t: 'pair', code: screen.code, name: 'iPad' })
+        await phone.message('paired')
+        expect([...store.rows.values()].map((row) => row.kind)).toEqual(['twin', 'screen'])
+      })
+
+      it('refuses to pair a kind whose switch is off, and refuses its token when the switch is turned off later', async () => {
+        const store = deviceStore()
+        let kinds = { screen: true, twin: true }
+        const { server, connect } = await setup({ devices: store.devices, enabledKinds: () => kinds })
+        const twin = server.openPairing('twin')
+        kinds = { screen: true, twin: false }
+        const refused = await connect()
+        refused.send({ t: 'pair', code: twin.code, name: 'Mac', kind: 'twin' })
+        await refused.message('denied')
+        expect(store.rows.size).toBe(0)
+
+        kinds = { screen: true, twin: true }
+        const paired = await connect()
+        const again = server.openPairing('twin')
+        paired.send({ t: 'pair', code: again.code, name: 'Mac', kind: 'twin' })
+        const { token } = await paired.message('paired')
+        kinds = { screen: true, twin: false }
+        const later = await connect()
+        later.send({ t: 'hello', token })
+        await later.message('denied')
+        kinds = { screen: true, twin: true }
+        const back = await connect()
+        back.send({ t: 'hello', token })
+        await back.message('snapshot')
+      })
+
+      it('drops the open connections of a kind when asked', async () => {
+        const store = deviceStore()
+        const { server, connect } = await setup({ devices: store.devices })
+        const twin = server.openPairing('twin')
+        const device = await connect()
+        device.send({ t: 'pair', code: twin.code, name: 'Mac', kind: 'twin' })
+        await device.message('paired')
+        server.disconnectKind('screen')
+        server.disconnectKind('twin')
+        await device.message('denied')
+      })
     })
 
     it('uses a code once', async () => {
@@ -338,7 +403,10 @@ describe('LanServer', () => {
       const names: string[] = []
       const store = deviceStore()
       const { server, connect } = await setup({
-        devices: { ...store.devices, add: (name, hash) => (names.push(name), store.devices.add(name, hash)) }
+        devices: {
+          ...store.devices,
+          add: (name, hash, kind) => (names.push(name), store.devices.add(name, hash, kind))
+        }
       })
       const { code } = server.openPairing()
       const client = await connect()

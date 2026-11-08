@@ -284,6 +284,23 @@
       "codeLabel": "Code d’appairage",
       "connect": "Se connecter",
       "badAddress": "Saisissez l’adresse du PC du simulateur avec son port, une adresse de votre réseau domestique, par exemple 192.168.1.20:5051."
+    },
+    "twin": {
+      "cardTitle": "Autres WingLog",
+      "description": "Laissez WingLog sur un autre ordinateur de votre réseau domestique fonctionner comme un jumeau de celui-ci : son carnet de vol et sa flotte restent synchronisés avec ceux de ce PC, et il affiche le simulateur de ce PC en direct.",
+      "enable": "Autoriser d’autres WingLog",
+      "paired_one": "{{count}} appairé",
+      "paired_other": "{{count}} appairés",
+      "notReachable": "Injoignable sur votre réseau domestique.",
+      "address": "Adresse",
+      "pairButton": "Appairer un autre WingLog",
+      "pairingCode": "Code d’appairage",
+      "pairingNote": "Sur l’autre WingLog, ouvrez Réglages → PC du simulateur et collez le texte d’appairage, ou saisissez l’adresse et ce code.",
+      "copy": "Copier le texte d’appairage",
+      "copied": "Copié",
+      "close": "Fermer",
+      "devices": "WingLog appairés",
+      "noDevices": "Aucun autre WingLog appairé."
     }
   },
   "app": {

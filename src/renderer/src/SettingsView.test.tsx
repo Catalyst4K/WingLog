@@ -474,7 +474,9 @@ describe('SettingsView', () => {
           problem: null,
           connections: 1,
           pairing: null,
-          devices: [{ id: 1, name: 'Phone', pairedAt: '2026-11-06T10:00:00Z', lastSeenAt: null }]
+          devices: [
+            { id: 1, kind: 'screen', name: 'Phone', pairedAt: '2026-11-06T10:00:00Z', lastSeenAt: null }
+          ]
         })
       })
       renderSettings()

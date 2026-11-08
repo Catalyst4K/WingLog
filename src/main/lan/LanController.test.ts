@@ -24,8 +24,12 @@ class FakeServer implements LanServerPort {
   starts: [string, number][] = []
   stops = 0
   failWith: (Error & { code?: string }) | null = null
-  pairingOpen = false
+  open: Record<string, boolean> = { screen: false, twin: false }
   disconnected: number[] = []
+  disconnectedKinds: string[] = []
+  pairingOpen(kind: string): boolean {
+    return this.open[kind] ?? false
+  }
   start(address: string, port: number): Promise<void> {
     if (this.failWith) return Promise.reject(this.failWith)
     this.listening = true
@@ -37,12 +41,17 @@ class FakeServer implements LanServerPort {
     this.stops += 1
     return Promise.resolve()
   }
-  openPairing() {
-    this.pairingOpen = true
-    return { code: '123456', expiresAt: 1_000_000 + 300_000 }
+  opened: string[] = []
+  openPairing(kind: string) {
+    this.open[kind] = true
+    this.opened.push(kind)
+    return { code: kind === 'twin' ? '654321' : '123456', expiresAt: 1_000_000 + 300_000 }
   }
-  closePairing(): void {
-    this.pairingOpen = false
+  closePairing(kind: string): void {
+    this.open[kind] = false
+  }
+  disconnectKind(kind: string): void {
+    this.disconnectedKinds.push(kind)
   }
   disconnectDevice(id: number): void {
     this.disconnected.push(id)
@@ -54,11 +63,11 @@ function setup(
   interfaces: Record<string, NetworkInterfaceInfo[] | undefined> = THIS_PC
 ) {
   const server = new FakeServer()
-  let settings: LanSettings = { enabled: false, port: 8765, ...initial }
+  let settings: LanSettings = { enabled: false, port: 8765, twinEnabled: false, ...initial }
   let network = interfaces
   let route: string | null = null
   let clock = 1_000_000
-  const devices: LanDevice[] = [{ id: 1, name: 'iPad', createdAt: 'x', lastSeenAt: null }]
+  const devices: LanDevice[] = [{ id: 1, kind: 'screen', name: 'iPad', createdAt: 'x', lastSeenAt: null }]
   const revoke = vi.fn((id: number) => devices.some((d) => d.id === id))
   const controller = new LanController({
     server,
@@ -199,7 +208,7 @@ describe('LanController', () => {
       const { controller, server } = setup({ enabled: true })
       await controller.sync()
       expect(controller.startPairing().pairing?.code).toBe('123456')
-      server.pairingOpen = false
+      server.open.screen = false
       expect(controller.getStatus().pairing).toBeNull()
     })
 
@@ -208,7 +217,7 @@ describe('LanController', () => {
       await controller.sync()
       controller.startPairing()
       expect(controller.stopPairing().pairing).toBeNull()
-      expect(server.pairingOpen).toBe(false)
+      expect(server.open.screen).toBe(false)
       controller.startPairing()
       await controller.applySettings({ enabled: false, port: 8765 })
       expect(controller.getStatus().pairing).toBeNull()
@@ -237,12 +246,72 @@ describe('LanController', () => {
   })
 })
 
+describe('the twin kind', () => {
+  it('runs the server while either switch is on, and stops it when both are off', async () => {
+    const { controller, server } = setup({ twinEnabled: true })
+    await controller.init()
+    expect(server.listening).toBe(true)
+    await controller.applySettings({ twinEnabled: false })
+    expect(server.listening).toBe(false)
+    await controller.applySettings({ enabled: true })
+    expect(server.listening).toBe(true)
+    await controller.stop()
+  })
+
+  it('keeps the other switch when one card changes its own, and the port stays', async () => {
+    const { controller, settings } = setup({ enabled: true, twinEnabled: false, port: 9000 })
+    await controller.applySettings({ twinEnabled: true })
+    expect(settings()).toEqual({ enabled: true, twinEnabled: true, port: 9000 })
+    await controller.applySettings({ enabled: false })
+    expect(settings()).toEqual({ enabled: false, twinEnabled: true, port: 9000 })
+    await controller.stop()
+  })
+
+  it('opens a pairing window for each kind with its own code, and closes one without the other', async () => {
+    const { controller, server } = setup({ enabled: true, twinEnabled: true })
+    await controller.init()
+    expect(controller.startPairing().pairing?.code).toBe('123456')
+    const both = controller.startPairing('twin')
+    expect(both.twinPairing?.code).toBe('654321')
+    expect(both.pairing?.code).toBe('123456')
+    expect(server.opened).toEqual(['screen', 'twin'])
+    const afterTwinStops = controller.stopPairing('twin')
+    expect(afterTwinStops.twinPairing).toBeNull()
+    expect(afterTwinStops.pairing?.code).toBe('123456')
+    await controller.stop()
+  })
+
+  it('opens no window for a kind whose switch is off', async () => {
+    const { controller, server } = setup({ enabled: true, twinEnabled: false })
+    await controller.init()
+    expect(controller.startPairing('twin').twinPairing).toBeNull()
+    expect(server.opened).toEqual([])
+    await controller.stop()
+  })
+
+  it('drops a kind that is switched off: its code closes and its connections end', async () => {
+    const { controller, server } = setup({ enabled: true, twinEnabled: true })
+    await controller.init()
+    controller.startPairing('twin')
+    await controller.applySettings({ twinEnabled: false })
+    expect(server.disconnectedKinds).toEqual(['twin'])
+    expect(controller.getStatus().twinPairing).toBeNull()
+    await controller.stop()
+  })
+})
+
 describe('parseSettings', () => {
   it('accepts a complete setting, and ignores an adapter an older version stored', () => {
-    expect(parseSettings({ enabled: true, port: 8765 })).toEqual({ enabled: true, port: 8765 })
-    expect(parseSettings({ enabled: false, adapter: 'Wi-Fi', port: 1024 })).toEqual({
+    const none = { enabled: false, port: 8765, twinEnabled: false }
+    expect(parseSettings({ enabled: true, port: 8765 }, none)).toEqual({
+      enabled: true,
+      port: 8765,
+      twinEnabled: false
+    })
+    expect(parseSettings({ enabled: false, adapter: 'Wi-Fi', port: 1024 }, none)).toEqual({
       enabled: false,
-      port: 1024
+      port: 1024,
+      twinEnabled: false
     })
   })
 
@@ -250,14 +319,17 @@ describe('parseSettings', () => {
     const bad: unknown[] = [
       null,
       'on',
-      {},
       { enabled: 'yes', port: 8765 },
+      { twinEnabled: 'yes' },
       { enabled: true, port: 80 },
       { enabled: true, port: 1023 },
       { enabled: true, port: 65536 },
       { enabled: true, port: 8765.5 },
       { enabled: true, port: '8765' }
     ]
-    for (const value of bad) expect(() => parseSettings(value)).toThrow('Invalid second-screen settings')
+    for (const value of bad)
+      expect(() => parseSettings(value, { enabled: false, port: 8765, twinEnabled: false })).toThrow(
+        'Invalid second-screen settings'
+      )
   })
 })

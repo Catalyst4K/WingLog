@@ -4,7 +4,7 @@
  * is in. Everything it touches arrives as a dependency so it can be tested without a network.
  */
 
-import type { LanDevice, LanPairing, LanProblem, LanSettings, LanStatus } from '@shared/ipc'
+import type { LanDevice, LanDeviceKind, LanPairing, LanProblem, LanSettings, LanStatus } from '@shared/ipc'
 import { isValidLanPort } from '../db/settings-repo'
 import { logger } from '../logging/logger'
 import { chooseAddress, type LanAddress } from './adapters'
@@ -16,13 +16,15 @@ export const ADDRESS_CHECK_MS = 15_000
 export interface LanServerPort {
   readonly listening: boolean
   readonly connectionCount: number
-  /** Whether a pairing window is still open (a used code is not). */
-  readonly pairingOpen: boolean
+  /** Whether a kind's pairing window is still open (a used code is not). */
+  pairingOpen(kind: LanDeviceKind): boolean
   start(address: string, port: number): Promise<void>
   stop(): Promise<void>
-  openPairing(): { code: string; expiresAt: number }
-  closePairing(): void
+  openPairing(kind: LanDeviceKind): { code: string; expiresAt: number }
+  closePairing(kind: LanDeviceKind): void
   disconnectDevice(deviceId: number): void
+  /** Drops every open connection of a kind of device (its switch was turned off). */
+  disconnectKind(kind: LanDeviceKind): void
 }
 
 /** What the controller is given. */
@@ -41,7 +43,8 @@ export interface LanControllerDeps {
 export class LanController {
   private problem: LanProblem | null = null
   private boundTo: { address: string; port: number } | null = null
-  private pairing: LanPairing | null = null
+  /** The open pairing window of each kind (a second screen and a twin pair with their own codes). */
+  private readonly pairings: Record<LanDeviceKind, LanPairing | null> = { screen: null, twin: null }
   private timer: NodeJS.Timeout | null = null
   /** Starts and stops are queued so two never overlap. */
   private queue: Promise<void> = Promise.resolve()
@@ -62,7 +65,8 @@ export class LanController {
     if (this.timer) clearInterval(this.timer)
     this.timer = null
     await this.enqueue(async () => {
-      this.pairing = null
+      this.pairings.screen = null
+      this.pairings.twin = null
       await this.deps.server.stop()
       this.boundTo = null
     })
@@ -85,8 +89,12 @@ export class LanController {
    * @throws When the settings aren't valid.
    */
   async applySettings(value: unknown): Promise<LanStatus> {
-    const settings = parseSettings(value)
+    const before = this.deps.settings.get()
+    const settings = parseSettings(value, before)
     this.deps.settings.set(settings)
+    // A kind whose switch is turned off loses its open connections and its pairing code at once.
+    if (before.enabled && !settings.enabled) this.dropKind('screen')
+    if (before.twinEnabled && !settings.twinEnabled) this.dropKind('twin')
     await this.sync()
     return this.getStatus()
   }
@@ -95,30 +103,49 @@ export class LanController {
   getStatus(): LanStatus {
     const settings = this.deps.settings.get()
     const { server } = this.deps
-    if (this.pairing && (this.pairing.expiresAt <= this.deps.now() || !server.pairingOpen))
-      this.pairing = null
+    for (const kind of ['screen', 'twin'] as const) {
+      const open = this.pairings[kind]
+      if (open && (open.expiresAt <= this.deps.now() || !server.pairingOpen(kind))) this.pairings[kind] = null
+    }
     return {
       settings,
       listening: server.listening,
       url: server.listening && this.boundTo ? `http://${this.boundTo.address}:${this.boundTo.port}/` : null,
       problem: this.problem,
       connections: server.connectionCount,
-      pairing: server.listening ? this.pairing : null,
+      pairing: server.listening ? this.pairings.screen : null,
+      twinPairing: server.listening ? this.pairings.twin : null,
       devices: this.deps.devices.list()
     }
   }
 
-  /** @returns The status with a new pairing code open, or without one when the server isn't listening. */
-  startPairing(): LanStatus {
-    if (this.deps.server.listening) this.pairing = this.deps.server.openPairing()
+  /**
+   * @param kind A second screen (the default) or a twin, unchecked: anything else is a second screen.
+   * @returns The status with a new pairing code of that kind open, or without one when the server isn't listening or that kind is off.
+   */
+  startPairing(kind?: unknown): LanStatus {
+    const which = kindOf(kind)
+    const settings = this.deps.settings.get()
+    const on = which === 'twin' ? settings.twinEnabled : settings.enabled
+    if (this.deps.server.listening && on) this.pairings[which] = this.deps.server.openPairing(which)
     return this.getStatus()
   }
 
-  /** @returns The status with pairing closed. */
-  stopPairing(): LanStatus {
-    this.deps.server.closePairing()
-    this.pairing = null
+  /**
+   * @param kind A second screen (the default) or a twin, unchecked.
+   * @returns The status with that kind's pairing closed.
+   */
+  stopPairing(kind?: unknown): LanStatus {
+    const which = kindOf(kind)
+    this.deps.server.closePairing(which)
+    this.pairings[which] = null
     return this.getStatus()
+  }
+
+  private dropKind(kind: LanDeviceKind): void {
+    this.deps.server.closePairing(kind)
+    this.pairings[kind] = null
+    this.deps.server.disconnectKind(kind)
   }
 
   /**
@@ -143,7 +170,8 @@ export class LanController {
   private async reconcile(): Promise<void> {
     const settings = this.deps.settings.get()
     const { server } = this.deps
-    if (!settings.enabled) {
+    // One server for both kinds of device: it runs while either switch is on.
+    if (!settings.enabled && !settings.twinEnabled) {
       this.problem = null
       if (server.listening) await this.release()
       return
@@ -163,7 +191,8 @@ export class LanController {
   }
 
   private async release(): Promise<void> {
-    this.pairing = null
+    this.pairings.screen = null
+    this.pairings.twin = null
     await this.deps.server.stop()
     this.boundTo = null
   }
@@ -182,14 +211,30 @@ export class LanController {
 }
 
 /**
+ * @param value A kind from the window.
+ * @returns The kind; a second screen unless it is exactly `twin`.
+ */
+function kindOf(value: unknown): LanDeviceKind {
+  return value === 'twin' ? 'twin' : 'screen'
+}
+
+/**
+ * Reads the settings from the window. A field left out keeps its stored value, so the Second screen card and the Sim PC page can each
+ * change their own switch without knowing the other's.
+ *
  * @param value Settings from the window.
+ * @param current The stored settings.
  * @returns The checked settings.
  * @throws When anything is the wrong shape or the port isn't an unprivileged one.
  */
-export function parseSettings(value: unknown): LanSettings {
+export function parseSettings(value: unknown, current: LanSettings): LanSettings {
   const record = typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : null
-  if (!record || typeof record.enabled !== 'boolean' || !isValidLanPort(record.port)) {
+  if (!record) throw new Error('Invalid second-screen settings')
+  const enabled = record.enabled ?? current.enabled
+  const twinEnabled = record.twinEnabled ?? current.twinEnabled
+  const port = record.port ?? current.port
+  if (typeof enabled !== 'boolean' || typeof twinEnabled !== 'boolean' || !isValidLanPort(port)) {
     throw new Error('Invalid second-screen settings')
   }
-  return { enabled: record.enabled, port: record.port }
+  return { enabled, twinEnabled, port }
 }

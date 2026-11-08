@@ -277,6 +277,22 @@
       "codeLabel": "配对码",
       "connect": "连接",
       "badAddress": "请输入模拟器电脑的地址和端口，需为家庭网络中的地址，例如 192.168.1.20:5051。"
+    },
+    "twin": {
+      "cardTitle": "其他 WingLog",
+      "description": "让您家庭网络中另一台电脑上的 WingLog 作为本机的孪生运行：它的飞行日志和机队与本电脑保持同步，并实时显示本电脑的模拟器。",
+      "enable": "允许其他 WingLog",
+      "paired_other": "已配对 {{count}} 个",
+      "notReachable": "在您的家庭网络中无法访问。",
+      "address": "地址",
+      "pairButton": "配对另一个 WingLog",
+      "pairingCode": "配对码",
+      "pairingNote": "在另一个 WingLog 中打开 设置 → 模拟器电脑，粘贴配对文本，或输入地址和此配对码。",
+      "copy": "复制配对文本",
+      "copied": "已复制",
+      "close": "关闭",
+      "devices": "已配对的 WingLog",
+      "noDevices": "没有已配对的其他 WingLog。"
     }
   },
   "app": {

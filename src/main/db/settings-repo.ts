@@ -595,6 +595,7 @@ export function setSkippedUpdateVersion(db: WingLogDb, version: string): void {
 
 const LAN_ENABLED_KEY = 'lanEnabled'
 const LAN_PORT_KEY = 'lanPort'
+const LAN_TWIN_ENABLED_KEY = 'lanTwinEnabled'
 
 /** The port the second-screen server listens on unless the pilot changes it. */
 export const DEFAULT_LAN_PORT = 8765
@@ -617,7 +618,8 @@ export function getLanSettings(db: WingLogDb): LanSettings {
   const port = Number(getSetting(db, LAN_PORT_KEY))
   return {
     enabled: getSetting(db, LAN_ENABLED_KEY) === '1',
-    port: isValidLanPort(port) ? port : DEFAULT_LAN_PORT
+    port: isValidLanPort(port) ? port : DEFAULT_LAN_PORT,
+    twinEnabled: getSetting(db, LAN_TWIN_ENABLED_KEY) === '1'
   }
 }
 
@@ -630,4 +632,5 @@ export function getLanSettings(db: WingLogDb): LanSettings {
 export function setLanSettings(db: WingLogDb, settings: LanSettings): void {
   setSetting(db, LAN_ENABLED_KEY, settings.enabled ? '1' : '0')
   setSetting(db, LAN_PORT_KEY, String(settings.port))
+  setSetting(db, LAN_TWIN_ENABLED_KEY, settings.twinEnabled ? '1' : '0')
 }

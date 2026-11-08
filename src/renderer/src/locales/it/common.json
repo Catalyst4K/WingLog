@@ -284,6 +284,23 @@
       "codeLabel": "Codice di associazione",
       "connect": "Connetti",
       "badAddress": "Inserisci l’indirizzo del PC del simulatore con la porta, un indirizzo della tua rete domestica, ad esempio 192.168.1.20:5051."
+    },
+    "twin": {
+      "cardTitle": "Altri WingLog",
+      "description": "Lascia che WingLog su un altro computer della tua rete domestica funzioni come gemello di questo: registro di volo e flotta restano allineati con quelli di questo PC, e mostra il simulatore di questo PC in diretta.",
+      "enable": "Consenti altri WingLog",
+      "paired_one": "{{count}} associato",
+      "paired_other": "{{count}} associati",
+      "notReachable": "Non raggiungibile sulla tua rete domestica.",
+      "address": "Indirizzo",
+      "pairButton": "Associa un altro WingLog",
+      "pairingCode": "Codice di associazione",
+      "pairingNote": "Sull’altro WingLog apri Impostazioni → PC del simulatore e incolla il testo di associazione, oppure inserisci l’indirizzo e questo codice.",
+      "copy": "Copia il testo di associazione",
+      "copied": "Copiato",
+      "close": "Chiudi",
+      "devices": "WingLog associati",
+      "noDevices": "Nessun altro WingLog associato."
     }
   },
   "app": {

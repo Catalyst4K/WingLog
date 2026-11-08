@@ -11,6 +11,7 @@ import {
   type BeyondAtcState,
   type BeyondAtcTranscriptEntry,
   type HostLinkStatus,
+  type LanDeviceKind,
   type LanSettings,
   type StorageStatus,
   type UpdateSettings,
@@ -470,9 +471,10 @@ const api: WingLogApi = {
     ipcRenderer.on(IpcChannels.hostLinkStatus, handler)
     return () => ipcRenderer.removeListener(IpcChannels.hostLinkStatus, handler)
   },
-  lanSetSettings: (settings: LanSettings) => ipcRenderer.invoke(IpcChannels.lanSetSettings, settings),
-  lanStartPairing: () => ipcRenderer.invoke(IpcChannels.lanStartPairing),
-  lanStopPairing: () => ipcRenderer.invoke(IpcChannels.lanStopPairing),
+  lanSetSettings: (settings: Partial<LanSettings>) =>
+    ipcRenderer.invoke(IpcChannels.lanSetSettings, settings),
+  lanStartPairing: (kind?: LanDeviceKind) => ipcRenderer.invoke(IpcChannels.lanStartPairing, kind),
+  lanStopPairing: (kind?: LanDeviceKind) => ipcRenderer.invoke(IpcChannels.lanStopPairing, kind),
   lanRevokeDevice: (id: number) => ipcRenderer.invoke(IpcChannels.lanRevokeDevice, id)
 }
 

@@ -6,18 +6,19 @@ import { LanCard } from './LanCard'
 import { QrCode } from './QrCode'
 
 const OFF: LanStatus = {
-  settings: { enabled: false, port: 8765 },
+  settings: { enabled: false, port: 8765, twinEnabled: false },
   listening: false,
   url: null,
   problem: null,
   connections: 0,
   pairing: null,
+  twinPairing: null,
   devices: []
 }
 
 const ON: LanStatus = {
   ...OFF,
-  settings: { enabled: true, port: 8765 },
+  settings: { enabled: true, port: 8765, twinEnabled: false },
   listening: true,
   url: 'http://192.168.1.136:8765/'
 }
@@ -26,7 +27,9 @@ const ON: LanStatus = {
 function setup(status: LanStatus) {
   const api = {
     lanGetStatus: vi.fn(() => Promise.resolve(status)),
-    lanSetSettings: vi.fn((settings: LanSettings) => Promise.resolve({ ...status, settings })),
+    lanSetSettings: vi.fn((settings: Partial<LanSettings>) =>
+      Promise.resolve({ ...status, settings: { ...status.settings, ...settings } })
+    ),
     lanStartPairing: vi.fn(() =>
       Promise.resolve({ ...status, pairing: { code: '482913', expiresAt: Date.now() + 300_000 } })
     ),
@@ -47,7 +50,7 @@ describe('LanCard', () => {
     expect(await screen.findByRole('button', { name: 'Off' })).toHaveAttribute('aria-pressed', 'true')
     expect(screen.queryByText('Pair a device')).not.toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'On' }))
-    expect(api.lanSetSettings).toHaveBeenCalledWith({ enabled: true, port: 8765 })
+    expect(api.lanSetSettings).toHaveBeenCalledWith({ enabled: true })
   })
 
   it('shows how many devices are connected when it is listening, and the address only once Pair a device is pressed', async () => {
@@ -119,6 +122,7 @@ describe('LanCard', () => {
       ...ON,
       devices: Array.from({ length: devices }, (_, i) => ({
         id: i + 1,
+        kind: 'screen' as const,
         name: 'Phone',
         createdAt: 'x',
         lastSeenAt: null
@@ -205,7 +209,7 @@ describe('LanCard', () => {
     await userEvent.clear(port)
     await userEvent.type(port, '9100')
     await userEvent.tab()
-    expect(api.lanSetSettings).toHaveBeenCalledWith({ enabled: true, port: 9100 })
+    expect(api.lanSetSettings).toHaveBeenCalledWith({ port: 9100 })
 
     api.lanSetSettings.mockClear()
     await userEvent.clear(port)
@@ -236,7 +240,13 @@ describe('LanCard', () => {
     const api = setup({
       ...ON,
       devices: [
-        { id: 4, name: "Callum's iPad (Safari)", createdAt: '2026-10-12T10:00:00.000Z', lastSeenAt: null }
+        {
+          id: 4,
+          kind: 'screen',
+          name: "Callum's iPad (Safari)",
+          createdAt: '2026-10-12T10:00:00.000Z',
+          lastSeenAt: null
+        }
       ]
     })
     render(<LanCard />)
@@ -247,12 +257,26 @@ describe('LanCard', () => {
     expect(await screen.findByText('No devices paired yet.')).toBeInTheDocument()
   })
 
+  it('lists only phones and tablets: another WingLog is on the Sim PC page', async () => {
+    setup({
+      ...ON,
+      devices: [
+        { id: 1, kind: 'screen', name: 'Phone', createdAt: 'x', lastSeenAt: null },
+        { id: 2, kind: 'twin', name: 'WingLog on MAC', createdAt: 'x', lastSeenAt: null }
+      ]
+    })
+    render(<LanCard />)
+    expect(await screen.findByText('Phone')).toBeInTheDocument()
+    expect(screen.queryByText('WingLog on MAC')).not.toBeInTheDocument()
+  })
+
   it('shows when a paired device was last seen', async () => {
     setup({
       ...ON,
       devices: [
         {
           id: 1,
+          kind: 'screen',
           name: 'Phone',
           createdAt: '2026-10-12T10:00:00.000Z',
           lastSeenAt: '2026-10-12T12:30:00.000Z'

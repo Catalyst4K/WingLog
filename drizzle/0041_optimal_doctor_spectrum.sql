@@ -1,0 +1,1 @@
+ALTER TABLE `lan_device` ADD `kind` text DEFAULT 'screen' NOT NULL;

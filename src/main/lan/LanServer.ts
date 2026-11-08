@@ -11,6 +11,7 @@ import { WebSocketServer, type WebSocket } from 'ws'
 import { laneOf, type LanQueryLane } from '@shared/lan-queries'
 import { parseReport, parseReportDetail } from '@shared/lan-report'
 import type { LiveCommand, LiveSnapshot, LiveTopic } from '@shared/live'
+import type { LanDeviceKind } from '@shared/ipc'
 import { describeError } from '../logging/describe-error'
 import { logger } from '../logging/logger'
 import type { LiveHub } from '../live/LiveHub'
@@ -90,10 +91,12 @@ export interface LanServerDeps {
   /** The commands a device may send (BeyondATC and GSX only). */
   commands: Partial<Record<LiveCommand, (...args: unknown[]) => void>>
   devices: {
-    add(name: string, tokenHash: string): number
-    find(tokenHash: string): number | null
+    add(name: string, tokenHash: string, kind: LanDeviceKind): number
+    find(tokenHash: string): { id: number; kind: LanDeviceKind } | null
     touch(id: number): void
   }
+  /** Which kinds of device may pair and connect now (each has its own switch); both when left out (tests). */
+  enabledKinds?(): Record<LanDeviceKind, boolean>
   /** The active flight's route and waypoints, read-only, for a device that connects (null when there is none). */
   flight(): unknown
   /** Read-only lookups a device may ask for (airfields, taxi charts, stands), each checking its own argument. */
@@ -113,7 +116,7 @@ export interface LanServerDeps {
 
 /** What a device may send. Anything else is dropped. */
 type Incoming =
-  | { t: 'pair'; code: unknown; name?: unknown }
+  | { t: 'pair'; code: unknown; name?: unknown; kind?: unknown }
   | { t: 'hello'; token: unknown }
   | { t: 'cmd'; name: unknown; args: unknown }
   | { t: 'query'; id: unknown; name: unknown; args: unknown }
@@ -125,6 +128,8 @@ interface Client {
   /** The network address it connected from. */
   address: string | undefined
   deviceId: number | null
+  /** What the device is, once it is let in. */
+  kind: LanDeviceKind | null
   /** The rate limit's token bucket: messages the socket may still send now, and when it was last topped up. */
   tokens: number
   refilledAt: number
@@ -149,7 +154,8 @@ export class LanServer {
   private unsubscribe: (() => void) | null = null
   private heartbeat: NodeJS.Timeout | null = null
   private hostHeader = ''
-  private pairing: PairingWindow | null = null
+  /** The open pairing window of each kind: a second screen and a twin pair with their own codes. */
+  private readonly pairings = new Map<LanDeviceKind, PairingWindow>()
   private readonly clients = new Set<Client>()
   /** The flight the connected devices were last told about. */
   private sentFlightId: number | null = null
@@ -201,7 +207,7 @@ export class LanServer {
     this.unsubscribe = null
     if (this.heartbeat) clearInterval(this.heartbeat)
     this.heartbeat = null
-    this.pairing = null
+    this.pairings.clear()
     for (const client of [...this.clients]) client.socket.terminate()
     const server = this.server
     this.server = null
@@ -214,25 +220,55 @@ export class LanServer {
     })
   }
 
-  /** @returns True while a pairing window is open: not yet used, expired or spent by wrong codes. */
-  get pairingOpen(): boolean {
-    return this.pairing?.isOpen(this.deps.now()) ?? false
+  /**
+   * @param kind A second screen or a twin.
+   * @returns True while that kind's pairing window is open: not yet used, expired or spent by wrong codes.
+   */
+  pairingOpen(kind: LanDeviceKind = 'screen'): boolean {
+    return this.pairings.get(kind)?.isOpen(this.deps.now()) ?? false
   }
 
   /**
-   * Opens a pairing window, replacing any open one.
+   * Opens a pairing window of one kind, replacing that kind's open one. The kinds have separate codes.
    *
+   * @param kind A second screen (the default) or a twin.
    * @returns The code to show and when the window closes (milliseconds since the epoch).
    */
-  openPairing(): { code: string; expiresAt: number } {
+  openPairing(kind: LanDeviceKind = 'screen'): { code: string; expiresAt: number } {
     const now = this.deps.now()
-    this.pairing = new PairingWindow(now)
-    return { code: this.pairing.shownCode, expiresAt: now + PAIRING_WINDOW_MS }
+    const window = new PairingWindow(now)
+    this.pairings.set(kind, window)
+    return { code: window.shownCode, expiresAt: now + PAIRING_WINDOW_MS }
   }
 
-  /** Closes the pairing window. */
-  closePairing(): void {
-    this.pairing = null
+  /**
+   * Closes a kind's pairing window.
+   *
+   * @param kind A second screen (the default) or a twin.
+   */
+  closePairing(kind: LanDeviceKind = 'screen'): void {
+    this.pairings.delete(kind)
+  }
+
+  /**
+   * @param kind A kind of device.
+   * @returns Whether that kind may pair and connect now (its switch is on).
+   */
+  private kindEnabled(kind: LanDeviceKind): boolean {
+    return this.deps.enabledKinds?.()[kind] ?? true
+  }
+
+  /**
+   * Drops every open socket of a kind of device, after its switch is turned off.
+   *
+   * @param kind The kind.
+   */
+  disconnectKind(kind: LanDeviceKind): void {
+    for (const client of this.clients) {
+      if (client.kind !== kind) continue
+      this.send(client, { t: 'denied' })
+      client.socket.close()
+    }
   }
 
   /**
@@ -323,6 +359,7 @@ export class LanServer {
       socket,
       address,
       deviceId: null,
+      kind: null,
       tokens: RATE_BURST,
       refilledAt: this.deps.now(),
       refused: 0,
@@ -505,15 +542,23 @@ export class LanServer {
     logger.warn(line)
   }
 
-  private handlePair(client: Client, message: { code: unknown; name?: unknown }, now: number): void {
+  private handlePair(
+    client: Client,
+    message: { code: unknown; name?: unknown; kind?: unknown },
+    now: number
+  ): void {
     if (client.deviceId !== null) return
-    const result = this.pairing?.attempt(message.code, now) ?? 'closed'
+    // A device says which kind it is; only that kind's window can take its code, so a phone's guesses never spend a twin's.
+    const kind: LanDeviceKind = message.kind === 'twin' ? 'twin' : 'screen'
+    const result = this.kindEnabled(kind)
+      ? (this.pairings.get(kind)?.attempt(message.code, now) ?? 'closed')
+      : 'closed'
     if (result === 'paired') {
       const token = newDeviceToken()
-      const deviceId = this.deps.devices.add(cleanDeviceName(message.name), hashToken(token))
-      this.pairing = null
+      const deviceId = this.deps.devices.add(cleanDeviceName(message.name), hashToken(token), kind)
+      this.pairings.delete(kind)
       this.send(client, { t: 'paired', token })
-      this.authenticate(client, deviceId)
+      this.authenticate(client, deviceId, kind)
     } else {
       if (result === 'wrong') logger.warn('[lan] wrong pairing code from a device')
       this.send(client, { t: 'denied' })
@@ -522,19 +567,21 @@ export class LanServer {
   }
 
   private handleHello(client: Client, token: unknown): void {
-    const deviceId = typeof token === 'string' ? this.deps.devices.find(hashToken(token)) : null
-    if (deviceId === null) {
+    const device = typeof token === 'string' ? this.deps.devices.find(hashToken(token)) : null
+    // A token of a kind whose switch is off is refused like an unknown one.
+    if (device === null || !this.kindEnabled(device.kind)) {
       this.send(client, { t: 'denied' })
       client.socket.close()
       return
     }
-    this.deps.devices.touch(deviceId)
-    this.authenticate(client, deviceId)
+    this.deps.devices.touch(device.id)
+    this.authenticate(client, device.id, device.kind)
   }
 
-  private authenticate(client: Client, deviceId: number): void {
+  private authenticate(client: Client, deviceId: number, kind: LanDeviceKind): void {
     clearTimeout(client.authTimer)
     client.deviceId = deviceId
+    client.kind = kind
     const topics: LiveSnapshot = {}
     const snapshot = this.deps.hub.snapshot()
     const flight = this.deps.flight() as { flight?: { flightId?: number } } | null
@@ -649,7 +696,7 @@ function parseIncoming(text: string): Incoming | null {
   }
   if (typeof value !== 'object' || value === null) return null
   const record = value as Record<string, unknown>
-  if (record.t === 'pair') return { t: 'pair', code: record.code, name: record.name }
+  if (record.t === 'pair') return { t: 'pair', code: record.code, name: record.name, kind: record.kind }
   if (record.t === 'hello') return { t: 'hello', token: record.token }
   if (record.t === 'cmd') return { t: 'cmd', name: record.name, args: record.args }
   if (record.t === 'query') return { t: 'query', id: record.id, name: record.name, args: record.args }

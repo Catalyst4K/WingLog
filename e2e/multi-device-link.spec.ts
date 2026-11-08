@@ -36,8 +36,9 @@ test('a client pairs with the host by address and code, follows its sim and keep
     try {
       const code = await host.window.evaluate(async (lanPort) => {
         const api = window.winglog
-        await api.lanSetSettings({ enabled: true, port: lanPort })
-        return (await api.lanStartPairing()).pairing?.code ?? ''
+        // Another WingLog pairs as a twin: its own switch and its own code, with the second screen left off.
+        await api.lanSetSettings({ twinEnabled: true, port: lanPort })
+        return (await api.lanStartPairing('twin')).twinPairing?.code ?? ''
       }, port)
       expect(code).toMatch(/^\d{6}$/)
 
@@ -95,6 +96,8 @@ test('a client pairs with the host by address and code, follows its sim and keep
         const devices = await host.window.evaluate(async () => (await window.winglog.lanGetStatus()).devices)
         expect(devices).toHaveLength(1)
         expect(devices[0]?.name).toContain('WingLog on')
+        expect(devices[0]?.kind).toBe('twin')
+        expect((await host.window.evaluate(() => window.winglog.lanGetStatus())).settings.enabled).toBe(false)
       } finally {
         await client.cleanup()
       }

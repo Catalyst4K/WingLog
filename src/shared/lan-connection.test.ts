@@ -86,6 +86,14 @@ describe('LanConnection', () => {
     expect(sockets).toHaveLength(1)
   })
 
+  it('says it is a twin when another WingLog pairs, so the host takes it with the twin code', () => {
+    const { link, sockets } = setup()
+    link.start()
+    link.pair('123456', 'twin')
+    sockets[0].open()
+    expect(sockets[0].sent).toEqual([{ t: 'pair', code: '123456', name: "Callum's iPad", kind: 'twin' }])
+  })
+
   it('pairs with the typed code, keeps the token and goes live on the snapshot', () => {
     const { link, sockets, states, token } = setup()
     link.start()

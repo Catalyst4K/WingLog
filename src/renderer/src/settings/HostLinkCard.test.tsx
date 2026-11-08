@@ -40,6 +40,18 @@ describe('HostLinkCard', () => {
     expect(screen.getByLabelText('Pairing code')).toHaveValue('')
   })
 
+  it('takes the host pairing text in one paste: the address and the code fill both fields', async () => {
+    const { api } = setup(UNPAIRED)
+    render(<HostLinkCard />)
+    const address = await screen.findByLabelText('Address')
+    await userEvent.click(address)
+    await userEvent.paste('winglog-pair://192.168.1.20:5051/123456')
+    expect(address).toHaveValue('192.168.1.20:5051')
+    expect(screen.getByLabelText('Pairing code')).toHaveValue('123456')
+    await userEvent.click(screen.getByRole('button', { name: 'Connect' }))
+    expect(api.hostLinkPair).toHaveBeenCalledWith('192.168.1.20:5051', '123456')
+  })
+
   it('says what is wrong with an address the app refuses', async () => {
     setup(UNPAIRED, () => Promise.reject(new Error('Enter the sim PC’s address with its port')))
     render(<HostLinkCard />)

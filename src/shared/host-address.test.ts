@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parseHostAddress } from './host-address'
+import { formatPairingText, parseHostAddress, parsePairingText } from './host-address'
 
 describe('parseHostAddress', () => {
   it('accepts a private address with a port, however it was copied', () => {
@@ -36,5 +36,43 @@ describe('parseHostAddress', () => {
     expect(parseHostAddress('[fe80::1]:5051')).toBeNull()
     expect(parseHostAddress('user@192.168.1.20:5051')).toBeNull()
     expect(parseHostAddress('-bad-:5051')).toBeNull()
+  })
+})
+
+describe('the pairing text', () => {
+  it('is the address and the code in one line, and reads back', () => {
+    const text = formatPairingText('192.168.1.20:5051', '123456')
+    expect(text).toBe('winglog-pair://192.168.1.20:5051/123456')
+    expect(parsePairingText(text)).toEqual({ address: '192.168.1.20:5051', code: '123456' })
+  })
+
+  it('reads an address with the code after it, however it was separated', () => {
+    expect(parsePairingText('192.168.1.20:5051 123456')).toEqual({
+      address: '192.168.1.20:5051',
+      code: '123456'
+    })
+    expect(parsePairingText('192.168.1.20:5051, 123456')).toEqual({
+      address: '192.168.1.20:5051',
+      code: '123456'
+    })
+    expect(parsePairingText('http://192.168.1.20:5051/ 123456')).toEqual({
+      address: '192.168.1.20:5051',
+      code: '123456'
+    })
+  })
+
+  it('reads a plain address with no code', () => {
+    expect(parsePairingText('192.168.1.20:5051')).toEqual({ address: '192.168.1.20:5051', code: null })
+    expect(parsePairingText('  http://simpc.local:5051/  ')).toEqual({
+      address: 'simpc.local:5051',
+      code: null
+    })
+  })
+
+  it('refuses text with no home-network address, even with a code', () => {
+    expect(parsePairingText('')).toBeNull()
+    expect(parsePairingText('hello')).toBeNull()
+    expect(parsePairingText('winglog-pair://8.8.8.8:5051/123456')).toBeNull()
+    expect(parsePairingText('example.com:5051 123456')).toBeNull()
   })
 })

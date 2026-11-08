@@ -27,6 +27,7 @@ import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent } from '@/components/ui/tabs'
 import { SettingsNav, type SettingsCategory } from './settings/SettingsNav'
 import { HostLinkCard } from './settings/HostLinkCard'
+import { TwinCard } from './settings/TwinCard'
 import { RunModeCard } from './settings/RunModeCard'
 import { useCapabilities } from './app/capabilities-context'
 import { hostLinkLight, useHostLinkStatus } from './app/use-host-link'
@@ -290,7 +291,7 @@ export function SettingsView(
 
         <TabsContent value="simPc" className={PAGE}>
           <SettingsPage category="simPc">
-            {isClient && <HostLinkCard />}
+            {isClient ? <HostLinkCard /> : <TwinCard />}
             <RunModeCard />
           </SettingsPage>
         </TabsContent>

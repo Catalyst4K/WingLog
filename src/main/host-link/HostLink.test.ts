@@ -101,7 +101,7 @@ describe('HostLink', () => {
     link.pair('http://192.168.1.20:5051/', '123456')
     expect(sockets[0]?.url).toBe('ws://192.168.1.20:5051/live')
     sockets[0]?.open()
-    expect(sockets[0]?.sent[0]).toEqual({ t: 'pair', code: '123456', name: 'WingLog on MAC' })
+    expect(sockets[0]?.sent[0]).toEqual({ t: 'pair', code: '123456', name: 'WingLog on MAC', kind: 'twin' })
     sockets[0]?.hear({ t: 'paired', token: 'tok-1' })
     sockets[0]?.hear(SNAPSHOT)
     expect(store.saved).toEqual([{ address: '192.168.1.20:5051', token: 'tok-1' }])

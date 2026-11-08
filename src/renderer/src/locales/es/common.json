@@ -284,6 +284,23 @@
       "codeLabel": "Código de vinculación",
       "connect": "Conectar",
       "badAddress": "Introduce la dirección del PC del simulador con su puerto, una dirección de tu red doméstica, como 192.168.1.20:5051."
+    },
+    "twin": {
+      "cardTitle": "Otros WingLog",
+      "description": "Deja que WingLog en otro ordenador de tu red doméstica funcione como gemelo de este: su cuaderno de vuelos y su flota se mantienen al día con los de este PC, y muestra el simulador de este PC en directo.",
+      "enable": "Permitir otros WingLog",
+      "paired_one": "{{count}} vinculado",
+      "paired_other": "{{count}} vinculados",
+      "notReachable": "No accesible en tu red doméstica.",
+      "address": "Dirección",
+      "pairButton": "Vincular otro WingLog",
+      "pairingCode": "Código de vinculación",
+      "pairingNote": "En el otro WingLog, abre Ajustes → PC del simulador y pega el texto de vinculación, o introduce la dirección y este código.",
+      "copy": "Copiar texto de vinculación",
+      "copied": "Copiado",
+      "close": "Cerrar",
+      "devices": "WingLog vinculados",
+      "noDevices": "No hay otro WingLog vinculado."
     }
   },
   "app": {

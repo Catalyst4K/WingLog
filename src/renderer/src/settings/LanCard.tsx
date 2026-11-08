@@ -1,6 +1,6 @@
 /** Settings → Second screen: the live map on a phone or tablet (winglog-backend's docs/plans/lan-web-viewer.md). */
 
-import { useCallback, useEffect, useId, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { LanSettings, LanStatus } from '@shared/ipc'
 import { Button } from '@/components/ui/button'
@@ -14,13 +14,23 @@ import { OnOffControl, SettingRow, SettingsCard, SettingsSection, StatusBadge } 
 const REFRESH_MS = 2000
 
 /**
+ * @param status The server's status.
+ * @returns The status with only the phones and tablets in its device list.
+ */
+function screensOnly(status: LanStatus): LanStatus {
+  return { ...status, devices: status.devices.filter((device) => device.kind === 'screen') }
+}
+
+/**
  * The second-screen card: the switch, the network and port, the address to open, pairing and the paired devices.
  *
  * @returns The element.
  */
 export function LanCard(): React.JSX.Element {
   const { t } = useTranslation()
-  const [status, setStatus] = useState<LanStatus | null>(null)
+  const [raw, setStatus] = useState<LanStatus | null>(null)
+  // Phones and tablets only: another WingLog (a twin) is paired, switched and listed on the Sim PC page, not here.
+  const status = useMemo(() => (raw ? screensOnly(raw) : null), [raw])
   const [port, setPort] = useState('')
   const portId = useId()
   // Pairing mode, from pressing "Pair a device" until "Close": a code that runs out or is used is replaced by a new one (so a QR left on
@@ -39,7 +49,7 @@ export function LanCard(): React.JSX.Element {
         .then((next) => {
           setStatus(next)
           setPort((current) => (current === '' ? String(next.settings.port) : current))
-          renewPairing(next, pairing.current, setStatus)
+          renewPairing(screensOnly(next), pairing.current, setStatus)
         })
     )
   }, [])
@@ -72,8 +82,8 @@ export function LanCard(): React.JSX.Element {
     runAsync('LanCard lanStopPairing', winglogApi().lanStopPairing().then(setStatus))
   }
   const { settings } = status
-  const save = (patch: Partial<LanSettings>): Promise<LanStatus> =>
-    winglogApi().lanSetSettings({ ...settings, ...patch })
+  // Only what changed: the other card's switch (Other WingLogs) is not this one's to send.
+  const save = (patch: Partial<LanSettings>): Promise<LanStatus> => winglogApi().lanSetSettings(patch)
   const portNumber = Number(port)
   const portValid = Number.isInteger(portNumber) && portNumber >= 1024 && portNumber <= 65535
 

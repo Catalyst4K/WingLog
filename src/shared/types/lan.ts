@@ -7,11 +7,17 @@ import type { ProcedureSelection, TrackPoint } from './flight'
 export interface LanSettings {
   enabled: boolean
   port: number
+  /** Whether another WingLog (a twin) may pair and connect; its own switch, on the Sim PC page. The server runs while either is on. */
+  twinEnabled: boolean
 }
 
-/** A phone or tablet that has paired. */
+/** What a paired device is: a second screen (a phone or tablet) or a twin (another WingLog). */
+export type LanDeviceKind = 'screen' | 'twin'
+
+/** A phone, tablet or another WingLog that has paired. */
 export interface LanDevice {
   id: number
+  kind: LanDeviceKind
   name: string
   createdAt: string
   lastSeenAt: string | null
@@ -36,7 +42,10 @@ export interface LanStatus {
   problem: LanProblem | null
   /** Devices with an open connection right now. */
   connections: number
+  /** The second screen's open pairing window, if any. */
   pairing: LanPairing | null
+  /** The twin's open pairing window, if any. */
+  twinPairing: LanPairing | null
   devices: LanDevice[]
 }
 

@@ -21,7 +21,11 @@ export function useSettingsNavStatus(): Pick<SettingsNavStatus, 'secondScreen' |
       winglogApi()
         .lanGetStatus()
         // A client runs no second screen, and its answer is nothing.
-        .then((s) => s && setDevices({ count: s.devices.length, connected: s.connections > 0 }))
+        .then((s) => {
+          // The Second screen page counts phones and tablets; the other WingLogs are on the Sim PC page.
+          const screens = s?.devices.filter((device) => device.kind === 'screen')
+          if (s && screens) setDevices({ count: screens.length, connected: s.connections > 0 })
+        })
     )
     return winglogApi().onUpdateStatus((s) => setUpdateReady(s.state === 'available'))
   }, [])

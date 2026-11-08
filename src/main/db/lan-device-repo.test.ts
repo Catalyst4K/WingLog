@@ -19,7 +19,7 @@ describe('lan device repo', () => {
   it('finds a paired device by its token hash and not by anything else', () => {
     const db = freshDb()
     const id = addLanDevice(db, 'iPad', 'hash-a', '2026-10-12T10:00:00.000Z')
-    expect(findActiveLanDevice(db, 'hash-a')).toBe(id)
+    expect(findActiveLanDevice(db, 'hash-a')).toEqual({ id, kind: 'screen' })
     expect(findActiveLanDevice(db, 'hash-b')).toBeNull()
     expect(findActiveLanDevice(db, '')).toBeNull()
   })
@@ -30,8 +30,32 @@ describe('lan device repo', () => {
     addLanDevice(db, 'Phone', 'hash-b', '2026-10-12T11:00:00.000Z')
     touchLanDevice(db, a, '2026-10-12T12:00:00.000Z')
     expect(listLanDevices(db)).toEqual([
-      { id: a, name: 'iPad', createdAt: '2026-10-12T10:00:00.000Z', lastSeenAt: '2026-10-12T12:00:00.000Z' },
-      { id: a + 1, name: 'Phone', createdAt: '2026-10-12T11:00:00.000Z', lastSeenAt: null }
+      {
+        id: a,
+        kind: 'screen',
+        name: 'iPad',
+        createdAt: '2026-10-12T10:00:00.000Z',
+        lastSeenAt: '2026-10-12T12:00:00.000Z'
+      },
+      {
+        id: a + 1,
+        kind: 'screen',
+        name: 'Phone',
+        createdAt: '2026-10-12T11:00:00.000Z',
+        lastSeenAt: null
+      }
+    ])
+  })
+
+  it('keeps what a device is: a second screen unless it was paired as a twin', () => {
+    const db = freshDb()
+    const screen = addLanDevice(db, 'iPad', 'hash-a', '2026-10-12T10:00:00.000Z')
+    const twin = addLanDevice(db, 'WingLog on MAC', 'hash-b', '2026-10-12T10:05:00.000Z', 'twin')
+    expect(findActiveLanDevice(db, 'hash-a')).toEqual({ id: screen, kind: 'screen' })
+    expect(findActiveLanDevice(db, 'hash-b')).toEqual({ id: twin, kind: 'twin' })
+    expect(listLanDevices(db).map((d) => [d.name, d.kind])).toEqual([
+      ['iPad', 'screen'],
+      ['WingLog on MAC', 'twin']
     ])
   })
 

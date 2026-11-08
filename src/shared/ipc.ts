@@ -30,7 +30,7 @@ import type {
   BeyondAtcStepClimbStatus,
   BeyondAtcTranscriptEntry
 } from './types/beyondatc'
-import type { HostLinkStatus, LanSettings, LanStatus } from './types/lan'
+import type { HostLinkStatus, LanDeviceKind, LanSettings, LanStatus } from './types/lan'
 import type { DispatchOfp, DispatchOpenSimBriefParams } from './types/dispatch'
 import type {
   ActiveTracking,
@@ -704,8 +704,10 @@ export interface WingLogApi {
   setupComplete: () => Promise<void>
   /** The second-screen server (Settings → Second screen). Each call returns the new status. */
   lanGetStatus: () => Promise<LanStatus>
-  lanSetSettings: (settings: LanSettings) => Promise<LanStatus>
-  lanStartPairing: () => Promise<LanStatus>
-  lanStopPairing: () => Promise<LanStatus>
+  /** Changes the server's settings; a field left out keeps its stored value, so each card changes only its own switch. */
+  lanSetSettings: (settings: Partial<LanSettings>) => Promise<LanStatus>
+  /** Opens a pairing code: a second screen's by default, or a twin's (another WingLog), which has its own. */
+  lanStartPairing: (kind?: LanDeviceKind) => Promise<LanStatus>
+  lanStopPairing: (kind?: LanDeviceKind) => Promise<LanStatus>
   lanRevokeDevice: (id: number) => Promise<LanStatus>
 }

@@ -90,6 +90,8 @@ export class LanConnection {
   private backoff = 1000
   private retry: ReturnType<typeof setTimeout> | null = null
   private pairingCode: string | null = null
+  /** What this device says it is when it pairs: a twin (another WingLog) says so; a second screen says nothing. */
+  private pairingKind: 'twin' | null = null
   private stopped = false
   private flightSnapshot: LanFlightSnapshot | null = null
   private trackPoints: TrackPoint[] = []
@@ -320,9 +322,11 @@ export class LanConnection {
    * Pairs with the code the PC shows.
    *
    * @param code What the person typed.
+   * @param kind `twin` when this is another WingLog, which pairs with its own code; left out for a second screen.
    */
-  pair(code: string): void {
+  pair(code: string, kind?: 'twin'): void {
     this.pairingCode = code.trim()
+    this.pairingKind = kind ?? null
     this.setState('starting')
     this.connect()
   }
@@ -372,7 +376,14 @@ export class LanConnection {
     this.socket = socket
     socket.onopen = () => {
       if (this.pairingCode !== null) {
-        socket.send(JSON.stringify({ t: 'pair', code: this.pairingCode, name: this.deviceName }))
+        socket.send(
+          JSON.stringify({
+            t: 'pair',
+            code: this.pairingCode,
+            name: this.deviceName,
+            ...(this.pairingKind ? { kind: this.pairingKind } : {})
+          })
+        )
       } else {
         socket.send(JSON.stringify({ t: 'hello', token: this.store.get() }))
       }

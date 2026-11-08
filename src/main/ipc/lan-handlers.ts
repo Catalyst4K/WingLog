@@ -16,7 +16,7 @@ import type { LanController } from '../lan/LanController'
 export function registerLanHandlers(ipcMain: IpcMain, { lan }: { lan: LanController }): void {
   ipcMain.handle(IpcChannels.lanGetStatus, () => lan.getStatus())
   ipcMain.handle(IpcChannels.lanSetSettings, (_event, settings: unknown) => lan.applySettings(settings))
-  ipcMain.handle(IpcChannels.lanStartPairing, () => lan.startPairing())
-  ipcMain.handle(IpcChannels.lanStopPairing, () => lan.stopPairing())
+  ipcMain.handle(IpcChannels.lanStartPairing, (_event, kind?: unknown) => lan.startPairing(kind))
+  ipcMain.handle(IpcChannels.lanStopPairing, (_event, kind?: unknown) => lan.stopPairing(kind))
   ipcMain.handle(IpcChannels.lanRevokeDevice, (_event, id: unknown) => lan.revokeDevice(id))
 }

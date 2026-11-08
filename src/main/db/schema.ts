@@ -224,6 +224,10 @@ export const lanDevice = sqliteTable('lan_device', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   name: text('name').notNull(),
   tokenHash: text('token_hash').notNull().unique(),
+  // What the device is: a second screen (a phone or tablet) or a twin (another WingLog, which may sync and send flight commands).
+  kind: text('kind', { enum: ['screen', 'twin'] })
+    .notNull()
+    .default('screen'),
   createdAt: text('created_at').notNull(),
   lastSeenAt: text('last_seen_at'),
   revokedAt: text('revoked_at')
