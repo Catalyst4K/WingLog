@@ -1,5 +1,14 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { deleteAccount, login, logout, provision, syncPull, syncPush } from './sync-client'
+import {
+  deleteAccount,
+  forgotPassword,
+  resetPassword,
+  login,
+  logout,
+  provision,
+  syncPull,
+  syncPush
+} from './sync-client'
 
 function fetchMock(status: number, body: unknown) {
   return vi.fn<
@@ -70,6 +79,32 @@ describe('logout', () => {
     const [url, init] = mock.mock.calls[0]
     expect(url).toBe('https://flightdeck-backend.callum-jones5.workers.dev/auth/logout')
     expect(JSON.parse(init?.body as string)).toEqual({ email: 'callum@example.com', token: 'tok' })
+  })
+})
+
+describe('forgotPassword and resetPassword', () => {
+  it('post the address, and the address, code and new password', async () => {
+    const mock = fetchMock(200, { ok: true })
+    vi.stubGlobal('fetch', mock)
+    await forgotPassword('callum@example.com')
+    await resetPassword('callum@example.com', 'ABCD2345', 'a brand new password')
+    const [forgotUrl, forgotInit] = mock.mock.calls[0]
+    expect(forgotUrl).toBe('https://flightdeck-backend.callum-jones5.workers.dev/auth/forgot')
+    expect(JSON.parse(forgotInit?.body as string)).toEqual({ email: 'callum@example.com' })
+    const [resetUrl, resetInit] = mock.mock.calls[1]
+    expect(resetUrl).toBe('https://flightdeck-backend.callum-jones5.workers.dev/auth/reset')
+    expect(JSON.parse(resetInit?.body as string)).toEqual({
+      email: 'callum@example.com',
+      code: 'ABCD2345',
+      password: 'a brand new password'
+    })
+  })
+
+  it('fail with the service’s own message', async () => {
+    vi.stubGlobal('fetch', fetchMock(401, { error: 'invalid or expired code' }))
+    await expect(resetPassword('callum@example.com', 'WRONG234', 'a brand new password')).rejects.toThrow(
+      'invalid or expired code'
+    )
   })
 })
 

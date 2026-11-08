@@ -1355,6 +1355,76 @@ describe('SettingsView', () => {
       expect(await screen.findByLabelText('Email')).toBeInTheDocument()
     })
 
+    describe('a forgotten password', () => {
+      it('emails a code, then takes the code and a new password, and leaves the address ready to log in', async () => {
+        const winglog = setWinglog({
+          authForgotPassword: vi.fn().mockResolvedValue(undefined),
+          authResetPassword: vi.fn().mockResolvedValue(makeSyncStatus())
+        })
+        const user = userEvent.setup()
+        renderSettings()
+        await user.click(screen.getByRole('tab', { name: 'Import and export' }))
+        await user.click(await screen.findByRole('button', { name: 'Forgot password?' }))
+        const email = screen.getAllByLabelText('Email').at(-1) as HTMLElement
+        await user.type(email, 'pilot@example.com')
+        await user.click(screen.getByRole('button', { name: 'Email me a code' }))
+        expect(winglog.authForgotPassword).toHaveBeenCalledWith('pilot@example.com')
+        expect(await screen.findByRole('status')).toHaveTextContent('a code is on its way')
+        await user.type(screen.getByLabelText('Code from the email'), 'ABCD-2345')
+        await user.type(screen.getByLabelText('New password'), 'a brand new password')
+        await user.click(screen.getByRole('button', { name: 'Set new password' }))
+        expect(winglog.authResetPassword).toHaveBeenCalledWith(
+          'pilot@example.com',
+          'ABCD-2345',
+          'a brand new password'
+        )
+        expect(toast.success).toHaveBeenCalledWith('Password changed. Log in with it.')
+        expect(await screen.findByRole('button', { name: 'Forgot password?' })).toBeInTheDocument()
+        expect(screen.getByLabelText('Email')).toHaveValue('pilot@example.com')
+      })
+
+      it('says reset is not available yet when the service answers not found, and stays on the first step', async () => {
+        setWinglog({ authForgotPassword: vi.fn().mockRejectedValue(new Error('not found')) })
+        const user = userEvent.setup()
+        renderSettings()
+        await user.click(screen.getByRole('tab', { name: 'Import and export' }))
+        await user.click(await screen.findByRole('button', { name: 'Forgot password?' }))
+        await user.type(screen.getAllByLabelText('Email').at(-1) as HTMLElement, 'pilot@example.com')
+        await user.click(screen.getByRole('button', { name: 'Email me a code' }))
+        await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Password reset isn’t available yet.'))
+        expect(screen.getByRole('button', { name: 'Email me a code' })).toBeInTheDocument()
+      })
+
+      it('shows the service’s message for a wrong code, keeps the form, and can be cancelled', async () => {
+        setWinglog({
+          authForgotPassword: vi.fn().mockResolvedValue(undefined),
+          authResetPassword: vi.fn().mockRejectedValue(new Error('invalid or expired code'))
+        })
+        const user = userEvent.setup()
+        renderSettings()
+        await user.click(screen.getByRole('tab', { name: 'Import and export' }))
+        await user.click(await screen.findByRole('button', { name: 'Forgot password?' }))
+        await user.type(screen.getAllByLabelText('Email').at(-1) as HTMLElement, 'pilot@example.com')
+        await user.click(screen.getByRole('button', { name: 'Email me a code' }))
+        await user.type(await screen.findByLabelText('Code from the email'), 'WRONG234')
+        await user.type(screen.getByLabelText('New password'), 'a brand new password')
+        await user.click(screen.getByRole('button', { name: 'Set new password' }))
+        await waitFor(() => expect(toast.error).toHaveBeenCalled())
+        expect(screen.getByLabelText('Code from the email')).toBeInTheDocument()
+        await user.click(screen.getByRole('button', { name: 'Cancel' }))
+        expect(screen.getByRole('button', { name: 'Forgot password?' })).toBeInTheDocument()
+      })
+
+      it('is only offered on the log-in side, not when signing up', async () => {
+        setWinglog({})
+        const user = userEvent.setup()
+        renderSettings()
+        await user.click(screen.getByRole('tab', { name: 'Import and export' }))
+        await user.click(await screen.findByRole('button', { name: 'Sign up' }))
+        expect(screen.queryByRole('button', { name: 'Forgot password?' })).not.toBeInTheDocument()
+      })
+    })
+
     it('deletes the account after asking for the password again, and signs out', async () => {
       const winglog = setWinglog({
         syncStatus: vi.fn().mockResolvedValue(makeSyncStatus({ loggedIn: true, email: 'pilot@example.com' })),

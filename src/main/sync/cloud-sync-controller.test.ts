@@ -7,23 +7,37 @@ import type { StoredSession } from '../backend/session-store'
 import type { SyncResult } from './sync-engine'
 import { CloudSyncController } from './cloud-sync-controller'
 
-const { backupBeforeFirstSync, saveSession, clearSession, login, logout, deleteAccount, provision, runSync } =
-  vi.hoisted(() => ({
-    deleteAccount: vi.fn(),
-    backupBeforeFirstSync: vi.fn(),
-    saveSession: vi.fn(),
-    clearSession: vi.fn(),
-    login: vi.fn(),
-    logout: vi.fn(),
-    provision: vi.fn(),
-    runSync: vi.fn()
-  }))
+const {
+  forgotPassword,
+  resetPassword,
+  backupBeforeFirstSync,
+  saveSession,
+  clearSession,
+  login,
+  logout,
+  deleteAccount,
+  provision,
+  runSync
+} = vi.hoisted(() => ({
+  deleteAccount: vi.fn(),
+  forgotPassword: vi.fn(),
+  resetPassword: vi.fn(),
+  backupBeforeFirstSync: vi.fn(),
+  saveSession: vi.fn(),
+  clearSession: vi.fn(),
+  login: vi.fn(),
+  logout: vi.fn(),
+  provision: vi.fn(),
+  runSync: vi.fn()
+}))
 
 vi.mock('../backend/session-store', () => ({ saveSession, clearSession }))
 vi.mock('../backend/sync-client', () => ({
   login,
   logout,
   deleteAccount,
+  forgotPassword,
+  resetPassword,
   provision,
   syncPull: vi.fn(),
   syncPush: vi.fn()
@@ -52,6 +66,8 @@ describe('CloudSyncController', () => {
     login.mockReset()
     logout.mockReset().mockResolvedValue(undefined)
     deleteAccount.mockReset().mockResolvedValue(undefined)
+    forgotPassword.mockReset().mockResolvedValue(undefined)
+    resetPassword.mockReset().mockResolvedValue(undefined)
     provision.mockReset()
     runSync.mockReset()
     backupBeforeFirstSync.mockReset().mockReturnValue('/fake/userdata/backups/before-first-sync-1.db')
@@ -124,6 +140,53 @@ describe('CloudSyncController', () => {
       lastError: null
     })
     expect(getLastSyncCompletedAt(db)).toBeNull()
+  })
+
+  describe('a forgotten password', () => {
+    it('asks for the code without needing a session', async () => {
+      const controller = new CloudSyncController(db, '/fake/db/path', '/fake/userdata', null)
+      await controller.forgotPassword('pilot@example.com')
+      expect(forgotPassword).toHaveBeenCalledWith('pilot@example.com')
+    })
+
+    it('signs this computer out when the account it was signed in to has a new password (the service signs every device out)', async () => {
+      loaded = SESSION
+      const controller = new CloudSyncController(db, '/fake/db/path', '/fake/userdata', loaded)
+      const status = await controller.resetPassword(
+        ' Callum.Jones5@BTinternet.com ',
+        'ABCD2345',
+        'a brand new password'
+      )
+      expect(resetPassword).toHaveBeenCalledWith(
+        ' Callum.Jones5@BTinternet.com ',
+        'ABCD2345',
+        'a brand new password'
+      )
+      expect(clearSession).toHaveBeenCalledWith('/fake/userdata')
+      expect(status.loggedIn).toBe(false)
+    })
+
+    it('leaves a session for another account alone', async () => {
+      loaded = SESSION
+      const controller = new CloudSyncController(db, '/fake/db/path', '/fake/userdata', loaded)
+      const status = await controller.resetPassword(
+        'someone.else@example.com',
+        'ABCD2345',
+        'a brand new password'
+      )
+      expect(clearSession).not.toHaveBeenCalled()
+      expect(status.loggedIn).toBe(true)
+    })
+
+    it('fails, and changes nothing here, when the code is refused', async () => {
+      loaded = SESSION
+      resetPassword.mockRejectedValue(new Error('invalid or expired code'))
+      const controller = new CloudSyncController(db, '/fake/db/path', '/fake/userdata', loaded)
+      await expect(
+        controller.resetPassword(SESSION.email, 'WRONG234', 'a brand new password')
+      ).rejects.toThrow('invalid or expired code')
+      expect(clearSession).not.toHaveBeenCalled()
+    })
   })
 
   describe('deleting the account', () => {

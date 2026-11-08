@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input'
 import { SegmentedRow } from '../SettingsFields'
 import { asyncHandler } from '../report-error'
 import { SettingRow, SettingsCard, SettingsSection } from './ui/SettingsCard'
+import { ForgotPassword } from './ForgotPassword'
 import type { CloudSyncState, DataTransferState } from './use-settings-state'
 
 const DATA_FORMATS = [
@@ -286,6 +287,7 @@ function CloudSignIn(props: { sync: CloudSyncState }): React.JSX.Element {
           {submitLabel}
         </Button>
       </form>
+      {s.mode === 'login' && <ForgotPassword sync={s} />}
     </>
   )
 }

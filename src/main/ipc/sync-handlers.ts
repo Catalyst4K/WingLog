@@ -14,6 +14,22 @@ export const BACKGROUND_SYNC_DELAY_MS = 2000
 
 /** The longest password sent to the service, as its own limit (1024) has it. */
 const MAX_PASSWORD_CHARS = 1024
+/** As the service has them: an address up to 254 characters, a code typed from an email up to 32. */
+const MAX_EMAIL_CHARS = 254
+const MAX_CODE_CHARS = 32
+
+/**
+ * @param value Something from the window.
+ * @param max The longest allowed.
+ * @param what Named in the error.
+ * @returns The text.
+ * @throws When it is not a non-empty text within the limit.
+ */
+function boundedText(value: unknown, max: number, what: string): string {
+  if (typeof value !== 'string' || value.length === 0 || value.length > max)
+    throw new Error(`Invalid ${what}`)
+  return value
+}
 
 /**
  * The push-on-mutation half of cloud sync (winglog-backend/docs/plans/cloud-sync-v2.md #3).
@@ -84,11 +100,19 @@ export function registerSyncHandlers(
     cloudSync.signup(email, password, inviteCode)
   )
   ipcMain.handle(IpcChannels.authLogout, () => cloudSync.logout())
-  ipcMain.handle(IpcChannels.authDeleteAccount, (_event, password: unknown) => {
-    if (typeof password !== 'string' || password.length === 0 || password.length > MAX_PASSWORD_CHARS)
-      throw new Error('Invalid password')
-    return cloudSync.deleteAccount(password)
-  })
+  ipcMain.handle(IpcChannels.authDeleteAccount, (_event, password: unknown) =>
+    cloudSync.deleteAccount(boundedText(password, MAX_PASSWORD_CHARS, 'password'))
+  )
+  ipcMain.handle(IpcChannels.authForgotPassword, (_event, email: unknown) =>
+    cloudSync.forgotPassword(boundedText(email, MAX_EMAIL_CHARS, 'email'))
+  )
+  ipcMain.handle(IpcChannels.authResetPassword, (_event, email: unknown, code: unknown, password: unknown) =>
+    cloudSync.resetPassword(
+      boundedText(email, MAX_EMAIL_CHARS, 'email'),
+      boundedText(code, MAX_CODE_CHARS, 'code'),
+      boundedText(password, MAX_PASSWORD_CHARS, 'password')
+    )
+  )
   ipcMain.handle(IpcChannels.syncNow, () => cloudSync.syncNow())
   ipcMain.handle(IpcChannels.syncStatus, () => cloudSync.getStatus())
 }

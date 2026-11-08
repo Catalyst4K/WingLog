@@ -189,7 +189,15 @@
       "deleteExplain": "Elimina tu cuenta en la nube y la copia de tu flota y tu cuaderno de bitácora guardada en el servicio de WingLog. Los datos de este ordenador se conservan. No se puede deshacer.",
       "deleteConfirm": "Eliminar la cuenta definitivamente",
       "deleteCancel": "Cancelar",
-      "accountDeletedToast": "Cuenta eliminada."
+      "accountDeletedToast": "Cuenta eliminada.",
+      "forgotPassword": "¿Olvidaste la contraseña?",
+      "forgotEmailMe": "Enviarme un código por correo",
+      "forgotSent": "Si esa dirección tiene una cuenta, el código está en camino. Funciona durante 15 minutos.",
+      "resetCode": "Código del correo",
+      "resetNewPassword": "Contraseña nueva",
+      "resetSet": "Establecer contraseña nueva",
+      "resetDoneToast": "Contraseña cambiada. Inicia sesión con ella.",
+      "resetUnavailable": "Restablecer la contraseña aún no está disponible."
     },
     "about": {
       "description": "Un compañero personal de gestión de flota, despacho, seguimiento en vivo y bitácora para Microsoft Flight Simulator.",

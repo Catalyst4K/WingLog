@@ -82,6 +82,29 @@ export async function deleteAccount(email: string, password: string): Promise<vo
 }
 
 /**
+ * `POST /auth/forgot`: asks the service to email a reset code to the account's address. It answers the same whether or not there is such an
+ * account.
+ *
+ * @param email The address the account was made with.
+ * @throws When the service refuses (too many requests, or password reset is not switched on yet: it answers "not found").
+ */
+export async function forgotPassword(email: string): Promise<void> {
+  await postJson('/auth/forgot', { email })
+}
+
+/**
+ * `POST /auth/reset`: sets a new password for the code that was emailed. Every device is signed out afterwards.
+ *
+ * @param email The account.
+ * @param code The code from the email.
+ * @param password The new password, sent once and never stored.
+ * @throws When the code is wrong, used or out of date.
+ */
+export async function resetPassword(email: string, code: string, password: string): Promise<void> {
+  await postJson('/auth/reset', { email, code, password })
+}
+
+/**
  * Ends the session on the backend.
  *
  * @param email The account.

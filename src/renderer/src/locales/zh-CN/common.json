@@ -182,7 +182,15 @@
       "deleteExplain": "删除您的云账户，以及存放在 WingLog 服务上的机队和飞行日志副本。此电脑上的数据会保留。此操作无法撤销。",
       "deleteConfirm": "永久删除账户",
       "deleteCancel": "取消",
-      "accountDeletedToast": "账户已删除。"
+      "accountDeletedToast": "账户已删除。",
+      "forgotPassword": "忘记密码？",
+      "forgotEmailMe": "给我发送验证码",
+      "forgotSent": "如果该地址有账户，验证码已在途中，15 分钟内有效。",
+      "resetCode": "邮件中的验证码",
+      "resetNewPassword": "新密码",
+      "resetSet": "设置新密码",
+      "resetDoneToast": "密码已更改，请用它登录。",
+      "resetUnavailable": "暂不支持重置密码。"
     },
     "about": {
       "description": "适用于 Microsoft Flight Simulator 的个人机队管理、签派、实时航迹追踪与飞行日志伴侣应用。",

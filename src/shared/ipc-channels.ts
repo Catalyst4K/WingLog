@@ -133,6 +133,8 @@ export const IpcChannels = {
   authSignup: 'auth:signup',
   authLogout: 'auth:logout',
   authDeleteAccount: 'auth:delete-account',
+  authForgotPassword: 'auth:forgot-password',
+  authResetPassword: 'auth:reset-password',
   syncNow: 'sync:now',
   syncStatus: 'sync:status',
   appGetVersion: 'app:get-version',

@@ -189,7 +189,15 @@
       "deleteExplain": "Elimina il tuo account cloud e la copia della flotta e del logbook memorizzata sul servizio di WingLog. I dati su questo computer restano. L’operazione non può essere annullata.",
       "deleteConfirm": "Elimina definitivamente l’account",
       "deleteCancel": "Annulla",
-      "accountDeletedToast": "Account eliminato."
+      "accountDeletedToast": "Account eliminato.",
+      "forgotPassword": "Password dimenticata?",
+      "forgotEmailMe": "Inviami un codice via e-mail",
+      "forgotSent": "Se questo indirizzo ha un account, un codice è in arrivo. Vale 15 minuti.",
+      "resetCode": "Codice ricevuto via e-mail",
+      "resetNewPassword": "Nuova password",
+      "resetSet": "Imposta la nuova password",
+      "resetDoneToast": "Password cambiata. Accedi con quella.",
+      "resetUnavailable": "Il ripristino della password non è ancora disponibile."
     },
     "about": {
       "description": "Un compagno personale per la gestione della flotta, la pianificazione, il tracciamento live e il libretto di volo per Microsoft Flight Simulator.",

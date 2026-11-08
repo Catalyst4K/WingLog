@@ -484,6 +484,10 @@ export interface WingLogApi {
   authLogout: () => Promise<SyncStatus>
   /** Deletes the cloud account and everything stored in it, for the right password; the data on this computer stays. Rejects for a wrong password. */
   authDeleteAccount: (password: string) => Promise<SyncStatus>
+  /** Asks the service to email a password reset code to the account's address. Answers the same for an address with no account. */
+  authForgotPassword: (email: string) => Promise<void>
+  /** Sets a new password with the emailed code. Rejects for a wrong, used or out-of-date code. */
+  authResetPassword: (email: string, code: string, password: string) => Promise<SyncStatus>
   /** Triggers one pull-then-push cycle across all synced tables and returns the resulting
    *  status. Throws only if not logged in; a network/server failure during the sync
    *  itself surfaces via the returned status's lastError instead, so a single try/catch

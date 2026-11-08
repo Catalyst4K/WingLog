@@ -18,7 +18,9 @@ function fakeCloudSync(loggedIn: boolean): Record<string, ReturnType<typeof vi.f
     login: vi.fn(),
     signup: vi.fn(),
     logout: vi.fn(),
-    deleteAccount: vi.fn()
+    deleteAccount: vi.fn(),
+    forgotPassword: vi.fn(),
+    resetPassword: vi.fn()
   }
 }
 
@@ -83,6 +85,8 @@ describe('sync IPC handlers', () => {
       IpcChannels.authSignup,
       IpcChannels.authLogout,
       IpcChannels.authDeleteAccount,
+      IpcChannels.authForgotPassword,
+      IpcChannels.authResetPassword,
       IpcChannels.syncNow,
       IpcChannels.syncStatus
     ]) {
@@ -105,6 +109,33 @@ describe('sync IPC handlers', () => {
     expect(cloudSync.logout).toHaveBeenCalled()
     expect(cloudSync.deleteAccount).toHaveBeenCalledWith('secret')
     expect(cloudSync.syncNow).toHaveBeenCalled()
+  })
+
+  it('passes a password reset request and the reset itself to the controller, and refuses what is not text of a sensible length', () => {
+    const cloudSync = fakeCloudSync(true)
+    const { ipcMain, invoke } = fakeIpc()
+    registerSyncHandlers(ipcMain, { cloudSync: cloudSync as unknown as CloudSyncController, enabled: true })
+    invoke(IpcChannels.authForgotPassword, 'pilot@example.com')
+    invoke(IpcChannels.authResetPassword, 'pilot@example.com', 'ABCD2345', 'a brand new password')
+    expect(cloudSync.forgotPassword).toHaveBeenCalledWith('pilot@example.com')
+    expect(cloudSync.resetPassword).toHaveBeenCalledWith(
+      'pilot@example.com',
+      'ABCD2345',
+      'a brand new password'
+    )
+    expect(() => invoke(IpcChannels.authForgotPassword, '')).toThrow('Invalid email')
+    expect(() => invoke(IpcChannels.authForgotPassword, 'x'.repeat(255))).toThrow('Invalid email')
+    expect(() => invoke(IpcChannels.authResetPassword, 'a@b.com', 5, 'a brand new password')).toThrow(
+      'Invalid code'
+    )
+    expect(() => invoke(IpcChannels.authResetPassword, 'a@b.com', 'x'.repeat(33), 'p')).toThrow(
+      'Invalid code'
+    )
+    expect(() => invoke(IpcChannels.authResetPassword, 'a@b.com', 'ABCD2345', undefined)).toThrow(
+      'Invalid password'
+    )
+    expect(cloudSync.forgotPassword).toHaveBeenCalledTimes(1)
+    expect(cloudSync.resetPassword).toHaveBeenCalledTimes(1)
   })
 
   it('refuses to delete the account for a password that is not a text of a sensible length', () => {

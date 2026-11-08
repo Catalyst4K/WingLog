@@ -5,6 +5,7 @@
  */
 
 import { winglogApi } from '../data/winglog-api'
+import { useAccountRecovery } from './use-account-recovery'
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
@@ -390,6 +391,10 @@ export interface CloudSyncState {
   logIn: (event: React.FormEvent) => Promise<void>
   signUp: (event: React.FormEvent) => Promise<void>
   logOut: () => Promise<void>
+  /** Asks for a reset code by email. Resolves true when the service took the request. */
+  forgotPassword: (email: string) => Promise<boolean>
+  /** Sets a new password with the emailed code. Resolves true when it was changed. */
+  resetPassword: (email: string, code: string, password: string) => Promise<boolean>
   /** Deletes the cloud account for the password; the data on this computer stays. Resolves true when it was deleted. */
   deleteAccount: (password: string) => Promise<boolean>
   syncNow: () => Promise<void>
@@ -458,16 +463,7 @@ export function useCloudSync(): CloudSyncState {
     setStatus(await winglogApi().authLogout())
   }
 
-  async function deleteAccount(accountPassword: string): Promise<boolean> {
-    try {
-      setStatus(await winglogApi().authDeleteAccount(accountPassword))
-      toast.success(t('settingsView.cloudSync.accountDeletedToast'))
-      return true
-    } catch (err) {
-      toastError(err)
-      return false
-    }
-  }
+  const recovery = useAccountRecovery(setStatus)
 
   async function syncNow(): Promise<void> {
     setStatus((current) => ({ ...current, syncing: true }))
@@ -491,7 +487,7 @@ export function useCloudSync(): CloudSyncState {
     logIn,
     signUp,
     logOut,
-    deleteAccount,
+    ...recovery,
     syncNow
   }
 }

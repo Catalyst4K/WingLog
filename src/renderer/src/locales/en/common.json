@@ -187,7 +187,15 @@
       "deleteExplain": "Deletes your cloud account and the copy of your fleet and logbook stored on WingLog’s service. The data on this computer stays. This can’t be undone.",
       "deleteConfirm": "Delete account permanently",
       "deleteCancel": "Cancel",
-      "accountDeletedToast": "Account deleted."
+      "accountDeletedToast": "Account deleted.",
+      "forgotPassword": "Forgot password?",
+      "forgotEmailMe": "Email me a code",
+      "forgotSent": "If that address has an account, a code is on its way. It works for 15 minutes.",
+      "resetCode": "Code from the email",
+      "resetNewPassword": "New password",
+      "resetSet": "Set new password",
+      "resetDoneToast": "Password changed. Log in with it.",
+      "resetUnavailable": "Password reset isn’t available yet."
     },
     "about": {
       "description": "A personal fleet-management, dispatch, live-tracking and logbook companion for Microsoft Flight Simulator.",

@@ -11,6 +11,8 @@ import {
   login as backendLogin,
   logout as backendLogout,
   deleteAccount as backendDeleteAccount,
+  forgotPassword as backendForgotPassword,
+  resetPassword as backendResetPassword,
   provision as backendProvision,
   syncPull,
   syncPush
@@ -89,6 +91,31 @@ export class CloudSyncController {
       await backendLogout(this.session.email, this.session.token).catch(() => {})
     }
     return this.forgetSession()
+  }
+
+  /**
+   * Asks for a password reset code to be emailed. Needs no session: the person has lost the password.
+   *
+   * @param email The account's address.
+   */
+  async forgotPassword(email: string): Promise<void> {
+    await backendForgotPassword(email)
+  }
+
+  /**
+   * Sets a new password with the emailed code. The service signs every device out, so this computer's saved session is dropped too if it
+   * was for that account, and the next sync is a fresh sign-in.
+   *
+   * @param email The account's address.
+   * @param code The code from the email.
+   * @param password The new password.
+   * @returns The status afterwards.
+   * @throws When the code is refused.
+   */
+  async resetPassword(email: string, code: string, password: string): Promise<SyncStatus> {
+    await backendResetPassword(email, code, password)
+    if (this.session?.email.trim().toLowerCase() === email.trim().toLowerCase()) return this.forgetSession()
+    return this.getStatus()
   }
 
   /**
