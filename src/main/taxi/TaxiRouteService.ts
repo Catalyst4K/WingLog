@@ -241,12 +241,12 @@ export class TaxiRouteService {
       this.publish(null)
       return
     }
-    const { stand, threshold, holdShortRunway } = clearanceEnds(
+    const { stand, threshold, holdShortRunway, runways } = clearanceEnds(
       clearance,
       this.standsOf(icao),
       this.deps.navdata.listRunways(icao)
     )
-    const job: TraceJob = { clearance, segments, stand, threshold, holdShortRunway }
+    const job: TraceJob = { clearance, segments, stand, threshold, holdShortRunway, runways }
     const startedAt = this.deps.now()
     const seq = ++this.traceSeq
     const finish = (traced: TracedClearance | null): void => {

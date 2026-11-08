@@ -24,7 +24,14 @@ function answerJob(job: WorkerJob, segments: NavdataTaxiSegment[]): TracedCleara
     const { route, fromSegment, from, headingDeg, holdShortRunway } = job
     return rejoinTaxiRoute({ segments, route, fromSegment, from, headingDeg, holdShortRunway })
   }
-  return traceClearanceDetailed(job.clearance, segments, job.stand, job.threshold, job.holdShortRunway)
+  return traceClearanceDetailed(
+    job.clearance,
+    segments,
+    job.stand,
+    job.threshold,
+    job.holdShortRunway,
+    job.runways
+  )
 }
 
 /**

@@ -23,7 +23,7 @@ const CROSSING_MAX_DETOUR = 1.25
  * @param runway The runway.
  * @returns How far along the runway from its threshold the point is, and how far to the right of its centreline (negative: left).
  */
-function alongAndAcross(
+export function alongAndAcross(
   point: { lat: number; lon: number },
   runway: RunwayStrip
 ): { along: number; across: number } {

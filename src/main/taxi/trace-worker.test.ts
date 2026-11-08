@@ -34,7 +34,14 @@ const request = (id: number, networkKey: number, withNetwork: boolean): WorkerRe
   id,
   networkKey,
   ...(withNetwork ? { segments: ZJSY } : {}),
-  job: { kind: 'trace', clearance: CLEARANCE, stand: null, threshold: null, holdShortRunway: null }
+  job: {
+    kind: 'trace',
+    clearance: CLEARANCE,
+    stand: null,
+    threshold: null,
+    holdShortRunway: null,
+    runways: []
+  }
 })
 
 const ROUTE = traceClearanceDetailed(CLEARANCE, ZJSY, null, null, null)?.route ?? []

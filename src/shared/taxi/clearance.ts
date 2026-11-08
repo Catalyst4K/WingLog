@@ -10,6 +10,7 @@ import { traceWithFallback, type TracedClearance } from './fallback'
 import type { RunwayStrip, TaxiTraceRequest, TracedRoute } from './route-types'
 import { aliasSplitTaxiways } from './name-alias'
 import type { RunwayThreshold } from './runway-hold'
+import { endOffRunway, stripOf } from './runway-trim'
 
 export interface TaxiClearance {
   taxiways: string[]
@@ -146,6 +147,8 @@ export interface ClearanceEnds {
   threshold: RunwayThreshold | null
   /** The runway of a "hold short of runway" clearance, or null. */
   holdShortRunway: RunwayStrip | null
+  /** Every runway of the airport as a strip, for keeping a holding-point line off them (runway-trim.ts). */
+  runways: RunwayStrip[]
 }
 
 /**
@@ -166,7 +169,8 @@ export function clearanceEnds(
   return {
     stand: clearance.stand ? findStand(stands, clearance.stand) : null,
     threshold: clearance.holdingPoint ? clearanceRunwayThreshold(clearance.taxiToRunway, runways) : null,
-    holdShortRunway: clearance.holdingPoint ? null : clearanceRunway(clearance.holdShortRunway, runways)
+    holdShortRunway: clearance.holdingPoint ? null : clearanceRunway(clearance.holdShortRunway, runways),
+    runways: runways.map(stripOf)
   }
 }
 
@@ -200,6 +204,7 @@ export function traceClearance(
  * @param stand The cleared stand, or null.
  * @param runwayThreshold The threshold of the runway a holding point is for, or null.
  * @param holdShortRunway The runway of a "hold short of runway" clearance, or null.
+ * @param runways Every runway of the airport, to keep a holding-point line off them.
  * @returns The line, how it was made and its match; null when neither way works.
  */
 export function traceClearanceDetailed(
@@ -207,10 +212,13 @@ export function traceClearanceDetailed(
   segments: NavdataTaxiSegment[],
   stand: NavdataStand | null,
   runwayThreshold: RunwayThreshold | null = null,
-  holdShortRunway: RunwayStrip | null = null
+  holdShortRunway: RunwayStrip | null = null,
+  runways: RunwayStrip[] = []
 ): TracedClearance | null {
   const request = clearanceRequest(clearance, segments, stand, runwayThreshold, holdShortRunway)
-  return request && traceWithFallback(request)
+  const traced = request && traceWithFallback(request)
+  // A holding point's line stops short of the runway it runs onto (runway-trim.ts).
+  return traced && clearance.holdingPoint ? { ...traced, route: endOffRunway(traced.route, runways) } : traced
 }
 
 /**

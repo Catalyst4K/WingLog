@@ -48,7 +48,8 @@ const job = (segments: NavdataTaxiSegment[] = SEGMENTS): TraceJob => ({
   segments,
   stand: null,
   threshold: null,
-  holdShortRunway: null
+  holdShortRunway: null,
+  runways: []
 })
 const TRACED = {
   route: [[2, 1]],

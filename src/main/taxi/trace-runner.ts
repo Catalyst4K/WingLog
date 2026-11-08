@@ -19,6 +19,8 @@ export interface TraceJob {
   stand: NavdataStand | null
   threshold: RunwayThreshold | null
   holdShortRunway: RunwayStrip | null
+  /** Every runway of the airport, to keep a holding-point line off them. */
+  runways: RunwayStrip[]
 }
 
 /** Traces a job: the answer at once, or a promise of it. */
@@ -29,7 +31,14 @@ export type TraceRunner = (job: TraceJob) => TracedClearance | null | Promise<Tr
  * @returns The traced clearance, worked out on this thread.
  */
 export const traceInline: TraceRunner = (job) =>
-  traceClearanceDetailed(job.clearance, job.segments, job.stand, job.threshold, job.holdShortRunway)
+  traceClearanceDetailed(
+    job.clearance,
+    job.segments,
+    job.stand,
+    job.threshold,
+    job.holdShortRunway,
+    job.runways
+  )
 
 /** Re-routes a line (a RejoinRequest is plain data too, and names its network the same way): the answer at once, or a promise of it. */
 export type RejoinRunner = (request: RejoinRequest) => TracedRoute | null | Promise<TracedRoute | null>
