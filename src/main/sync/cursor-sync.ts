@@ -68,18 +68,18 @@ async function pullTable(
   table: SyncTable,
   result: SyncTableResult
 ): Promise<void> {
-  const appliedRows: SyncRow[] = []
+  const pulledRows: { row: SyncRow; applied: boolean }[] = []
   let cursor = getPullCursor(db, peer, table)
   for (;;) {
     const page = await client.syncPullPage(session.email, session.token, table, cursor)
     for (const row of page.rows) {
       const outcome = applyPulledRow(db, table, row)
+      if (outcome.ok) pulledRows.push({ row, applied: outcome.applied })
       if (!outcome.ok) {
         result.skipped.push(row.uuid)
         logSyncEvent(dbPath, { direction: 'pull', table, uuid: row.uuid, reason: outcome.error })
       } else if (outcome.applied) {
         result.pulled++
-        appliedRows.push(row)
         // Marked on the uuid the row was written under: a flight or aircraft merged into one already here counts under the local uuid.
         markOrigin(db, table, outcome.uuid, peer)
       } else if (localUpdatedAt(db, table, outcome.uuid) === row.updatedAt) {
@@ -100,7 +100,7 @@ async function pullTable(
     setPullCursor(db, peer, table, cursor)
     if (!page.more) break
   }
-  if (table === 'aircraft') linkPulledReplacements(db, appliedRows)
+  if (table === 'aircraft') linkPulledReplacements(db, pulledRows)
 }
 
 /**

@@ -193,14 +193,23 @@ function applyAircraft(db: WingLogDb, row: SyncRow): ApplyResult {
  * Points each pulled aircraft at the one that replaced it. Done after the whole pull because the
  * replacing aircraft may come later in the same batch; one that never arrives leaves the link empty.
  *
+ * A row that lost to a newer or equal one here still counts, but only where this device has no link yet. A replacement is never undone, and
+ * a device that set up its own copy of the fleet (a Mac with its own import) holds a newer row for an aircraft that the other device had
+ * already replaced: that row wins, carries no link, and without this the replaced aircraft stays in the normal list with no flights.
+ *
  * @param db The database.
- * @param applied The aircraft rows that were applied this pull.
+ * @param rows The aircraft rows pulled, and whether each was applied (won) or lost to a row already here.
  */
-export function linkPulledReplacements(db: WingLogDb, applied: SyncRow[]): void {
-  for (const row of applied) {
+export function linkPulledReplacements(db: WingLogDb, rows: { row: SyncRow; applied: boolean }[]): void {
+  for (const { row, applied } of rows) {
     const replacedBy = parseRowData(row.data)?.replacedByAircraftUuid
     if (typeof replacedBy === 'string') {
-      linkReplacedAircraftByUuid(db, resolveAircraftUuid(db, row.uuid), resolveAircraftUuid(db, replacedBy))
+      linkReplacedAircraftByUuid(
+        db,
+        resolveAircraftUuid(db, row.uuid),
+        resolveAircraftUuid(db, replacedBy),
+        !applied
+      )
     }
   }
 }
@@ -515,12 +524,12 @@ export function applyPushedRows(
 ): { upserted: string[]; rejected: string[] } {
   const upserted: string[] = []
   const rejected: string[] = []
-  const applied: SyncRow[] = []
+  const pulled: { row: SyncRow; applied: boolean }[] = []
   for (const row of rows) {
     const outcome = applyPulledRow(db, table, row)
+    if (outcome.ok) pulled.push({ row, applied: outcome.applied })
     if (outcome.ok && outcome.applied) {
       upserted.push(row.uuid)
-      applied.push(row)
       // Marked on the uuid the row was written under, so a row from this twin is not handed back to it, while one from another peer still goes on.
       if (origin !== undefined) markOrigin(db, table, outcome.uuid, origin)
       continue
@@ -533,6 +542,6 @@ export function applyPushedRows(
       reason: outcome.ok ? 'this PC already had a newer or equal updatedAt (last-write-wins)' : outcome.error
     })
   }
-  if (table === 'aircraft') linkPulledReplacements(db, applied)
+  if (table === 'aircraft') linkPulledReplacements(db, pulled)
   return { upserted, rejected }
 }

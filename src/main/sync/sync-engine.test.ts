@@ -692,6 +692,45 @@ describe('sync-engine', () => {
       expect(newRow?.id).toBeGreaterThan(2)
     })
 
+    it('is linked on a device whose own copy of the aircraft is newer, so the row loses (a Mac set up from its own import)', async () => {
+      const old = createAircraft(db, { registration: 'G-OLD1', icaoType: 'A320' })
+      const next = createAircraft(db, { registration: 'G-NEW1', icaoType: 'A320' })
+      replaceAircraft(db, { retiredId: old.id, replacementId: next.id })
+      await runSync(db, server, SESSION, dbPath)
+
+      const second = createDb(':memory:')
+      migrate(second.db, { migrationsFolder: 'drizzle' })
+      createAircraft(second.db, { registration: 'G-OLD1', icaoType: 'A320' })
+      createAircraft(second.db, { registration: 'G-NEW1', icaoType: 'A320' })
+      second.db.update(aircraft).set({ updatedAt: '2099-01-01T00:00:00.000Z' }).run()
+      await runSync(second.db, server, SESSION, join(tempDir, 'second.db'))
+
+      const rows = second.db.select().from(aircraft).all()
+      const oldRow = rows.find((r) => r.registration === 'G-OLD1')
+      const newRow = rows.find((r) => r.registration === 'G-NEW1')
+      expect(oldRow?.replacedByAircraftId).toBe(newRow?.id)
+      expect(newRow?.replacedByAircraftId).toBeNull()
+    })
+
+    it('does not change a replacement this device already has because an older row names another', async () => {
+      const old = createAircraft(db, { registration: 'G-OLD1', icaoType: 'A320' })
+      const next = createAircraft(db, { registration: 'G-NEW1', icaoType: 'A320' })
+      replaceAircraft(db, { retiredId: old.id, replacementId: next.id })
+      await runSync(db, server, SESSION, dbPath)
+
+      const second = createDb(':memory:')
+      migrate(second.db, { migrationsFolder: 'drizzle' })
+      const localOld = createAircraft(second.db, { registration: 'G-OLD1', icaoType: 'A320' })
+      createAircraft(second.db, { registration: 'G-NEW1', icaoType: 'A320' })
+      const other = createAircraft(second.db, { registration: 'G-OTH1', icaoType: 'A320' })
+      replaceAircraft(second.db, { retiredId: localOld.id, replacementId: other.id })
+      second.db.update(aircraft).set({ updatedAt: '2099-01-01T00:00:00.000Z' }).run()
+      await runSync(second.db, server, SESSION, join(tempDir, 'second.db'))
+
+      const row = second.db.select().from(aircraft).where(eq(aircraft.registration, 'G-OLD1')).get()
+      expect(row?.replacedByAircraftId).toBe(other.id)
+    })
+
     it('links even when the replacement comes later in the same pull', async () => {
       server.seed('aircraft', {
         uuid: 'retired',
