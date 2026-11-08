@@ -39,6 +39,11 @@ test('a client pairs with the host by address and code, follows its sim and keep
       }, port)
       expect(code).toMatch(/^\d{6}$/)
 
+      // BeyondATC is switched on at the host: its tab follows on the client once it is connected.
+      await host.window.evaluate(() =>
+        window.winglog.settingsSetBeyondAtc({ enabled: true, host: '127.0.0.1' })
+      )
+
       const client = await launchApp({ userDataDir: clientDir })
       try {
         await expect(client.window.getByText('Sim PC: not paired')).toBeVisible()
@@ -52,6 +57,7 @@ test('a client pairs with the host by address and code, follows its sim and keep
           code
         ] as const)
         await expect(client.window.getByText('Sim PC: connected')).toBeVisible({ timeout: 15_000 })
+        await expect(client.window.getByRole('tab', { name: 'BeyondATC' })).toBeVisible({ timeout: 15_000 })
         expect(await client.window.evaluate(() => window.winglog.hostLinkGetStatus())).toMatchObject({
           state: 'connected',
           address: `127.0.0.1:${port}`

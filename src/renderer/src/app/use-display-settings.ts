@@ -14,6 +14,8 @@ import type {
 import { resolveAppLanguage } from '@shared/app-language'
 import i18n from '../i18n'
 import { runAsync } from '../report-error'
+import { useCapabilities } from './capabilities-context'
+import { useHostLinkStatus } from './use-host-link'
 
 /** The persisted display settings, and the handlers that change and save them. */
 export interface DisplaySettings {
@@ -42,6 +44,34 @@ export interface DisplaySettings {
 }
 
 /**
+ * A client has no GSX or BeyondATC of its own: its tabs follow the sim PC's settings, asked again whenever the link comes up.
+ *
+ * @param setGsxRemoteEnabled Sets whether the GSX tab shows.
+ * @param setBeyondAtcEnabled Sets whether the BeyondATC tab shows.
+ */
+function useSimPcAddOns(
+  setGsxRemoteEnabled: (enabled: boolean) => void,
+  setBeyondAtcEnabled: (enabled: boolean) => void
+): void {
+  const linkState = useHostLinkStatus(useCapabilities().runMode === 'client')?.state
+  useEffect(() => {
+    if (linkState !== 'connected') return
+    runAsync(
+      'App settingsGetGsxRemote (sim PC)',
+      winglogApi()
+        .settingsGetGsxRemote()
+        .then((settings) => setGsxRemoteEnabled(settings.enabled))
+    )
+    runAsync(
+      'App settingsGetBeyondAtc (sim PC)',
+      winglogApi()
+        .settingsGetBeyondAtc()
+        .then((settings) => setBeyondAtcEnabled(settings.enabled))
+    )
+  }, [linkState, setGsxRemoteEnabled, setBeyondAtcEnabled])
+}
+
+/**
  * Loads the display settings once on mount, applies the theme, and saves each change.
  *
  * @returns The settings and their change handlers.
@@ -56,6 +86,7 @@ export function useDisplaySettings(): DisplaySettings {
   const [theme, setTheme] = useState<Theme>('system')
   const [gsxRemoteEnabled, setGsxRemoteEnabled] = useState(false)
   const [beyondAtcEnabled, setBeyondAtcEnabled] = useState(false)
+  useSimPcAddOns(setGsxRemoteEnabled, setBeyondAtcEnabled)
 
   useEffect(() => {
     runAsync('App settingsGetWeightUnit', winglogApi().settingsGetWeightUnit().then(setWeightUnit))

@@ -56,6 +56,12 @@ export const TOPIC_GETTERS: Partial<Record<LiveTopic, string>> = {
   beyondAtcArrival: IpcChannels.beyondAtcGetArrival
 }
 
+/** What an add-on reads as while the sim PC cannot be asked: switched off. */
+const ADD_ON_OFF = {
+  gsxRemote: { enabled: false, host: '127.0.0.1', port: null },
+  beyondAtc: { enabled: false, host: '127.0.0.1' }
+}
+
 /** Longest text taken for an address or a code, so a pasted page cannot become a connection string. */
 const MAX_FIELD_CHARS = 200
 
@@ -86,6 +92,13 @@ export function registerHostLinkHandlers(
     return link.getStatus()
   })
   ipcMain.handle(IpcChannels.hostLinkForget, () => link.forget())
+  // The add-ons run on the sim PC, so whether they are on is its setting: a client asks it, and reads them as off while it cannot.
+  ipcMain.handle(IpcChannels.settingsGetGsxRemote, () =>
+    link.query('settings.gsxRemote').catch(() => ADD_ON_OFF.gsxRemote)
+  )
+  ipcMain.handle(IpcChannels.settingsGetBeyondAtc, () =>
+    link.query('settings.beyondAtc').catch(() => ADD_ON_OFF.beyondAtc)
+  )
   const taken: string[] = []
   const answer = (channel: string, reply: (...args: unknown[]) => unknown): void => {
     // Electron refuses a second handler for a channel, so one a local service already answers is replaced: a client's answer is the sim PC's.

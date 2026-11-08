@@ -27,7 +27,6 @@ import {
 import { lazyView } from './app/lazy-view'
 import { ErrorBoundary } from './ErrorBoundary'
 import { useDisplaySettings, type DisplaySettings } from './app/use-display-settings'
-import { CapabilitiesProvider } from './app/capabilities'
 
 // Fleet is the default/first tab, so it's the one view kept eager — every other tab is
 // lazy so its JS (and, for Track/Logbook, the maplibre-gl and recharts they pull in —
@@ -227,62 +226,56 @@ export default function App(): React.JSX.Element {
   const { simStatus, telemetry } = useSimConnection()
 
   return (
-    <CapabilitiesProvider>
-      <main className="flex h-screen flex-col">
-        <CloseConfirm />
-        <StorageBanner />
-        <UpdateBanner airborne={telemetry !== null && !telemetry.onGround} />
-        <Tabs
-          value={nav.effectivePage}
-          onValueChange={(value) => nav.setPage(value as AppPageId)}
-          className="min-h-0 flex-1 gap-0"
-        >
-          <AppHeader
-            gsxRemoteEnabled={settings.gsxRemoteEnabled}
-            beyondAtcEnabled={settings.beyondAtcEnabled}
-            onTabClick={nav.goToTab}
-            simStatus={simStatus}
-          />
+    <main className="flex h-screen flex-col">
+      <CloseConfirm />
+      <StorageBanner />
+      <UpdateBanner airborne={telemetry !== null && !telemetry.onGround} />
+      <Tabs
+        value={nav.effectivePage}
+        onValueChange={(value) => nav.setPage(value as AppPageId)}
+        className="min-h-0 flex-1 gap-0"
+      >
+        <AppHeader
+          gsxRemoteEnabled={settings.gsxRemoteEnabled}
+          beyondAtcEnabled={settings.beyondAtcEnabled}
+          onTabClick={nav.goToTab}
+          simStatus={simStatus}
+        />
 
-          {/* min-h-0 overrides the flex-item default of min-height:auto — without it, a
+        {/* min-h-0 overrides the flex-item default of min-height:auto — without it, a
             tall page (e.g. Logbook's full flight list) forces this div past its 100vh
             budget instead of clipping to it, and the whole document scrolls (dragging
             the header above away with it) instead of just this div
             (flight-test-findings-2026-09-06.md #7 — confirmed live: the outer <main> was
             measurably taller than the viewport, not this div). */}
-          <div className="min-h-0 flex-1 overflow-auto p-4 sm:p-8">
-            <ErrorBoundary name={nav.effectivePage} resetKey={nav.effectivePage}>
-              <CurrentPage
-                nav={nav}
-                settings={settings}
-                plan={plan}
-                telemetry={telemetry}
-                onRunSetup={() => setSetupOpen(true)}
-              />
-            </ErrorBoundary>
-          </div>
-        </Tabs>
-        <Toaster />
-        <SetupDialog
-          open={setupOpen}
-          onClose={() => setSetupOpen(false)}
-          {...displaySettingsProps(settings)}
-        />
+        <div className="min-h-0 flex-1 overflow-auto p-4 sm:p-8">
+          <ErrorBoundary name={nav.effectivePage} resetKey={nav.effectivePage}>
+            <CurrentPage
+              nav={nav}
+              settings={settings}
+              plan={plan}
+              telemetry={telemetry}
+              onRunSetup={() => setSetupOpen(true)}
+            />
+          </ErrorBoundary>
+        </div>
+      </Tabs>
+      <Toaster />
+      <SetupDialog open={setupOpen} onClose={() => setSetupOpen(false)} {...displaySettingsProps(settings)} />
 
-        <OrphanedFlightDialog
-          flight={orphaned.orphanedFlight}
-          onClose={orphaned.onClose}
-          onResume={orphaned.onResume}
-          onDiscard={orphaned.onDiscard}
-        />
-        <ImportantGsxMenuDialog menu={gsxMenu.menu} open={gsxMenu.open} onDismiss={gsxMenu.onDismiss} />
-        <AtcClearanceDialog
-          clearance={atcClearance.pending}
-          selection={plan.procedureSelection}
-          onAccept={atcClearance.onAccept}
-          onDismiss={atcClearance.onDismiss}
-        />
-      </main>
-    </CapabilitiesProvider>
+      <OrphanedFlightDialog
+        flight={orphaned.orphanedFlight}
+        onClose={orphaned.onClose}
+        onResume={orphaned.onResume}
+        onDiscard={orphaned.onDiscard}
+      />
+      <ImportantGsxMenuDialog menu={gsxMenu.menu} open={gsxMenu.open} onDismiss={gsxMenu.onDismiss} />
+      <AtcClearanceDialog
+        clearance={atcClearance.pending}
+        selection={plan.procedureSelection}
+        onAccept={atcClearance.onAccept}
+        onDismiss={atcClearance.onDismiss}
+      />
+    </main>
   )
 }

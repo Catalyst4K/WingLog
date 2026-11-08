@@ -13,7 +13,8 @@ function setup() {
     getStatus: vi.fn(() => ({ state: 'connected', address: '192.168.1.20:5051', hostSim: 'connected' })),
     pair: vi.fn(),
     forget: vi.fn(),
-    command: vi.fn()
+    command: vi.fn(),
+    query: vi.fn()
   }
   const ipc = fakeIpc()
   registerHostLinkHandlers(ipc.ipcMain, { link: link as unknown as HostLink, hub, handled: new Set() })
@@ -87,6 +88,19 @@ describe('a client IPC handlers', () => {
     expect(ipc.invoke(IpcChannels.taxiRouteGet)).toBeNull()
     ipc.invoke(IpcChannels.gsxRemotePickMenu, 2)
     expect(link.command).toHaveBeenCalledWith('gsx.pickMenu', [2])
+  })
+
+  it('asks the sim PC whether GSX Remote and BeyondATC are on, and reads them as off while it cannot be asked', async () => {
+    const { invoke, link } = setup()
+    link.query.mockResolvedValueOnce({ enabled: true, host: '127.0.0.1', port: 8744 })
+    expect(await invoke(IpcChannels.settingsGetGsxRemote)).toMatchObject({ enabled: true })
+    expect(link.query).toHaveBeenLastCalledWith('settings.gsxRemote')
+    link.query.mockResolvedValueOnce({ enabled: true, host: '10.0.0.5' })
+    expect(await invoke(IpcChannels.settingsGetBeyondAtc)).toMatchObject({ enabled: true })
+    expect(link.query).toHaveBeenLastCalledWith('settings.beyondAtc')
+    link.query.mockRejectedValue(new Error('Not connected'))
+    expect(await invoke(IpcChannels.settingsGetGsxRemote)).toMatchObject({ enabled: false })
+    expect(await invoke(IpcChannels.settingsGetBeyondAtc)).toMatchObject({ enabled: false })
   })
 
   it('does not take the sim connection status, which the sim handler answers (from the host on a client)', () => {
