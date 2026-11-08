@@ -28,13 +28,15 @@ export function compressText(text: string): Buffer {
 
 /**
  * @param stored What the column holds: text from before compression existed, or a compressed value.
+ * @param maxBytes The most the text may unpack to, for a value that came from outside the database (a synced row); no limit when omitted.
  * @returns The original text.
- * @throws When a compressed value has a format this build doesn't know (written by a newer version).
+ * @throws When a compressed value has a format this build doesn't know (written by a newer version), or unpacks to more than `maxBytes`.
  */
-export function decompressText(stored: Buffer | Uint8Array | string): string {
+export function decompressText(stored: Buffer | Uint8Array | string, maxBytes?: number): string {
   if (typeof stored === 'string') return stored
   if (stored[0] !== FORMAT_BROTLI) throw new Error(`Unknown compressed text format ${String(stored[0])}`)
-  return brotliDecompressSync(stored.subarray(1)).toString('utf8')
+  const options = maxBytes === undefined ? {} : { maxOutputLength: maxBytes }
+  return brotliDecompressSync(stored.subarray(1), options).toString('utf8')
 }
 
 /** A TEXT column holding compressed text (see the file header). */

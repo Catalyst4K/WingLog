@@ -39,6 +39,7 @@ import { hasLandingUnderOtherUuid, listLandingsForSync, upsertLandingByUuid } fr
 import { getLastSyncedAt, getSetting, setLastSyncedAt, setSetting } from '../db/settings-repo'
 import { SYNC_TABLES, type SyncRow, type SyncTable } from '../backend/sync-client'
 import { aircraft, flight, flightInvoice, landing } from '../db/schema'
+import { ofpFromWire, ofpToWire } from './ofp-wire'
 import { validateSyncFields } from './sync-row-validation'
 
 export interface SyncClient {
@@ -239,7 +240,11 @@ function serializeFlight(db: WingLogDb, row: ReturnType<typeof listFlightsForSyn
   return {
     uuid: row.uuid as string,
     updatedAt: row.updatedAt as string,
-    data: JSON.stringify({ ...omit(row, ['id', 'uuid', 'updatedAt', 'aircraftId']), aircraftUuid })
+    data: JSON.stringify({
+      ...omit(row, ['id', 'uuid', 'updatedAt', 'aircraftId', 'ofpJson']),
+      aircraftUuid,
+      ofpJsonZ: ofpToWire(row.ofpJson)
+    })
   }
 }
 
@@ -302,6 +307,8 @@ function applyFlight(db: WingLogDb, row: SyncRow): ApplyResult {
   }
   const checked = validateSyncFields(flight, data, ['aircraftId'])
   if (!checked.ok) return checked
+  const ofp = ofpFromWire(data)
+  if (!ofp.ok) return ofp
   let uuid = resolveFlightUuid(db, row.uuid)
   if (getFlightIdByUuid(db, uuid) === undefined) {
     const same = mergeIntoMatchingFlight(db, row.uuid, data, incomingAircraftId)
@@ -313,6 +320,7 @@ function applyFlight(db: WingLogDb, row: SyncRow): ApplyResult {
   try {
     const applied = upsertFlightByUuid(db, {
       ...checked.fields,
+      ...ofp.fields,
       aircraftId,
       uuid,
       updatedAt: row.updatedAt

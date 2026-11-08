@@ -1115,4 +1115,114 @@ describe('sync-engine', () => {
       expect(result.tables.flight.skipped).toEqual(['broken'])
     })
   })
+
+  describe('a flight with a SimBrief OFP', () => {
+    /** About the size and shape of a real OFP: 1.2 MB of JSON with many strings, which escapes badly inside another JSON string. */
+    const bigOfp = (): string =>
+      JSON.stringify({
+        navlog: Array.from({ length: 6000 }, (_, i) => ({
+          ident: `FIX${i}`,
+          name: `Waypoint "${i}" / sector`,
+          via_airway: 'N' + (i % 90),
+          pos_lat: (i * 0.0137).toFixed(6),
+          pos_long: (i * 0.0291).toFixed(6),
+          wind_dir: String(i % 360),
+          note: 'a\\b\\c ' + 'x'.repeat(60)
+        }))
+      })
+
+    function flightWithOfp(ofp: string): number {
+      const plane = createAircraft(db, { registration: 'G-ABCD', icaoType: 'A320' })
+      const created = createFlight(db, { aircraftId: plane.id, depIcao: 'EGLL', arrIcao: 'EGCC' })
+      db.update(flight).set({ ofpJson: ofp }).where(eq(flight.id, created.id)).run()
+      return created.id
+    }
+
+    it('sends it compressed, so a 1.2 MB OFP fits the backend’s row limit, and the other device gets the same text back', async () => {
+      const ofp = bigOfp()
+      expect(ofp.length).toBeGreaterThan(1_000_000)
+      flightWithOfp(ofp)
+
+      const pushed = await runSync(db, server, SESSION, dbPath)
+
+      expect(pushed.tables.flight.pushed).toBe(1)
+      expect(pushed.tables.flight.skipped).toEqual([])
+      const wire = (await server.syncPull(SESSION.email, SESSION.token, 'flight', null))[0]
+      expect(Buffer.byteLength(wire.data)).toBeLessThan(MAX_ROW_DATA_BYTES)
+      expect(Buffer.byteLength(wire.data)).toBeLessThan(ofp.length / 2)
+      const fields = JSON.parse(wire.data) as Record<string, unknown>
+      expect(fields.ofpJson).toBeUndefined()
+      expect(fields.ofpJsonZ).toBeTypeOf('string')
+
+      const other = createDb(':memory:')
+      migrate(other.db, { migrationsFolder: 'drizzle' })
+      const pulled = await runSync(other.db, server, SESSION, join(tempDir, 'other.db'))
+      expect(pulled.tables.flight.skipped).toEqual([])
+      expect(other.db.select().from(flight).get()?.ofpJson).toBe(ofp)
+    })
+
+    it('sends a flight with no OFP as null, and clears the other device’s copy when the OFP is removed', async () => {
+      const id = flightWithOfp('{"a":1}')
+      await runSync(db, server, SESSION, dbPath)
+      const other = createDb(':memory:')
+      migrate(other.db, { migrationsFolder: 'drizzle' })
+      const otherPath = join(tempDir, 'other.db')
+      await runSync(other.db, server, SESSION, otherPath)
+      expect(other.db.select().from(flight).get()?.ofpJson).toBe('{"a":1}')
+
+      db.update(flight)
+        .set({ ofpJson: null, updatedAt: '2099-01-01T00:00:00.000Z' })
+        .where(eq(flight.id, id))
+        .run()
+      await runSync(db, server, SESSION, dbPath)
+      await runSync(other.db, server, SESSION, otherPath)
+
+      expect(other.db.select().from(flight).get()?.ofpJson).toBeNull()
+    })
+
+    it('still applies a row from before ofpJsonZ that carries a plain ofpJson', async () => {
+      server.seed('aircraft', {
+        uuid: 'a1',
+        updatedAt: '2099-01-01T00:00:00.000Z',
+        data: JSON.stringify({ registration: 'G-OLD1', icaoType: 'A320' })
+      })
+      server.seed('flight', {
+        uuid: 'old-flight',
+        updatedAt: '2099-01-01T00:00:00.000Z',
+        data: JSON.stringify({
+          aircraftUuid: 'a1',
+          depIcao: 'EGLL',
+          arrIcao: 'EGCC',
+          ofpJson: '{"plain":true}'
+        })
+      })
+
+      await runSync(db, server, SESSION, dbPath)
+
+      expect(db.select().from(flight).get()?.ofpJson).toBe('{"plain":true}')
+    })
+
+    it('skips a row whose OFP cannot be read, and carries on with the rest', async () => {
+      server.seed('aircraft', {
+        uuid: 'a1',
+        updatedAt: '2099-01-01T00:00:00.000Z',
+        data: JSON.stringify({ registration: 'G-OLD1', icaoType: 'A320' })
+      })
+      server.seed('flight', {
+        uuid: 'broken-ofp',
+        updatedAt: '2099-01-01T00:00:00.000Z',
+        data: JSON.stringify({ aircraftUuid: 'a1', depIcao: 'EGLL', arrIcao: 'EGCC', ofpJsonZ: 'AAAA' })
+      })
+      server.seed('flight', {
+        uuid: 'fine',
+        updatedAt: '2099-01-02T00:00:00.000Z',
+        data: JSON.stringify({ aircraftUuid: 'a1', depIcao: 'EGCC', arrIcao: 'EGLL' })
+      })
+
+      const result = await runSync(db, server, SESSION, dbPath)
+
+      expect(result.tables.flight.skipped).toEqual(['broken-ofp'])
+      expect(db.select().from(flight).all()).toHaveLength(1)
+    })
+  })
 })
