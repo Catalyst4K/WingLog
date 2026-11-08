@@ -376,9 +376,16 @@ describe('the network traffic pills', () => {
 })
 
 describe('the layers on a small screen (the phone)', () => {
-  function folded(): { onToggleVfr: ReturnType<typeof vi.fn>; onToggleTaxiChart: ReturnType<typeof vi.fn> } {
+  function folded(): {
+    onToggleVfr: ReturnType<typeof vi.fn>
+    onToggleTaxiChart: ReturnType<typeof vi.fn>
+    onZoomIn: ReturnType<typeof vi.fn>
+    onZoomOut: ReturnType<typeof vi.fn>
+  } {
     const onToggleVfr = vi.fn()
     const onToggleTaxiChart = vi.fn()
+    const onZoomIn = vi.fn()
+    const onZoomOut = vi.fn()
     render(
       <MapControls
         live
@@ -397,18 +404,21 @@ describe('the layers on a small screen (the phone)', () => {
         }}
         taxiChartEnabled={false}
         onToggleTaxiChart={onToggleTaxiChart}
-        onZoomIn={() => {}}
-        onZoomOut={() => {}}
+        onZoomIn={onZoomIn}
+        onZoomOut={onZoomOut}
       />
     )
-    return { onToggleVfr, onToggleTaxiChart }
+    return { onToggleVfr, onToggleTaxiChart, onZoomIn, onZoomOut }
   }
 
-  it('keeps follow in the column, with no zoom (the map is pinched), and puts every layer behind one Layers button', () => {
-    folded()
+  it('keeps follow and the zoom buttons in the column, and puts every layer behind one Layers button', async () => {
+    const { onZoomIn, onZoomOut } = folded()
     expect(screen.getByRole('button', { name: 'Layers' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /centering|Center/ })).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Zoom in' })).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Zoom in' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Zoom out' }))
+    expect(onZoomIn).toHaveBeenCalledOnce()
+    expect(onZoomOut).toHaveBeenCalledOnce()
     expect(screen.queryByRole('button', { name: /VFR/ })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /taxi chart/i })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /VATSIM/ })).not.toBeInTheDocument()

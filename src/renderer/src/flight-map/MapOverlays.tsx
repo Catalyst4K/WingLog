@@ -314,7 +314,7 @@ export function MapControls(props: {
   const { t } = useTranslation()
   const followLabel = props.followEnabled ? t('flightMap.stopCentering') : t('flightMap.centerOnAircraft')
   return (
-    // On the phone (folded layers) the buttons are finger-sized and there is no zoom: the map is pinched (the canvas's r3-phone).
+    // On the phone (folded layers) the buttons are finger-sized; the zoom buttons stay, as pinching is not always the easier way.
     <div
       className={cn(
         'absolute top-3 right-3 flex flex-col gap-1.5',
@@ -332,16 +332,12 @@ export function MapControls(props: {
         </ToggleControl>
       )}
       {props.foldLayers ? <LayersMenu {...props} /> : <LayerControls {...props} />}
-      {!props.foldLayers && (
-        <>
-          <ZoomControl label={t('flightMap.zoomIn')} onZoom={props.onZoomIn}>
-            <ZoomIn />
-          </ZoomControl>
-          <ZoomControl label={t('flightMap.zoomOut')} onZoom={props.onZoomOut}>
-            <ZoomOut />
-          </ZoomControl>
-        </>
-      )}
+      <ZoomControl label={t('flightMap.zoomIn')} onZoom={props.onZoomIn}>
+        <ZoomIn />
+      </ZoomControl>
+      <ZoomControl label={t('flightMap.zoomOut')} onZoom={props.onZoomOut}>
+        <ZoomOut />
+      </ZoomControl>
     </div>
   )
 }
