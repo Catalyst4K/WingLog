@@ -656,6 +656,8 @@ describe('BeyondAtcPanel', () => {
     const user = userEvent.setup()
     render(<BeyondAtcPanel />)
 
+    // The switches are behind the Automation button in the radios strip.
+    await user.click(await screen.findByRole('button', { name: /Automation/ }))
     await user.click(
       within(await screen.findByRole('group', { name: 'Auto-tune' })).getByRole('button', { name: 'Off' })
     )

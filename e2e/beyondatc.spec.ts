@@ -77,6 +77,8 @@ test.describe('BeyondATC integration', () => {
       await page.getByRole('button', { name: /Singapore Approach.*RWY 02L.*124\.050/ }).click()
       await expect.poll(() => server.receivedCommands.at(-1)).toBe('set_frequency: 124.050')
 
+      // The switches are behind the Automation button in the radios strip.
+      await page.getByRole('button', { name: /Automation/ }).click()
       await page.getByRole('group', { name: 'Auto-tune' }).getByRole('button', { name: 'Off' }).click()
       await expect.poll(() => server.receivedCommands.at(-1)).toBe('set_autotune: false')
 

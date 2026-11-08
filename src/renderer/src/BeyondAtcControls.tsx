@@ -14,6 +14,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { cn } from '@/lib/utils'
 import { SegmentButton, SegmentedGroup } from './settings/ui/SettingsCard'
 import { AutoTuneOnlineWarning } from './online/AutoTuneOnlineWarning'
 import { BeyondAtcHiddenNote } from './online/BeyondAtcHiddenNote'
@@ -185,6 +186,8 @@ function AirportFrequencies(props: {
  * @returns The element.
  */
 function FrequencyPicker(props: {
+  /** The thin strip: a smaller button. */
+  compact?: boolean
   departureAirport: string | null
   arrivalAirport: string | null
   progressPct: number | null
@@ -231,7 +234,12 @@ function FrequencyPicker(props: {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button type="button" variant="outline" size="sm" className="h-8 px-2.5 text-[13px]">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className={props.compact ? 'h-7 px-2 text-xs' : 'h-8 px-2.5 text-[13px]'}
+        >
           {t('beyondAtcPanel.changeFrequency')}
         </Button>
       </DialogTrigger>
@@ -261,6 +269,8 @@ function FrequencyPicker(props: {
  * @returns The row.
  */
 function FrequencyRow(props: {
+  /** The thin strip: a smaller name, box and buttons, so a radio takes less width and its line wraps later. */
+  compact?: boolean
   label: string
   stationName: string | null
   frequency: string | null
@@ -285,14 +295,26 @@ function FrequencyRow(props: {
   // right. The frequency is the field, so it can be typed over; Set appears once it has been.
   return (
     <div
-      className="grid grid-cols-[4rem_minmax(0,1fr)_auto] items-center gap-3 border-b border-border py-2.5"
+      className={cn(
+        'grid items-center border-b border-border',
+        props.compact
+          ? 'grid-cols-[2.5rem_minmax(0,1fr)_auto] gap-2 py-1'
+          : 'grid-cols-[4rem_minmax(0,1fr)_auto] gap-3 py-2.5'
+      )}
       // Moving between the field and this row's own buttons keeps what was typed; leaving the row abandons it.
       onBlur={(e) => {
         if (!e.currentTarget.contains(e.relatedTarget)) setDraft(null)
       }}
     >
-      <span className="text-sm text-muted-foreground">{props.label}</span>
-      <span className="flex min-w-0 flex-wrap items-baseline gap-x-2.5 gap-y-0.5">
+      <span className={cn('text-muted-foreground', props.compact ? 'text-xs' : 'text-sm')}>
+        {props.label}
+      </span>
+      <span
+        className={cn(
+          'flex min-w-0 flex-wrap items-baseline gap-y-0.5',
+          props.compact ? 'gap-x-2' : 'gap-x-2.5'
+        )}
+      >
         <Input
           type="text"
           inputMode="decimal"
@@ -303,19 +325,30 @@ function FrequencyRow(props: {
           onKeyDown={(e) => {
             if (e.key === 'Enter') commit()
           }}
-          className="h-10 w-28 shrink-0 font-mono text-lg"
+          className={cn(
+            'shrink-0 font-mono',
+            props.compact ? 'h-8 w-[5.5rem] px-2 text-base' : 'h-10 w-28 text-lg'
+          )}
         />
-        <span className="min-w-0 text-sm break-words text-muted-foreground">
+        <span
+          className={cn('min-w-0 break-words text-muted-foreground', props.compact ? 'text-xs' : 'text-sm')}
+        >
           {props.stationName ?? t('beyondAtcPanel.frequencyUnknown')}
         </span>
       </span>
       <span className="flex items-center gap-2">
         {draft !== null && (
-          <Button type="button" size="sm" className="h-8 px-2.5 text-[13px]" onClick={commit}>
+          <Button
+            type="button"
+            size="sm"
+            className={props.compact ? 'h-7 px-2 text-xs' : 'h-8 px-2.5 text-[13px]'}
+            onClick={commit}
+          >
             {t('beyondAtcPanel.setFrequency')}
           </Button>
         )}
         <FrequencyPicker
+          compact={props.compact}
           options={props.options}
           departureAirport={props.departureAirport}
           arrivalAirport={props.arrivalAirport}
@@ -450,7 +483,7 @@ function FrequencyRows(props: BeyondAtcRadiosProps): React.JSX.Element {
  * @returns The classes of the block holding COM1 and COM2: side by side when there is room in the strip, otherwise stacked.
  */
 function frequencyRowsClass(strip: boolean | undefined): string {
-  return strip ? 'grid grid-cols-1 gap-x-8 @5xl:grid-cols-2 [&>div]:border-b-0' : 'flex flex-col'
+  return strip ? 'grid grid-cols-1 gap-x-8 @3xl:grid-cols-2 [&>div]:border-b-0' : 'flex flex-col'
 }
 
 /**
@@ -467,6 +500,7 @@ function FrequencyRowPair(props: BeyondAtcRadiosProps): React.JSX.Element {
     <>
       <div className={frequencyRowsClass(props.strip)}>
         <FrequencyRow
+          compact={props.strip}
           label="COM1"
           stationName={props.facility?.name ?? null}
           frequency={props.facility?.frequency ?? null}
@@ -478,6 +512,7 @@ function FrequencyRowPair(props: BeyondAtcRadiosProps): React.JSX.Element {
         />
         {/* A switched-off COM2 comes through as {"label":"Radio Off","frequency":""}: the label alone, and an empty field. */}
         <FrequencyRow
+          compact={props.strip}
           label="COM2"
           stationName={props.com2?.label ?? null}
           frequency={props.com2?.frequency || null}
@@ -501,7 +536,7 @@ function FrequencyRowPair(props: BeyondAtcRadiosProps): React.JSX.Element {
 function AutomationToggles(props: BeyondAtcRadiosProps): React.JSX.Element {
   const { t } = useTranslation()
   return (
-    <div className={props.strip ? 'flex flex-wrap gap-x-8' : 'flex flex-col'}>
+    <div className="flex flex-col">
       <AutoToggle
         label={t('beyondAtcPanel.settings.autoTune')}
         value={props.autoTune}
@@ -545,9 +580,18 @@ function AutomationMenu(props: BeyondAtcRadiosProps): React.JSX.Element {
         type="button"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
-        className="flex min-h-12 items-center justify-between gap-3 text-left"
+        className={cn(
+          'flex items-center justify-between gap-3 text-left',
+          props.strip ? 'min-h-9' : 'min-h-12'
+        )}
       >
-        <span className="flex min-w-0 flex-col">
+        {/* Closed, the three switches show only how they are set, as small text; in the strip the name and the text share a line. */}
+        <span
+          className={cn(
+            'flex min-w-0',
+            props.strip ? 'flex-wrap items-baseline gap-x-3 gap-y-0.5' : 'flex-col'
+          )}
+        >
           <span className="font-display text-sm font-bold tracking-[-0.01em]">
             {t('beyondAtcPanel.automation')}
           </span>
@@ -560,7 +604,7 @@ function AutomationMenu(props: BeyondAtcRadiosProps): React.JSX.Element {
       </button>
       {open && (
         <div className="rounded-md border border-input px-3">
-          <AutomationToggles {...props} />
+          <AutomationToggles {...props} strip={false} />
         </div>
       )}
     </div>
@@ -579,7 +623,7 @@ export function BeyondAtcRadios(props: BeyondAtcRadiosProps): React.JSX.Element 
     <div className={props.strip ? 'flex flex-col gap-1' : 'flex flex-col gap-3'}>
       <FrequencyRows {...props} />
       <AutoTuneOnlineWarning />
-      {props.compact ? <AutomationMenu {...props} /> : <AutomationToggles {...props} />}
+      {props.compact || props.strip ? <AutomationMenu {...props} /> : <AutomationToggles {...props} />}
       <StepClimbStatusLine status={props.stepClimb} />
     </div>
   )

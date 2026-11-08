@@ -257,9 +257,8 @@ test("warns while BeyondATC's auto-tune is on and the pilot is online, and leave
 
     await window.getByRole('tab', { name: 'BeyondATC' }).click()
     await expect(warning).toBeVisible()
-    await expect(
-      window.getByRole('group', { name: 'Auto-tune' }).getByRole('button', { name: 'On' })
-    ).toHaveAttribute('aria-pressed', 'true')
+    // The switches are behind the Automation button, which says how they are set while closed.
+    await expect(window.getByRole('button', { name: /Automation/ })).toContainText('Auto-tune on')
 
     // Switched off in BeyondATC, the warning goes.
     beyondAtc.sendLines('AutoTune: false')

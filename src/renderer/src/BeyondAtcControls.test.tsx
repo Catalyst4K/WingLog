@@ -98,7 +98,7 @@ describe('BeyondAtcRadios while the pilot is online', () => {
 })
 
 describe('BeyondAtcRadios as the thin strip', () => {
-  it('keeps both radios and all three switches on show, with COM1 and COM2 in one row to share the width', () => {
+  it('keeps both radios on show, smaller, with COM1 and COM2 in one row to share the width', () => {
     render(
       <BeyondAtcRadios
         {...makeRadiosProps({
@@ -111,14 +111,24 @@ describe('BeyondAtcRadios as the thin strip', () => {
     )
     expect(screen.getByRole('textbox', { name: 'COM1 frequency' })).toHaveValue('118.850')
     expect(screen.getByRole('textbox', { name: 'COM2 frequency' })).toBeInTheDocument()
+    const box = screen.getByRole('textbox', { name: 'COM1 frequency' })
+    expect(box).toHaveClass('h-8', 'w-[5.5rem]')
+    const radios = box.closest('[class*="grid-cols-[2.5rem"]')?.parentElement ?? null
+    expect(radios).toContainElement(screen.getByRole('textbox', { name: 'COM2 frequency' }))
+    expect(radios?.className).toContain('@3xl:grid-cols-2')
+  })
+
+  it('hides the three switches behind an Automation button that says how they are set in small text', async () => {
+    render(<BeyondAtcRadios {...makeRadiosProps({ strip: true, autoTune: true, autoRespond: false })} />)
+    const automation = screen.getByRole('button', { name: /Automation/ })
+    expect(automation).toHaveAttribute('aria-expanded', 'false')
+    expect(automation).toHaveTextContent('Auto-tune on · Auto-respond off · Auto step climb off')
+    expect(screen.queryByRole('group', { name: 'Auto-tune' })).not.toBeInTheDocument()
+    await userEvent.click(automation)
+    expect(automation).toHaveAttribute('aria-expanded', 'true')
     expect(screen.getByRole('group', { name: 'Auto-tune' })).toBeInTheDocument()
     expect(screen.getByRole('group', { name: 'Auto-respond' })).toBeInTheDocument()
     expect(screen.getByRole('group', { name: 'Auto step climb' })).toBeInTheDocument()
-    const radios =
-      screen.getByRole('textbox', { name: 'COM1 frequency' }).closest('[class*="grid-cols-[4rem"]')
-        ?.parentElement ?? null
-    expect(radios).toContainElement(screen.getByRole('textbox', { name: 'COM2 frequency' }))
-    expect(radios?.className).toContain('@5xl:grid-cols-2')
   })
 })
 
