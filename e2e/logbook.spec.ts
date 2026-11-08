@@ -46,7 +46,8 @@ test('browses to a completed flight, sees its landing/track detail, and deletes 
   try {
     await window.getByRole('tab', { name: 'Logbook' }).click()
     await expect(window.getByRole('heading', { name: 'Logbook' })).toBeVisible()
-    await expect(window.getByText('Total flights')).toBeVisible()
+    // The totals are one quiet line of figures on the tabs row (v2): the flight count, then the block time and the distance.
+    await expect(window.getByText('flights', { exact: true })).toBeVisible()
 
     // The seeded flight — G-TEST, EGLL -> EGCC
     const row = window.getByRole('row', { name: /EGLL.*EGCC/ })

@@ -546,8 +546,10 @@ describe('BeyondAtcPanel', () => {
     const radios = await screen.findByRole('group', { name: 'Radios' })
     const instruction = screen.getByText('Latest instruction')
     const actions = screen.getByText('Actions')
-    expect(instruction.compareDocumentPosition(radios) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    expect(radios.compareDocumentPosition(actions) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    // Stacked (a narrow window) the page keeps the phone's order: actions, then the radios. Wide, the strip goes first in its row.
+    expect(instruction.compareDocumentPosition(actions) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(actions.compareDocumentPosition(radios) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(radios).toHaveClass('@3xl:order-first', '@3xl:col-span-2')
     expect(within(radios).getByRole('textbox', { name: 'COM1 frequency' })).toBeInTheDocument()
     expect(within(radios).getByText('COM2')).toBeInTheDocument()
     expect(within(radios).queryByText('Radios')).not.toBeInTheDocument()

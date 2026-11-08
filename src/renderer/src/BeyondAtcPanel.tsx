@@ -24,6 +24,7 @@ import { useLiveClient, useLiveTopic } from './live/LiveClient'
 import { Badge } from '@/components/ui/badge'
 import { StatusLight } from '@/components/StatusLight'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { cn } from '@/lib/utils'
 import { asyncHandler, runAsync } from './report-error'
 
 const STEP_CLIMB_OFF: BeyondAtcStepClimbStatus = {
@@ -306,16 +307,19 @@ function RadiosCard(props: React.ComponentProps<typeof BeyondAtcRadios>): React.
  * @param props The radios' props.
  * @returns The element.
  */
-function RadiosStrip(props: React.ComponentProps<typeof BeyondAtcRadios>): React.JSX.Element {
+function RadiosStrip(
+  props: React.ComponentProps<typeof BeyondAtcRadios> & { className?: string }
+): React.JSX.Element {
   const { t } = useTranslation()
+  const { className, ...radios } = props
   return (
     <Card
       role="group"
       aria-label={t('beyondAtcPanel.radios')}
-      className="rounded-b-md [--card-spacing:--spacing(3)]"
+      className={cn('rounded-b-md [--card-spacing:--spacing(3)]', className)}
     >
       <CardContent className="px-5">
-        <BeyondAtcRadios {...props} strip />
+        <BeyondAtcRadios {...radios} strip />
       </CardContent>
     </Card>
   )
@@ -543,11 +547,13 @@ export function BeyondAtcPanel(props: { compact?: boolean } = {}): React.JSX.Ele
       {/* The connection sits in the header, shown while connected too, so an idle session still confirms the link is live (real gap found live). */}
       <InfoCard state={state} statusLine={statusLine} />
       <LatestInstructionCard instruction={latestInstruction} arrival={arrival} />
-      <RadiosStrip {...radiosProps} />
-      <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 @3xl:grid-cols-[minmax(18rem,28rem)_minmax(18rem,1fr)]">
+      {/* Wide: the radios are a strip across the page between the instruction and the actions. Narrow, the page stacks in the phone's
+          order (actions, radios, transcript), so the actions are never pushed out of sight by the radios. */}
+      <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 @3xl:grid-cols-[minmax(18rem,28rem)_minmax(18rem,1fr)] @3xl:grid-rows-[auto_minmax(0,1fr)]">
         <div className="flex min-h-0 flex-col gap-4 self-start">
           <ActionsCard {...actionsProps} />
         </div>
+        <RadiosStrip {...radiosProps} className="@3xl:order-first @3xl:col-span-2" />
         <div className="flex min-h-0 flex-col gap-4">
           <TranscriptCard entries={transcript} />
         </div>
