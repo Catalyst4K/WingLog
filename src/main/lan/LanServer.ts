@@ -8,11 +8,12 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http'
 import type { Duplex } from 'node:stream'
 import { WebSocketServer, type WebSocket } from 'ws'
-import { laneOf, TWIN_ONLY_QUERIES, type LanQueryLane } from '@shared/lan-queries'
+import { laneOf, type LanQueryLane } from '@shared/lan-queries'
 import { parseReport, parseReportDetail } from '@shared/lan-report'
 import type { LiveCommand, LiveSnapshot, LiveTopic } from '@shared/live'
 import type { LanDeviceKind } from '@shared/ipc'
 import { describeError } from '../logging/describe-error'
+import { findQuery } from './find-query'
 import { logger } from '../logging/logger'
 import type { LiveHub } from '../live/LiveHub'
 import { dispatchCommand } from '../live/commands'
@@ -494,17 +495,7 @@ export class LanServer {
     const { id, name } = message
     if (typeof id !== 'number' || !Number.isSafeInteger(id)) return
     // The twin-only lookups do not exist for anything else.
-    const allowed = typeof name === 'string' && (client.kind === 'twin' || !TWIN_ONLY_QUERIES.includes(name))
-    const deviceQuery =
-      allowed && client.deviceId !== null && Object.hasOwn(this.deps.deviceQueries ?? {}, name as string)
-        ? (this.deps.deviceQueries as NonNullable<LanServerDeps['deviceQueries']>)[name as string]
-        : null
-    const deviceId = client.deviceId
-    const query = deviceQuery
-      ? (...queryArgs: unknown[]) => deviceQuery(deviceId as number, ...queryArgs)
-      : allowed && Object.hasOwn(this.deps.queries, name as string)
-        ? this.deps.queries[name as string]
-        : null
+    const query = findQuery(this.deps, client.kind, client.deviceId, name)
     const args = message.args === undefined ? [] : message.args
     if (!query || !Array.isArray(args) || args.length > MAX_QUERY_ARGS) {
       logger.warn(
