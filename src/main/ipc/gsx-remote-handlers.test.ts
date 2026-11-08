@@ -338,14 +338,16 @@ describe('GSX routines IPC', () => {
       stop()
     })
 
-    it('cancels the running routine', () => {
+    it('cancels the running routine, and the screens drop it at once', () => {
       const { invoke, stop } = connected()
       invoke(IpcChannels.gsxRoutineStart, 'builtin-fenix-departure')
       invoke(IpcChannels.gsxRoutineCancel)
-      expect(invoke(IpcChannels.gsxRoutineGet)).toMatchObject({
-        state: 'stopped',
-        note: { code: 'stopped', reason: 'cancelled' }
-      })
+      expect(publish).toHaveBeenCalledWith(
+        'gsxRoutine',
+        expect.objectContaining({ state: 'stopped', note: { code: 'stopped', reason: 'cancelled' } })
+      )
+      expect(publish).toHaveBeenLastCalledWith('gsxRoutine', null)
+      expect(invoke(IpcChannels.gsxRoutineGet)).toBeNull()
       stop()
     })
 

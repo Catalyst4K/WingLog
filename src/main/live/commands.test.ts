@@ -110,9 +110,13 @@ describe('gsxCommands', () => {
     dispatchCommand(table, 'gsx.startRoutine', ['builtin-fenix-departure'])
     dispatchCommand(table, 'gsx.startRoutine', [{ not: 'an id' }])
     dispatchCommand(table, 'gsx.cancelRoutine', [])
+    dispatchCommand(table, 'gsx.cancelRoutine', ['abort'])
+    dispatchCommand(table, 'gsx.cancelRoutine', [{ not: 'a choice' }])
     expect(routines.start).toHaveBeenNthCalledWith(1, 'builtin-fenix-departure')
     expect(routines.start).toHaveBeenNthCalledWith(2, { not: 'an id' })
-    expect(routines.cancel).toHaveBeenCalledTimes(1)
+    expect(routines.cancel).toHaveBeenNthCalledWith(1, undefined)
+    expect(routines.cancel).toHaveBeenNthCalledWith(2, 'abort')
+    expect(routines.cancel).toHaveBeenNthCalledWith(3, { not: 'a choice' })
   })
 
   it('does nothing for a routine command while GSX Remote is off', () => {

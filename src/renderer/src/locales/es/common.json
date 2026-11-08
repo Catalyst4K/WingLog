@@ -847,7 +847,12 @@
         "menuFailed": "Rutina detenida: el menú de GSX no se abrió.",
         "gsxHasNoPlan": "Rutina detenida: GSX no tiene plan de SimBrief. Usa «Reload SimBrief».",
         "noPlannedWeight": "Rutina detenida: WingLog no tiene peso planificado para este vuelo."
-      }
+      },
+      "ending": {
+        "abort": "Abortando {{services}} en GSX…",
+        "complete": "Completando {{services}} en GSX…"
+      },
+      "endingFailed": "Rutina cancelada. WingLog no pudo llegar en el menú de GSX a: {{services}}. Se queda como está."
     },
     "editor": {
       "titleNew": "Nueva rutina",
@@ -881,6 +886,14 @@
       "saveFailed": "No se pudo guardar: {{reason}}",
       "copyOf": "Copia de {{name}}",
       "noServices": "Marca al menos un servicio."
+    },
+    "cancelPrompt": {
+      "label": "Cancelar la rutina",
+      "question": "{{services}} sigue en marcha. ¿Qué hacemos con ello?",
+      "abort": "Abortarlo",
+      "complete": "Completarlo ya",
+      "leave": "Dejarlo en marcha",
+      "keepGoing": "Seguir con la rutina"
     }
   },
   "beyondAtcView": {

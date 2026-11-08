@@ -847,7 +847,12 @@
         "menuFailed": "Routine interrotta: il menu GSX non si è aperto.",
         "gsxHasNoPlan": "Routine interrotta: GSX non ha un piano SimBrief. Usa «Reload SimBrief».",
         "noPlannedWeight": "Routine interrotta: WingLog non ha un peso pianificato per questo volo."
-      }
+      },
+      "ending": {
+        "abort": "Interruzione di {{services}} in GSX…",
+        "complete": "Completamento di {{services}} in GSX…"
+      },
+      "endingFailed": "Routine annullata. WingLog non è riuscito a raggiungere nel menu di GSX: {{services}}. Lasciato com’è."
     },
     "editor": {
       "titleNew": "Nuova routine",
@@ -881,6 +886,14 @@
       "saveFailed": "Impossibile salvare: {{reason}}",
       "copyOf": "{{name}} (copia)",
       "noServices": "Seleziona almeno un servizio."
+    },
+    "cancelPrompt": {
+      "label": "Annulla la routine",
+      "question": "{{services}} è ancora in corso. Cosa farne?",
+      "abort": "Interrompi",
+      "complete": "Completa ora",
+      "leave": "Lascia in corso",
+      "keepGoing": "Continua la routine"
     }
   },
   "beyondAtcView": {

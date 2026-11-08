@@ -16,6 +16,7 @@ import {
   endRun,
   pickAction,
   serviceById,
+  serviceRun,
   skipService,
   type Attempt,
   type RoutineRun,
@@ -79,6 +80,10 @@ function requestOnMenu(run: RoutineRun, attempt: Attempt, input: RunnerInput, ac
     return
   }
   actions.push(pickAction(input.menu, index))
+  serviceRun(run, attempt.service).slot = {
+    viaAdditionalServices: GSX_ROUTINE_MENU[attempt.service].viaAdditionalServices,
+    index
+  }
   attempt.step = 'sent'
   attempt.sinceMs = input.nowMs
   run.lastOwnPickAtMs = input.nowMs

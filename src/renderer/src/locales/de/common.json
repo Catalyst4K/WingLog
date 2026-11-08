@@ -845,7 +845,12 @@
         "menuFailed": "Routine gestoppt: Das GSX-Menü hat sich nicht geöffnet.",
         "gsxHasNoPlan": "Routine gestoppt: GSX hat keinen SimBrief-Plan. Nutze „Reload SimBrief“.",
         "noPlannedWeight": "Routine gestoppt: WingLog hat kein geplantes Gewicht für diesen Flug."
-      }
+      },
+      "ending": {
+        "abort": "{{services}} wird in GSX abgebrochen…",
+        "complete": "{{services}} wird in GSX abgeschlossen…"
+      },
+      "endingFailed": "Routine abgebrochen. WingLog kam im GSX-Menü nicht an: {{services}}. Bleibt, wie es ist."
     },
     "editor": {
       "titleNew": "Neue Routine",
@@ -879,6 +884,14 @@
       "saveFailed": "Speichern fehlgeschlagen: {{reason}}",
       "copyOf": "{{name}} (Kopie)",
       "noServices": "Hake mindestens einen Service an."
+    },
+    "cancelPrompt": {
+      "label": "Routine abbrechen",
+      "question": "{{services}} läuft noch. Was soll damit geschehen?",
+      "abort": "Abbrechen",
+      "complete": "Jetzt abschließen",
+      "leave": "Weiterlaufen lassen",
+      "keepGoing": "Routine fortsetzen"
     }
   },
   "beyondAtcView": {

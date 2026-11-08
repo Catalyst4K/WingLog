@@ -200,7 +200,7 @@ export function registerGsxRemoteHandlers(
       const routine = listRoutines(db).find((r) => r.id === id)
       if (routine) routineDriver?.start(routine)
     },
-    cancel: () => routineDriver?.cancel()
+    cancel: (choice) => routineDriver?.cancel(choice)
   }
   const commands = gsxCommands(
     () => gsxRemoteService,
