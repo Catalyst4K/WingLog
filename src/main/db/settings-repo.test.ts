@@ -23,7 +23,6 @@ import {
   getTrackingSettings,
   getLandingDistanceUnit,
   getLastSyncCompletedAt,
-  getLastSyncedAt,
   getRunMode,
   getSetting,
   getSimbriefUsername,
@@ -47,7 +46,6 @@ import {
   setTrackingSettings,
   setLandingDistanceUnit,
   setLastSyncCompletedAt,
-  setLastSyncedAt,
   setSetting,
   setSimbriefUsername,
   setTheme,
@@ -304,16 +302,6 @@ describe('settings repo', () => {
   it('marks the GSX first-launch check as run', () => {
     setCheckedGsxFirstLaunch(db)
     expect(hasCheckedGsxFirstLaunch(db)).toBe(true)
-  })
-
-  it('defaults a table sync cursor to null when never set', () => {
-    expect(getLastSyncedAt(db, 'aircraft')).toBeNull()
-  })
-
-  it('round-trips a per-table sync cursor independently of other tables', () => {
-    setLastSyncedAt(db, 'aircraft', '2026-09-06T12:00:00.000Z')
-    expect(getLastSyncedAt(db, 'aircraft')).toBe('2026-09-06T12:00:00.000Z')
-    expect(getLastSyncedAt(db, 'flight')).toBeNull()
   })
 
   describe('title -> fleet aircraft memory (free-flight-tracking.md)', () => {

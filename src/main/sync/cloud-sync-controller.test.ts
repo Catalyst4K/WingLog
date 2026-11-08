@@ -2,7 +2,7 @@ import { join } from 'node:path'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import { createDb, type WingLogDb } from '../db/client'
-import { getLastSyncCompletedAt, getLastSyncedAt, setLastSyncedAt } from '../db/settings-repo'
+import { getLastSyncCompletedAt } from '../db/settings-repo'
 import type { StoredSession } from '../backend/session-store'
 import type { SyncResult } from './sync-engine'
 import { CloudSyncController } from './cloud-sync-controller'
@@ -206,7 +206,6 @@ describe('CloudSyncController', () => {
 
     it('stays signed in, and deletes nothing here, when the service refuses', async () => {
       loaded = SESSION
-      setLastSyncedAt(db, 'flight', '2026-11-01T00:00:00.000Z')
       deleteAccount.mockRejectedValue(new Error('invalid email or password'))
       const controller = new CloudSyncController(db, '/fake/db/path', '/fake/userdata', loaded)
 
@@ -214,7 +213,7 @@ describe('CloudSyncController', () => {
 
       expect(clearSession).not.toHaveBeenCalled()
       expect(controller.getStatus().loggedIn).toBe(true)
-      expect(getLastSyncedAt(db, 'flight')).toBe('2026-11-01T00:00:00.000Z')
+      expect(resetPeer).not.toHaveBeenCalled()
     })
 
     it('refuses when not signed in, without calling the service', async () => {

@@ -7,8 +7,7 @@ import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import { createDb, type WingLogDb } from '../db/client'
 import { createAircraft } from '../db/aircraft-repo'
 import { createFlight } from '../db/flight-repo'
-import { flight } from '../db/schema'
-import { listAndSerializeForPush } from '../sync/sync-engine'
+import { aircraft, flight } from '../db/schema'
 import { localSyncVersion } from '../sync/sync-version'
 import {
   PULL_PAGE_BYTES,
@@ -53,7 +52,10 @@ describe('a twin’s sync lookups on the host', () => {
     expect(page.rows.map((row) => JSON.parse(row.data).registration)).toEqual(['G-AAAA', 'G-BBBB'])
     expect(page.more).toBe(false)
     expect(page.rows.map((row) => row.uuid).sort()).toEqual(
-      listAndSerializeForPush(db, 'aircraft', null)
+      db
+        .select()
+        .from(aircraft)
+        .all()
         .map((row) => row.uuid)
         .sort()
     )
@@ -146,7 +148,7 @@ describe('a twin’s sync lookups on the host', () => {
 
   it('applies pushed rows by last write wins, and says which were not applied', () => {
     addAircraft('G-AAAA')
-    const [row] = listAndSerializeForPush(db, 'aircraft', null)
+    const [row] = pull('aircraft', null, OTHER_TWIN).rows
     const older = { ...row, updatedAt: '2000-01-01T00:00:00.000Z' }
     expect(push('aircraft', [older])).toEqual({ upserted: [], rejected: [row.uuid] })
     const newer = {
@@ -155,7 +157,7 @@ describe('a twin’s sync lookups on the host', () => {
       data: JSON.stringify({ ...JSON.parse(row.data), icaoType: 'B738' })
     }
     expect(push('aircraft', [newer])).toEqual({ upserted: [row.uuid], rejected: [] })
-    expect(JSON.parse(listAndSerializeForPush(db, 'aircraft', null)[0].data).icaoType).toBe('B738')
+    expect(JSON.parse(pull('aircraft', null, OTHER_TWIN).rows[0].data).icaoType).toBe('B738')
     // The loser is logged next to the database, not lost.
     expect(readFileSync(join(dir, 'sync-conflicts.log'), 'utf8')).toContain('twin-push')
   })
@@ -186,5 +188,9 @@ describe('a twin’s sync lookups on the host', () => {
         Array.from({ length: 501 }, () => ({}))
       )
     ).toThrow('Invalid rows')
+  })
+  it('refuses a pushed row that is not an object at all', () => {
+    expect(() => push('aircraft', [null])).toThrow('Invalid row')
+    expect(() => push('aircraft', ['row'])).toThrow('Invalid row')
   })
 })

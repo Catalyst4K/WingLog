@@ -1,27 +1,13 @@
 /**
- * The two rules every synced table follows (winglog-backend/docs/plans/cloud-sync.md): which local
- * rows a push sends, and whether a pulled row replaces the local one. The four tables' repos
- * (aircraft, flight, landing, flight invoice) each keep their own typed query and call these.
+ * The rule every synced table follows (winglog-backend/docs/plans/cloud-sync.md): whether a pulled row replaces the local one. Which rows a
+ * push sends is not decided here: the change counter does (sync_change, winglog-backend docs/plans/sync-cursors.md). The four tables' repos
+ * (aircraft, flight, landing, flight invoice) each call this.
  */
 
 /** A row of a synced table: its sync identity, and when it last changed. */
 export interface SyncedRow {
   uuid: string | null
   updatedAt: string | null
-}
-
-/**
- * The rows a push sends: those with a sync identity (every row written by this app version; see
- * schema.ts's aircraft.uuid comment) that changed after `since`, oldest first.
- *
- * @param rows Every row of the table.
- * @param since The table's sync cursor, or null for "never synced", meaning every row.
- * @returns The rows to push.
- */
-export function rowsChangedSince<R extends SyncedRow>(rows: R[], since: string | null): R[] {
-  return rows
-    .filter((row) => row.uuid !== null && row.updatedAt !== null && (since === null || row.updatedAt > since))
-    .sort((a, b) => (a.updatedAt as string).localeCompare(b.updatedAt as string))
 }
 
 /**

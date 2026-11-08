@@ -26,9 +26,9 @@ const pushKey = (peer: string, table: string): string => `pushCursor:${peer}:${t
  * @returns The whole number it holds, or null when there is none or it is not one.
  */
 function parseCursor(value: string | undefined): number | null {
-  if (value === undefined) return null
+  if (value === undefined || !/^\d+$/.test(value)) return null
   const parsed = Number(value)
-  return Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : null
+  return Number.isSafeInteger(parsed) ? parsed : null
 }
 
 /**

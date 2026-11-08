@@ -517,6 +517,25 @@ describe('LanServer', () => {
       for (const id of [3, 4, 5, 7, 8]) expect(results).toContainEqual({ t: 'result', id, error: true })
     })
 
+    it('tells a twin, once for a burst of changes, that the PC’s database changed, and tells a second screen nothing', async () => {
+      const { server, connect } = await setup()
+      const twin = await connect()
+      twin.send({ t: 'pair', code: server.openPairing('twin').code, name: 'Mac', kind: 'twin' })
+      await twin.message('paired')
+      const screen = await connect()
+      screen.send({ t: 'pair', code: server.openPairing('screen').code, name: 'Phone' })
+      await screen.message('paired')
+
+      server.notifyTwins()
+      server.notifyTwins()
+      server.notifyTwins()
+      await twin.message('sync')
+      await new Promise((resolve) => setTimeout(resolve, 1200))
+
+      expect(twin.received.filter((m) => m.t === 'sync')).toHaveLength(1)
+      expect(screen.received.filter((m) => m.t === 'sync')).toHaveLength(0)
+    })
+
     describe('a lookup that needs to know which device is asking', () => {
       /** A server with one such lookup, and the calls it was given. */
       async function withDeviceLookup() {

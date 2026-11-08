@@ -8,7 +8,7 @@ import type { Aircraft, AircraftUpdate, NewAircraft } from '@shared/ipc'
 import { t } from '../i18n'
 import { aircraft, flight } from './schema'
 import type { WingLogDb } from './client'
-import { rowsChangedSince, shouldApplyPulledRow } from './sync-rows'
+import { shouldApplyPulledRow } from './sync-rows'
 
 /**
  * A database row as an Aircraft.
@@ -312,18 +312,6 @@ export function unretireAircraft(db: WingLogDb, id: number): Aircraft {
   const now = new Date().toISOString()
   db.update(aircraft).set({ retiredAt: null, updatedAt: now }).where(eq(aircraft.id, id)).run()
   return toAircraft({ ...row, retiredAt: null, updatedAt: now })
-}
-
-/** Rows with uuid/updatedAt set (every row written by this app version — see the
- *  uuid comment above) whose updatedAt is after `since`, oldest first — sync-engine.ts's
- *  push side. `since: null` means "never synced", i.e. every row.
- *
- * @param db The database.
- * @param since The sync cursor, or null for every row.
- * @returns The rows, oldest change first.
- */
-export function listAircraftForSync(db: WingLogDb, since: string | null): (typeof aircraft.$inferSelect)[] {
-  return rowsChangedSince(db.select().from(aircraft).all(), since)
 }
 
 /** Insert-or-update keyed by uuid, not local id — sync-engine.ts's pull side. There's no

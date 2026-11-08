@@ -7,7 +7,7 @@ import { and, asc, desc, eq, isNull, ne } from 'drizzle-orm'
 import type { AircraftLandingRow, Landing, NewLanding } from '@shared/ipc'
 import { aircraft, flight, landing } from './schema'
 import type { WingLogDb } from './client'
-import { rowsChangedSince, shouldApplyPulledRow } from './sync-rows'
+import { shouldApplyPulledRow } from './sync-rows'
 
 /**
  * A database row as a Landing.
@@ -197,17 +197,6 @@ export function listAllLandings(db: WingLogDb): (Landing & {
         icaoType: row.icaoType ?? row.simIcaoType
       }))
   )
-}
-
-/**
- * See aircraft-repo.ts's listAircraftForSync for the shape/reasoning this mirrors.
- *
- * @param db The database.
- * @param since The sync cursor, or null for every row.
- * @returns The rows, oldest change first.
- */
-export function listLandingsForSync(db: WingLogDb, since: string | null): (typeof landing.$inferSelect)[] {
-  return rowsChangedSince(db.select().from(landing).all(), since)
 }
 
 /** See aircraft-repo.ts's upsertAircraftByUuid for the shape/reasoning this mirrors,

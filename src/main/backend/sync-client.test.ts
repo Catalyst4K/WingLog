@@ -221,4 +221,13 @@ describe('syncPush', () => {
     expect(limit.mock.calls.map(([ms]) => ms)).toEqual([120_000, 120_000, 30_000])
     limit.mockRestore()
   })
+  it('says the status when an error answer is not JSON at all', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({ ok: false, status: 502, json: async () => Promise.reject(new Error('not json')) }))
+    )
+    await expect(syncPush('callum@example.com', 'tok', 'flight', [])).rejects.toThrow(
+      'Request to /sync/push failed (502)'
+    )
+  })
 })

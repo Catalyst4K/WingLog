@@ -175,6 +175,7 @@ describe('TwinSync', () => {
       canSync?: () => boolean
       fail?: boolean
       hostVersion?: { protocol: number; schema: number }
+      afterSync?: () => Promise<unknown>
     } = {}
   ) {
     let calls = 0
@@ -192,7 +193,8 @@ describe('TwinSync', () => {
       db,
       dbPath: join(dir, 'winglog.db'),
       client: new LanSyncClient(ask),
-      canSync: overrides.canSync ?? (() => true)
+      canSync: overrides.canSync ?? (() => true),
+      afterSync: overrides.afterSync
     })
     const states: string[] = []
     twin.onChange(() => states.push(twin.status().state))
@@ -285,6 +287,36 @@ describe('TwinSync', () => {
     release()
     twin.stop()
     vi.useRealTimers()
+    cleanup()
+  })
+  describe('answers that are not objects at all', () => {
+    it('a page whose row is null, and a version that is null or text', async () => {
+      const pull = new LanSyncClient(() => Promise.resolve({ rows: [null], cursor: 1, more: false }))
+      await expect(pull.syncPullPage('', '', 'aircraft', null)).rejects.toThrow('not a row')
+      for (const answer of [null, 'v2']) {
+        await expect(new LanSyncClient(() => Promise.resolve(answer)).version()).rejects.toThrow(
+          'not a version'
+        )
+      }
+    })
+  })
+  it('stops a sync that is waiting to start', async () => {
+    vi.useFakeTimers()
+    const { twin, ask, cleanup } = sync()
+    twin.syncSoon(2000)
+    twin.stop()
+    await vi.advanceTimersByTimeAsync(5000)
+    expect(ask).not.toHaveBeenCalled()
+    vi.useRealTimers()
+    cleanup()
+  })
+
+  it('counts the sync as good even when bringing the tracks of completed flights fails afterwards', async () => {
+    const { twin, release, cleanup } = sync({ afterSync: () => Promise.reject(new Error('tracks')) })
+    const done = twin.run()
+    release()
+    await expect(done).resolves.toBe(true)
+    expect(twin.status().state).toBe('idle')
     cleanup()
   })
 })

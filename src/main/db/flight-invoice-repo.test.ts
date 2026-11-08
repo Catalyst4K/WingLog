@@ -6,12 +6,7 @@ import { createAircraft } from './aircraft-repo'
 import { createFlight } from './flight-repo'
 import { flightInvoice } from './schema'
 import type { StoredInvoiceInput } from '../gsx/scan'
-import {
-  addInvoicesForFlight,
-  listFlightInvoicesForSync,
-  listInvoicesForFlight,
-  upsertFlightInvoiceByUuid
-} from './flight-invoice-repo'
+import { addInvoicesForFlight, listInvoicesForFlight, upsertFlightInvoiceByUuid } from './flight-invoice-repo'
 
 function makeInvoice(overrides: Partial<StoredInvoiceInput> = {}): StoredInvoiceInput {
   return {
@@ -76,29 +71,6 @@ describe('flight invoice repo', () => {
       .where(eq(flightInvoice.id, row.id))
       .run()
     expect(listInvoicesForFlight(db, flightId)).toEqual([])
-  })
-
-  describe('listFlightInvoicesForSync', () => {
-    it('returns every synced-eligible row when since is null, oldest first', () => {
-      addInvoicesForFlight(db, flightId, [makeInvoice({ receiptId: 'A' })])
-      addInvoicesForFlight(db, flightId, [makeInvoice({ receiptId: 'B' })])
-      const rows = listFlightInvoicesForSync(db, null)
-      expect(rows.map((r) => r.receiptId)).toEqual(['A', 'B'])
-    })
-
-    it('excludes rows updated at or before since', () => {
-      addInvoicesForFlight(db, flightId, [makeInvoice({ receiptId: 'A' })])
-      const cutoff = db.select().from(flightInvoice).get()!.updatedAt as string
-      // updatedAt has millisecond resolution: without this, B can land in the same
-      // millisecond as A and read as "at or before" the cutoff, failing intermittently.
-      const start = Date.now()
-      while (Date.now() === start) {
-        /* wait for the clock to tick */
-      }
-      addInvoicesForFlight(db, flightId, [makeInvoice({ receiptId: 'B' })])
-      const rows = listFlightInvoicesForSync(db, cutoff)
-      expect(rows.map((r) => r.receiptId)).toEqual(['B'])
-    })
   })
 
   describe('upsertFlightInvoiceByUuid', () => {

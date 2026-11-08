@@ -8,7 +8,7 @@ import type { FlightInvoice } from '@shared/ipc'
 import type { StoredInvoiceInput } from '../gsx/scan'
 import { flightInvoice } from './schema'
 import type { WingLogDb } from './client'
-import { rowsChangedSince, shouldApplyPulledRow } from './sync-rows'
+import { shouldApplyPulledRow } from './sync-rows'
 
 /**
  * A database row as a FlightInvoice.
@@ -96,20 +96,6 @@ export function addInvoicesForFlight(
       .run()
   }
   return listInvoicesForFlight(db, flightId)
-}
-
-/**
- * See aircraft-repo.ts's listAircraftForSync for the shape/reasoning this mirrors.
- *
- * @param db The database.
- * @param since The sync cursor, or null for every row.
- * @returns The rows, oldest change first.
- */
-export function listFlightInvoicesForSync(
-  db: WingLogDb,
-  since: string | null
-): (typeof flightInvoice.$inferSelect)[] {
-  return rowsChangedSince(db.select().from(flightInvoice).all(), since)
 }
 
 /** See aircraft-repo.ts's upsertAircraftByUuid for the shape/reasoning this mirrors. This

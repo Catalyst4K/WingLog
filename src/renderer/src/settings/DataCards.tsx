@@ -129,7 +129,10 @@ function DeleteAccount(props: { sync: CloudSyncState }): React.JSX.Element {
     )
   }
   return (
-    <form onSubmit={asyncHandler('SettingsView handleDeleteAccount', confirm)} className="flex flex-col gap-2">
+    <form
+      onSubmit={asyncHandler('SettingsView handleDeleteAccount', confirm)}
+      className="flex flex-col gap-2"
+    >
       <p className="text-sm text-destructive">{t('settingsView.cloudSync.deleteExplain')}</p>
       <label htmlFor={passwordId} className="text-sm">
         {t('settingsView.cloudSync.password')}

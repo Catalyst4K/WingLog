@@ -1,10 +1,8 @@
 /**
- * Implements the pull-then-push protocol from winglog-backend/docs/plans/cloud-sync.md
- * against the local DB, table by table, in FK dependency order (aircraft, then flight,
- * then landing/flightInvoice — both reference flight). Talks to the backend only through
- * the SyncClient interface, not sync-client.ts directly, so this is unit-testable against
- * a mock (CLAUDE.md's "sits behind an interface, tested against a mock" pattern, already
- * used for SimConnectService).
+ * What a row means on the wire, for the four synced tables (aircraft, flight, landing, flight invoice): turning a local row into a sync row
+ * (serializeChange) and applying one that came from a peer (applyPulledRow: last write wins, with aliases for a row another device holds under
+ * a different uuid). When rows move, and in which order, is cursor-sync.ts: the cloud and the LAN link both use it, each talking to its peer
+ * through the PagedSyncClient interface, so it is unit-testable against a mock.
  *
  * Each table's local rows are stored with a real integer id/FK for everything else in the
  * app to join on, but synced as an opaque {uuid, updatedAt, data} blob — the parent-table
@@ -19,40 +17,20 @@ import {
   getAircraftUuidByRegistration,
   getAircraftUuidById,
   linkReplacedAircraftByUuid,
-  listAircraftForSync,
   upsertAircraftByUuid
 } from '../db/aircraft-repo'
 import type { WingLogDb } from '../db/client'
-import {
-  hasInvoiceUnderOtherUuid,
-  listFlightInvoicesForSync,
-  upsertFlightInvoiceByUuid
-} from '../db/flight-invoice-repo'
+import { hasInvoiceUnderOtherUuid, upsertFlightInvoiceByUuid } from '../db/flight-invoice-repo'
 import { getAircraftRegistrationByUuid, mergeEmptyAircraft } from '../db/aircraft-merge-repo'
 import { findLiveFlightByContent } from '../db/flight-match-repo'
-import {
-  getFlightIdByUuid,
-  getFlightUuidById,
-  listFlightsForSync,
-  upsertFlightByUuid
-} from '../db/flight-repo'
-import { hasLandingUnderOtherUuid, listLandingsForSync, upsertLandingByUuid } from '../db/landing-repo'
+import { getFlightIdByUuid, getFlightUuidById, upsertFlightByUuid } from '../db/flight-repo'
+import { hasLandingUnderOtherUuid, upsertLandingByUuid } from '../db/landing-repo'
 import { markOrigin } from '../db/sync-change-repo'
-import { getLastSyncedAt, getSetting, setLastSyncedAt, setSetting } from '../db/settings-repo'
-import { SYNC_TABLES, type SyncRow, type SyncTable } from '../backend/sync-client'
+import { getSetting, setSetting } from '../db/settings-repo'
+import type { SyncRow, SyncTable } from '../backend/sync-client'
 import { aircraft, flight, flightInvoice, landing } from '../db/schema'
 import { ofpFromWire, ofpToWire } from './ofp-wire'
 import { validateSyncFields } from './sync-row-validation'
-
-export interface SyncClient {
-  syncPull(email: string, token: string, table: SyncTable, since: string | null): Promise<SyncRow[]>
-  syncPush(
-    email: string,
-    token: string,
-    table: SyncTable,
-    rows: SyncRow[]
-  ): Promise<{ upserted: string[]; rejected: string[] }>
-}
 
 export interface SyncSession {
   email: string
@@ -149,7 +127,7 @@ export type ApplyResult = { ok: true; applied: boolean; uuid: string } | { ok: f
  * @param row The aircraft row.
  * @returns The row to push.
  */
-function serializeAircraft(db: WingLogDb, row: ReturnType<typeof listAircraftForSync>[number]): SyncRow {
+function serializeAircraft(db: WingLogDb, row: typeof aircraft.$inferSelect): SyncRow {
   const replacedByAircraftUuid =
     row.replacedByAircraftId == null ? null : (getAircraftUuidById(db, row.replacedByAircraftId) ?? null)
   return {
@@ -241,7 +219,7 @@ function resolveFlightUuid(db: WingLogDb, uuid: string): string {
   return getSetting(db, `flightAlias:${uuid}`) ?? uuid
 }
 
-function serializeFlight(db: WingLogDb, row: ReturnType<typeof listFlightsForSync>[number]): SyncRow | null {
+function serializeFlight(db: WingLogDb, row: typeof flight.$inferSelect): SyncRow | null {
   // A free flight tracked with no fleet aircraft (free-flight-tracking.md's "don't add to fleet" option) has no aircraftId. It syncs with a
   // null aircraftUuid: the flight's own simRegistration and simIcaoType already say which aircraft it was.
   const aircraftUuid = row.aircraftId == null ? null : getAircraftUuidById(db, row.aircraftId)
@@ -346,10 +324,7 @@ function applyFlight(db: WingLogDb, row: SyncRow): ApplyResult {
 
 // --- landing ----------------------------------------------------------------------------
 
-function serializeLanding(
-  db: WingLogDb,
-  row: ReturnType<typeof listLandingsForSync>[number]
-): SyncRow | null {
+function serializeLanding(db: WingLogDb, row: typeof landing.$inferSelect): SyncRow | null {
   const flightUuid = getFlightUuidById(db, row.flightId)
   if (!flightUuid) return null // parent flight not yet pulled/created here — retried next sync
   return {
@@ -388,10 +363,7 @@ function applyLanding(db: WingLogDb, row: SyncRow): ApplyResult {
 
 // --- flightInvoice ------------------------------------------------------------------------
 
-function serializeFlightInvoice(
-  db: WingLogDb,
-  row: ReturnType<typeof listFlightInvoicesForSync>[number]
-): SyncRow | null {
+function serializeFlightInvoice(db: WingLogDb, row: typeof flightInvoice.$inferSelect): SyncRow | null {
   const flightUuid = getFlightUuidById(db, row.flightId)
   if (!flightUuid) return null
   return {
@@ -416,7 +388,8 @@ function applyFlightInvoice(db: WingLogDb, row: SyncRow): ApplyResult {
   }
   const flightId = getFlightIdByUuid(db, resolveFlightUuid(db, data.flightUuid))
   if (flightId === undefined) return { ok: false, error: `unknown flight ${data.flightUuid}` }
-  if (hasInvoiceUnderOtherUuid(db, flightId, data.receiptId, row.uuid)) return { ok: true, applied: false, uuid: row.uuid }
+  if (hasInvoiceUnderOtherUuid(db, flightId, data.receiptId, row.uuid))
+    return { ok: true, applied: false, uuid: row.uuid }
   const checked = validateSyncFields(flightInvoice, data, ['flightId'])
   if (!checked.ok) return checked
   try {
@@ -436,31 +409,6 @@ function applyFlightInvoice(db: WingLogDb, row: SyncRow): ApplyResult {
 }
 
 // --- dispatch -----------------------------------------------------------------------------
-
-/**
- * @param db The database.
- * @param table A synced table.
- * @param since The cursor: only rows changed after it; every row when null.
- * @returns The rows as they are pushed or served to a twin.
- */
-export function listAndSerializeForPush(db: WingLogDb, table: SyncTable, since: string | null): SyncRow[] {
-  switch (table) {
-    case 'aircraft':
-      return listAircraftForSync(db, since).map((row) => serializeAircraft(db, row))
-    case 'flight':
-      return listFlightsForSync(db, since)
-        .map((row) => serializeFlight(db, row))
-        .filter((row): row is SyncRow => row !== null)
-    case 'landing':
-      return listLandingsForSync(db, since)
-        .map((row) => serializeLanding(db, row))
-        .filter((row): row is SyncRow => row !== null)
-    case 'flightInvoice':
-      return listFlightInvoicesForSync(db, since)
-        .map((row) => serializeFlightInvoice(db, row))
-        .filter((row): row is SyncRow => row !== null)
-  }
-}
 
 /**
  * One local row as a sync row, looked up by its uuid: what a counted change is sent as.
@@ -587,92 +535,4 @@ export function applyPushedRows(
   }
   if (table === 'aircraft') linkPulledReplacements(db, applied)
   return { upserted, rejected }
-}
-
-/**
- * Runs one full pull-then-push cycle across all four synced tables, in dependency order.
- * `dbPath` is only used to place sync-conflicts.log next to the database file, per the
- * plan's "next to the DB, not a new table" — never opened directly here.
- *
- * @param db The database.
- * @param client The backend sync client.
- * @param session The signed-in session.
- * @param dbPath The database file's path.
- * @param scope Whose cursors these are: left out for the cloud account, `lan` for a twin link, so the two never move each other's.
- * @returns What was pulled, pushed and skipped.
- */
-export async function runSync(
-  db: WingLogDb,
-  client: SyncClient,
-  session: SyncSession,
-  dbPath: string,
-  scope?: string
-): Promise<SyncResult> {
-  // Captured once, before any table is touched — a local write that lands in the exact
-  // window between this and a table's own read is simply picked up on the *next* sync
-  // rather than this one; not lost, just delayed one cycle. Not worth engineering around
-  // for a solo, low-frequency sync.
-  const syncedAt = new Date().toISOString()
-  const tables = {} as Record<SyncTable, SyncTableResult>
-
-  for (const table of SYNC_TABLES) {
-    const result: SyncTableResult = { pulled: 0, pushed: 0, rejected: [], skipped: [] }
-    const cursor = scope ? `${scope}:${table}` : table
-    const since = getLastSyncedAt(db, cursor)
-
-    const pulledRows = await client.syncPull(session.email, session.token, table, since)
-    const appliedRows: SyncRow[] = []
-    for (const row of pulledRows) {
-      const outcome = applyPulledRow(db, table, row)
-      if (!outcome.ok) {
-        result.skipped.push(row.uuid)
-        logSyncEvent(dbPath, { direction: 'pull', table, uuid: row.uuid, reason: outcome.error })
-      } else if (outcome.applied) {
-        result.pulled++
-        appliedRows.push(row)
-      } else {
-        // This device's own not-yet-pushed local edit to the same uuid was already the
-        // same age or newer — the incoming row lost the last-write-wins comparison, and
-        // the *local* row (which will be considered for push below, per usual) is kept.
-        result.rejected.push(row.uuid)
-        logSyncEvent(dbPath, {
-          direction: 'pull',
-          table,
-          uuid: row.uuid,
-          reason: 'local already had a newer or equal updatedAt (last-write-wins)'
-        })
-      }
-    }
-
-    if (table === 'aircraft') linkPulledReplacements(db, appliedRows)
-
-    const { batches, oversize } = splitPushBatches(listAndSerializeForPush(db, table, since))
-    for (const uuid of oversize) {
-      result.skipped.push(uuid)
-      logSyncEvent(dbPath, { direction: 'push', table, uuid, reason: 'row data too large for the backend' })
-    }
-    for (const batch of batches) {
-      const { upserted, rejected } = await client.syncPush(session.email, session.token, table, batch)
-      result.pushed += upserted.length
-      // Appended, not assigned — a pull-side rejection above must not be clobbered by an
-      // empty push-side rejected list.
-      result.rejected.push(...rejected)
-      for (const uuid of rejected) {
-        logSyncEvent(dbPath, {
-          direction: 'push',
-          table,
-          uuid,
-          reason: 'server already had a newer updatedAt (last-write-wins)'
-        })
-      }
-    }
-
-    // Only advance the cursor once both directions for this table have returned without
-    // throwing — a mid-sync failure (network drop, 401) leaves it unmoved, so the retry
-    // naturally re-covers whatever this attempt didn't finish.
-    setLastSyncedAt(db, cursor, syncedAt)
-    tables[table] = result
-  }
-
-  return { syncedAt, tables }
 }
