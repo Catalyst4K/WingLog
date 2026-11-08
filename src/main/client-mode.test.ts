@@ -36,5 +36,6 @@ describe('a client leaves the host-only services out', () => {
     expect(ipc.invoke(IpcChannels.settingsGetGsxRemote)).toMatchObject({ enabled: false })
     expect(ipc.invoke(IpcChannels.settingsGetBeyondAtc)).toMatchObject({ enabled: false })
     expect(ipc.invoke(IpcChannels.settingsGetOnlineNetwork)).toMatchObject({ network: null })
+    expect(ipc.invoke(IpcChannels.beyondAtcGetAtis)).toEqual({ state: 'unavailable', airports: [] })
   })
 })

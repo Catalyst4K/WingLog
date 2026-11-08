@@ -90,6 +90,15 @@ describe('a client IPC handlers', () => {
     expect(link.command).toHaveBeenCalledWith('gsx.pickMenu', [2])
   })
 
+  it('lists the GSX routines from the sim PC, and an empty list while it cannot be asked', async () => {
+    const { invoke, link } = setup()
+    link.query.mockResolvedValueOnce([{ id: 'departure' }])
+    expect(await invoke(IpcChannels.gsxRoutinesList)).toEqual([{ id: 'departure' }])
+    expect(link.query).toHaveBeenLastCalledWith('gsx.routines')
+    link.query.mockRejectedValue(new Error('Not connected'))
+    expect(await invoke(IpcChannels.gsxRoutinesList)).toEqual([])
+  })
+
   it('reads a topic as its empty value before the host has said anything, never as undefined', () => {
     const { invoke, hub } = setup()
     expect(invoke(IpcChannels.gsxRemoteGetStatus)).toEqual({ state: 'disconnected', lastError: null })

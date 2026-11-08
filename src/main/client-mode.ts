@@ -27,6 +27,7 @@ export function trackHandledChannels(ipcMain: IpcMain): Set<string> {
 const INERT_ANSWERS: Record<string, unknown> = {
   [IpcChannels.settingsGetGsxRemote]: { enabled: false, host: '127.0.0.1', port: null },
   [IpcChannels.settingsGetBeyondAtc]: { enabled: false, host: '127.0.0.1' },
+  [IpcChannels.beyondAtcGetAtis]: { state: 'unavailable', airports: [] },
   [IpcChannels.settingsGetOnlineNetwork]: {
     network: null,
     vatsimCid: null,

@@ -3,6 +3,7 @@
 import { winglogApi } from './data/winglog-api'
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useCapabilities } from './app/capabilities-context'
 import { ChevronRight } from 'lucide-react'
 import type {
   GsxRemoteCommandBar,
@@ -416,11 +417,13 @@ const NO_SERVICES: GsxRemoteServiceStatus[] = []
 /**
  * The GSX Remote panel, live from GSX's state.
  *
- * @param props `canEditRoutines`: whether the routine editor is offered; the PC's window does, a phone does not.
+ * @param props `canEditRoutines`: whether the routine editor is offered; the PC's window does, a phone and a client (whose routines are
+ *   the sim PC's) do not.
  * @returns The element.
  */
 export function GsxRemotePanel(props: { canEditRoutines?: boolean }): React.JSX.Element {
   const { t } = useTranslation()
+  const isClient = useCapabilities().runMode === 'client'
   const [settings, setSettings] = useState<GsxRemoteSettings | null>(null)
   // Live state through the LiveClient (live-data-seam.md, part C), each fetched on mount as
   // well as followed — GSX only pushes services/menu/prompt on a *change*, so a panel
@@ -469,7 +472,7 @@ export function GsxRemotePanel(props: { canEditRoutines?: boolean }): React.JSX.
           wrap width) the services take the left column, with the menu above them, and the routines and commands the right (r7-full-gsx). */}
       <div className="grid grid-cols-1 items-start gap-6 @3xl:grid-cols-[1.4fr_1fr]">
         <div className="min-w-0 @3xl:col-start-2 @3xl:row-start-1">
-          <GsxRoutines canEdit={props.canEditRoutines ?? true} />
+          <GsxRoutines canEdit={props.canEditRoutines ?? !isClient} />
         </div>
         <div className="min-w-0 @3xl:col-start-1 @3xl:row-span-2 @3xl:row-start-1">
           <ServicesList

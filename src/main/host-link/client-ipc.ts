@@ -118,6 +118,8 @@ export function registerHostLinkHandlers(
   ipcMain.handle(IpcChannels.settingsGetBeyondAtc, () =>
     link.query('settings.beyondAtc').catch(() => ADD_ON_OFF.beyondAtc)
   )
+  // The GSX routines are the sim PC's, kept there: a client lists them and starts or cancels them (the commands above), and does not edit.
+  ipcMain.handle(IpcChannels.gsxRoutinesList, () => link.query('gsx.routines').catch(() => []))
   const taken: string[] = []
   const answer = (channel: string, reply: (...args: unknown[]) => unknown): void => {
     // Electron refuses a second handler for a channel, so one a local service already answers is replaced: a client's answer is the sim PC's.

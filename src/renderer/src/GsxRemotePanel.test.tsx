@@ -12,6 +12,7 @@ import type {
   WingLogApi
 } from '@shared/ipc'
 import { GsxRemotePanel } from './GsxRemotePanel'
+import { CapabilitiesContext } from './app/capabilities-context'
 
 function makeSettings(overrides: Partial<GsxRemoteSettings> = {}): GsxRemoteSettings {
   return { enabled: true, host: 'localhost', port: 8744, ...overrides }
@@ -71,6 +72,28 @@ function progressLine(text: string) {
     element.textContent === text &&
     element.querySelector(':scope > .font-mono') !== null
 }
+
+describe('GsxRemotePanel on a client', () => {
+  const routine = { id: 'departure', name: 'Departure', stages: [], builtIn: 'departure' }
+
+  it('lists the sim PC routines and offers no routine editor, as on a phone', async () => {
+    withWinglog({ gsxRoutinesList: vi.fn().mockResolvedValue([routine]) } as Partial<WingLogApi>)
+    render(
+      <CapabilitiesContext.Provider value={{ runMode: 'client', canHostSim: false, multiDevice: true }}>
+        <GsxRemotePanel />
+      </CapabilitiesContext.Provider>
+    )
+    expect(await screen.findByRole('button', { name: 'Departure' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'New routine' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument()
+  })
+
+  it('offers the editor on the host', async () => {
+    withWinglog({ gsxRoutinesList: vi.fn().mockResolvedValue([routine]) } as Partial<WingLogApi>)
+    render(<GsxRemotePanel />)
+    expect(await screen.findByRole('button', { name: 'New routine' })).toBeInTheDocument()
+  })
+})
 
 describe('GsxRemotePanel', () => {
   it('shows a not-configured message when GSX Remote is disabled', async () => {

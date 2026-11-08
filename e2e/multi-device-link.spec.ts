@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { expect, test } from '@playwright/test'
 import { freePort } from './lan-device'
+import { FakeGsxRemoteServer, VHHH_BOOT_SNAPSHOT } from './gsx-remote-server'
 import { launchApp } from './launch-app'
 
 // Part 2 of winglog-backend's docs/plans/multi-device.md, through two real launched apps on loopback: a host replaying a recorded flight and
@@ -12,6 +13,7 @@ test('a client pairs with the host by address and code, follows its sim and keep
   const clientDir = mkdtempSync(join(tmpdir(), 'winglog-e2e-client-'))
   const fixture = join(process.cwd(), 'src/main/tracking/__fixtures__/short-hop-egll-egcc.ndjson')
   const port = await freePort()
+  const gsx = await FakeGsxRemoteServer.start()
   try {
     // The client's first launch only chooses the client run mode, which applies from the next launch.
     const setup = await launchApp({ userDataDir: clientDir })
@@ -39,10 +41,16 @@ test('a client pairs with the host by address and code, follows its sim and keep
       }, port)
       expect(code).toMatch(/^\d{6}$/)
 
-      // BeyondATC is switched on at the host: its tab follows on the client once it is connected.
+      // BeyondATC and GSX are switched on at the host: their tabs follow on the client once it is connected.
       await host.window.evaluate(() =>
         window.winglog.settingsSetBeyondAtc({ enabled: true, host: '127.0.0.1' })
       )
+      await host.window.evaluate(
+        (gsxPort) => window.winglog.settingsSetGsxRemote({ enabled: true, host: '127.0.0.1', port: gsxPort }),
+        gsx.port
+      )
+      await gsx.waitForConnection()
+      gsx.sendSnapshot(VHHH_BOOT_SNAPSHOT)
 
       const client = await launchApp({ userDataDir: clientDir })
       try {
@@ -58,6 +66,16 @@ test('a client pairs with the host by address and code, follows its sim and keep
         ] as const)
         await expect(client.window.getByText('Sim PC: connected')).toBeAttached({ timeout: 15_000 })
         await expect(client.window.getByRole('tab', { name: 'BeyondATC' })).toBeVisible({ timeout: 15_000 })
+        // The add-on pages open on the client (one that gets nothing for a lookup used to fall over), with the host's routines and no editor.
+        await client.window.getByRole('tab', { name: 'Ground services' }).click()
+        await expect(client.window.getByRole('button', { name: 'Departure', exact: true })).toBeVisible({
+          timeout: 15_000
+        })
+        await expect(client.window.getByRole('button', { name: 'New routine' })).toHaveCount(0)
+        await expect(client.window.getByText('Something went wrong')).toHaveCount(0)
+        await client.window.getByRole('tab', { name: 'BeyondATC' }).click()
+        await expect(client.window.getByRole('textbox', { name: 'COM1 frequency' })).toBeVisible()
+        await expect(client.window.getByText('Something went wrong')).toHaveCount(0)
         expect(await client.window.evaluate(() => window.winglog.hostLinkGetStatus())).toMatchObject({
           state: 'connected',
           address: `127.0.0.1:${port}`
@@ -94,6 +112,7 @@ test('a client pairs with the host by address and code, follows its sim and keep
       await host.cleanup()
     }
   } finally {
+    await gsx.stop()
     rmSync(clientDir, { recursive: true, force: true })
   }
 })
