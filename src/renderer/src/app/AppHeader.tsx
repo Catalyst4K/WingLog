@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { DevBuildBadge } from '../DevBuildBadge'
 import { OnlineBadge } from '../online/OnlineBadge'
+import { useCapabilities } from './capabilities-context'
 
 /**
  * The tabs, in order. GSX Remote Control and BeyondATC's own tabs are gated on their settings'
@@ -76,6 +77,7 @@ export function AppHeader(props: {
   simStatus: SimConnectionStatus
 }): React.JSX.Element {
   const { t } = useTranslation()
+  const isClient = useCapabilities().runMode === 'client'
   const { simStatus } = props
   return (
     // Narrow windows (a second monitor, and later a tablet or phone): tabs drop to icons
@@ -108,16 +110,22 @@ export function AppHeader(props: {
         <DevBuildBadge />
         {/* Not below sm: the tabs and the connection badge only just fit at 360 px. */}
         <OnlineBadge className="hidden sm:inline-flex" />
-        <Badge
-          variant={connectionStatusVariant(simStatus)}
-          title={connectionStatusLabel(simStatus, t)}
-          className="shrink-0"
-        >
-          <span className="sm:hidden">{connectionStateLabel(simStatus, t)}</span>
-          <span className="hidden sm:inline">
-            {t('app.connection.badge', { state: connectionStateLabel(simStatus, t) })}
-          </span>
-        </Badge>
+        {isClient ? (
+          <Badge variant="secondary" title={t('app.connection.simPcNotConnected')} className="shrink-0">
+            {t('app.connection.simPcBadge')}
+          </Badge>
+        ) : (
+          <Badge
+            variant={connectionStatusVariant(simStatus)}
+            title={connectionStatusLabel(simStatus, t)}
+            className="shrink-0"
+          >
+            <span className="sm:hidden">{connectionStateLabel(simStatus, t)}</span>
+            <span className="hidden sm:inline">
+              {t('app.connection.badge', { state: connectionStateLabel(simStatus, t) })}
+            </span>
+          </Badge>
+        )}
       </div>
     </header>
   )

@@ -10,6 +10,7 @@ import type {
   GsxSettings,
   SyncStatus
 } from '@shared/ipc'
+import { CapabilitiesProvider } from './app/capabilities'
 import i18n from './i18n'
 import { SettingsView } from './SettingsView'
 
@@ -60,6 +61,9 @@ function createWinglog(overrides: Record<string, unknown> = {}): typeof window.w
     settingsSetTracking: vi.fn().mockResolvedValue(undefined),
     syncStatus: vi.fn().mockResolvedValue(makeSyncStatus()),
     appGetVersion: vi.fn().mockResolvedValue('1.2.3'),
+    appGetCapabilities: vi.fn().mockResolvedValue({ runMode: 'host', canHostSim: true, multiDevice: false }),
+    settingsGetRunMode: vi.fn().mockResolvedValue(null),
+    settingsSetRunMode: vi.fn().mockResolvedValue(undefined),
     settingsGetUpdates: vi.fn().mockResolvedValue({ checkEnabled: true }),
     settingsSetUpdates: vi.fn().mockResolvedValue(undefined),
     settingsGetWindow: vi.fn().mockResolvedValue({ minimizeToTray: false, trayAvailable: true }),
@@ -159,25 +163,27 @@ function renderSettings(
   props: Partial<React.ComponentProps<typeof SettingsView>> = {}
 ): ReturnType<typeof render> {
   return render(
-    <SettingsView
-      weightUnit={props.weightUnit ?? 'kg'}
-      onWeightUnitChange={props.onWeightUnitChange ?? vi.fn()}
-      altitudeUnit={props.altitudeUnit ?? 'ft'}
-      onAltitudeUnitChange={props.onAltitudeUnitChange ?? vi.fn()}
-      windSpeedUnit={props.windSpeedUnit ?? 'kt'}
-      onWindSpeedUnitChange={props.onWindSpeedUnitChange ?? vi.fn()}
-      landingDistanceUnit={props.landingDistanceUnit ?? 'ft'}
-      onLandingDistanceUnitChange={props.onLandingDistanceUnitChange ?? vi.fn()}
-      mapLanguage={props.mapLanguage ?? 'en'}
-      onMapLanguageChange={props.onMapLanguageChange ?? vi.fn()}
-      appLanguage={props.appLanguage ?? 'system'}
-      onAppLanguageChange={props.onAppLanguageChange ?? vi.fn()}
-      theme={props.theme ?? 'system'}
-      onThemeChange={props.onThemeChange ?? vi.fn()}
-      onGsxRemoteEnabledChange={props.onGsxRemoteEnabledChange ?? vi.fn()}
-      onBeyondAtcEnabledChange={props.onBeyondAtcEnabledChange ?? vi.fn()}
-      resetSignal={props.resetSignal}
-    />
+    <CapabilitiesProvider>
+      <SettingsView
+        weightUnit={props.weightUnit ?? 'kg'}
+        onWeightUnitChange={props.onWeightUnitChange ?? vi.fn()}
+        altitudeUnit={props.altitudeUnit ?? 'ft'}
+        onAltitudeUnitChange={props.onAltitudeUnitChange ?? vi.fn()}
+        windSpeedUnit={props.windSpeedUnit ?? 'kt'}
+        onWindSpeedUnitChange={props.onWindSpeedUnitChange ?? vi.fn()}
+        landingDistanceUnit={props.landingDistanceUnit ?? 'ft'}
+        onLandingDistanceUnitChange={props.onLandingDistanceUnitChange ?? vi.fn()}
+        mapLanguage={props.mapLanguage ?? 'en'}
+        onMapLanguageChange={props.onMapLanguageChange ?? vi.fn()}
+        appLanguage={props.appLanguage ?? 'system'}
+        onAppLanguageChange={props.onAppLanguageChange ?? vi.fn()}
+        theme={props.theme ?? 'system'}
+        onThemeChange={props.onThemeChange ?? vi.fn()}
+        onGsxRemoteEnabledChange={props.onGsxRemoteEnabledChange ?? vi.fn()}
+        onBeyondAtcEnabledChange={props.onBeyondAtcEnabledChange ?? vi.fn()}
+        resetSignal={props.resetSignal}
+      />
+    </CapabilitiesProvider>
   )
 }
 
@@ -270,6 +276,34 @@ describe('SettingsView', () => {
       await user.click(screen.getByRole('tab', { name: '3rd party' }))
       expect(await screen.findByText('Credentials')).toBeInTheDocument()
       expect(screen.getByText('GSX ground services')).toBeInTheDocument()
+    })
+
+    describe('on a client (a WingLog that is not the sim host)', () => {
+      const CLIENT = { runMode: 'client', canHostSim: false, multiDevice: true }
+
+      it('leaves out the settings of the services that only run on the host, but keeps the rest', async () => {
+        setWinglog({ appGetCapabilities: vi.fn().mockResolvedValue(CLIENT) })
+        const user = userEvent.setup()
+        renderSettings()
+        await user.click(screen.getByRole('tab', { name: '3rd party' }))
+        expect(await screen.findByText('Credentials')).toBeInTheDocument()
+        await vi.waitFor(() => expect(screen.queryByText('GSX ground services')).not.toBeInTheDocument())
+        for (const title of ['GSX Remote Control', 'BeyondATC', 'Online network', 'Navigation data']) {
+          expect(screen.queryByText(title)).not.toBeInTheDocument()
+        }
+        await user.click(screen.getByRole('tab', { name: 'Data' }))
+        expect(await screen.findByRole('region', { name: 'Fleet data' })).toBeInTheDocument()
+        expect(screen.queryByText('Second screen')).not.toBeInTheDocument()
+      })
+
+      it('still shows every host setting on a host', async () => {
+        const user = userEvent.setup()
+        renderSettings()
+        await user.click(screen.getByRole('tab', { name: '3rd party' }))
+        for (const title of ['GSX ground services', 'GSX Remote Control', 'BeyondATC', 'Online network']) {
+          expect(await screen.findByText(title)).toBeInTheDocument()
+        }
+      })
     })
 
     it('switches to the Data category', async () => {

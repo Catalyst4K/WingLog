@@ -42,6 +42,7 @@ import {
   type SimConnectionStatus,
   type SimTelemetry,
   type StartFreeFlightInput,
+  type RunMode,
   type Theme,
   type TrackPoint,
   type WeightUnit,
@@ -129,6 +130,8 @@ const api: WingLogApi = {
     ipcRenderer.invoke(IpcChannels.settingsSetLandingDistanceUnit, unit),
   settingsGetTheme: () => ipcRenderer.invoke(IpcChannels.settingsGetTheme),
   settingsSetTheme: (theme: Theme) => ipcRenderer.invoke(IpcChannels.settingsSetTheme, theme),
+  settingsGetRunMode: () => ipcRenderer.invoke(IpcChannels.settingsGetRunMode),
+  settingsSetRunMode: (mode: RunMode) => ipcRenderer.invoke(IpcChannels.settingsSetRunMode, mode),
   trackingStart: (flightId: number) => ipcRenderer.invoke(IpcChannels.trackingStart, flightId),
   trackingStartFree: (input: StartFreeFlightInput) =>
     ipcRenderer.invoke(IpcChannels.trackingStartFree, input),
@@ -265,6 +268,7 @@ const api: WingLogApi = {
   syncNow: () => ipcRenderer.invoke(IpcChannels.syncNow),
   syncStatus: () => ipcRenderer.invoke(IpcChannels.syncStatus),
   appGetVersion: () => ipcRenderer.invoke(IpcChannels.appGetVersion),
+  appGetCapabilities: () => ipcRenderer.invoke(IpcChannels.appGetCapabilities),
   diagLog: (category, message) => ipcRenderer.invoke(IpcChannels.diagLog, category, message),
   appLogRendererError: (context, message) =>
     ipcRenderer.invoke(IpcChannels.appLogRendererError, context, message),

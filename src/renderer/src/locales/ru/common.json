@@ -235,6 +235,14 @@
       "atcAreasUpdated": "Обновлено до VAT-Spy {{vatspy}}, TRACON {{tracon}}.",
       "atcAreasCurrent": "Уже самая новая версия.",
       "atcAreasFailed": "Не удалось проверить. Повторите позже."
+    },
+    "runMode": {
+      "cardTitle": "Где работает симулятор",
+      "label": "Симулятор работает на",
+      "host": "Этом ПК",
+      "client": "Другом ПК",
+      "description": "На компьютере, который подключается к WingLog на ПК симулятора, выберите «Другом ПК».",
+      "restart": "Применится при следующем запуске WingLog."
     }
   },
   "app": {
@@ -256,7 +264,9 @@
         "connecting": "подключение",
         "disconnected": "отключено"
       },
-      "badge": "SimConnect: {{state}}"
+      "badge": "SimConnect: {{state}}",
+      "simPcBadge": "ПК симулятора: нет связи",
+      "simPcNotConnected": "Нет связи с ПК симулятора"
     },
     "orphanedFlight": {
       "resumeTitle": "Продолжить отслеживание?",
@@ -665,7 +675,8 @@
     "choiceNotConfirmed": "Не удалось связаться с WingLog на компьютере. Процедуры там не были изменены.",
     "flightEnded": "Рейс завершён",
     "autoDetectedComplete": "{{label}} был автоматически определён как завершённый и сохранён в логбуке.",
-    "ok": "ОК"
+    "ok": "ОК",
+    "notConnectedSimPc": "Нет связи с ПК симулятора."
   },
   "flightMap": {
     "stopCentering": "Прекратить центрирование на самолёте",

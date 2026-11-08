@@ -5,6 +5,7 @@
  */
 import { eq } from 'drizzle-orm'
 import { APP_LANGUAGE_OPTIONS } from '@shared/app-language'
+import { parseRunMode, type RunMode } from '@shared/run-mode'
 import {
   parseHiddenBuiltIns,
   parseStoredRoutines,
@@ -42,6 +43,7 @@ const MAP_LANGUAGES: readonly MapLanguage[] = ['local', 'en', 'de', 'es', 'fr', 
 const APP_LANGUAGES: readonly AppLanguage[] = APP_LANGUAGE_OPTIONS.map((option) => option.value)
 const LANDING_DISTANCE_UNIT_KEY = 'landingDistanceUnit'
 const THEME_KEY = 'theme'
+const RUN_MODE_KEY = 'runMode'
 const TRACKING_AUTO_START_KEY = 'trackingAutoStart'
 const TRACKING_AUTO_FINISH_KEY = 'trackingAutoFinish'
 const GSX_ENABLED_KEY = 'gsxEnabled'
@@ -253,6 +255,26 @@ export function getTheme(db: WingLogDb): Theme {
  */
 export function setTheme(db: WingLogDb, theme: Theme): void {
   setSetting(db, THEME_KEY, theme)
+}
+
+/**
+ * The run mode chosen for the next launch (winglog-backend's docs/plans/multi-device.md, Part 1).
+ *
+ * @param db The database.
+ * @returns 'host' or 'client', or null when none was chosen yet.
+ */
+export function getRunMode(db: WingLogDb): RunMode | null {
+  return parseRunMode(getSetting(db, RUN_MODE_KEY))
+}
+
+/**
+ * Stores the run mode for the next launch.
+ *
+ * @param db The database.
+ * @param mode The run mode.
+ */
+export function setRunMode(db: WingLogDb, mode: RunMode): void {
+  setSetting(db, RUN_MODE_KEY, mode)
 }
 
 /**

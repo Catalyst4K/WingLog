@@ -7,6 +7,7 @@
  * `@shared/ipc` stays the one import for all of it.
  */
 
+import type { AppCapabilities, RunMode } from './run-mode'
 import type {
   Aircraft,
   AircraftImportSummary,
@@ -130,6 +131,7 @@ export type * from './types/navdata'
 export type * from './gsx-routine-progress'
 export type { GsxRoutine, GsxRoutineBuiltIn, GsxRoutineService, GsxRoutineStage } from './gsx-routines'
 export { IpcChannels } from './ipc-channels'
+export type { AppCapabilities, RunMode } from './run-mode'
 
 /** What saving a routine answers: the list as it is now, or why the routine was refused. */
 export type GsxRoutinesResult = { ok: true; routines: GsxRoutine[] } | { ok: false; reason: string }
@@ -267,6 +269,10 @@ export interface WingLogApi {
   settingsSetLandingDistanceUnit: (unit: LandingDistanceUnit) => Promise<void>
   settingsGetTheme: () => Promise<Theme>
   settingsSetTheme: (theme: Theme) => Promise<void>
+  /** The run mode chosen for the next launch (multi-device builds only): null when none was chosen yet. */
+  settingsGetRunMode: () => Promise<RunMode | null>
+  /** Chooses the run mode for the next launch. Refused when multi-device is not built in. */
+  settingsSetRunMode: (mode: RunMode) => Promise<void>
   /** Begins tracking a planned flight. Throws if the sim isn't connected or another flight is already tracked. */
   trackingStart: (flightId: number) => Promise<void>
   /** Creates and starts tracking a free flight (free-flight-tracking.md) — no planned
@@ -484,6 +490,8 @@ export interface WingLogApi {
   /** The packaged app's version (package.json's, via Electron's app.getVersion()) —
    *  Settings' About card, so a bug report can include which build it's from. */
   appGetVersion: () => Promise<string>
+  /** What this run of the app is: the host that talks to the sim, or a client of the sim PC's WingLog, and what that allows. */
+  appGetCapabilities: () => Promise<AppCapabilities>
   /** Writes a renderer failure to main.log as a warning: what was being done, and the error's
    *  message. The renderer has no log of its own (coding-standards.md §6). */
   appLogRendererError: (context: string, message: string) => Promise<void>

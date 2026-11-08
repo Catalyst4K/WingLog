@@ -19,6 +19,8 @@ import { SegmentedRow, TrackingFields, UnitsFields } from './SettingsFields'
 import { trackingLabels } from './tracking-labels'
 import { UpdatesCard } from './UpdatesCard'
 import { LanCard } from './settings/LanCard'
+import { RunModeCard } from './settings/RunModeCard'
+import { useCapabilities } from './app/capabilities-context'
 import { WindowCard } from './settings/WindowCard'
 import { SettingsCard } from './settings/ui/SettingsCard'
 import { Button } from '@/components/ui/button'
@@ -196,6 +198,8 @@ export function SettingsView(
   }
 ): React.JSX.Element {
   const { t } = useTranslation()
+  // A client is not the sim's host: the settings of the services that only run on the host are not offered.
+  const isClient = useCapabilities().runMode === 'client'
   // Called in the order the settings used to load in, so the IPC calls go out in that order.
   const credentials = useSimbriefCredentials()
   const gsx = useGsxSettings()
@@ -240,11 +244,15 @@ export function SettingsView(
 
         <TabsContent value="thirdParty" className={PANEL}>
           <CredentialsCard credentials={credentials} />
-          <GsxCard gsx={gsx} />
-          <GsxRemoteCard gsxRemote={gsxRemote} />
-          <BeyondAtcCard beyondAtc={beyondAtc} />
-          <OnlineNetworkCard />
-          <NavdataCard />
+          {!isClient && (
+            <>
+              <GsxCard gsx={gsx} />
+              <GsxRemoteCard gsxRemote={gsxRemote} />
+              <BeyondAtcCard beyondAtc={beyondAtc} />
+              <OnlineNetworkCard />
+              <NavdataCard />
+            </>
+          )}
         </TabsContent>
 
         <TabsContent value="data" className={PANEL}>
@@ -255,7 +263,8 @@ export function SettingsView(
           {/* v8 ignore next -- vitest.config.ts's `define` fixes the flag at `true`, so the
                 "hidden in a public build" arm of this && can't be exercised in this test run. */}
           {__WINGLOG_CLOUD_SYNC_ENABLED__ && <CloudSyncCard sync={sync} />}
-          <LanCard />
+          {!isClient && <LanCard />}
+          <RunModeCard />
         </TabsContent>
 
         <TabsContent value="about" className={PANEL}>

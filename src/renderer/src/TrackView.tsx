@@ -4,6 +4,7 @@ import { winglogApi } from './data/winglog-api'
 import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
+import { useCapabilities } from './app/capabilities-context'
 import type {
   DispatchOfp,
   LogbookFlight,
@@ -79,6 +80,7 @@ export function TrackView(props: {
   windSpeedUnit?: WindSpeedUnit
 }): React.JSX.Element {
   const { t } = useTranslation()
+  const capabilities = useCapabilities()
   const tracked = useTrackedFlights(props.onFlightEnded)
   const { aircraft, flights, active, setActive, trackPoints, setTrackPoints, reload } = tracked
   const [starting, setStarting] = useState(false)
@@ -134,7 +136,9 @@ export function TrackView(props: {
 
   function handleOpenFreeFlight(): void {
     if (!props.telemetry) {
-      toast.error(t('trackView.notConnected'))
+      toast.error(
+        t(capabilities.runMode === 'client' ? 'trackView.notConnectedSimPc' : 'trackView.notConnected')
+      )
       return
     }
     setFreeFlightDialogOpen(true)

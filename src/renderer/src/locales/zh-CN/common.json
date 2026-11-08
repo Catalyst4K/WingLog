@@ -214,6 +214,14 @@
       "atcAreasUpdated": "已更新到 VAT-Spy {{vatspy}}，TRACON {{tracon}}。",
       "atcAreasCurrent": "已是最新。",
       "atcAreasFailed": "无法检查，请稍后再试。"
+    },
+    "runMode": {
+      "cardTitle": "模拟器运行的位置",
+      "label": "模拟器运行在",
+      "host": "这台电脑",
+      "client": "另一台电脑",
+      "description": "在连接到模拟器电脑上 WingLog 的计算机上，选择“另一台电脑”。",
+      "restart": "下次启动 WingLog 时生效。"
     }
   },
   "app": {
@@ -235,7 +243,9 @@
         "connecting": "正在连接",
         "disconnected": "已断开"
       },
-      "badge": "SimConnect：{{state}}"
+      "badge": "SimConnect：{{state}}",
+      "simPcBadge": "模拟器电脑：未连接",
+      "simPcNotConnected": "未连接到模拟器电脑"
     },
     "orphanedFlight": {
       "resumeTitle": "恢复追踪？",
@@ -638,7 +648,8 @@
     "choiceNotConfirmed": "无法连接到电脑上的 WingLog。那里的程序未被更改。",
     "flightEnded": "航班已结束",
     "autoDetectedComplete": "{{label}} 已被自动识别为完成，并保存到你的飞行日志。",
-    "ok": "确定"
+    "ok": "确定",
+    "notConnectedSimPc": "未连接到模拟器电脑。"
   },
   "flightMap": {
     "stopCentering": "停止以飞机为中心",

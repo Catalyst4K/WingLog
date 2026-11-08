@@ -219,6 +219,14 @@
       "atcAreasUpdated": "Aktualisiert auf VAT-Spy {{vatspy}}, TRACON {{tracon}}.",
       "atcAreasCurrent": "Bereits die neueste Version.",
       "atcAreasFailed": "Prüfung nicht möglich. Versuche es später erneut."
+    },
+    "runMode": {
+      "cardTitle": "Wo der Simulator läuft",
+      "label": "Der Simulator läuft auf",
+      "host": "Diesem PC",
+      "client": "Einem anderen PC",
+      "description": "Auf einem Computer, der sich mit WingLog auf dem Sim-PC verbindet, „Einem anderen PC“ wählen.",
+      "restart": "Gilt ab dem nächsten Start von WingLog."
     }
   },
   "app": {
@@ -240,7 +248,9 @@
         "connecting": "verbindet",
         "disconnected": "getrennt"
       },
-      "badge": "SimConnect: {{state}}"
+      "badge": "SimConnect: {{state}}",
+      "simPcBadge": "Sim-PC: nicht verbunden",
+      "simPcNotConnected": "Nicht mit dem Sim-PC verbunden"
     },
     "orphanedFlight": {
       "resumeTitle": "Tracking fortsetzen?",
@@ -644,7 +654,8 @@
     "choiceNotConfirmed": "WingLog auf dem PC wurde nicht erreicht. Die Verfahren dort wurden nicht geändert.",
     "flightEnded": "Flug beendet",
     "autoDetectedComplete": "{{label}} wurde automatisch als abgeschlossen erkannt und im Logbuch gespeichert.",
-    "ok": "OK"
+    "ok": "OK",
+    "notConnectedSimPc": "Nicht mit dem Sim-PC verbunden."
   },
   "flightMap": {
     "stopCentering": "Zentrierung auf Flugzeug stoppen",
