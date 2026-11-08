@@ -894,6 +894,60 @@ describe('sync-engine', () => {
       expect(flights[0]?.fuelBurnKg).toBe(999)
     })
 
+    it('folds an aircraft renamed on the other device into the one the flight is on, so no empty extra is left, and later flights follow', async () => {
+      const mine = myFlight()
+      server.seed('aircraft', {
+        uuid: 'their-aircraft',
+        updatedAt: LATER,
+        data: JSON.stringify({ registration: 'G-OLDX', icaoType: 'A320' })
+      })
+      server.seed('flight', { ...theirFlight('their-aircraft'), updatedAt: '2099-01-01T00:00:00.000Z' })
+      // A second flight that only the other device has, on its name for the aircraft.
+      server.seed('flight', {
+        ...theirFlight('their-aircraft', { actualOutUtc: '2026-04-20T10:00:00.000Z' }),
+        uuid: 'their-other-flight',
+        updatedAt: '2099-01-02T00:00:00.000Z'
+      })
+
+      const result = await runSync(db, server, SESSION, dbPath)
+      await runSync(db, server, SESSION, dbPath)
+
+      expect(result.tables.flight.skipped).toEqual([])
+      expect(
+        db
+          .select()
+          .from(aircraft)
+          .all()
+          .map((a) => a.registration)
+      ).toEqual(['G-ABCD'])
+      const flights = db.select().from(flight).all()
+      expect(flights).toHaveLength(2)
+      expect(flights.every((f) => f.aircraftId === mine.aircraftId)).toBe(true)
+    })
+
+    it('does not fold an aircraft that has flights of its own', async () => {
+      myFlight()
+      const own = createAircraft(db, { registration: 'G-OWN', icaoType: 'A320' })
+      createFlight(db, { aircraftId: own.id, depIcao: 'EGLL', arrIcao: 'EGCC' })
+      server.seed('aircraft', {
+        uuid: 'their-aircraft',
+        updatedAt: LATER,
+        data: JSON.stringify({ registration: 'G-OWN', icaoType: 'A320' })
+      })
+      server.seed('flight', theirFlight('their-aircraft'))
+
+      await runSync(db, server, SESSION, dbPath)
+
+      expect(
+        db
+          .select()
+          .from(aircraft)
+          .all()
+          .map((a) => a.registration)
+          .sort()
+      ).toEqual(['G-ABCD', 'G-OWN'])
+    })
+
     it('does not merge flights that went out at different times, or that have not gone out yet', async () => {
       myFlight()
       server.seed('flight', theirFlight(null, { actualOutUtc: '2026-04-13T22:52:00.000Z' }))

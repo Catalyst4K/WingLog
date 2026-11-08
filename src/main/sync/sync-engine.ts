@@ -27,6 +27,7 @@ import {
   listFlightInvoicesForSync,
   upsertFlightInvoiceByUuid
 } from '../db/flight-invoice-repo'
+import { getAircraftRegistrationByUuid, mergeEmptyAircraft } from '../db/aircraft-merge-repo'
 import { findLiveFlightByContent } from '../db/flight-match-repo'
 import {
   getFlightIdByUuid,
@@ -179,9 +180,14 @@ function applyAircraft(db: WingLogDb, row: SyncRow): ApplyResult {
       uuid = sameRegistration
     }
   }
+  // A row reached through an alias is another device's name for an aircraft this device already has. Its other fields can win by last write,
+  // but not the registration: the other device's name for it (an old registration) must not rename the aircraft back.
+  const registration =
+    uuid === row.uuid ? data.registration : (getAircraftRegistrationByUuid(db, uuid) ?? data.registration)
   try {
     const applied = upsertAircraftByUuid(db, {
       ...checked.fields,
+      registration,
       uuid,
       updatedAt: row.updatedAt
     } as Parameters<typeof upsertAircraftByUuid>[1])
@@ -238,6 +244,36 @@ function serializeFlight(db: WingLogDb, row: ReturnType<typeof listFlightsForSyn
 }
 
 /**
+ * Looks for the same real flight under another uuid: this device was set up from the same history. If there is one, it is remembered as an
+ * alias, so the pulled row is applied onto it, and it keeps its own aircraft: the incoming aircraft may be the same one under an old
+ * registration, which this device never matched. One flight cannot be on two aircraft, so an incoming aircraft that is only an empty copy of
+ * the one the flight is really on is folded into it, and the fleet doesn't keep an empty extra. A real aircraft with flights is left alone.
+ *
+ * @param db The database.
+ * @param incomingUuid The pulled flight's uuid.
+ * @param data The pulled flight's fields.
+ * @param incomingAircraftId The local aircraft the pulled flight names, when it names one.
+ * @returns The local flight's uuid and aircraft to apply the row onto, or undefined when no local flight is the same flight.
+ */
+function mergeIntoMatchingFlight(
+  db: WingLogDb,
+  incomingUuid: string,
+  data: Record<string, unknown>,
+  incomingAircraftId: number | null
+): { uuid: string; aircraftId: number | null } | undefined {
+  const { depIcao, arrIcao, actualOutUtc, aircraftUuid } = data
+  if (typeof depIcao !== 'string' || typeof arrIcao !== 'string' || typeof actualOutUtc !== 'string')
+    return undefined
+  const same = findLiveFlightByContent(db, depIcao, arrIcao, actualOutUtc)
+  if (!same) return undefined
+  setSetting(db, `flightAlias:${incomingUuid}`, same.uuid)
+  if (incomingAircraftId !== null && same.aircraftId !== null && typeof aircraftUuid === 'string') {
+    mergeEmptyAircraft(db, incomingAircraftId, same.aircraftId, aircraftUuid)
+  }
+  return same
+}
+
+/**
  * Applies one pulled flight row to the local database, by uuid. The aircraft it refers to must already
  * exist.
  *
@@ -257,20 +293,19 @@ function applyFlight(db: WingLogDb, row: SyncRow): ApplyResult {
   }
   // A null aircraftUuid is a free flight with no fleet aircraft.
   let aircraftId: number | null = null
+  let incomingAircraftId: number | null = null
   if (data.aircraftUuid !== null) {
     const found = getAircraftIdByUuid(db, resolveAircraftUuid(db, data.aircraftUuid))
     if (found === undefined) return { ok: false, error: `unknown aircraft ${data.aircraftUuid}` }
     aircraftId = found
+    incomingAircraftId = found
   }
   const checked = validateSyncFields(flight, data, ['aircraftId'])
   if (!checked.ok) return checked
   let uuid = resolveFlightUuid(db, row.uuid)
-  if (getFlightIdByUuid(db, uuid) === undefined && typeof data.actualOutUtc === 'string') {
-    // The same real flight under another uuid: this device was set up from the same history. Merge into it, and keep its aircraft: the
-    // incoming aircraft may be the same one under an old registration, which this device never matched.
-    const same = findLiveFlightByContent(db, data.depIcao, data.arrIcao, data.actualOutUtc)
+  if (getFlightIdByUuid(db, uuid) === undefined) {
+    const same = mergeIntoMatchingFlight(db, row.uuid, data, incomingAircraftId)
     if (same) {
-      setSetting(db, `flightAlias:${row.uuid}`, same.uuid)
       uuid = same.uuid
       aircraftId = same.aircraftId
     }
