@@ -688,7 +688,8 @@
     "profile": {
       "title": "航路剖面",
       "zoom": "缩放",
-      "wholeRoute": "整条航路"
+      "wholeRoute": "整条航路",
+      "stepClimb": "阶梯爬升至 {{altitude}}"
     },
     "flightInProgress": "进行中的航班",
     "change": "更改"

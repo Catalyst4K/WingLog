@@ -697,7 +697,8 @@
     "profile": {
       "title": "Profil de la route",
       "zoom": "Zoom",
-      "wholeRoute": "Route entière"
+      "wholeRoute": "Route entière",
+      "stepClimb": "Montée par paliers à {{altitude}}"
     },
     "flightInProgress": "Vol en cours",
     "change": "Modifier"

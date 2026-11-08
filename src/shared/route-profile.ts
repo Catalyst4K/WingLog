@@ -110,6 +110,40 @@ export function zoomWindow(
   return { fromNm, toNm: fromNm + spanNm }
 }
 
+/** A step climb: where the aircraft leaves its cruise level, and the level it climbs to. */
+export interface StepClimb {
+  atNm: number
+  fromFt: number
+  toFt: number
+}
+
+/** A cruise level is at least this high; a lower plateau is a departure constraint, not a step. */
+const CRUISE_MIN_FT = 10_000
+/** A rise smaller than this is the plan's rounding, not a step. */
+const STEP_MIN_FT = 900
+/** Two fixes at altitudes this close are on one level. */
+const LEVEL_TOLERANCE_FT = 100
+
+/**
+ * The planned step climbs, found as the plan draws them: a rise to a higher level after at least one leg flown level, high enough to be
+ * cruise. The climb to the first cruise level rises through the fixes without a level leg, so it is not one. The waypoints carry no step
+ * flag, so this reads the shape (Dispatch has the OFP's own list).
+ *
+ * @param points The profile's points, in order along the route.
+ * @returns Each step climb, at the last fix flown level before the rise.
+ */
+export function stepClimbs(points: ProfilePoint[]): StepClimb[] {
+  const steps: StepClimb[] = []
+  for (let i = 2; i < points.length; i++) {
+    const [before, level, rise] = [points[i - 2], points[i - 1], points[i]]
+    if (!before || !level || !rise) continue
+    const isLevel = Math.abs(level.altitudeFt - before.altitudeFt) <= LEVEL_TOLERANCE_FT
+    if (isLevel && level.altitudeFt >= CRUISE_MIN_FT && rise.altitudeFt - level.altitudeFt >= STEP_MIN_FT)
+      steps.push({ atNm: level.distanceNm, fromFt: level.altitudeFt, toFt: rise.altitudeFt })
+  }
+  return steps
+}
+
 /**
  * @param points The profile's points, in order along the route.
  * @param fromNm Where the stretch starts.

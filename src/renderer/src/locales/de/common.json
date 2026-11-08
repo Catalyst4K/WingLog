@@ -695,7 +695,8 @@
     "profile": {
       "title": "Streckenprofil",
       "zoom": "Zoom",
-      "wholeRoute": "Ganze Strecke"
+      "wholeRoute": "Ganze Strecke",
+      "stepClimb": "Stufensteigflug auf {{altitude}}"
     },
     "flightInProgress": "Laufender Flug",
     "change": "Ändern"

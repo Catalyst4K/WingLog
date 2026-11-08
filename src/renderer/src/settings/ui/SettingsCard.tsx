@@ -149,6 +149,8 @@ export function SegmentedGroup(props: { label: string; children: ReactNode }): R
  */
 export function SegmentButton(props: {
   small?: boolean
+  /** A control inside a panel's caption line, no taller than the words beside it. */
+  compact?: boolean
   pressed: boolean
   disabled?: boolean
   onClick: () => void
@@ -162,7 +164,11 @@ export function SegmentButton(props: {
       disabled={props.disabled}
       onClick={props.onClick}
       className={cn(
-        props.small ? 'h-8 min-w-12 px-2.5 text-[13px]' : 'h-10 min-w-16 px-3 text-sm',
+        props.compact
+          ? 'h-6 min-w-0 px-2 text-xs'
+          : props.small
+            ? 'h-8 min-w-12 px-2.5 text-[13px]'
+            : 'h-10 min-w-16 px-3 text-sm',
         'rounded-none font-normal',
         props.pressed
           ? 'bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground'

@@ -70,3 +70,32 @@ describe('RouteProfile', () => {
     ).toBeEmptyDOMElement()
   })
 })
+
+describe('RouteProfile step climbs', () => {
+  const STEPPED = [
+    wp('EGLL', 0, 83),
+    wp('TOC', 1, 34000),
+    wp('MID', 3, 34000),
+    wp('STEP', 4, 36000),
+    wp('END', 6, 36000),
+    wp('KJFK', 8, 13)
+  ]
+
+  it('marks where each planned step climb starts with an up arrow, naming the level it climbs to', () => {
+    render(<RouteProfile waypoints={STEPPED} aircraft={null} altitudeUnit="ft" />)
+    expect(screen.getAllByTestId('route-profile-step')).toHaveLength(1)
+    expect(screen.getByRole('img', { name: /^Step climb to 36,000.ft$/ })).toBeInTheDocument()
+  })
+
+  it('draws no arrow for a route without a step climb', () => {
+    render(<RouteProfile waypoints={ROUTE} aircraft={null} altitudeUnit="ft" />)
+    expect(screen.queryByTestId('route-profile-step')).not.toBeInTheDocument()
+  })
+
+  it('keeps the zoom buttons low, no taller than the words beside them', () => {
+    render(
+      <RouteProfile waypoints={STEPPED} aircraft={{ lon: 1, lat: 0, altitudeFt: 9000 }} altitudeUnit="ft" />
+    )
+    expect(screen.getByRole('button', { name: '100 nm' })).toHaveClass('h-6')
+  })
+})

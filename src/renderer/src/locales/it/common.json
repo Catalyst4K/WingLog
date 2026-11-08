@@ -697,7 +697,8 @@
     "profile": {
       "title": "Profilo della rotta",
       "zoom": "Zoom",
-      "wholeRoute": "Intera rotta"
+      "wholeRoute": "Intera rotta",
+      "stepClimb": "Salita a gradini a {{altitude}}"
     },
     "flightInProgress": "Volo in corso",
     "change": "Modifica"

@@ -720,7 +720,8 @@
     "profile": {
       "title": "Профиль маршрута",
       "zoom": "Масштаб",
-      "wholeRoute": "Весь маршрут"
+      "wholeRoute": "Весь маршрут",
+      "stepClimb": "Ступенчатый набор до {{altitude}}"
     },
     "flightInProgress": "Текущий рейс",
     "change": "Изменить"

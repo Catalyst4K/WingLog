@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Waypoint } from './route'
-import { clipProfile, distanceAlongRoute, routeProfile, zoomWindow } from './route-profile'
+import type { ProfilePoint } from './route-profile'
+import { clipProfile, distanceAlongRoute, routeProfile, stepClimbs, zoomWindow } from './route-profile'
 
 function waypoint(ident: string, lon: number, altitudeFt: number, extra: Partial<Waypoint> = {}): Waypoint {
   return { ident, lon, lat: 0, altitudeFt, segment: 'enroute', ...extra }
@@ -117,5 +118,48 @@ describe('clipProfile', () => {
 
   it('runs level to the end of the route when the stretch reaches past it', () => {
     expect(clipProfile(climb, 550, 700).at(-1)).toEqual(point(700, 0))
+  })
+})
+
+describe('stepClimbs', () => {
+  const point = (distanceNm: number, altitudeFt: number): ProfilePoint => ({
+    ident: '',
+    distanceNm,
+    altitudeFt
+  })
+
+  it('finds the rise to a higher level after a level leg, at the last fix flown level', () => {
+    const points = [
+      point(0, 0),
+      point(20, 12000),
+      point(60, 34000),
+      point(200, 34000),
+      point(260, 36000),
+      point(400, 36000)
+    ]
+    expect(stepClimbs(points)).toEqual([{ atNm: 200, fromFt: 34000, toFt: 36000 }])
+  })
+
+  it('does not count the climb to the first cruise level, which rises through the fixes without a level leg', () => {
+    expect(
+      stepClimbs([point(0, 0), point(20, 12000), point(60, 24000), point(100, 36000), point(300, 36000)])
+    ).toEqual([])
+  })
+
+  it('does not count a low plateau, a departure constraint, or a rise too small to be a step', () => {
+    expect(stepClimbs([point(0, 0), point(5, 6000), point(15, 6000), point(30, 14000)])).toEqual([])
+    expect(stepClimbs([point(0, 0), point(100, 35000), point(200, 35000), point(300, 35400)])).toEqual([])
+  })
+
+  it('finds each of several steps', () => {
+    const points = [
+      point(0, 0),
+      point(50, 30000),
+      point(150, 30000),
+      point(200, 32000),
+      point(300, 32000),
+      point(350, 34000)
+    ]
+    expect(stepClimbs(points).map((s) => s.toFt)).toEqual([32000, 34000])
   })
 })

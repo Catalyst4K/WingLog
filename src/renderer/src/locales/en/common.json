@@ -695,7 +695,8 @@
     "profile": {
       "title": "Route profile",
       "zoom": "Zoom",
-      "wholeRoute": "Whole route"
+      "wholeRoute": "Whole route",
+      "stepClimb": "Step climb to {{altitude}}"
     },
     "flightInProgress": "Flight in progress",
     "change": "Change"
