@@ -16,6 +16,7 @@ import { registerHostLinkHandlers } from './host-link/client-ipc'
 import { fileHostLinkStore } from './host-link/host-link-store'
 import { LanSyncClient } from './host-link/lan-sync-client'
 import { SYNC_AFTER_WRITE_MS, TwinSync } from './host-link/TwinSync'
+import { syncTrackPoints } from './host-link/track-point-sync'
 import { openHostSocket } from './host-link/ws-socket'
 import { onLocalWrite } from './sync/local-write-hints'
 
@@ -45,7 +46,9 @@ export function startClientServices(deps: {
     db,
     dbPath,
     client: new LanSyncClient((name, ...args) => link.query(name, ...args)),
-    canSync: () => link.getStatus().state === 'connected'
+    canSync: () => link.getStatus().state === 'connected',
+    // The tracks of completed flights follow the flights, a page at a time, once.
+    afterSync: () => syncTrackPoints(db, (name, ...args) => link.query(name, ...args))
   })
   const link: HostLink = new HostLink({
     hub: liveHub,

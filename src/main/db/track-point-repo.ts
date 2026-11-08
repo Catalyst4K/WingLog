@@ -2,10 +2,10 @@
  * A flight's recorded track points: written once a second while tracking, listed in order for the
  * map, and marked or re-segmented by the resume cleanup. Never synced.
  */
-import { asc, eq } from 'drizzle-orm'
+import { and, asc, eq, isNull, notExists, sql } from 'drizzle-orm'
 import type { NewTrackPoint, TrackPoint } from '@shared/ipc'
 import type { TrackCleanupResult } from '../tracking/resume-cleanup'
-import { trackPoint } from './schema'
+import { flight, trackPoint } from './schema'
 import type { WingLogDb } from './client'
 
 /**
@@ -71,6 +71,95 @@ export function listTrackPoints(db: WingLogDb, flightId: number): TrackPoint[] {
     .all()
     .map(toTrackPoint)
 }
+
+/**
+ * A flight's track points exactly as stored, for a twin to copy: every column except the ids, which mean nothing on another computer.
+ *
+ * @param db The database.
+ * @param flightId The flight.
+ * @param offset How many points to skip, in recording order.
+ * @param limit The most to return.
+ * @returns The points' fields.
+ */
+export function listTrackPointRows(
+  db: WingLogDb,
+  flightId: number,
+  offset: number,
+  limit: number
+): Record<string, unknown>[] {
+  return db
+    .select()
+    .from(trackPoint)
+    .where(eq(trackPoint.flightId, flightId))
+    .orderBy(asc(trackPoint.id))
+    .limit(limit)
+    .offset(offset)
+    .all()
+    .map((row) => {
+      const fields: Record<string, unknown> = { ...row }
+      // The ids mean nothing on another computer.
+      delete fields.id
+      delete fields.flightId
+      return fields
+    })
+}
+
+/**
+ * @param db The database.
+ * @param flightId The flight.
+ * @returns How many track points it has.
+ */
+export function countTrackPoints(db: WingLogDb, flightId: number): number {
+  return (
+    db
+      .select({ n: sql<number>`count(*)` })
+      .from(trackPoint)
+      .where(eq(trackPoint.flightId, flightId))
+      .get()?.n ?? 0
+  )
+}
+
+/**
+ * @param db The database.
+ * @returns The completed flights that have no track points here yet (their rows came by sync, and their points do not).
+ */
+export function listCompletedFlightsWithoutTrack(db: WingLogDb): { id: number; uuid: string }[] {
+  return db
+    .select({ id: flight.id, uuid: flight.uuid })
+    .from(flight)
+    .where(
+      and(
+        eq(flight.status, 'completed'),
+        isNull(flight.deletedAt),
+        notExists(
+          db
+            .select({ one: sql`1` })
+            .from(trackPoint)
+            .where(eq(trackPoint.flightId, flight.id))
+        )
+      )
+    )
+    .all()
+    .flatMap((row) => (row.uuid ? [{ id: row.id, uuid: row.uuid }] : []))
+}
+
+/**
+ * Stores track points brought from another computer, as one transaction.
+ *
+ * @param db The database.
+ * @param rows The points' fields, already checked, with this computer's flight id.
+ */
+export function insertTrackPointRows(db: WingLogDb, rows: (typeof trackPoint.$inferInsert)[]): void {
+  db.transaction((tx) => {
+    for (let i = 0; i < rows.length; i += INSERT_BATCH)
+      tx.insert(trackPoint)
+        .values(rows.slice(i, i + INSERT_BATCH))
+        .run()
+  })
+}
+
+/** Points per insert statement, under SQLite's limit on variables in one. */
+const INSERT_BATCH = 500
 
 /** Persists a resume-cleanup pass's output (winglog-backend's docs/plans/
  *  resume-track-cleanup.md, Phase 2) — marks junk points, and retags points on the far

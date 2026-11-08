@@ -6,6 +6,8 @@
 
 import type { WingLogDb } from '../db/client'
 import { SYNC_TABLES, type SyncRow, type SyncTable } from '../backend/sync-client'
+import { getFlightIdByUuid } from '../db/flight-repo'
+import { countTrackPoints, listTrackPointRows } from '../db/track-point-repo'
 import {
   applyPushedRows,
   listAndSerializeForPush,
@@ -139,10 +141,55 @@ export function pullPage(
   return { rows, next: more && last ? { updatedAt: last.updatedAt, uuid: last.uuid } : null }
 }
 
+/** Track points in one answer: a point is about 200 bytes, so a page stays well under what a twin takes in one message. */
+export const TRACK_PAGE_ROWS = 2000
+
+/** One page of a flight's recorded track, and where the next begins (null at the end). */
+export interface TrackPage {
+  points: Record<string, unknown>[]
+  next: number | null
+}
+
+/**
+ * @param db The database.
+ * @param uuid A flight's uuid.
+ * @param offset How many points the twin already has.
+ * @returns The next page of the flight's points, or an empty one for a flight this computer does not have.
+ */
+export function trackPointsPage(db: WingLogDb, uuid: string, offset: number): TrackPage {
+  const flightId = getFlightIdByUuid(db, uuid)
+  if (flightId === undefined) return { points: [], next: null }
+  const points = listTrackPointRows(db, flightId, offset, TRACK_PAGE_ROWS)
+  const end = offset + points.length
+  return { points, next: end < countTrackPoints(db, flightId) ? end : null }
+}
+
+/**
+ * @param value A uuid from a twin.
+ * @returns The uuid.
+ * @throws When it is not a short text.
+ */
+function uuidArg(value: unknown): string {
+  if (typeof value !== 'string' || value.length === 0 || value.length > MAX_KEY_CHARS)
+    throw new Error('Invalid flight')
+  return value
+}
+
+/**
+ * @param value An offset from a twin.
+ * @returns The offset.
+ * @throws When it is not a whole number from zero.
+ */
+function offsetArg(value: unknown): number {
+  if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 0)
+    throw new Error('Invalid offset')
+  return value
+}
+
 /**
  * @param db The database.
  * @param dbPath The database file's path, where conflicts are logged next to it.
- * @returns The lookups a twin may ask: `sync.pull` and `sync.push`.
+ * @returns The lookups a twin may ask: `sync.pull`, `sync.push` and `sync.trackPoints`.
  */
 export function twinSyncQueries(
   db: WingLogDb,
@@ -150,6 +197,7 @@ export function twinSyncQueries(
 ): Record<string, (...args: unknown[]) => unknown> {
   return {
     'sync.pull': (table, since, after) => pullPage(db, tableArg(table), sinceArg(since), afterArg(after)),
-    'sync.push': (table, rows) => applyPushedRows(db, tableArg(table), rowsArg(rows), dbPath)
+    'sync.push': (table, rows) => applyPushedRows(db, tableArg(table), rowsArg(rows), dbPath),
+    'sync.trackPoints': (uuid, offset) => trackPointsPage(db, uuidArg(uuid), offsetArg(offset))
   }
 }

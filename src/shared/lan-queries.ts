@@ -44,6 +44,8 @@ export const LAN_QUERY_KINDS: Record<string, LanQueryKind> = {
   // A twin's sync (multi-device Part 4): they read and write the database, so they sit in the slow lane and are never kept.
   'sync.pull': SLOW,
   'sync.push': SLOW,
+  // The recorded track of a completed flight, in pages.
+  'sync.trackPoints': SLOW,
   // A twin's flight commands (multi-device Part 3): quick, and the answer says whether the sim PC took them.
   'flight.fly': FAST,
   'flight.start': FAST,
@@ -56,6 +58,7 @@ export const LAN_QUERY_KINDS: Record<string, LanQueryKind> = {
 export const TWIN_ONLY_QUERIES: readonly string[] = [
   'sync.pull',
   'sync.push',
+  'sync.trackPoints',
   'flight.fly',
   'flight.start',
   'flight.finish',

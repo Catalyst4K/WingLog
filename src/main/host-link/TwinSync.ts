@@ -43,9 +43,16 @@ export class TwinSync implements TwinSyncPort {
    * @param deps.dbPath The database file's path.
    * @param deps.client The sync client over the link.
    * @param deps.canSync Whether the link is up: a sync asked for while it is not waits for the next time it comes up.
+   * @param deps.afterSync Work to do once the tables are level, such as bringing the tracks of completed flights.
    */
   constructor(
-    private readonly deps: { db: WingLogDb; dbPath: string; client: SyncClient; canSync: () => boolean }
+    private readonly deps: {
+      db: WingLogDb
+      dbPath: string
+      client: SyncClient
+      canSync: () => boolean
+      afterSync?: () => Promise<unknown>
+    }
   ) {}
 
   status(): TwinSyncStatus {
@@ -94,6 +101,10 @@ export class TwinSync implements TwinSyncPort {
         this.deps.dbPath,
         'lan'
       )
+      await this.deps.afterSync?.().catch((error: unknown) => {
+        // The tables are in step; a track that could not come now is asked for again at the next sync.
+        logger.warn('[twin-sync] could not bring the tracks of completed flights:', error)
+      })
       this.set({ state: 'idle', lastSyncedAt: result.syncedAt })
     } catch (error) {
       logger.warn('[twin-sync] sync with the sim PC failed:', error)
