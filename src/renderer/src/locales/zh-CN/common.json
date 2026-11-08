@@ -293,7 +293,11 @@
       "addressLabel": "地址",
       "codeLabel": "配对码",
       "connect": "连接",
-      "badAddress": "请输入模拟器电脑的地址和端口，需为家庭网络中的地址，例如 192.168.1.20:5051。"
+      "badAddress": "请输入模拟器电脑的地址和端口，需为家庭网络中的地址，例如 192.168.1.20:5051。",
+      "versionProblem": {
+        "update-this-computer": "此电脑上的 WingLog 比模拟器电脑上的旧，因此飞行日志和机队无法保持同步。请更新此电脑上的 WingLog。",
+        "update-sim-pc": "模拟器电脑上的 WingLog 比此电脑上的旧，因此飞行日志和机队无法保持同步。请更新模拟器电脑上的 WingLog。"
+      }
     },
     "twin": {
       "cardTitle": "其他 WingLog",

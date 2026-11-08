@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { rowsChangedSince, shouldApplyPulledRow } from './sync-rows'
+import { shouldApplyPulledRow } from './sync-rows'
 
 const row = (
   uuid: string | null,
@@ -7,24 +7,6 @@ const row = (
 ): { uuid: string | null; updatedAt: string | null } => ({
   uuid,
   updatedAt
-})
-
-describe('rowsChangedSince', () => {
-  const rows = [
-    row('c', '2026-10-07T12:00:02Z'),
-    row('a', '2026-10-07T12:00:00Z'),
-    row(null, '2026-10-07T12:00:05Z'),
-    row('b', '2026-10-07T12:00:01Z'),
-    row('d', null)
-  ]
-
-  it('sends every row with a sync identity, oldest change first, when never synced', () => {
-    expect(rowsChangedSince(rows, null).map((r) => r.uuid)).toEqual(['a', 'b', 'c'])
-  })
-
-  it('sends only what changed after the cursor', () => {
-    expect(rowsChangedSince(rows, '2026-10-07T12:00:01Z').map((r) => r.uuid)).toEqual(['c'])
-  })
 })
 
 describe('shouldApplyPulledRow', () => {

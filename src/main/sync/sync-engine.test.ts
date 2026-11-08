@@ -10,40 +10,54 @@ import { createDb, type WingLogDb } from '../db/client'
 import { addInvoicesForFlight, listInvoicesForFlight } from '../db/flight-invoice-repo'
 import { createFlight } from '../db/flight-repo'
 import { createLanding, getLandingByFlight } from '../db/landing-repo'
-import { getLastSyncedAt } from '../db/settings-repo'
 import { aircraft, flight, flightInvoice, landing } from '../db/schema'
 import type { SyncRow, SyncTable } from '../backend/sync-client'
-import { MAX_PUSH_ROWS, MAX_ROW_DATA_BYTES, runSync, splitPushBatches, type SyncClient } from './sync-engine'
+import { setPullCursor } from '../db/sync-change-repo'
+import { runCursorSync, type PagedSyncClient } from './cursor-sync'
+import { setSetting } from '../db/settings-repo'
+import {
+  applyPulledRow,
+  MAX_PUSH_ROWS,
+  MAX_ROW_DATA_BYTES,
+  serializeChange,
+  splitPushBatches
+} from './sync-engine'
 
-/** A high-fidelity fake of winglog-backend's real UserStore.push/pull semantics
- *  (last-write-wins on updatedAt, filter-by-since on pull) — see winglog-backend's
- *  src/user-store.ts, which this deliberately mirrors rather than reinventing. */
-class FakeSyncServer implements SyncClient {
-  private rows = new Map<SyncTable, Map<string, SyncRow>>()
+/** A high-fidelity fake of winglog-backend's real UserStore.push/pullPage semantics (last-write-wins on updatedAt, every write takes the
+ *  next number, a pull is a page after a cursor) — see winglog-backend's src/user-store.ts, which this deliberately mirrors rather than
+ *  reinventing. */
+class FakeSyncServer implements PagedSyncClient {
+  private rows = new Map<SyncTable, Map<string, { row: SyncRow; seq: number }>>()
+  private counter = 0
 
-  async syncPull(_email: string, _token: string, table: SyncTable, since: string | null): Promise<SyncRow[]> {
-    const rows = [...(this.rows.get(table)?.values() ?? [])]
-    return rows
-      .filter((r) => since === null || r.updatedAt > since)
-      .sort((a, b) => a.updatedAt.localeCompare(b.updatedAt))
+  async syncPullPage(_email: string, _token: string, table: SyncTable, cursor: number | null) {
+    const after = [...(this.rows.get(table)?.values() ?? [])]
+      .filter((entry) => entry.seq > (cursor ?? 0))
+      .sort((a, b) => a.seq - b.seq)
+    const page = after.slice(0, 200)
+    return {
+      rows: page.map((entry) => entry.row),
+      cursor: page.at(-1)?.seq ?? cursor ?? 0,
+      more: after.length > page.length
+    }
   }
 
-  async syncPush(
-    _email: string,
-    _token: string,
-    table: SyncTable,
-    rows: SyncRow[]
-  ): Promise<{ upserted: string[]; rejected: string[] }> {
-    const store = this.rows.get(table) ?? new Map<string, SyncRow>()
+  /** Test helper: everything the server holds for a table, oldest write first. */
+  async held(table: SyncTable): Promise<SyncRow[]> {
+    return [...(this.rows.get(table)?.values() ?? [])].sort((a, b) => a.seq - b.seq).map((entry) => entry.row)
+  }
+
+  async syncPush(_email: string, _token: string, table: SyncTable, rows: SyncRow[]) {
+    const store = this.rows.get(table) ?? new Map<string, { row: SyncRow; seq: number }>()
     const upserted: string[] = []
     const rejected: string[] = []
     for (const row of rows) {
       const existing = store.get(row.uuid)
-      if (existing && existing.updatedAt >= row.updatedAt) {
+      if (existing && existing.row.updatedAt >= row.updatedAt) {
         rejected.push(row.uuid)
         continue
       }
-      store.set(row.uuid, row)
+      store.set(row.uuid, { row, seq: ++this.counter })
       upserted.push(row.uuid)
     }
     this.rows.set(table, store)
@@ -52,11 +66,19 @@ class FakeSyncServer implements SyncClient {
 
   /** Test helper: seed a row directly, as if another device already pushed it. */
   seed(table: SyncTable, row: SyncRow): void {
-    const store = this.rows.get(table) ?? new Map<string, SyncRow>()
-    store.set(row.uuid, row)
+    const store = this.rows.get(table) ?? new Map<string, { row: SyncRow; seq: number }>()
+    store.set(row.uuid, { row, seq: ++this.counter })
     this.rows.set(table, store)
   }
 }
+
+/** One cycle with the fake peer, as the cloud controller runs it. */
+const runSync = (
+  db: WingLogDb,
+  peer: PagedSyncClient,
+  session: { email: string; token: string },
+  dbPath: string
+) => runCursorSync(db, peer, session, dbPath, 'cloud')
 
 const SESSION = { email: 'callum@example.com', token: 'test-token' }
 
@@ -85,7 +107,7 @@ describe('sync-engine', () => {
     const result = await runSync(db, server, SESSION, dbPath)
 
     expect(result.tables.aircraft.pushed).toBe(1)
-    const pulled = await server.syncPull(SESSION.email, SESSION.token, 'aircraft', null)
+    const pulled = await server.held('aircraft')
     expect(pulled).toHaveLength(1)
     expect(JSON.parse(pulled[0].data)).toMatchObject({ registration: 'G-ABCD', icaoType: 'A320' })
   })
@@ -114,15 +136,10 @@ describe('sync-engine', () => {
     expect(row).toBeDefined()
   })
 
-  it('advances lastSyncedAt only after a table syncs cleanly', async () => {
-    expect(getLastSyncedAt(db, 'aircraft')).toBeNull()
-    await runSync(db, server, SESSION, dbPath)
-    expect(getLastSyncedAt(db, 'aircraft')).not.toBeNull()
-  })
-
   it('logs a rejected (last-write-wins loser) push to sync-conflicts.log instead of dropping it silently', async () => {
     // Seed the server with a *newer* version of the same uuid the local push will use —
-    // simulates another device having already won this row's last edit.
+    // simulates another device having already won this row's last edit, between this device's pull and its push (so the pull did not see it).
+    setPullCursor(db, 'cloud', 'aircraft', 1000)
     const created = createAircraft(db, { registration: 'G-ABCD', icaoType: 'A320' })
     const localRow = db.select().from(aircraft).where(eq(aircraft.id, created.id)).get()!
     server.seed('aircraft', {
@@ -163,7 +180,7 @@ describe('sync-engine', () => {
 
     await runSync(db, server, SESSION, dbPath)
 
-    const pushedInvoices = await server.syncPull(SESSION.email, SESSION.token, 'flightInvoice', null)
+    const pushedInvoices = await server.held('flightInvoice')
     expect(pushedInvoices).toHaveLength(1)
     const data = JSON.parse(pushedInvoices[0].data) as Record<string, unknown>
     expect(data.flightUuid).toBeTypeOf('string')
@@ -250,7 +267,7 @@ describe('sync-engine', () => {
 
     // Profile B's genuinely-newer edit must actually reach the server, not just survive
     // locally — otherwise the next device to sync would never see it.
-    const serverRows = await server.syncPull(SESSION.email, SESSION.token, 'aircraft', null)
+    const serverRows = await server.held('aircraft')
     const serverRow = serverRows.find((r) => r.uuid === syncedUuid)
     expect(serverRow).toBeDefined()
     expect(JSON.parse(serverRow!.data)).toMatchObject({ registration: 'G-FROM-B' })
@@ -380,7 +397,7 @@ describe('sync-engine', () => {
     const result = await runSync(db, server, SESSION, dbPath)
 
     expect(result.tables.flight.pushed).toBe(0)
-    expect(await server.syncPull(SESSION.email, SESSION.token, 'flight', null)).toEqual([])
+    expect(await server.held('flight')).toEqual([])
   })
 
   it('reports a real DB failure (unique constraint) applying a pulled row as skipped, not a crash', async () => {
@@ -468,7 +485,7 @@ describe('sync-engine', () => {
     const result = await runSync(db, server, SESSION, dbPath)
 
     expect(result.tables.landing.pushed).toBe(1)
-    const pushed = await server.syncPull(SESSION.email, SESSION.token, 'landing', null)
+    const pushed = await server.held('landing')
     expect(pushed).toHaveLength(1)
     const data = JSON.parse(pushed[0].data) as Record<string, unknown>
     expect(data.flightUuid).toBeTypeOf('string')
@@ -531,7 +548,7 @@ describe('sync-engine', () => {
 
     expect(result.tables.landing.pushed).toBe(0)
     expect(result.tables.flightInvoice.pushed).toBe(0)
-    expect(await server.syncPull(SESSION.email, SESSION.token, 'landing', null)).toEqual([])
+    expect(await server.held('landing')).toEqual([])
     expect(listInvoicesForFlight(db, createdFlight.id)).toHaveLength(1) // still there locally
   })
 
@@ -658,9 +675,7 @@ describe('sync-engine', () => {
       const next = createAircraft(db, { registration: 'G-NEW1', icaoType: 'A320' })
       replaceAircraft(db, { retiredId: old.id, replacementId: next.id })
       await runSync(db, server, SESSION, dbPath)
-      const pushed = (await server.syncPull(SESSION.email, SESSION.token, 'aircraft', null)).map(
-        (r) => JSON.parse(r.data) as Record<string, unknown>
-      )
+      const pushed = (await server.held('aircraft')).map((r) => JSON.parse(r.data) as Record<string, unknown>)
       expect(pushed.every((d) => d.replacedByAircraftId === undefined)).toBe(true)
 
       const second = createDb(':memory:')
@@ -1087,9 +1102,7 @@ describe('sync-engine', () => {
       const pushed = await runSync(db, server, SESSION, dbPath)
 
       expect(pushed.tables.flight.pushed).toBe(1)
-      const wire = JSON.parse(
-        (await server.syncPull(SESSION.email, SESSION.token, 'flight', null))[0].data
-      ) as Record<string, unknown>
+      const wire = JSON.parse((await server.held('flight'))[0].data) as Record<string, unknown>
       expect(wire.aircraftUuid).toBeNull()
       const other = createDb(':memory:')
       migrate(other.db, { migrationsFolder: 'drizzle' })
@@ -1113,6 +1126,152 @@ describe('sync-engine', () => {
       const result = await runSync(db, server, SESSION, dbPath)
 
       expect(result.tables.flight.skipped).toEqual(['broken'])
+    })
+  })
+
+  describe('a flight with a SimBrief OFP', () => {
+    /** About the size and shape of a real OFP: 1.2 MB of JSON with many strings, which escapes badly inside another JSON string. */
+    const bigOfp = (): string =>
+      JSON.stringify({
+        navlog: Array.from({ length: 6000 }, (_, i) => ({
+          ident: `FIX${i}`,
+          name: `Waypoint "${i}" / sector`,
+          via_airway: 'N' + (i % 90),
+          pos_lat: (i * 0.0137).toFixed(6),
+          pos_long: (i * 0.0291).toFixed(6),
+          wind_dir: String(i % 360),
+          note: 'a\\b\\c ' + 'x'.repeat(60)
+        }))
+      })
+
+    function flightWithOfp(ofp: string): number {
+      const plane = createAircraft(db, { registration: 'G-ABCD', icaoType: 'A320' })
+      const created = createFlight(db, { aircraftId: plane.id, depIcao: 'EGLL', arrIcao: 'EGCC' })
+      db.update(flight).set({ ofpJson: ofp }).where(eq(flight.id, created.id)).run()
+      return created.id
+    }
+
+    it('sends it compressed, so a 1.2 MB OFP fits the backend’s row limit, and the other device gets the same text back', async () => {
+      const ofp = bigOfp()
+      expect(ofp.length).toBeGreaterThan(1_000_000)
+      flightWithOfp(ofp)
+
+      const pushed = await runSync(db, server, SESSION, dbPath)
+
+      expect(pushed.tables.flight.pushed).toBe(1)
+      expect(pushed.tables.flight.skipped).toEqual([])
+      const wire = (await server.held('flight'))[0]
+      expect(Buffer.byteLength(wire.data)).toBeLessThan(MAX_ROW_DATA_BYTES)
+      expect(Buffer.byteLength(wire.data)).toBeLessThan(ofp.length / 2)
+      const fields = JSON.parse(wire.data) as Record<string, unknown>
+      expect(fields.ofpJson).toBeUndefined()
+      expect(fields.ofpJsonZ).toBeTypeOf('string')
+
+      const other = createDb(':memory:')
+      migrate(other.db, { migrationsFolder: 'drizzle' })
+      const pulled = await runSync(other.db, server, SESSION, join(tempDir, 'other.db'))
+      expect(pulled.tables.flight.skipped).toEqual([])
+      expect(other.db.select().from(flight).get()?.ofpJson).toBe(ofp)
+    })
+
+    it('sends a flight with no OFP as null, and clears the other device’s copy when the OFP is removed', async () => {
+      const id = flightWithOfp('{"a":1}')
+      await runSync(db, server, SESSION, dbPath)
+      const other = createDb(':memory:')
+      migrate(other.db, { migrationsFolder: 'drizzle' })
+      const otherPath = join(tempDir, 'other.db')
+      await runSync(other.db, server, SESSION, otherPath)
+      expect(other.db.select().from(flight).get()?.ofpJson).toBe('{"a":1}')
+
+      db.update(flight)
+        .set({ ofpJson: null, updatedAt: '2099-01-01T00:00:00.000Z' })
+        .where(eq(flight.id, id))
+        .run()
+      await runSync(db, server, SESSION, dbPath)
+      await runSync(other.db, server, SESSION, otherPath)
+
+      expect(other.db.select().from(flight).get()?.ofpJson).toBeNull()
+    })
+
+    it('still applies a row from before ofpJsonZ that carries a plain ofpJson', async () => {
+      server.seed('aircraft', {
+        uuid: 'a1',
+        updatedAt: '2099-01-01T00:00:00.000Z',
+        data: JSON.stringify({ registration: 'G-OLD1', icaoType: 'A320' })
+      })
+      server.seed('flight', {
+        uuid: 'old-flight',
+        updatedAt: '2099-01-01T00:00:00.000Z',
+        data: JSON.stringify({
+          aircraftUuid: 'a1',
+          depIcao: 'EGLL',
+          arrIcao: 'EGCC',
+          ofpJson: '{"plain":true}'
+        })
+      })
+
+      await runSync(db, server, SESSION, dbPath)
+
+      expect(db.select().from(flight).get()?.ofpJson).toBe('{"plain":true}')
+    })
+
+    it('skips a row whose OFP cannot be read, and carries on with the rest', async () => {
+      server.seed('aircraft', {
+        uuid: 'a1',
+        updatedAt: '2099-01-01T00:00:00.000Z',
+        data: JSON.stringify({ registration: 'G-OLD1', icaoType: 'A320' })
+      })
+      server.seed('flight', {
+        uuid: 'broken-ofp',
+        updatedAt: '2099-01-01T00:00:00.000Z',
+        data: JSON.stringify({ aircraftUuid: 'a1', depIcao: 'EGLL', arrIcao: 'EGCC', ofpJsonZ: 'AAAA' })
+      })
+      server.seed('flight', {
+        uuid: 'fine',
+        updatedAt: '2099-01-02T00:00:00.000Z',
+        data: JSON.stringify({ aircraftUuid: 'a1', depIcao: 'EGCC', arrIcao: 'EGLL' })
+      })
+
+      const result = await runSync(db, server, SESSION, dbPath)
+
+      expect(result.tables.flight.skipped).toEqual(['broken-ofp'])
+      expect(db.select().from(flight).all()).toHaveLength(1)
+    })
+  })
+  describe('rows that cannot be applied or found', () => {
+    it('skips a pulled aircraft or landing whose fields are the wrong type, and says why', async () => {
+      server.seed('aircraft', {
+        uuid: 'bad-aircraft',
+        updatedAt: '2099-01-01T00:00:00.000Z',
+        data: JSON.stringify({ registration: 'G-BAD1', icaoType: 'A320', operator: 5 })
+      })
+      server.seed('landing', {
+        uuid: 'bad-landing',
+        updatedAt: '2099-01-01T00:00:00.000Z',
+        data: JSON.stringify({ flightUuid: 'whatever', verticalSpeedMs: 'hard' })
+      })
+
+      const result = await runSync(db, server, SESSION, dbPath)
+
+      expect(result.tables.aircraft.skipped).toEqual(['bad-aircraft'])
+      expect(result.tables.landing.skipped).toEqual(['bad-landing'])
+    })
+
+    it('finds nothing to send for a uuid that is not in the table, in any of the four', () => {
+      for (const table of ['aircraft', 'flight', 'landing', 'flightInvoice'] as const) {
+        expect(serializeChange(db, table, 'no-such-uuid')).toBeNull()
+      }
+    })
+
+    it('takes the pulled registration when the aircraft an alias points to is no longer here', () => {
+      setSetting(db, 'aircraftAlias:other-device', 'gone-from-here')
+      const outcome = applyPulledRow(db, 'aircraft', {
+        uuid: 'other-device',
+        updatedAt: '2099-01-01T00:00:00.000Z',
+        data: JSON.stringify({ registration: 'G-NEWR', icaoType: 'A320' })
+      })
+      expect(outcome).toMatchObject({ ok: true, applied: true, uuid: 'gone-from-here' })
+      expect(db.select().from(aircraft).get()?.registration).toBe('G-NEWR')
     })
   })
 })

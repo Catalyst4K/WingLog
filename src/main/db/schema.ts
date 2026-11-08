@@ -218,6 +218,23 @@ export const appSetting = sqliteTable('app_setting', {
   value: text('value').notNull()
 })
 
+// This database's own change counter for sync (winglog-backend docs/plans/sync-cursors.md). One entry per synced row, kept by triggers (the
+// custom migration after this table's): every insert of a synced row, and every update that sets its updated_at, replaces the row's entry with
+// a new, higher seq. A peer's cursor is a seq, never a time, so it can't skip a row the way a time taken from another clock could.
+// `origin` is null for a change made here, or names the peer a row was applied from ('cloud', 'host', 'twin:<id>'), so a row is not sent back
+// to the peer it came from, while a row that came from one peer is still sent on to another. `updated_at` stays what it always was: the
+// last-write-wins clock that settles a conflict.
+export const syncChange = sqliteTable(
+  'sync_change',
+  {
+    seq: integer('seq').primaryKey({ autoIncrement: true }),
+    tableName: text('table_name').notNull(),
+    uuid: text('uuid').notNull(),
+    origin: text('origin')
+  },
+  (table) => [uniqueIndex('sync_change_table_uuid_idx').on(table.tableName, table.uuid)]
+)
+
 // A phone or tablet paired with the second-screen server (winglog-backend's docs/plans/lan-web-viewer.md). Only a SHA-256 hash of its
 // token is stored, so a copy of the database can't be replayed against the server. Revoked rows are kept, with revoked_at set.
 export const lanDevice = sqliteTable('lan_device', {

@@ -300,7 +300,11 @@
       "addressLabel": "Adresse",
       "codeLabel": "Code d’appairage",
       "connect": "Se connecter",
-      "badAddress": "Saisissez l’adresse du PC du simulateur avec son port, une adresse de votre réseau domestique, par exemple 192.168.1.20:5051."
+      "badAddress": "Saisissez l’adresse du PC du simulateur avec son port, une adresse de votre réseau domestique, par exemple 192.168.1.20:5051.",
+      "versionProblem": {
+        "update-this-computer": "WingLog sur cet ordinateur est plus ancien que celui du PC du simulateur : le carnet de vol et la flotte ne sont pas synchronisés. Mettez WingLog à jour sur cet ordinateur.",
+        "update-sim-pc": "WingLog sur le PC du simulateur est plus ancien que celui de cet ordinateur : le carnet de vol et la flotte ne sont pas synchronisés. Mettez WingLog à jour sur le PC du simulateur."
+      }
     },
     "twin": {
       "cardTitle": "Autres WingLog",

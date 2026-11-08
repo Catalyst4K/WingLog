@@ -12,7 +12,6 @@ import {
   listAllLandings,
   listLandingsByAircraft,
   listLandingsByFlight,
-  listLandingsForSync,
   upsertLandingByUuid
 } from './landing-repo'
 
@@ -216,26 +215,6 @@ describe('landing repo', () => {
       const created = createLanding(db, makeLanding(flightId))
       db.update(landing).set({ deletedAt: new Date().toISOString() }).where(eq(landing.id, created.id)).run()
       expect(listAllLandings(db)).toEqual([])
-    })
-  })
-
-  describe('listLandingsForSync', () => {
-    it('returns every synced-eligible landing when since is null', () => {
-      createLanding(db, makeLanding(flightId))
-      const rows = listLandingsForSync(db, null)
-      expect(rows).toHaveLength(1)
-    })
-
-    it('excludes landings updated at or before since', () => {
-      createLanding(db, makeLanding(flightId))
-      // Pinned, not read back: two creates in the same millisecond share a timestamp on a fast machine.
-      const cutoff = '2026-01-01T00:00:00.000Z'
-      db.update(landing).set({ updatedAt: cutoff }).run()
-      const flight2 = createFlight(db, { aircraftId, depIcao: 'EGCC', arrIcao: 'EGLL' })
-      createLanding(db, makeLanding(flight2.id))
-      const rows = listLandingsForSync(db, cutoff)
-      expect(rows).toHaveLength(1)
-      expect(rows[0].flightId).toBe(flight2.id)
     })
   })
 

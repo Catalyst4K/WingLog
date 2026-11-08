@@ -27,13 +27,13 @@ const UNPAIRED: HostLinkStatus = {
   state: 'unpaired',
   address: null,
   hostSim: null,
-  sync: { state: 'idle', lastSyncedAt: null }
+  sync: { state: 'idle', lastSyncedAt: null, problem: null }
 }
 const CONNECTED: HostLinkStatus = {
   state: 'connected',
   address: '192.168.1.20:5051',
   hostSim: 'connected',
-  sync: { state: 'idle', lastSyncedAt: null }
+  sync: { state: 'idle', lastSyncedAt: null, problem: null }
 }
 
 describe('HostLinkCard', () => {
@@ -71,6 +71,30 @@ describe('HostLinkCard', () => {
     expect(await screen.findByText(/address on your home network/)).toBeInTheDocument()
   })
 
+  it('says nothing about versions while the two computers can sync', async () => {
+    setup(CONNECTED)
+    render(<HostLinkCard />)
+    await screen.findByText('Paired with 192.168.1.20:5051')
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it.each([
+    ['update-this-computer', /WingLog is older than the sim PC.s.*Update WingLog on this computer/],
+    ['update-sim-pc', /sim PC.s WingLog is older than this computer.s.*Update WingLog on the sim PC/]
+  ] as const)('says which computer to update when the versions differ (%s)', async (problem, message) => {
+    setup({ ...CONNECTED, sync: { state: 'error', lastSyncedAt: null, problem } })
+    render(<HostLinkCard />)
+    expect(await screen.findByRole('alert')).toHaveTextContent(message)
+  })
+
+  it('shows the message as soon as the link reports it', async () => {
+    const { push } = setup(CONNECTED)
+    render(<HostLinkCard />)
+    await screen.findByText('Paired with 192.168.1.20:5051')
+    push({ ...CONNECTED, sync: { state: 'error', lastSyncedAt: null, problem: 'update-sim-pc' } })
+    expect(await screen.findByRole('alert')).toHaveTextContent('Update WingLog on the sim PC')
+  })
+
   it('shows the sim PC it is paired with and can forget it', async () => {
     const { api } = setup(CONNECTED)
     render(<HostLinkCard />)
@@ -89,14 +113,14 @@ describe('HostLinkCard', () => {
       state: 'offline',
       address: '192.168.1.20:5051',
       hostSim: 'disconnected',
-      sync: { state: 'idle', lastSyncedAt: null }
+      sync: { state: 'idle', lastSyncedAt: null, problem: null }
     })
     expect(await screen.findByText('Not reachable, trying again')).toBeInTheDocument()
     push({
       state: 'wrong-code',
       address: '192.168.1.20:5051',
       hostSim: null,
-      sync: { state: 'idle', lastSyncedAt: null }
+      sync: { state: 'idle', lastSyncedAt: null, problem: null }
     })
     expect(await screen.findByText('Wrong code')).toBeInTheDocument()
     expect(screen.getByLabelText('Pairing code')).toBeInTheDocument()

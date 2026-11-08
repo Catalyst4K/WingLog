@@ -35,7 +35,7 @@ import { trackCommands } from '../live/commands'
 import type { LiveCommand } from '@shared/live'
 import { fetchMetars } from '../weather/metar-client'
 import { LanController } from './LanController'
-import { twinSyncQueries } from './twin-sync'
+import { twinSyncDeviceQueries, twinSyncQueries } from './twin-sync'
 import { twinFlightQueries, type FlightControl } from './twin-flight'
 import { onLocalWrite } from '../sync/local-write-hints'
 import { lanFlightKey, lanFlightSnapshot } from './lan-flight'
@@ -231,8 +231,9 @@ export function createLan({
       const settings = getLanSettings(db)
       return { screen: settings.enabled, twin: settings.twinEnabled }
     },
+    deviceQueries: twinSyncDeviceQueries(db, dbPath),
     queries: {
-      ...twinSyncQueries(db, dbPath),
+      ...twinSyncQueries(db),
       ...twinFlightQueries(flightControl),
       ...lanQueries(navdata, {
         display: () => ({

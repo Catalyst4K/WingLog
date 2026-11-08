@@ -77,6 +77,11 @@ export function HostLinkCard(): React.JSX.Element {
           </Button>
         </SettingRow>
       ) : null}
+      {paired && status.sync.problem ? (
+        <p role="alert" className="text-xs text-destructive">
+          {t(`settingsView.hostLink.versionProblem.${status.sync.problem}`)}
+        </p>
+      ) : null}
       {!paired || state === 'wrong-code' ? (
         <>
           <SettingRow label={t('settingsView.hostLink.addressLabel')} controlId={addressId}>

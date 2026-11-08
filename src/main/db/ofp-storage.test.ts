@@ -5,13 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import { createAircraft } from './aircraft-repo'
 import { createDb, type WingLogDbHandle } from './client'
-import {
-  createFlight,
-  getFlight,
-  listCompletedFlights,
-  listFlightsForSync,
-  upsertFlightByUuid
-} from './flight-repo'
+import { createFlight, getFlight, listCompletedFlights, upsertFlightByUuid } from './flight-repo'
 import { compressStoredOfps, reclaimFreeSpace } from './ofp-storage'
 
 /** Something shaped like a SimBrief OFP, sized in fixes. */
@@ -94,7 +88,7 @@ describe('OFP storage', () => {
     it('hands sync and export the OFP as text, and compresses what sync writes', () => {
       const text = ofp(30, 'sync')
       const flight = createFlight(handle.db, { aircraftId, depIcao: 'EGLL', arrIcao: 'EGCC', ofpJson: text })
-      expect(listFlightsForSync(handle.db, null).find((r) => r.id === flight.id)?.ofpJson).toBe(text)
+      expect(getFlight(handle.db, flight.id)?.ofpJson).toBe(text)
       // A flight pulled from another device arrives as text and is stored compressed.
       const pulled = ofp(25, 'pulled')
       expect(

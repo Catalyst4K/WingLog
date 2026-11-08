@@ -14,21 +14,18 @@ import {
   forgotPassword as backendForgotPassword,
   resetPassword as backendResetPassword,
   provision as backendProvision,
-  syncPull,
+  syncPullPage,
   syncPush
 } from '../backend/sync-client'
 import { clearSession, saveSession, type StoredSession } from '../backend/session-store'
 import { join } from 'node:path'
 import { backupBeforeFirstSync } from '../db/backup'
-import {
-  clearCloudSyncCursors,
-  getLastSyncCompletedAt,
-  getSetting,
-  setLastSyncCompletedAt,
-  setSetting
-} from '../db/settings-repo'
+import { getLastSyncCompletedAt, getSetting, setLastSyncCompletedAt, setSetting } from '../db/settings-repo'
 import type { WingLogDb } from '../db/client'
-import { runSync } from './sync-engine'
+import { resetPeer, runCursorSync } from './cursor-sync'
+
+/** Whose cursors and whose rows' origin these are: the cloud account, as against a twin or the sim PC. */
+const CLOUD_PEER = 'cloud'
 
 /**
  * Cloud sync for the app: the signed-in session, its status, and running a sync.
@@ -130,7 +127,7 @@ export class CloudSyncController {
     if (!this.session) throw new Error(t('errors.notLoggedIn'))
     await backendDeleteAccount(this.session.email, password)
     // A later account on this computer is sent everything, not only what changed since this one's last sync.
-    clearCloudSyncCursors(this.db)
+    resetPeer(this.db, CLOUD_PEER)
     return this.forgetSession()
   }
 
@@ -163,10 +160,16 @@ export class CloudSyncController {
         const backup = backupBeforeFirstSync(this.dbPath, join(this.userDataPath, 'backups'))
         // The cursors belong to the account the device last synced with. A new account starts empty, so with the old cursors it would be sent only
         // what changed since, and never the rest. The first sync with an account sends and fetches everything.
-        clearCloudSyncCursors(this.db)
+        resetPeer(this.db, CLOUD_PEER)
         setSetting(this.db, backupKey, backup ?? 'no database file')
       }
-      const result = await runSync(this.db, { syncPull, syncPush }, this.session, this.dbPath)
+      const result = await runCursorSync(
+        this.db,
+        { syncPullPage, syncPush },
+        this.session,
+        this.dbPath,
+        CLOUD_PEER
+      )
       this.lastSyncedAt = result.syncedAt
       setLastSyncCompletedAt(this.db, result.syncedAt)
       this.lastError = null

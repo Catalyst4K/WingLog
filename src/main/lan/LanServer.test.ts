@@ -517,6 +517,65 @@ describe('LanServer', () => {
       for (const id of [3, 4, 5, 7, 8]) expect(results).toContainEqual({ t: 'result', id, error: true })
     })
 
+    it('tells a twin, once for a burst of changes, that the PC’s database changed, and tells a second screen nothing', async () => {
+      const { server, connect } = await setup()
+      const twin = await connect()
+      twin.send({ t: 'pair', code: server.openPairing('twin').code, name: 'Mac', kind: 'twin' })
+      await twin.message('paired')
+      const screen = await connect()
+      screen.send({ t: 'pair', code: server.openPairing('screen').code, name: 'Phone' })
+      await screen.message('paired')
+
+      server.notifyTwins()
+      server.notifyTwins()
+      server.notifyTwins()
+      await twin.message('sync')
+      await new Promise((resolve) => setTimeout(resolve, 1200))
+
+      expect(twin.received.filter((m) => m.t === 'sync')).toHaveLength(1)
+      expect(screen.received.filter((m) => m.t === 'sync')).toHaveLength(0)
+    })
+
+    describe('a lookup that needs to know which device is asking', () => {
+      /** A server with one such lookup, and the calls it was given. */
+      async function withDeviceLookup() {
+        const calls: unknown[][] = []
+        const made = await setup({
+          deviceQueries: {
+            'sync.pull': (deviceId, ...args) => {
+              calls.push([deviceId, ...args])
+              return 'a page'
+            }
+          }
+        })
+        return { ...made, calls }
+      }
+
+      it('gives a twin its own device id first, and a plain lookup nothing extra', async () => {
+        const { server, connect, calls } = await withDeviceLookup()
+        const device = await connect()
+        device.send({ t: 'pair', code: server.openPairing('twin').code, name: 'Mac', kind: 'twin' })
+        await device.message('paired')
+        device.send({ t: 'query', id: 1, name: 'sync.pull', args: ['aircraft', null] })
+        device.send({ t: 'query', id: 2, name: 'echo', args: ['aircraft', null] })
+        await device.waitFor(() => device.received.filter((m) => m.t === 'result').length === 2)
+
+        expect(calls).toEqual([[expect.any(Number), 'aircraft', null]])
+        const results = device.received.filter((m) => m.t === 'result')
+        expect(results).toContainEqual({ t: 'result', id: 1, data: 'a page' })
+        expect(results).toContainEqual({ t: 'result', id: 2, data: ['aircraft', null] })
+      })
+
+      it('does not exist for a second screen, which is refused it as for any lookup it may not ask', async () => {
+        const { pair, calls } = await withDeviceLookup()
+        const { client } = await pair()
+        client.send({ t: 'query', id: 1, name: 'sync.pull', args: ['aircraft', null] })
+        await client.waitFor(() => client.received.some((m) => m.t === 'result'))
+        expect(client.received.find((m) => m.t === 'result')).toEqual({ t: 'result', id: 1, error: true })
+        expect(calls).toEqual([])
+      })
+    })
+
     it('answers a quick lookup over the limit with busy and a time to wait, not with silence', async () => {
       const { pair } = await setup()
       const { client } = await pair()

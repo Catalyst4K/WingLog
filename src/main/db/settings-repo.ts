@@ -3,7 +3,7 @@
  * default for a missing or unknown stored value (a hand-edited row, or one from a newer version), so
  * a bad row never reaches the UI.
  */
-import { and, eq, like, notLike } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import { APP_LANGUAGE_OPTIONS } from '@shared/app-language'
 import { parseRunMode, type RunMode } from '@shared/run-mode'
 import {
@@ -447,46 +447,10 @@ export function setBeyondAtcSettings(db: WingLogDb, settings: BeyondAtcSettings)
   setSetting(db, BEYONDATC_HOST_KEY, settings.host || 'localhost')
 }
 
-/** Per-table sync cursor (winglog-backend/docs/plans/cloud-sync.md's pull-then-push
- *  protocol) — null means "never synced", so a pull fetches everything and a push sends
- *  every local row. Updated only after both directions succeed for a sync run, so a
- *  failed sync retries cleanly rather than marking partial progress as done.
- *
- * @param db The database.
- * @param table The synced table.
- * @returns The cursor as an ISO time, or null.
- */
-export function getLastSyncedAt(db: WingLogDb, table: string): string | null {
-  return getSetting(db, `lastSyncedAt:${table}`) ?? null
-}
-
-/**
- * Moves one table's sync cursor.
- *
- * @param db The database.
- * @param table The synced table.
- * @param isoTimestamp The new cursor.
- */
-export function setLastSyncedAt(db: WingLogDb, table: string, isoTimestamp: string): void {
-  setSetting(db, `lastSyncedAt:${table}`, isoTimestamp)
-}
-
-/**
- * Forgets the cloud account's per-table sync cursors, so the next sync pulls and pushes every row. The twin link's cursors (`lan:`) are left alone.
- *
- * @param db The database.
- */
-export function clearCloudSyncCursors(db: WingLogDb): void {
-  db.delete(appSetting)
-    .where(and(like(appSetting.key, 'lastSyncedAt:%'), notLike(appSetting.key, 'lastSyncedAt:lan:%')))
-    .run()
-}
-
 const LAST_SYNC_COMPLETED_KEY = 'lastSyncCompletedAt'
 
 /** The single timestamp Settings' "Last synced" line shows — distinct from
- *  getLastSyncedAt's per-table cursor above (an internal sync-protocol detail that exists
- *  even mid-sync, per table). This is only ever set once a full sync run has actually
+ *  a sync's per-table cursors (an internal sync-protocol detail that exists even mid-sync, per table). This is only ever set once a full sync run has actually
  *  finished, and persists across a restart — CloudSyncController's status was previously
  *  in-memory only, so "Never synced yet." kept showing on every launch regardless of sync
  *  history. Empty string (from clearing on logout) reads back as null, same convention as
@@ -511,7 +475,7 @@ export function setLastSyncCompletedAt(db: WingLogDb, isoTimestamp: string): voi
 
 /** A remembered `title` -> fleet aircraft mapping (free-flight-tracking.md's aircraft-
  *  resolution step 2: "I've seen this aircraft before, it's my G-EUYY") — namespaced
- *  app_setting rows, same pattern as getLastSyncedAt's per-table cursor above, rather than
+ *  app_setting rows, same pattern as the per-table sync cursors, rather than
  *  a new table for what's a small map keyed by an add-on's own title string.
  *
  * @param title The sim aircraft's title.

@@ -13,7 +13,6 @@ import {
   getMinimizeToTray,
   setMinimizeToTray,
   getHostOnly,
-  clearCloudSyncCursors,
   setHostOnly,
   getStartWithWindows,
   setStartWithWindows,
@@ -24,7 +23,6 @@ import {
   getTrackingSettings,
   getLandingDistanceUnit,
   getLastSyncCompletedAt,
-  getLastSyncedAt,
   getRunMode,
   getSetting,
   getSimbriefUsername,
@@ -48,7 +46,6 @@ import {
   setTrackingSettings,
   setLandingDistanceUnit,
   setLastSyncCompletedAt,
-  setLastSyncedAt,
   setSetting,
   setSimbriefUsername,
   setTheme,
@@ -272,16 +269,6 @@ describe('settings repo', () => {
     expect(getStartWithWindows(db)).toBe(false)
   })
 
-  it('forgets the cloud cursors and keeps the twin link’s', () => {
-    setLastSyncedAt(db, 'aircraft', '2026-09-01T00:00:00.000Z')
-    setLastSyncedAt(db, 'flight', '2026-09-02T00:00:00.000Z')
-    setLastSyncedAt(db, 'lan:flight', '2026-11-08T00:00:00.000Z')
-    clearCloudSyncCursors(db)
-    expect(getLastSyncedAt(db, 'aircraft')).toBeNull()
-    expect(getLastSyncedAt(db, 'flight')).toBeNull()
-    expect(getLastSyncedAt(db, 'lan:flight')).toBe('2026-11-08T00:00:00.000Z')
-  })
-
   it('defaults the last-synced-completed timestamp to null when never set', () => {
     expect(getLastSyncCompletedAt(db)).toBeNull()
   })
@@ -315,16 +302,6 @@ describe('settings repo', () => {
   it('marks the GSX first-launch check as run', () => {
     setCheckedGsxFirstLaunch(db)
     expect(hasCheckedGsxFirstLaunch(db)).toBe(true)
-  })
-
-  it('defaults a table sync cursor to null when never set', () => {
-    expect(getLastSyncedAt(db, 'aircraft')).toBeNull()
-  })
-
-  it('round-trips a per-table sync cursor independently of other tables', () => {
-    setLastSyncedAt(db, 'aircraft', '2026-09-06T12:00:00.000Z')
-    expect(getLastSyncedAt(db, 'aircraft')).toBe('2026-09-06T12:00:00.000Z')
-    expect(getLastSyncedAt(db, 'flight')).toBeNull()
   })
 
   describe('title -> fleet aircraft memory (free-flight-tracking.md)', () => {

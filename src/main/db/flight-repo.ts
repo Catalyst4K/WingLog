@@ -22,7 +22,7 @@ import { aircraft, flight, flightInvoice, landing, trackPoint } from './schema'
 // Live in src/shared so the host-side tracking code can use them without importing the database.
 export type { NewFreeFlightInput, PausedInterval } from '@shared/ipc'
 import type { WingLogDb } from './client'
-import { rowsChangedSince, shouldApplyPulledRow } from './sync-rows'
+import { shouldApplyPulledRow } from './sync-rows'
 
 /**
  * A database row as a Flight.
@@ -796,17 +796,6 @@ export function getFleetStats(db: WingLogDb): FleetStats[] {
     }
   }
   return [...byAircraft.values()].sort((a, b) => a.registration.localeCompare(b.registration))
-}
-
-/**
- * See aircraft-repo.ts's listAircraftForSync for the shape/reasoning this mirrors.
- *
- * @param db The database.
- * @param since The sync cursor, or null for every row.
- * @returns The rows, oldest change first.
- */
-export function listFlightsForSync(db: WingLogDb, since: string | null): (typeof flight.$inferSelect)[] {
-  return rowsChangedSince(db.select().from(flight).all(), since)
 }
 
 /** See aircraft-repo.ts's upsertAircraftByUuid for the shape/reasoning this mirrors,

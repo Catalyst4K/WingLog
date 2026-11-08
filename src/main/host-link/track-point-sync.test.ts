@@ -72,7 +72,7 @@ describe('the track of completed flights, from the sim PC', () => {
   })
 
   function ask() {
-    const queries = twinSyncQueries(host, ':memory:')
+    const queries = twinSyncQueries(host)
     return (name: string, ...args: unknown[]) =>
       Promise.resolve(JSON.parse(JSON.stringify(queries[name](...JSON.parse(JSON.stringify(args))))))
   }
@@ -133,7 +133,7 @@ describe('the track of completed flights, from the sim PC', () => {
   }
 
   it('refuses a bad flight or offset in the lookup', () => {
-    const queries = twinSyncQueries(host, ':memory:')
+    const queries = twinSyncQueries(host)
     expect(() => queries['sync.trackPoints'](5, 0)).toThrow('Invalid flight')
     expect(() => queries['sync.trackPoints']('uuid', -1)).toThrow('Invalid offset')
     expect(() => queries['sync.trackPoints']('uuid', 1.5)).toThrow('Invalid offset')

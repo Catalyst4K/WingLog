@@ -72,7 +72,7 @@ export class HostLink {
       state,
       address: this.address,
       hostSim: this.hostSim,
-      sync: this.deps.sync?.status() ?? { state: 'idle', lastSyncedAt: null }
+      sync: this.deps.sync?.status() ?? { state: 'idle', lastSyncedAt: null, problem: null }
     }
   }
 

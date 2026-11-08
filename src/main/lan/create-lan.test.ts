@@ -14,7 +14,7 @@ import { setAppLanguage, setLanSettings, setTheme } from '../db/settings-repo'
 import { LiveHub } from '../live/LiveHub'
 import type { LanController } from './LanController'
 import { LAN_QUERY_KINDS, TWIN_ONLY_QUERIES } from '@shared/lan-queries'
-import { twinSyncQueries } from './twin-sync'
+import { twinSyncDeviceQueries, twinSyncQueries } from './twin-sync'
 import { twinFlightQueries } from './twin-flight'
 import { createLan, lanQueries } from './create-lan'
 
@@ -107,7 +107,11 @@ describe('lanQueries', () => {
     const second = Object.keys(LAN_QUERY_KINDS).filter((name) => !TWIN_ONLY_QUERIES.includes(name))
     expect(Object.keys(queries).sort()).toEqual(second.sort())
     expect(
-      Object.keys({ ...twinSyncQueries({} as never, ''), ...twinFlightQueries(FLIGHT_CONTROL) }).sort()
+      Object.keys({
+        ...twinSyncQueries({} as never),
+        ...twinSyncDeviceQueries({} as never, ''),
+        ...twinFlightQueries(FLIGHT_CONTROL)
+      }).sort()
     ).toEqual([...TWIN_ONLY_QUERIES].sort())
   })
 

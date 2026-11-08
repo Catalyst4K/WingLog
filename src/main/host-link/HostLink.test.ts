@@ -1,8 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { LinkSocket } from '@shared/lan-connection'
 import type { HostLinkStatus } from '@shared/ipc'
+import { logger } from '../logging/logger'
 import { LiveHub } from '../live/LiveHub'
 import { HostLink, HOST_LINK_TOPICS } from './HostLink'
+import type { TwinSyncStatus } from './TwinSync'
 import type { HostLinkStore, StoredHostLink } from './host-link-store'
 
 vi.mock('../logging/logger', () => ({ logger: { warn: vi.fn(), info: vi.fn(), error: vi.fn() } }))
@@ -51,7 +53,7 @@ function memoryStore(
   return store
 }
 
-const IDLE = { state: 'idle', lastSyncedAt: null } as const
+const IDLE = { state: 'idle', lastSyncedAt: null, problem: null } as const
 
 describe('HostLink', () => {
   let hub: LiveHub
@@ -205,7 +207,7 @@ describe('HostLink', () => {
 
   it('asks for a sync when the link comes up and when the host says its data changed, and shows the sync in its status', () => {
     const asked: number[] = []
-    let current: { state: 'idle' | 'syncing' | 'error'; lastSyncedAt: string | null } = IDLE
+    let current: TwinSyncStatus = IDLE
     let changed: () => void = () => {}
     const link = new HostLink({
       hub,
@@ -231,7 +233,7 @@ describe('HostLink', () => {
     expect(asked).toEqual([0])
     sockets[0]?.hear({ t: 'sync' })
     expect(asked).toEqual([0, 500])
-    current = { state: 'syncing', lastSyncedAt: '2026-11-08T12:00:00.000Z' }
+    current = { state: 'syncing', lastSyncedAt: '2026-11-08T12:00:00.000Z', problem: null }
     const before = statuses.length
     changed()
     expect(statuses.length).toBe(before + 1)
@@ -280,7 +282,11 @@ describe('HostLink', () => {
       },
       deviceName: 'WingLog on MAC',
       onStatus: () => {},
-      onFlight: (flight) => void seen.push(flight ? 'flight' : null)
+      onFlight: (flight, points) => {
+        seen.push(flight ? 'flight' : null)
+        // The points are read when asked for: none yet from a flight just shown, and none once the link is closed.
+        expect(points()).toEqual([])
+      }
     })
     link.pair('192.168.1.20:5051', '123456')
     sockets[0]?.open()
@@ -289,6 +295,19 @@ describe('HostLink', () => {
     expect(seen.at(-1)).toBe('flight')
     link.forget()
     expect(seen.at(-1)).toBeNull()
+  })
+
+  it('stays paired when the token could not be stored, and says so in the log', async () => {
+    const store = { ...memoryStore(), save: () => Promise.reject(new Error('keychain locked')) }
+    const link = make(store)
+    link.pair('192.168.1.20:5051', '123456')
+    sockets[0]?.open()
+    sockets[0]?.hear({ t: 'paired', token: 't' })
+    sockets[0]?.hear(SNAPSHOT)
+    await vi.waitFor(() =>
+      expect(logger.warn).toHaveBeenCalledWith('[host-link] could not store the token:', expect.any(Error))
+    )
+    expect(link.getStatus().state).toBe('connected')
   })
 
   it('forgets a token the host no longer accepts', async () => {

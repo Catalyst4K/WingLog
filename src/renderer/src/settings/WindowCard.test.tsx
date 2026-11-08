@@ -48,7 +48,10 @@ describe('WindowCard', () => {
     const runInBackground = await screen.findByRole('group', { name: 'Run in the background' })
     await userEvent.click(within(runInBackground).getByRole('button', { name: 'On' }))
     expect(api.settingsSetWindow).toHaveBeenLastCalledWith({ hostOnly: true })
-    expect(within(runInBackground).getByRole('button', { name: 'On' })).toHaveAttribute('aria-pressed', 'true')
+    expect(within(runInBackground).getByRole('button', { name: 'On' })).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    )
     const startWithWindows = screen.getByRole('group', { name: 'Start with Windows' })
     await userEvent.click(within(startWithWindows).getByRole('button', { name: 'On' }))
     expect(api.settingsSetWindow).toHaveBeenLastCalledWith({ startWithWindows: true })

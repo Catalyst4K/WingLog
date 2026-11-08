@@ -65,7 +65,9 @@ export interface WindowSettings {
 }
 
 /** What the window settings can be changed to; anything left out stays as it is. */
-export type WindowSettingsPatch = Partial<Pick<WindowSettings, 'minimizeToTray' | 'hostOnly' | 'startWithWindows'>>
+export type WindowSettingsPatch = Partial<
+  Pick<WindowSettings, 'minimizeToTray' | 'hostOnly' | 'startWithWindows'>
+>
 
 /** First-launch setup (winglog-backend's docs/plans/first-launch-setup.md). */
 export interface SetupState {
