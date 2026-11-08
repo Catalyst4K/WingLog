@@ -536,8 +536,21 @@ describe('BeyondAtcPanel', () => {
 
     expect(await screen.findByText('Actions')).toBeInTheDocument()
     expect(screen.getByText('No actions available right now.')).toBeInTheDocument()
-    expect(screen.getByText('Radios')).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: 'Radios' })).toBeInTheDocument()
     expect(screen.getByText('Transcript')).toBeInTheDocument()
+  })
+
+  it('puts the radios in a thin strip between the instruction and the actions, so the cards below never push them off screen', async () => {
+    render(<BeyondAtcPanel />)
+
+    const radios = await screen.findByRole('group', { name: 'Radios' })
+    const instruction = screen.getByText('Latest instruction')
+    const actions = screen.getByText('Actions')
+    expect(instruction.compareDocumentPosition(radios) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(radios.compareDocumentPosition(actions) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(within(radios).getByRole('textbox', { name: 'COM1 frequency' })).toBeInTheDocument()
+    expect(within(radios).getByText('COM2')).toBeInTheDocument()
+    expect(within(radios).queryByText('Radios')).not.toBeInTheDocument()
   })
 
   it('clicking an action button calls beyondAtcSetAction with the exact label', async () => {

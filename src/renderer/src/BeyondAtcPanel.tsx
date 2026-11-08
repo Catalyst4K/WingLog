@@ -299,6 +299,28 @@ function RadiosCard(props: React.ComponentProps<typeof BeyondAtcRadios>): React.
   )
 }
 
+/**
+ * The radios as a thin strip across the page between the instruction and the actions, so they stay on screen however tall the cards below
+ * them grow: COM1 and COM2 side by side, the three switches in a line under them. The strip has no title, as COM1 and COM2 say what it is.
+ *
+ * @param props The radios' props.
+ * @returns The element.
+ */
+function RadiosStrip(props: React.ComponentProps<typeof BeyondAtcRadios>): React.JSX.Element {
+  const { t } = useTranslation()
+  return (
+    <Card
+      role="group"
+      aria-label={t('beyondAtcPanel.radios')}
+      className="rounded-b-md [--card-spacing:--spacing(3)]"
+    >
+      <CardContent className="px-5">
+        <BeyondAtcRadios {...props} strip />
+      </CardContent>
+    </Card>
+  )
+}
+
 /** How close to the bottom of the transcript counts as "at the bottom" (a line is about 16 px). */
 const FOLLOW_SLACK_PX = 24
 
@@ -394,8 +416,8 @@ function CompactLayout(props: {
  * top-level tab, same shape as GsxRemotePanel: current-value fetches on mount plus live subscriptions, so a panel
  * mounting after BeyondATC already pushed state doesn't show nothing until the next line arrives.
  *
- * Card-grid layout (beyondatc-panel-redesign.md): a compact info strip on top, then two columns: Actions + Radios on the
- * left (their own natural height, `self-start`), a Transcript on the right that matches that height with its own
+ * Card-grid layout (beyondatc-panel-redesign.md): a compact info strip on top, the instruction, a thin Radios strip, then two
+ * columns: Actions on the left (its own natural height, `self-start`), a Transcript on the right that matches that height with its own
  * internal scroll. The row is CSS Grid, not flexbox (see `TranscriptCard`), and `BeyondAtcView`'s `h-full` root gives the
  * area a window-bounded height to work with.
  */
@@ -521,10 +543,10 @@ export function BeyondAtcPanel(props: { compact?: boolean } = {}): React.JSX.Ele
       {/* The connection sits in the header, shown while connected too, so an idle session still confirms the link is live (real gap found live). */}
       <InfoCard state={state} statusLine={statusLine} />
       <LatestInstructionCard instruction={latestInstruction} arrival={arrival} />
+      <RadiosStrip {...radiosProps} />
       <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 @3xl:grid-cols-[minmax(18rem,28rem)_minmax(18rem,1fr)]">
         <div className="flex min-h-0 flex-col gap-4 self-start">
           <ActionsCard {...actionsProps} />
-          <RadiosCard {...radiosProps} />
         </div>
         <div className="flex min-h-0 flex-col gap-4">
           <TranscriptCard entries={transcript} />

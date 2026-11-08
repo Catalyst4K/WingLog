@@ -97,6 +97,31 @@ describe('BeyondAtcRadios while the pilot is online', () => {
   })
 })
 
+describe('BeyondAtcRadios as the thin strip', () => {
+  it('keeps both radios and all three switches on show, with COM1 and COM2 in one row to share the width', () => {
+    render(
+      <BeyondAtcRadios
+        {...makeRadiosProps({
+          strip: true,
+          facility: { name: 'Singapore Delivery', frequency: '118.850' },
+          autoTune: true,
+          autoRespond: false
+        })}
+      />
+    )
+    expect(screen.getByRole('textbox', { name: 'COM1 frequency' })).toHaveValue('118.850')
+    expect(screen.getByRole('textbox', { name: 'COM2 frequency' })).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: 'Auto-tune' })).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: 'Auto-respond' })).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: 'Auto step climb' })).toBeInTheDocument()
+    const radios =
+      screen.getByRole('textbox', { name: 'COM1 frequency' }).closest('[class*="grid-cols-[4rem"]')
+        ?.parentElement ?? null
+    expect(radios).toContainElement(screen.getByRole('textbox', { name: 'COM2 frequency' }))
+    expect(radios?.className).toContain('@5xl:grid-cols-2')
+  })
+})
+
 describe('BeyondAtcRadios', () => {
   it('shows "—" for COM1/COM2 while nothing is tuned', () => {
     render(<BeyondAtcRadios {...makeRadiosProps()} />)

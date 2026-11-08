@@ -378,6 +378,8 @@ export interface BeyondAtcRadiosProps {
   onSetStepClimb: (enabled: boolean) => void
   /** On the phone the three switches sit behind one Automation row that says how they are set (Round 7). */
   compact?: boolean
+  /** The PC's thin strip across the page: COM1 and COM2 side by side when there is room, the three switches in one line below them. */
+  strip?: boolean
 }
 
 function flightLevel(feet: number): string {
@@ -444,6 +446,14 @@ function FrequencyRows(props: BeyondAtcRadiosProps): React.JSX.Element {
 }
 
 /**
+ * @param strip Whether the radios are the thin strip across the page.
+ * @returns The classes of the block holding COM1 and COM2: side by side when there is room in the strip, otherwise stacked.
+ */
+function frequencyRowsClass(strip: boolean | undefined): string {
+  return strip ? 'grid grid-cols-1 gap-x-8 @5xl:grid-cols-2 [&>div]:border-b-0' : 'flex flex-col'
+}
+
+/**
  * COM1 and COM2 with the frequency picker.
  *
  * @param props What is tuned and the frequencies on offer.
@@ -455,7 +465,7 @@ function FrequencyRowPair(props: BeyondAtcRadiosProps): React.JSX.Element {
   const progressPct = props.progress?.pct ?? null
   return (
     <>
-      <div className="flex flex-col">
+      <div className={frequencyRowsClass(props.strip)}>
         <FrequencyRow
           label="COM1"
           stationName={props.facility?.name ?? null}
@@ -491,7 +501,7 @@ function FrequencyRowPair(props: BeyondAtcRadiosProps): React.JSX.Element {
 function AutomationToggles(props: BeyondAtcRadiosProps): React.JSX.Element {
   const { t } = useTranslation()
   return (
-    <div className="flex flex-col">
+    <div className={props.strip ? 'flex flex-wrap gap-x-8' : 'flex flex-col'}>
       <AutoToggle
         label={t('beyondAtcPanel.settings.autoTune')}
         value={props.autoTune}
@@ -566,7 +576,7 @@ function AutomationMenu(props: BeyondAtcRadiosProps): React.JSX.Element {
  */
 export function BeyondAtcRadios(props: BeyondAtcRadiosProps): React.JSX.Element {
   return (
-    <div className="flex flex-col gap-3">
+    <div className={props.strip ? 'flex flex-col gap-1' : 'flex flex-col gap-3'}>
       <FrequencyRows {...props} />
       <AutoTuneOnlineWarning />
       {props.compact ? <AutomationMenu {...props} /> : <AutomationToggles {...props} />}
