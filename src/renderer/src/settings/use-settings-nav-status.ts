@@ -20,7 +20,8 @@ export function useSettingsNavStatus(): Pick<SettingsNavStatus, 'secondScreen' |
       'SettingsNav lanGetStatus',
       winglogApi()
         .lanGetStatus()
-        .then((s) => setDevices({ count: s.devices.length, connected: s.connections > 0 }))
+        // A client runs no second screen, and its answer is nothing.
+        .then((s) => s && setDevices({ count: s.devices.length, connected: s.connections > 0 }))
     )
     return winglogApi().onUpdateStatus((s) => setUpdateReady(s.state === 'available'))
   }, [])

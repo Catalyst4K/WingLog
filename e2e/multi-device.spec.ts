@@ -37,11 +37,13 @@ test('a client starts none of the host services and offers none of their setting
       expect(await client.window.evaluate(() => window.winglog.settingsGetGsxRemote())).toMatchObject({
         enabled: false
       })
+      // A wide window, so Settings lists its pages down the side (a narrow one has a picker instead).
+      await client.window.setViewportSize({ width: 1400, height: 900 })
       await client.window.getByRole('tab', { name: 'Settings' }).click()
       // The pages of what only the sim PC runs are not in the list; the client's own are, and so is the page that pairs it.
       await expect(client.window.getByRole('tab', { name: 'SimBrief and Navigraph' })).toBeVisible()
       for (const name of ['GSX', 'ATC', 'Online network', 'Navdata', 'Second screen'])
-        await expect(client.window.getByRole('tab', { name })).toHaveCount(0)
+        await expect(client.window.getByRole('tab', { name, exact: true })).toHaveCount(0)
       await client.window.getByRole('tab', { name: /Sim PC/ }).click()
       await expect(client.window.getByText('Where the sim runs')).toBeVisible()
       await expect(client.window.getByRole('textbox', { name: 'Pairing code' })).toBeVisible()

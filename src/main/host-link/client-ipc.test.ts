@@ -62,7 +62,7 @@ describe('a client IPC handlers', () => {
 
   it('answers each topic current-value query from what the host last said', () => {
     const { invoke, hub } = setup()
-    expect(invoke(IpcChannels.beyondAtcGetState)).toBeUndefined()
+    expect(invoke(IpcChannels.beyondAtcGetState)).toMatchObject({ actions: [] })
     hub.publish('beyondAtcStatus', { state: 'connected', lastError: null })
     expect(invoke(IpcChannels.beyondAtcGetStatus)).toEqual({ state: 'connected', lastError: null })
     expect(Object.keys(TOPIC_GETTERS)).toContain('gsxRoutine')
@@ -88,6 +88,17 @@ describe('a client IPC handlers', () => {
     expect(ipc.invoke(IpcChannels.taxiRouteGet)).toBeNull()
     ipc.invoke(IpcChannels.gsxRemotePickMenu, 2)
     expect(link.command).toHaveBeenCalledWith('gsx.pickMenu', [2])
+  })
+
+  it('reads a topic as its empty value before the host has said anything, never as undefined', () => {
+    const { invoke, hub } = setup()
+    expect(invoke(IpcChannels.gsxRemoteGetStatus)).toEqual({ state: 'disconnected', lastError: null })
+    expect(invoke(IpcChannels.beyondAtcGetStatus)).toEqual({ state: 'disconnected', lastError: null })
+    expect(invoke(IpcChannels.beyondAtcGetState)).toMatchObject({ actions: [] })
+    expect(invoke(IpcChannels.beyondAtcGetTranscript)).toEqual([])
+    expect(invoke(IpcChannels.gsxRoutineGet)).toBeNull()
+    hub.publish('gsxRemoteStatus', { state: 'connected', lastError: null })
+    expect(invoke(IpcChannels.gsxRemoteGetStatus)).toEqual({ state: 'connected', lastError: null })
   })
 
   it('asks the sim PC whether GSX Remote and BeyondATC are on, and reads them as off while it cannot be asked', async () => {

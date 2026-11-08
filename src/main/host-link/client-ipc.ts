@@ -6,6 +6,7 @@
 import type { IpcMain } from 'electron'
 import type { LiveCommand, LiveTopic } from '@shared/live'
 import { IpcChannels } from '@shared/ipc'
+import { EMPTY_BEYONDATC_STATE } from '@shared/beyondatc-state'
 import type { HostLinkStatus } from '@shared/ipc'
 import { logger } from '../logging/logger'
 import type { LiveHub } from '../live/LiveHub'
@@ -54,6 +55,24 @@ export const TOPIC_GETTERS: Partial<Record<LiveTopic, string>> = {
   beyondAtcTranscript: IpcChannels.beyondAtcGetTranscript,
   beyondAtcStepClimb: IpcChannels.beyondAtcGetStepClimb,
   beyondAtcArrival: IpcChannels.beyondAtcGetArrival
+}
+
+/**
+ * What a topic reads as before the host has said anything: the empty value its own service starts with, so a screen that reads it directly
+ * (Settings' lights, the clearance prompt) never meets undefined.
+ */
+export const TOPIC_DEFAULTS: Partial<Record<LiveTopic, unknown>> = {
+  gsxRemoteStatus: { state: 'disconnected', lastError: null },
+  beyondAtcStatus: { state: 'disconnected', lastError: null },
+  beyondAtcState: EMPTY_BEYONDATC_STATE,
+  gsxRemoteServices: [],
+  beyondAtcTranscript: [],
+  gsxRemoteGate: null,
+  gsxRemotePrompt: null,
+  gsxRoutine: null,
+  beyondAtcArrival: null,
+  taxiRoute: null,
+  plannedRoute: null
 }
 
 /** What an add-on reads as while the sim PC cannot be asked: switched off. */
@@ -112,7 +131,7 @@ export function registerHostLinkHandlers(
     answer(channel, (...args) => link.command(command, args))
   }
   for (const [topic, channel] of Object.entries(TOPIC_GETTERS)) {
-    answer(channel, () => hub.snapshot()[topic as LiveTopic])
+    answer(channel, () => hub.snapshot()[topic as LiveTopic] ?? TOPIC_DEFAULTS[topic as LiveTopic])
   }
   if (taken.length > 0) logger.info('[host-link] took over from the local services:', taken.join(', '))
 }
