@@ -9,9 +9,10 @@ export default defineConfig(({ command }) => {
   // `electron-vite dev` and in the dev build, off in every release/packaged build unless a
   // private build sets WINGLOG_CLOUD_SYNC=1. A build-time constant rather than a runtime
   // Settings toggle, so a public binary can't have it flipped on by a user.
-  const { cloudSyncEnabled, devBuild } = resolveBuildFlags(command, process.env)
+  const { cloudSyncEnabled, multiDeviceEnabled, devBuild } = resolveBuildFlags(command, process.env)
   const define = {
     __WINGLOG_CLOUD_SYNC_ENABLED__: JSON.stringify(cloudSyncEnabled),
+    __WINGLOG_MULTI_DEVICE__: JSON.stringify(multiDeviceEnabled),
     __WINGLOG_DEV_BUILD__: JSON.stringify(devBuild)
   }
 

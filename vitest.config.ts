@@ -27,6 +27,7 @@ export default defineConfig({
   // get it. The dev build's own code is tested directly (src/main/diagnostics/).
   define: {
     __WINGLOG_CLOUD_SYNC_ENABLED__: JSON.stringify(true),
+    __WINGLOG_MULTI_DEVICE__: JSON.stringify(false),
     __WINGLOG_DEV_BUILD__: JSON.stringify(false)
   },
   test: {

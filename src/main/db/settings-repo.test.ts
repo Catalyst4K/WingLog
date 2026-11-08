@@ -20,6 +20,7 @@ import {
   getLandingDistanceUnit,
   getLastSyncCompletedAt,
   getLastSyncedAt,
+  getRunMode,
   getSetting,
   getSimbriefUsername,
   getTheme,
@@ -28,6 +29,7 @@ import {
   getWindSpeedUnit,
   hasCheckedGsxFirstLaunch,
   rememberAircraftForTitle,
+  setRunMode,
   setAltitudeUnit,
   setAppLanguage,
   setBeyondAtcSettings,
@@ -362,5 +364,19 @@ describe('settings repo', () => {
       setHiddenBuiltInRoutines(db, [])
       expect(getHiddenBuiltInRoutines(db)).toEqual([])
     })
+  })
+})
+
+describe('run mode setting', () => {
+  it('is null until chosen, then host or client, and an unknown stored value is ignored', () => {
+    const { db } = createDb(':memory:')
+    migrate(db, { migrationsFolder: 'drizzle' })
+    expect(getRunMode(db)).toBeNull()
+    setRunMode(db, 'client')
+    expect(getRunMode(db)).toBe('client')
+    setRunMode(db, 'host')
+    expect(getRunMode(db)).toBe('host')
+    setSetting(db, 'runMode', 'bridge')
+    expect(getRunMode(db)).toBeNull()
   })
 })

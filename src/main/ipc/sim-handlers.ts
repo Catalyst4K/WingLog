@@ -25,9 +25,18 @@ export interface SimStatusSource {
  */
 export function registerSimHandlers(
   ipcMain: IpcMain,
-  { sim, liveHub }: { sim: SimStatusSource; liveHub: Pick<LiveHub, 'publish'> }
+  {
+    sim,
+    liveHub,
+    currentStatus
+  }: {
+    sim: SimStatusSource
+    liveHub: Pick<LiveHub, 'publish'>
+    /** A client has no sim of its own: the status it answers with is the sim PC's, as the link last published it. */
+    currentStatus?: () => SimConnectionStatus
+  }
 ): void {
-  ipcMain.handle(IpcChannels.simConnectionStatusGet, () => sim.getStatus())
+  ipcMain.handle(IpcChannels.simConnectionStatusGet, () => currentStatus?.() ?? sim.getStatus())
   sim.on('telemetry', (telemetry) => liveHub.publish('simTelemetry', telemetry))
   sim.on('status', (status) => liveHub.publish('simConnectionStatus', status))
 }

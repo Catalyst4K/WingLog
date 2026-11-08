@@ -468,6 +468,7 @@ function createWinglog(overrides: Partial<WingLogApi> = {}): WingLogApi {
     aircraftImport: vi.fn().mockResolvedValue(null),
     aircraftExport: vi.fn().mockResolvedValue(false),
     appGetVersion: vi.fn().mockResolvedValue('1.0.0'),
+    appGetCapabilities: vi.fn().mockResolvedValue({ runMode: 'host', canHostSim: true, multiDevice: false }),
     settingsGetUpdates: vi.fn().mockResolvedValue({ checkEnabled: true }),
     settingsSetUpdates: vi.fn().mockResolvedValue(undefined),
     settingsGetWindow: vi.fn().mockResolvedValue({ minimizeToTray: false, trayAvailable: true }),

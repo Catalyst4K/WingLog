@@ -11,6 +11,7 @@ import type {
   SyncStatus
 } from '@shared/ipc'
 import i18n from './i18n'
+import { CapabilitiesProvider } from './app/capabilities'
 import { SettingsView } from './SettingsView'
 
 vi.mock('sonner', () => ({
@@ -60,6 +61,11 @@ function createWinglog(overrides: Record<string, unknown> = {}): typeof window.w
     settingsSetTracking: vi.fn().mockResolvedValue(undefined),
     syncStatus: vi.fn().mockResolvedValue(makeSyncStatus()),
     appGetVersion: vi.fn().mockResolvedValue('1.2.3'),
+    appGetCapabilities: vi.fn().mockResolvedValue({ runMode: 'host', canHostSim: true, multiDevice: false }),
+    settingsGetRunMode: vi.fn().mockResolvedValue(null),
+    settingsSetRunMode: vi.fn().mockResolvedValue(undefined),
+    hostLinkGetStatus: vi.fn().mockResolvedValue({ state: 'unpaired', address: null, hostSim: null }),
+    onHostLinkStatus: vi.fn(() => () => {}),
     settingsGetUpdates: vi.fn().mockResolvedValue({ checkEnabled: true }),
     settingsSetUpdates: vi.fn().mockResolvedValue(undefined),
     settingsGetWindow: vi.fn().mockResolvedValue({ minimizeToTray: false, trayAvailable: true }),
@@ -159,25 +165,27 @@ function renderSettings(
   props: Partial<React.ComponentProps<typeof SettingsView>> = {}
 ): ReturnType<typeof render> {
   return render(
-    <SettingsView
-      weightUnit={props.weightUnit ?? 'kg'}
-      onWeightUnitChange={props.onWeightUnitChange ?? vi.fn()}
-      altitudeUnit={props.altitudeUnit ?? 'ft'}
-      onAltitudeUnitChange={props.onAltitudeUnitChange ?? vi.fn()}
-      windSpeedUnit={props.windSpeedUnit ?? 'kt'}
-      onWindSpeedUnitChange={props.onWindSpeedUnitChange ?? vi.fn()}
-      landingDistanceUnit={props.landingDistanceUnit ?? 'ft'}
-      onLandingDistanceUnitChange={props.onLandingDistanceUnitChange ?? vi.fn()}
-      mapLanguage={props.mapLanguage ?? 'en'}
-      onMapLanguageChange={props.onMapLanguageChange ?? vi.fn()}
-      appLanguage={props.appLanguage ?? 'system'}
-      onAppLanguageChange={props.onAppLanguageChange ?? vi.fn()}
-      theme={props.theme ?? 'system'}
-      onThemeChange={props.onThemeChange ?? vi.fn()}
-      onGsxRemoteEnabledChange={props.onGsxRemoteEnabledChange ?? vi.fn()}
-      onBeyondAtcEnabledChange={props.onBeyondAtcEnabledChange ?? vi.fn()}
-      resetSignal={props.resetSignal}
-    />
+    <CapabilitiesProvider>
+      <SettingsView
+        weightUnit={props.weightUnit ?? 'kg'}
+        onWeightUnitChange={props.onWeightUnitChange ?? vi.fn()}
+        altitudeUnit={props.altitudeUnit ?? 'ft'}
+        onAltitudeUnitChange={props.onAltitudeUnitChange ?? vi.fn()}
+        windSpeedUnit={props.windSpeedUnit ?? 'kt'}
+        onWindSpeedUnitChange={props.onWindSpeedUnitChange ?? vi.fn()}
+        landingDistanceUnit={props.landingDistanceUnit ?? 'ft'}
+        onLandingDistanceUnitChange={props.onLandingDistanceUnitChange ?? vi.fn()}
+        mapLanguage={props.mapLanguage ?? 'en'}
+        onMapLanguageChange={props.onMapLanguageChange ?? vi.fn()}
+        appLanguage={props.appLanguage ?? 'system'}
+        onAppLanguageChange={props.onAppLanguageChange ?? vi.fn()}
+        theme={props.theme ?? 'system'}
+        onThemeChange={props.onThemeChange ?? vi.fn()}
+        onGsxRemoteEnabledChange={props.onGsxRemoteEnabledChange ?? vi.fn()}
+        onBeyondAtcEnabledChange={props.onBeyondAtcEnabledChange ?? vi.fn()}
+        resetSignal={props.resetSignal}
+      />
+    </CapabilitiesProvider>
   )
 }
 
@@ -265,6 +273,74 @@ describe('SettingsView', () => {
       ])
       for (const group of ['App', 'Accounts and add-ons', 'Your data'])
         expect(screen.getByText(group)).toBeInTheDocument()
+    })
+
+    describe('with multi-device built in', () => {
+      const HOST = { runMode: 'host', canHostSim: true, multiDevice: true }
+      const CLIENT = { runMode: 'client', canHostSim: false, multiDevice: true }
+
+      it('adds a Sim PC page after General on a host, where the run mode is chosen', async () => {
+        setWinglog({ appGetCapabilities: vi.fn().mockResolvedValue(HOST) })
+        const user = userEvent.setup()
+        renderSettings()
+        const tab = await screen.findByRole('tab', { name: 'Sim PC' })
+        expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual([
+          'General',
+          'Sim PC',
+          'Second screen',
+          'SimBrief and Navigraph',
+          'GSX',
+          'ATC',
+          'Online network',
+          'Navdata',
+          'Import and export',
+          'About and updates'
+        ])
+        await user.click(tab)
+        expect(await screen.findByRole('heading', { name: 'Sim PC' })).toBeInTheDocument()
+        expect(screen.getByText('Which computer runs the sim, and pairing with it.')).toBeInTheDocument()
+        expect(screen.getByText('Where the sim runs')).toBeInTheDocument()
+        expect(screen.queryByText('Pairing code')).not.toBeInTheDocument()
+      })
+
+      it('leaves out the pages of what only the sim PC runs on a client, and pairs on the Sim PC page', async () => {
+        setWinglog({ appGetCapabilities: vi.fn().mockResolvedValue(CLIENT) })
+        const user = userEvent.setup()
+        renderSettings()
+        await screen.findByRole('tab', { name: /Sim PC/ })
+        await waitFor(() =>
+          expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual([
+            'General',
+            'Sim PC',
+            'SimBrief and Navigraph',
+            'Import and export',
+            'About and updates'
+          ])
+        )
+        await user.click(screen.getByRole('tab', { name: /Sim PC/ }))
+        expect(await screen.findByRole('textbox', { name: 'Pairing code' })).toBeInTheDocument()
+        expect(screen.getByRole('textbox', { name: 'Address' })).toBeInTheDocument()
+      })
+
+      it('lights the Sim PC page by the link: green connected, off when nothing is paired', async () => {
+        setWinglog({
+          appGetCapabilities: vi.fn().mockResolvedValue(CLIENT),
+          hostLinkGetStatus: vi
+            .fn()
+            .mockResolvedValue({ state: 'connected', address: '192.168.1.20:5051', hostSim: 'connected' })
+        })
+        renderSettings()
+        const tab = await screen.findByRole('tab', { name: /Sim PC/ })
+        await waitFor(() =>
+          expect(tab.querySelector('[data-slot="status-light"]')).toHaveAttribute('data-state', 'green')
+        )
+      })
+    })
+
+    it('shows no Sim PC page in a release build', async () => {
+      renderSettings()
+      await screen.findByText('Units')
+      expect(screen.queryByRole('tab', { name: 'Sim PC' })).not.toBeInTheDocument()
     })
 
     it('lights GSX and ATC by their connection: green connected, amber turned on but not connected, off when turned off', async () => {

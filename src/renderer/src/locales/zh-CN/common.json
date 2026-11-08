@@ -39,7 +39,8 @@
       "online": "在线网络",
       "navdata": "导航数据",
       "data": "导入和导出",
-      "about": "关于和更新"
+      "about": "关于和更新",
+      "simPc": "模拟器电脑"
     },
     "units": {
       "cardTitle": "单位",
@@ -243,14 +244,40 @@
       "online": "在 VATSIM 或 IVAO 上飞行：附近谁在线，以及提交飞行计划。",
       "navdata": "WingLog 为程序读取的模拟器导航数据。",
       "data": "备份、迁移或清除机队和飞行日志。",
-      "about": "版本、手册和更新。"
+      "about": "版本、手册和更新。",
+      "simPc": "哪台电脑运行模拟器，以及与它配对。"
     },
     "status": {
       "devices_one": "{{count}} 部手机",
       "devices_other": "{{count}} 部手机",
       "updateReady": "更新已就绪"
     },
-    "pagePicker": "设置页面"
+    "pagePicker": "设置页面",
+    "runMode": {
+      "cardTitle": "模拟器运行的位置",
+      "label": "模拟器运行在",
+      "host": "这台电脑",
+      "client": "另一台电脑",
+      "description": "在连接到模拟器电脑上 WingLog 的计算机上，选择“另一台电脑”。",
+      "restart": "下次启动 WingLog 时生效。"
+    },
+    "hostLink": {
+      "cardTitle": "模拟器电脑",
+      "description": "将这台电脑连接到运行模拟器的电脑上的 WingLog。在那台电脑上打开“第二屏幕”（设置 → 数据），输入它显示的地址和配对码。",
+      "states": {
+        "connected": "已连接",
+        "connecting": "连接中…",
+        "offline": "无法访问，正在重试",
+        "wrong-code": "配对码错误",
+        "unpaired": "未配对"
+      },
+      "pairedWith": "已与 {{address}} 配对",
+      "forget": "忘记这台模拟器电脑",
+      "addressLabel": "地址",
+      "codeLabel": "配对码",
+      "connect": "连接",
+      "badAddress": "请输入模拟器电脑的地址和端口，需为家庭网络中的地址，例如 192.168.1.20:5051。"
+    }
   },
   "app": {
     "tabs": {
@@ -273,7 +300,18 @@
         "disconnected": "已断开"
       },
       "badge": "SimConnect：{{state}}",
-      "label": "模拟器"
+      "label": "模拟器",
+      "simPcBadge": "模拟器电脑：{{state}}",
+      "simPcNotConnected": "未连接到模拟器电脑",
+      "simPcStates": {
+        "connected": "已连接",
+        "connecting": "连接中",
+        "offline": "无法访问",
+        "unpaired": "未配对",
+        "wrong-code": "未配对"
+      },
+      "simPcConnected": "已连接到模拟器电脑",
+      "simPcLabel": "模拟器电脑"
     },
     "orphanedFlight": {
       "resumeTitle": "恢复追踪？",
@@ -644,7 +682,8 @@
     "discardThisPlan": "放弃此计划？",
     "canFetchAgain": "你可以稍后再次从 SimBrief 获取。",
     "noOfpPdfAvailable": "此计划暂无可用的 OFP PDF。",
-    "alternateLabel": "备降 {{altn}}",    "matches": "一致"
+    "alternateLabel": "备降 {{altn}}",
+    "matches": "一致"
   },
   "trackView": {
     "title": "追踪",
@@ -692,7 +731,8 @@
       "stepClimb": "阶梯爬升至 {{altitude}}"
     },
     "flightInProgress": "进行中的航班",
-    "change": "更改"
+    "change": "更改",
+    "notConnectedSimPc": "未连接到模拟器电脑。"
   },
   "flightMap": {
     "stopCentering": "停止以飞机为中心",
@@ -865,7 +905,6 @@
     "newName": "我的例程",
     "edit": "编辑 {{name}}",
     "editButton": "编辑",
-
     "editHint": "编辑中：选择一个例程进行修改，或再次点击“编辑”结束。",
     "cancel": "取消",
     "stageOf": "第 {{stage}} 阶段，共 {{count}} 阶段",

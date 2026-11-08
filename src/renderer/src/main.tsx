@@ -4,6 +4,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { ThemeProvider } from 'next-themes'
 import App from './App'
+import { CapabilitiesProvider } from './app/capabilities'
 import { ErrorBoundary } from './ErrorBoundary'
 import './i18n'
 import './index.css'
@@ -12,7 +13,9 @@ createRoot(document.getElementById('root') as HTMLElement).render(
   <StrictMode>
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
       <ErrorBoundary name="app">
-        <App />
+        <CapabilitiesProvider>
+          <App />
+        </CapabilitiesProvider>
       </ErrorBoundary>
     </ThemeProvider>
   </StrictMode>

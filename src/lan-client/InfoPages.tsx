@@ -11,7 +11,7 @@ import { MetarPanel } from '@/MetarPanel'
 import { GsxRemotePanel } from '@/GsxRemotePanel'
 import { BeyondAtcPanel } from '@/BeyondAtcPanel'
 import { realIcao } from '@/display-icao'
-import type { LanConnection } from './lan-connection'
+import type { LanConnection } from '@shared/lan-connection'
 import type { PageId } from './NavBar'
 import type { PcSettings } from './use-pc-settings'
 

@@ -41,7 +41,8 @@
       "online": "Online-Netzwerk",
       "navdata": "Navdaten",
       "data": "Import und Export",
-      "about": "Info und Updates"
+      "about": "Info und Updates",
+      "simPc": "Sim-PC"
     },
     "units": {
       "cardTitle": "Einheiten",
@@ -248,14 +249,40 @@
       "online": "Auf VATSIM oder IVAO fliegen: wer in der Nähe online ist, und den Flugplan aufgeben.",
       "navdata": "Die Navigationsdaten des Simulators, die WingLog für Verfahren liest.",
       "data": "Flotte und Logbuch sichern, verschieben oder löschen.",
-      "about": "Version, Handbuch und Updates."
+      "about": "Version, Handbuch und Updates.",
+      "simPc": "Welcher Computer den Simulator betreibt, und die Kopplung mit ihm."
     },
     "status": {
       "devices_one": "{{count}} Handy",
       "devices_other": "{{count}} Handys",
       "updateReady": "Update bereit"
     },
-    "pagePicker": "Einstellungsseite"
+    "pagePicker": "Einstellungsseite",
+    "runMode": {
+      "cardTitle": "Wo der Simulator läuft",
+      "label": "Der Simulator läuft auf",
+      "host": "Diesem PC",
+      "client": "Einem anderen PC",
+      "description": "Auf einem Computer, der sich mit WingLog auf dem Sim-PC verbindet, „Einem anderen PC“ wählen.",
+      "restart": "Gilt ab dem nächsten Start von WingLog."
+    },
+    "hostLink": {
+      "cardTitle": "Sim-PC",
+      "description": "Verbinde diesen Computer mit WingLog auf dem PC, auf dem der Simulator läuft. Dort Zweiten Bildschirm einschalten (Einstellungen → Daten) und die angezeigte Adresse samt Kopplungscode eingeben.",
+      "states": {
+        "connected": "Verbunden",
+        "connecting": "Verbinde …",
+        "offline": "Nicht erreichbar, neuer Versuch",
+        "wrong-code": "Falscher Code",
+        "unpaired": "Nicht gekoppelt"
+      },
+      "pairedWith": "Gekoppelt mit {{address}}",
+      "forget": "Diesen Sim-PC vergessen",
+      "addressLabel": "Adresse",
+      "codeLabel": "Kopplungscode",
+      "connect": "Verbinden",
+      "badAddress": "Gib die Adresse des Sim-PCs mit Port ein, eine Adresse in deinem Heimnetz, etwa 192.168.1.20:5051."
+    }
   },
   "app": {
     "tabs": {
@@ -278,7 +305,18 @@
         "disconnected": "getrennt"
       },
       "badge": "SimConnect: {{state}}",
-      "label": "Sim"
+      "label": "Sim",
+      "simPcBadge": "Sim-PC: {{state}}",
+      "simPcNotConnected": "Nicht mit dem Sim-PC verbunden",
+      "simPcStates": {
+        "connected": "verbunden",
+        "connecting": "verbindet",
+        "offline": "nicht erreichbar",
+        "unpaired": "nicht gekoppelt",
+        "wrong-code": "nicht gekoppelt"
+      },
+      "simPcConnected": "Mit dem Sim-PC verbunden",
+      "simPcLabel": "Sim-PC"
     },
     "orphanedFlight": {
       "resumeTitle": "Tracking fortsetzen?",
@@ -651,7 +689,8 @@
     "discardThisPlan": "Diesen Plan verwerfen?",
     "canFetchAgain": "Du kannst ihn erneut von SimBrief abrufen.",
     "noOfpPdfAvailable": "Kein OFP-PDF für diesen Plan verfügbar.",
-    "alternateLabel": "Ausweichflughafen {{altn}}",    "matches": "Passt"
+    "alternateLabel": "Ausweichflughafen {{altn}}",
+    "matches": "Passt"
   },
   "trackView": {
     "title": "Flugverfolgung",
@@ -699,7 +738,8 @@
       "stepClimb": "Stufensteigflug auf {{altitude}}"
     },
     "flightInProgress": "Laufender Flug",
-    "change": "Ändern"
+    "change": "Ändern",
+    "notConnectedSimPc": "Nicht mit dem Sim-PC verbunden."
   },
   "flightMap": {
     "stopCentering": "Zentrierung auf Flugzeug stoppen",
@@ -874,7 +914,6 @@
     "newName": "Meine Routine",
     "edit": "{{name}} bearbeiten",
     "editButton": "Bearbeiten",
-
     "editHint": "Bearbeiten: Wähle eine Routine zum Ändern oder drücke erneut Bearbeiten, um fertig zu werden.",
     "cancel": "Abbrechen",
     "stageOf": "Stufe {{stage}} von {{count}}",

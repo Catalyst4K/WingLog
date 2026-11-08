@@ -23,9 +23,12 @@ export interface FakeIpc {
  */
 export function fakeIpc(): FakeIpc {
   const handlers = new Map<string, Handler>()
-  const ipcMain = { handle: (channel: string, handler: Handler) => handlers.set(channel, handler) }
+  const ipcMain = {
+    handle: (channel: string, handler: Handler) => handlers.set(channel, handler),
+    removeHandler: (channel: string) => handlers.delete(channel)
+  }
   return {
-    // eslint-disable-next-line no-restricted-syntax -- a test double that only has handle()
+    // eslint-disable-next-line no-restricted-syntax -- a test double that only has handle() and removeHandler()
     ipcMain: ipcMain as unknown as IpcMain,
     invoke: (channel, ...args) => {
       const handler = handlers.get(channel)

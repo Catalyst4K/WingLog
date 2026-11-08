@@ -25,6 +25,7 @@
     "../src/preload/index.d.ts",
     "../src/shared/ipc.ts",
     "../src/shared/ipc-channels.ts",
+    "../src/shared/run-mode.ts",
     "../src/shared/types/*.ts",
     "../src/shared/live.ts",
     "../src/shared/route.ts",

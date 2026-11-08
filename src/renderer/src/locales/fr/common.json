@@ -41,7 +41,8 @@
       "online": "Réseau en ligne",
       "navdata": "Navdata",
       "data": "Import et export",
-      "about": "À propos et mises à jour"
+      "about": "À propos et mises à jour",
+      "simPc": "PC du simulateur"
     },
     "units": {
       "cardTitle": "Unités",
@@ -250,14 +251,40 @@
       "online": "Voler sur VATSIM ou IVAO : qui est en ligne autour de vous, et le dépôt du plan.",
       "navdata": "Les données de navigation du simulateur que WingLog lit pour les procédures.",
       "data": "Sauvegardez, déplacez ou effacez votre flotte et votre carnet.",
-      "about": "Version, manuel et mises à jour."
+      "about": "Version, manuel et mises à jour.",
+      "simPc": "Quel ordinateur fait tourner le simulateur, et l’appairage avec lui."
     },
     "status": {
       "devices_one": "{{count}} téléphone",
       "devices_other": "{{count}} téléphones",
       "updateReady": "Mise à jour prête"
     },
-    "pagePicker": "Page des réglages"
+    "pagePicker": "Page des réglages",
+    "runMode": {
+      "cardTitle": "Où tourne le simulateur",
+      "label": "Le simulateur tourne sur",
+      "host": "Ce PC",
+      "client": "Un autre PC",
+      "description": "Sur un ordinateur qui se connecte à WingLog sur le PC du simulateur, choisissez « Un autre PC ».",
+      "restart": "Pris en compte au prochain démarrage de WingLog."
+    },
+    "hostLink": {
+      "cardTitle": "PC du simulateur",
+      "description": "Connectez cet ordinateur à WingLog sur le PC où tourne le simulateur. Là-bas, activez Deuxième écran (Réglages → Données) et saisissez l’adresse et le code d’appairage affichés.",
+      "states": {
+        "connected": "Connecté",
+        "connecting": "Connexion…",
+        "offline": "Injoignable, nouvel essai",
+        "wrong-code": "Code incorrect",
+        "unpaired": "Non appairé"
+      },
+      "pairedWith": "Appairé avec {{address}}",
+      "forget": "Oublier ce PC du simulateur",
+      "addressLabel": "Adresse",
+      "codeLabel": "Code d’appairage",
+      "connect": "Se connecter",
+      "badAddress": "Saisissez l’adresse du PC du simulateur avec son port, une adresse de votre réseau domestique, par exemple 192.168.1.20:5051."
+    }
   },
   "app": {
     "tabs": {
@@ -280,7 +307,18 @@
         "disconnected": "déconnecté"
       },
       "badge": "SimConnect : {{state}}",
-      "label": "Sim"
+      "label": "Sim",
+      "simPcBadge": "PC du simulateur : {{state}}",
+      "simPcNotConnected": "Non connecté au PC du simulateur",
+      "simPcStates": {
+        "connected": "connecté",
+        "connecting": "connexion",
+        "offline": "injoignable",
+        "unpaired": "non appairé",
+        "wrong-code": "non appairé"
+      },
+      "simPcConnected": "Connecté au PC du simulateur",
+      "simPcLabel": "PC du simulateur"
     },
     "orphanedFlight": {
       "resumeTitle": "Reprendre le suivi ?",
@@ -653,7 +691,8 @@
     "discardThisPlan": "Abandonner ce plan ?",
     "canFetchAgain": "Vous pouvez le récupérer à nouveau depuis SimBrief.",
     "noOfpPdfAvailable": "Aucun PDF d'OFP disponible pour ce plan.",
-    "alternateLabel": "Déroutement {{altn}}",    "matches": "Correspond"
+    "alternateLabel": "Déroutement {{altn}}",
+    "matches": "Correspond"
   },
   "trackView": {
     "title": "Suivi",
@@ -701,7 +740,8 @@
       "stepClimb": "Montée par paliers à {{altitude}}"
     },
     "flightInProgress": "Vol en cours",
-    "change": "Modifier"
+    "change": "Modifier",
+    "notConnectedSimPc": "Non connecté au PC du simulateur."
   },
   "flightMap": {
     "stopCentering": "Arrêter de centrer sur l'appareil",
@@ -876,7 +916,6 @@
     "newName": "Ma routine",
     "edit": "Modifier {{name}}",
     "editButton": "Modifier",
-
     "editHint": "Modification : choisissez une routine à modifier, ou appuyez de nouveau sur Modifier pour terminer.",
     "cancel": "Annuler",
     "stageOf": "Étape {{stage}} sur {{count}}",

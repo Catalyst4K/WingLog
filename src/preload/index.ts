@@ -10,6 +10,7 @@ import {
   type BeyondAtcSettings,
   type BeyondAtcState,
   type BeyondAtcTranscriptEntry,
+  type HostLinkStatus,
   type LanSettings,
   type StorageStatus,
   type UpdateSettings,
@@ -42,6 +43,7 @@ import {
   type SimConnectionStatus,
   type SimTelemetry,
   type StartFreeFlightInput,
+  type RunMode,
   type Theme,
   type TrackPoint,
   type WeightUnit,
@@ -129,6 +131,8 @@ const api: WingLogApi = {
     ipcRenderer.invoke(IpcChannels.settingsSetLandingDistanceUnit, unit),
   settingsGetTheme: () => ipcRenderer.invoke(IpcChannels.settingsGetTheme),
   settingsSetTheme: (theme: Theme) => ipcRenderer.invoke(IpcChannels.settingsSetTheme, theme),
+  settingsGetRunMode: () => ipcRenderer.invoke(IpcChannels.settingsGetRunMode),
+  settingsSetRunMode: (mode: RunMode) => ipcRenderer.invoke(IpcChannels.settingsSetRunMode, mode),
   trackingStart: (flightId: number) => ipcRenderer.invoke(IpcChannels.trackingStart, flightId),
   trackingStartFree: (input: StartFreeFlightInput) =>
     ipcRenderer.invoke(IpcChannels.trackingStartFree, input),
@@ -265,6 +269,7 @@ const api: WingLogApi = {
   syncNow: () => ipcRenderer.invoke(IpcChannels.syncNow),
   syncStatus: () => ipcRenderer.invoke(IpcChannels.syncStatus),
   appGetVersion: () => ipcRenderer.invoke(IpcChannels.appGetVersion),
+  appGetCapabilities: () => ipcRenderer.invoke(IpcChannels.appGetCapabilities),
   diagLog: (category, message) => ipcRenderer.invoke(IpcChannels.diagLog, category, message),
   appLogRendererError: (context, message) =>
     ipcRenderer.invoke(IpcChannels.appLogRendererError, context, message),
@@ -456,6 +461,15 @@ const api: WingLogApi = {
   setupGetContext: () => ipcRenderer.invoke(IpcChannels.setupGetContext),
   setupComplete: () => ipcRenderer.invoke(IpcChannels.setupComplete),
   lanGetStatus: () => ipcRenderer.invoke(IpcChannels.lanGetStatus),
+  hostLinkGetStatus: () => ipcRenderer.invoke(IpcChannels.hostLinkGetStatus),
+  hostLinkPair: (address: string, code: string) =>
+    ipcRenderer.invoke(IpcChannels.hostLinkPair, address, code),
+  hostLinkForget: () => ipcRenderer.invoke(IpcChannels.hostLinkForget),
+  onHostLinkStatus: (listener: (status: HostLinkStatus) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, status: HostLinkStatus): void => listener(status)
+    ipcRenderer.on(IpcChannels.hostLinkStatus, handler)
+    return () => ipcRenderer.removeListener(IpcChannels.hostLinkStatus, handler)
+  },
   lanSetSettings: (settings: LanSettings) => ipcRenderer.invoke(IpcChannels.lanSetSettings, settings),
   lanStartPairing: () => ipcRenderer.invoke(IpcChannels.lanStartPairing),
   lanStopPairing: () => ipcRenderer.invoke(IpcChannels.lanStopPairing),

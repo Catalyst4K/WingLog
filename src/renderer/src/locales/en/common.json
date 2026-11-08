@@ -41,7 +41,8 @@
       "online": "Online network",
       "navdata": "Navdata",
       "data": "Import and export",
-      "about": "About and updates"
+      "about": "About and updates",
+      "simPc": "Sim PC"
     },
     "units": {
       "cardTitle": "Units",
@@ -248,14 +249,40 @@
       "online": "Fly on VATSIM or IVAO: who is online around you, and filing your plan.",
       "navdata": "The sim’s navigation data that WingLog reads for procedures.",
       "data": "Back up, move or clear your fleet and logbook.",
-      "about": "Version, the manual, and updates."
+      "about": "Version, the manual, and updates.",
+      "simPc": "Which computer runs the sim, and pairing with it."
     },
     "status": {
       "devices_one": "{{count}} phone",
       "devices_other": "{{count}} phones",
       "updateReady": "Update ready"
     },
-    "pagePicker": "Settings page"
+    "pagePicker": "Settings page",
+    "runMode": {
+      "cardTitle": "Where the sim runs",
+      "label": "The sim runs on",
+      "host": "This PC",
+      "client": "Another PC",
+      "description": "On a computer that connects to WingLog on the sim PC, choose “Another PC”.",
+      "restart": "Takes effect the next time WingLog starts."
+    },
+    "hostLink": {
+      "cardTitle": "Sim PC",
+      "description": "Connect this computer to WingLog on the PC the sim runs on. There, turn on Second screen (Settings → Data) and enter the address and pairing code it shows.",
+      "states": {
+        "connected": "Connected",
+        "connecting": "Connecting…",
+        "offline": "Not reachable, trying again",
+        "wrong-code": "Wrong code",
+        "unpaired": "Not paired"
+      },
+      "pairedWith": "Paired with {{address}}",
+      "forget": "Forget this sim PC",
+      "addressLabel": "Address",
+      "codeLabel": "Pairing code",
+      "connect": "Connect",
+      "badAddress": "Enter the sim PC’s address with its port, an address on your home network, such as 192.168.1.20:5051."
+    }
   },
   "app": {
     "tabs": {
@@ -278,7 +305,18 @@
         "disconnected": "disconnected"
       },
       "badge": "Sim: {{state}}",
-      "label": "Sim"
+      "label": "Sim",
+      "simPcBadge": "Sim PC: {{state}}",
+      "simPcNotConnected": "Not connected to the sim PC",
+      "simPcStates": {
+        "connected": "connected",
+        "connecting": "connecting",
+        "offline": "not reachable",
+        "unpaired": "not paired",
+        "wrong-code": "not paired"
+      },
+      "simPcConnected": "Connected to the sim PC",
+      "simPcLabel": "Sim PC"
     },
     "orphanedFlight": {
       "resumeTitle": "Resume tracking?",
@@ -651,7 +689,8 @@
     "discardThisPlan": "Discard this plan?",
     "canFetchAgain": "You can fetch it again from SimBrief.",
     "noOfpPdfAvailable": "No OFP PDF available for this plan.",
-    "alternateLabel": "Alternate {{altn}}",    "matches": "Matches"
+    "alternateLabel": "Alternate {{altn}}",
+    "matches": "Matches"
   },
   "trackView": {
     "title": "Track",
@@ -699,7 +738,8 @@
       "stepClimb": "Step climb to {{altitude}}"
     },
     "flightInProgress": "Flight in progress",
-    "change": "Change"
+    "change": "Change",
+    "notConnectedSimPc": "Not connected to the sim PC."
   },
   "flightMap": {
     "stopCentering": "Stop centering on aircraft",
@@ -874,7 +914,6 @@
     "newName": "My routine",
     "edit": "Edit {{name}}",
     "editButton": "Edit",
-
     "editHint": "Editing: choose a routine to change it, or press Edit again to finish.",
     "cancel": "Cancel",
     "stageOf": "Stage {{stage}} of {{count}}",

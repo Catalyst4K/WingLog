@@ -3,7 +3,7 @@
  * stands). Each is asked of the PC over the link; anything else the page never uses answers "nothing here".
  */
 
-import type { LanConnection } from './lan-connection'
+import type { LanConnection } from '@shared/lan-connection'
 
 /**
  * @param value An answer from the PC.

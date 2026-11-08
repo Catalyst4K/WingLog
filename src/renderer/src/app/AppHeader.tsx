@@ -3,7 +3,7 @@
 import { ChevronDown } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
-import type { AppPage, SimConnectionStatus } from '@shared/ipc'
+import type { AppPage, HostLinkStatus, SimConnectionStatus } from '@shared/ipc'
 import { StatusLight, type LightState } from '@/components/StatusLight'
 import { useState } from 'react'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
@@ -12,6 +12,8 @@ import { useNarrowWindow } from '../hooks/use-narrow-window'
 import { cn } from '@/lib/utils'
 import { DevBuildBadge } from '../DevBuildBadge'
 import { OnlineBadge } from '../online/OnlineBadge'
+import { useCapabilities } from './capabilities-context'
+import { hostLinkLight, useHostLinkStatus } from './use-host-link'
 
 /**
  * The tabs, in order. GSX Remote Control and BeyondATC's own tabs are gated on their settings'
@@ -131,6 +133,28 @@ function connectionLight(status: SimConnectionStatus): LightState {
 }
 
 /**
+ * What the header shows of the connection on a client: the word "Sim PC" and the lights, drawn as the sim's are on a host.
+ *
+ * @param props The link, or null before it has been read.
+ * @returns The element.
+ */
+function SimPcLight(props: { link: HostLinkStatus | null }): React.JSX.Element {
+  const { t } = useTranslation()
+  const state = props.link?.state ?? 'unpaired'
+  const stateText = t(`app.connection.simPcStates.${state}`)
+  return (
+    <span
+      title={t(state === 'connected' ? 'app.connection.simPcConnected' : 'app.connection.simPcNotConnected')}
+      className="flex shrink-0 items-center gap-2 text-sm text-muted-foreground"
+    >
+      <span aria-hidden="true">{t('app.connection.simPcLabel')}</span>
+      <StatusLight state={hostLinkLight(state)} count={3} />
+      <span className="sr-only">{t('app.connection.simPcBadge', { state: stateText })}</span>
+    </span>
+  )
+}
+
+/**
  * The header: one tab per enabled page, then the dev-build and online badges and the sim connection light.
  *
  * @param props Which optional tabs exist, the tab-click handler, and the sim connection status.
@@ -146,6 +170,8 @@ export function AppHeader(props: {
 }): React.JSX.Element {
   const { t } = useTranslation()
   const { simStatus } = props
+  const isClient = useCapabilities().runMode === 'client'
+  const hostLink = useHostLinkStatus(isClient)
   const narrow = useNarrowWindow()
   const tabs = appTabs(t, props.gsxRemoteEnabled, props.beyondAtcEnabled)
   const shown = narrow ? tabs.filter((tab) => ALWAYS_SHOWN.includes(tab.page)) : tabs
@@ -170,20 +196,24 @@ export function AppHeader(props: {
         <DevBuildBadge />
         {/* Not below sm: the tabs and the sim light only just fit at 360 px. */}
         <OnlineBadge className="hidden sm:inline-flex" />
-        <span
-          title={connectionStatusLabel(simStatus, t)}
-          className={cn(
-            'flex shrink-0 items-center gap-2 text-sm',
-            simStatus.state === 'disconnected' ? 'text-destructive' : 'text-muted-foreground'
-          )}
-        >
-          {/* The word and the lights only; the state is in the lights' colour, the tooltip and, for a screen reader, here. */}
-          <span aria-hidden="true">{t('app.connection.label')}</span>
-          <StatusLight state={connectionLight(simStatus)} count={3} />
-          <span className="sr-only">
-            {t('app.connection.badge', { state: connectionStateLabel(simStatus, t) })}
+        {isClient ? (
+          <SimPcLight link={hostLink} />
+        ) : (
+          <span
+            title={connectionStatusLabel(simStatus, t)}
+            className={cn(
+              'flex shrink-0 items-center gap-2 text-sm',
+              simStatus.state === 'disconnected' ? 'text-destructive' : 'text-muted-foreground'
+            )}
+          >
+            {/* The word and the lights only; the state is in the lights' colour, the tooltip and, for a screen reader, here. */}
+            <span aria-hidden="true">{t('app.connection.label')}</span>
+            <StatusLight state={connectionLight(simStatus)} count={3} />
+            <span className="sr-only">
+              {t('app.connection.badge', { state: connectionStateLabel(simStatus, t) })}
+            </span>
           </span>
-        </span>
+        )}
       </div>
     </header>
   )

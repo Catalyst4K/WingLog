@@ -18,7 +18,16 @@ import {
 import { TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 export type SettingsCategory =
-  'general' | 'secondScreen' | 'accounts' | 'gsx' | 'beyondAtc' | 'online' | 'navdata' | 'data' | 'about'
+  | 'general'
+  | 'simPc'
+  | 'secondScreen'
+  | 'accounts'
+  | 'gsx'
+  | 'beyondAtc'
+  | 'online'
+  | 'navdata'
+  | 'data'
+  | 'about'
 
 /** A page in the list: its light, and a few quiet words beside it. */
 interface SettingsPage {
@@ -35,31 +44,52 @@ export interface SettingsNavStatus {
   gsxRemote: LightState
   beyondAtc: LightState
   secondScreen: { light?: LightState; status?: string }
+  /** The Sim PC page's light (multi-device builds): the link to the sim PC on a client. */
+  simPc: { light?: LightState; status?: string }
   about: { light?: LightState; status?: string }
+}
+
+/** Which pages the list leaves out: the Sim PC page unless multi-device is built in, and on a client the pages of what only the sim PC runs. */
+export interface SettingsNavMode {
+  multiDevice: boolean
+  isClient: boolean
 }
 
 /**
  * @param t The translation function.
  * @param status The lights and status words.
+ * @param mode Whether multi-device is built in and whether this is a client.
  * @returns The pages, in their three groups.
  */
-function settingsGroups(t: TFunction, status: SettingsNavStatus): { label: string; pages: SettingsPage[] }[] {
+function settingsGroups(
+  t: TFunction,
+  status: SettingsNavStatus,
+  mode: SettingsNavMode
+): { label: string; pages: SettingsPage[] }[] {
+  const hostPages = (pages: SettingsPage[]): SettingsPage[] => (mode.isClient ? [] : pages)
   return [
     {
       label: t('settingsView.groups.app'),
       pages: [
         { value: 'general', label: t('settingsView.categories.general') },
-        { value: 'secondScreen', label: t('settingsView.categories.secondScreen'), ...status.secondScreen }
+        ...(mode.multiDevice
+          ? [{ value: 'simPc' as const, label: t('settingsView.categories.simPc'), ...status.simPc }]
+          : []),
+        ...hostPages([
+          { value: 'secondScreen', label: t('settingsView.categories.secondScreen'), ...status.secondScreen }
+        ])
       ]
     },
     {
       label: t('settingsView.groups.addons'),
       pages: [
         { value: 'accounts', label: t('settingsView.categories.accounts') },
-        { value: 'gsx', label: t('settingsView.categories.gsx'), light: status.gsxRemote },
-        { value: 'beyondAtc', label: t('settingsView.categories.beyondAtc'), light: status.beyondAtc },
-        { value: 'online', label: t('settingsView.categories.online') },
-        { value: 'navdata', label: t('settingsView.categories.navdata') }
+        ...hostPages([
+          { value: 'gsx', label: t('settingsView.categories.gsx'), light: status.gsxRemote },
+          { value: 'beyondAtc', label: t('settingsView.categories.beyondAtc'), light: status.beyondAtc },
+          { value: 'online', label: t('settingsView.categories.online') },
+          { value: 'navdata', label: t('settingsView.categories.navdata') }
+        ])
       ]
     },
     {
@@ -82,9 +112,10 @@ export function SettingsNav(props: {
   category: SettingsCategory
   onChange: (category: SettingsCategory) => void
   status: SettingsNavStatus
+  mode: SettingsNavMode
 }): React.JSX.Element {
   const { t } = useTranslation()
-  const groups = settingsGroups(t, props.status)
+  const groups = settingsGroups(t, props.status, props.mode)
   return (
     <>
       <div className="w-full pb-4 @3xl:hidden">

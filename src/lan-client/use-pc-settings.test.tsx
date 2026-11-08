@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, renderHook } from '@testing-library/react'
-import type { LanConnection, LanLinkState } from './lan-connection'
+import type { LanConnection, LanLinkState } from '@shared/lan-connection'
 import { usePcSettings } from './use-pc-settings'
 
 /** A link that answers lookups from a table of functions, as the PC would, and can be told to refuse. */

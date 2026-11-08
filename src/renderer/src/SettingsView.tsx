@@ -26,6 +26,10 @@ import type { LightState } from '@/components/StatusLight'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent } from '@/components/ui/tabs'
 import { SettingsNav, type SettingsCategory } from './settings/SettingsNav'
+import { HostLinkCard } from './settings/HostLinkCard'
+import { RunModeCard } from './settings/RunModeCard'
+import { useCapabilities } from './app/capabilities-context'
+import { hostLinkLight, useHostLinkStatus } from './app/use-host-link'
 import { useSettingsNavStatus } from './settings/use-settings-nav-status'
 import { useResetSignal } from './hooks/use-reset-signal'
 import { asyncHandler, runAsync } from './report-error'
@@ -234,6 +238,10 @@ export function SettingsView(
   }
 ): React.JSX.Element {
   const { t } = useTranslation()
+  // A client is not the sim's host: the pages of what only the sim PC runs are not offered, and a Sim PC page pairs it (multi-device builds).
+  const { runMode, multiDevice } = useCapabilities()
+  const isClient = runMode === 'client'
+  const hostLink = useHostLinkStatus(isClient)
   // Called in the order the settings used to load in, so the IPC calls go out in that order.
   const credentials = useSimbriefCredentials()
   const gsx = useGsxSettings()
@@ -268,13 +276,22 @@ export function SettingsView(
           status={{
             gsxRemote: addonLight(gsxRemote.settings.enabled, gsxRemote.status.state),
             beyondAtc: addonLight(beyondAtc.settings.enabled, beyondAtc.status.state),
-            ...navStatus
+            ...navStatus,
+            simPc: isClient && hostLink ? { light: hostLinkLight(hostLink.state) } : {}
           }}
+          mode={{ multiDevice, isClient }}
         />
 
         <TabsContent value="general" className={PAGE}>
           <SettingsPage category="general">
             <InterfacePanel {...props} />
+          </SettingsPage>
+        </TabsContent>
+
+        <TabsContent value="simPc" className={PAGE}>
+          <SettingsPage category="simPc">
+            {isClient && <HostLinkCard />}
+            <RunModeCard />
           </SettingsPage>
         </TabsContent>
 
