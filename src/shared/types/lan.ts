@@ -52,6 +52,10 @@ export interface LanStatus {
 /** The flight a second screen shows: the active one, with what the map needs (the route comes from the OFP the same way the app's own map reads it). */
 export interface LanFlight {
   flightId: number
+  /** The flight's uuid, which is the same on every computer (ids are not): how a twin finds its own row of this flight. */
+  uuid: string | null
+  /** Whether this is the flight being tracked now (not only the newest one planned). */
+  tracking: boolean
   depIcao: string
   arrIcao: string
   /** The flight number, such as "CPA116", when the flight has one. */

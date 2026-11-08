@@ -238,6 +238,59 @@ describe('HostLink', () => {
     expect(link.getStatus().sync).toEqual(current)
   })
 
+  it('re-labels a topic on its way in, and holds back one that cannot be re-labelled yet', () => {
+    const link = new HostLink({
+      hub,
+      store: memoryStore(),
+      createSocket: (url) => {
+        const socket = new FakeSocket(url)
+        sockets.push(socket)
+        return socket
+      },
+      deviceName: 'WingLog on MAC',
+      onStatus: () => {},
+      mapTopic: (topic, payload) =>
+        topic === 'trackingPoint'
+          ? (payload as { flightId: number }).flightId === 7
+            ? { flightId: 3 }
+            : null
+          : payload
+    })
+    link.pair('192.168.1.20:5051', '123456')
+    sockets[0]?.open()
+    sockets[0]?.hear({ t: 'paired', token: 't' })
+    sockets[0]?.hear({ t: 'snapshot', topics: {}, flight: null })
+    sockets[0]?.hear({ t: 'topic', name: 'trackingPoint', payload: { flightId: 7 } })
+    expect(hub.snapshot().trackingPoint).toEqual({ flightId: 3 })
+    sockets[0]?.hear({ t: 'topic', name: 'trackingPoint', payload: { flightId: 99 } })
+    expect(hub.snapshot().trackingPoint).toEqual({ flightId: 3 })
+    sockets[0]?.hear({ t: 'topic', name: 'gsxRemoteStatus', payload: { state: 'connected' } })
+    expect(hub.snapshot().gsxRemoteStatus).toEqual({ state: 'connected' })
+  })
+
+  it('tells who follows the flight when the host shows one, and when the link is closed', () => {
+    const seen: (string | null)[] = []
+    const link = new HostLink({
+      hub,
+      store: memoryStore(),
+      createSocket: (url) => {
+        const socket = new FakeSocket(url)
+        sockets.push(socket)
+        return socket
+      },
+      deviceName: 'WingLog on MAC',
+      onStatus: () => {},
+      onFlight: (flight) => void seen.push(flight ? 'flight' : null)
+    })
+    link.pair('192.168.1.20:5051', '123456')
+    sockets[0]?.open()
+    sockets[0]?.hear({ t: 'paired', token: 't' })
+    sockets[0]?.hear({ t: 'snapshot', topics: {}, flight: { flight: { flightId: 7 }, trackPoints: [] } })
+    expect(seen.at(-1)).toBe('flight')
+    link.forget()
+    expect(seen.at(-1)).toBeNull()
+  })
+
   it('forgets a token the host no longer accepts', async () => {
     const store = memoryStore({ address: '192.168.1.20:5051', token: 'revoked' })
     const link = make(store)

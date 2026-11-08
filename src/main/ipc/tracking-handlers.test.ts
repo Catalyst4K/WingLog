@@ -132,6 +132,16 @@ describe('tracking and flight IPC handlers', () => {
     expect(prefill).toMatchObject({ suggestedDepIcao: 'EGLL', rememberedAircraftId: null })
   })
 
+  it('answers with the flight mirrored from the sim PC on a client, which tracks nothing itself, and with its own otherwise', () => {
+    const mirrored: { flightId: number; phase: 'cruise' }[] = [{ flightId: 3, phase: 'cruise' }]
+    deps = { ...deps, mirroredActive: () => mirrored[0] ?? null }
+    expect(register()(IpcChannels.trackingGetActive)).toEqual({ flightId: 3, phase: 'cruise' })
+    mirrored.length = 0
+    // Nothing mirrored: the controller's own answer, as on a host.
+    tracking.getActive.mockReturnValue({ flightId: 9, phase: 'taxi' })
+    expect(register()(IpcChannels.trackingGetActive)).toEqual({ flightId: 9, phase: 'taxi' })
+  })
+
   it('passes stop, finish and the active flight to the controller', () => {
     const invoke = register()
     invoke(IpcChannels.trackingStop)

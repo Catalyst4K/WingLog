@@ -4,7 +4,7 @@
  * local database.
  */
 import { shell, type BrowserWindow, type IpcMain } from 'electron'
-import { IpcChannels } from '@shared/ipc'
+import { IpcChannels, type TrackPoint } from '@shared/ipc'
 import type { WingLogDb } from '../db/client'
 import { asDataFormat } from './data-format'
 import {
@@ -46,6 +46,8 @@ export interface LogbookHandlerDeps {
   window: BrowserWindow
   /** Pushes a change to the cloud copy, when signed in. */
   scheduleBackgroundSync: () => void
+  /** A client's points of the flight the sim PC is tracking (null for any other flight): it did not record them itself. */
+  liveTrack?: (flightId: number) => TrackPoint[] | null
 }
 
 /**
@@ -56,7 +58,7 @@ export interface LogbookHandlerDeps {
  */
 export function registerLogbookHandlers(
   ipcMain: IpcMain,
-  { db, window, scheduleBackgroundSync }: LogbookHandlerDeps
+  { db, window, scheduleBackgroundSync, liveTrack }: LogbookHandlerDeps
 ): void {
   ipcMain.handle(IpcChannels.flightList, () => listFlightSummaries(db))
 
@@ -138,9 +140,11 @@ export function registerLogbookHandlers(
   // flight catch-up load) — storage itself stays full resolution regardless, this only
   // shapes what crosses IPC and gets rendered. Live tracking's own point-by-point stream
   // (the 'point' event below) is completely separate and unaffected.
-  ipcMain.handle(IpcChannels.trackPointList, (_event, flightId: number) =>
-    simplifyTrackPoints(listTrackPoints(db, flightId).filter((p) => p.excludedReason == null))
-  )
+  ipcMain.handle(IpcChannels.trackPointList, (_event, flightId: number) => {
+    // A client has not recorded the flight the sim PC is tracking: what the sim PC has recorded so far stands in for it.
+    const live = liveTrack?.(flightId)
+    return live ?? simplifyTrackPoints(listTrackPoints(db, flightId).filter((p) => p.excludedReason == null))
+  })
 
   // Logbook's manual "Clean up track" button (winglog-backend's docs/plans/done/
   // resume-track-cleanup.md) — the same cleanup pass TrackingController already runs

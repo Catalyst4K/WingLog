@@ -496,6 +496,8 @@ export interface WingLogApi {
   hostLinkPair: (address: string, code: string) => Promise<HostLinkStatus>
   /** Forgets the sim PC: closes the link and deletes the stored token. */
   hostLinkForget: () => Promise<void>
+  /** Called after a sync with the sim PC changed this computer's fleet or logbook, so a screen showing a list can read it again. */
+  onDataChanged: (listener: () => void) => () => void
   /** Called whenever the link's status changes. */
   onHostLinkStatus: (listener: (status: HostLinkStatus) => void) => () => void
   /** What this run of the app is: the host that talks to the sim, or a client of the sim PC's WingLog, and what that allows. */

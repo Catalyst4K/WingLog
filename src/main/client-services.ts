@@ -10,6 +10,7 @@ import type { WingLogDb } from './db/client'
 import { runLogged } from './logging/run-logged'
 import type { LiveHub } from './live/LiveHub'
 import { HostLink } from './host-link/HostLink'
+import { mapFlightTopic, type FlightMirror } from './host-link/flight-mirror'
 import { registerHostLinkHandlers } from './host-link/client-ipc'
 import { fileHostLinkStore } from './host-link/host-link-store'
 import { LanSyncClient } from './host-link/lan-sync-client'
@@ -26,6 +27,7 @@ import { onLocalWrite } from './sync/local-write-hints'
  * @param deps.handled The channels already answered, which the link takes over.
  * @param deps.db The database that is kept in step with the sim PC's.
  * @param deps.dbPath The database file's path, where conflicts are logged next to it.
+ * @param deps.mirror The flight the sim PC is tracking, as this computer's own screens read it.
  */
 export function startClientServices(deps: {
   liveHub: LiveHub
@@ -33,8 +35,9 @@ export function startClientServices(deps: {
   handled: ReadonlySet<string>
   db: WingLogDb
   dbPath: string
+  mirror: FlightMirror
 }): void {
-  const { liveHub, window, handled, db, dbPath } = deps
+  const { liveHub, window, handled, db, dbPath, mirror } = deps
   const sync = new TwinSync({
     db,
     dbPath,
@@ -49,9 +52,20 @@ export function startClientServices(deps: {
     onStatus: (status) => {
       if (!window.isDestroyed()) window.webContents.send(IpcChannels.hostLinkStatus, status)
     },
-    sync
+    sync,
+    // The sim PC's flight ids mean nothing here: its points are re-labelled with this computer's id for the same flight (by uuid).
+    mapTopic: (topic, payload) => mapFlightTopic(mirror, topic, payload),
+    onFlight: (flight, track) => (flight ? mirror.setFlight(flight, track) : mirror.clear())
   })
   registerHostLinkHandlers(ipcMain, { link, hub: liveHub, handled })
+  // Each time a sync ends well the lists on screen can be read again: rows may have come in.
+  let lastSeen: string | null = null
+  sync.onChange(() => {
+    const { state, lastSyncedAt } = sync.status()
+    if (state !== 'idle' || lastSyncedAt === lastSeen) return
+    lastSeen = lastSyncedAt
+    if (!window.isDestroyed()) window.webContents.send(IpcChannels.dataChanged)
+  })
   // A change made here reaches the sim PC soon after.
   onLocalWrite(() => sync.syncSoon(SYNC_AFTER_WRITE_MS))
   runLogged('host link at launch', link.start())

@@ -14,6 +14,8 @@ import { registerInertHandlers, trackHandledChannels } from './client-mode'
 import { registerRunModeHandlers } from './ipc/run-mode-handlers'
 import { startHostServices } from './host-services'
 import { startClientServices } from './client-services'
+import { FlightMirror } from './host-link/flight-mirror'
+import { getFlightIdByUuid } from './db/flight-repo'
 import { CloseGuard } from './window/CloseGuard'
 import { CloseQuestion } from './window/CloseQuestion'
 import { registerWindowHandlers } from './ipc/window-handlers'
@@ -328,6 +330,30 @@ function startFleetAndLookups(
 }
 
 /**
+ * Cloud sync (winglog-backend/docs/plans/cloud-sync.md) — off by default, and the only feature that talks to winglog-backend for anything
+ * beyond the stateless SimBrief signing route. Constructed before any mutating handler, so each can trigger a background sync after a
+ * successful write. Pull-on-launch: one sync at startup when a session already exists, so this device picks up whatever changed elsewhere
+ * since it last opened. Fire-and-forget: syncNow() catches its own errors into getStatus().lastError and never throws, and this must never
+ * block the window opening (offline at launch is normal).
+ *
+ * @param db The database.
+ * @param dbPath The database file's path.
+ * @param cloudSession The saved cloud-sync session, or null when signed out.
+ * @returns The controller, and the call every writer makes after a change.
+ */
+function startCloudSync(
+  db: WingLogDb,
+  dbPath: string,
+  cloudSession: StoredSession | null
+): { cloudSync: CloudSyncController; scheduleBackgroundSync: () => void } {
+  const cloudSync = new CloudSyncController(db, dbPath, app.getPath('userData'), cloudSession)
+  if (cloudSync.getStatus().loggedIn) runLogged('cloud sync at launch', cloudSync.syncNow())
+  const scheduleBackgroundSync = createBackgroundSync(cloudSync)
+  startPeriodicSync(cloudSync)
+  return { cloudSync, scheduleBackgroundSync }
+}
+
+/**
  * Registers the tracking and flight IPC, and applies the auto-finish setting.
  *
  * @param deps The database, the sim, tracking and what they tell when flights change.
@@ -386,19 +412,16 @@ function startApp(cloudSession: StoredSession | null): void {
     if (!window.isDestroyed()) window.webContents.send(IpcChannels[topic], payload)
   })
 
-  // Cloud sync (winglog-backend/docs/plans/cloud-sync.md) — off by default, and the only
-  // feature that talks to winglog-backend for anything beyond the stateless SimBrief signing
-  // route. Constructed before any mutating handler, so each can trigger a background sync
-  // after a successful write. Pull-on-launch: one sync at startup when a session already
-  // exists, so this device picks up whatever changed elsewhere since it last opened.
-  // Fire-and-forget: syncNow() catches its own errors into getStatus().lastError and never
-  // throws, and this must never block the window opening (offline at launch is normal).
-  const cloudSync = new CloudSyncController(db, dbPath, app.getPath('userData'), cloudSession)
-  if (cloudSync.getStatus().loggedIn) runLogged('cloud sync at launch', cloudSync.syncNow())
-  const scheduleBackgroundSync = createBackgroundSync(cloudSync)
-  startPeriodicSync(cloudSync)
+  const { cloudSync, scheduleBackgroundSync } = startCloudSync(db, dbPath, cloudSession)
+  // The flight the sim PC is tracking, as a client sees it (idle on a host).
+  const flightMirror = new FlightMirror((uuid) => getFlightIdByUuid(db, uuid))
 
-  registerLogbookHandlers(ipcMain, { db, window, scheduleBackgroundSync })
+  registerLogbookHandlers(ipcMain, {
+    db,
+    window,
+    scheduleBackgroundSync,
+    liveTrack: (flightId) => flightMirror.livePoints(flightId)
+  })
   startFleetAndLookups(db, window, scheduleBackgroundSync)
   registerDispatchHandlers(ipcMain, { db })
 
@@ -440,6 +463,7 @@ function startApp(cloudSession: StoredSession | null): void {
 
   registerTrackingAreas({
     db,
+    mirroredActive: () => flightMirror.active(),
     sim,
     trackingController,
     autoStartDetector,
@@ -448,7 +472,8 @@ function startApp(cloudSession: StoredSession | null): void {
   })
 
   registerGsxHandlers(ipcMain, { db, window, scheduleBackgroundSync })
-  if (isClient) startClientServices({ liveHub, window, handled: handledChannels, db, dbPath })
+  if (isClient)
+    startClientServices({ liveHub, window, handled: handledChannels, db, dbPath, mirror: flightMirror })
   else {
     startHostServices({
       db,

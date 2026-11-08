@@ -7,7 +7,13 @@
  */
 import type { IpcMain } from 'electron'
 import { isRetired } from '@shared/aircraft'
-import { IpcChannels, type NewFlight, type SimTelemetry, type StartFreeFlightInput } from '@shared/ipc'
+import {
+  IpcChannels,
+  type ActiveTracking,
+  type NewFlight,
+  type SimTelemetry,
+  type StartFreeFlightInput
+} from '@shared/ipc'
 import { t } from '../i18n'
 import type { WingLogDb } from '../db/client'
 import { getLiveAircraftById } from '../db/aircraft-repo'
@@ -39,6 +45,8 @@ export interface TrackingHandlerDeps {
   scheduleBackgroundSync: () => void
   /** Called after a flight is planned, cancelled, deleted or linked to an aircraft: the flight a second screen shows may have changed. */
   onFlightsChanged?: () => void
+  /** A client's answer for the flight being tracked on the sim PC, which it does not track itself: used when it has one. */
+  mirroredActive?: () => ActiveTracking | null
 }
 
 /**
@@ -121,7 +129,10 @@ export function registerTrackingHandlers(ipcMain: IpcMain, deps: TrackingHandler
   )
   ipcMain.handle(IpcChannels.trackingStop, () => trackingController.stop())
   ipcMain.handle(IpcChannels.trackingFinish, () => trackingController.finish())
-  ipcMain.handle(IpcChannels.trackingGetActive, () => trackingController.getActive() ?? null)
+  ipcMain.handle(
+    IpcChannels.trackingGetActive,
+    () => deps.mirroredActive?.() ?? trackingController.getActive() ?? null
+  )
   ipcMain.handle(IpcChannels.trackingSetDestination, (_event, icao: unknown) => {
     if (icao !== null && typeof icao !== 'string') throw new Error(t('errors.invalidDestination'))
     trackingController.setDestination(icao)

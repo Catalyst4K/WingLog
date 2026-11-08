@@ -8,7 +8,7 @@
 import type { LiveTopic, LiveTopics } from '@shared/live'
 import { LanConnection, type LanLinkState, type LinkSocket, type TokenStore } from '@shared/lan-connection'
 import { parseHostAddress } from '@shared/host-address'
-import type { HostLinkState, HostLinkStatus } from '@shared/ipc'
+import type { HostLinkState, HostLinkStatus, LanFlightSnapshot, TrackPoint } from '@shared/ipc'
 import { logger } from '../logging/logger'
 import { LAN_TOPICS } from '../lan/LanServer'
 import type { LiveHub } from '../live/LiveHub'
@@ -38,6 +38,13 @@ export interface HostLinkDeps {
   deviceName: string
   /** Called whenever the status changes. */
   onStatus: (status: HostLinkStatus) => void
+  /**
+   * Re-labels a topic's value on its way into this computer's hub: the sim PC's flight ids mean nothing here. Returns null to drop it.
+   * Left out, every topic is passed on as it came.
+   */
+  mapTopic?: (topic: LiveTopic, payload: unknown) => unknown
+  /** Told the flight the sim PC shows (null when none or the link is gone), and a way to read the track it has recorded so far. */
+  onFlight?: (flight: LanFlightSnapshot | null, track: () => TrackPoint[]) => void
   /** Keeps the two databases in step; asked to sync when the link comes up and when the sim PC says it changed. Left out in tests of the link alone. */
   sync?: TwinSyncPort
 }
@@ -167,6 +174,7 @@ export class HostLink {
         this.emit()
       }),
       connection.onSyncHint(() => this.deps.sync?.syncSoon(SYNC_AFTER_HINT_MS)),
+      connection.onFlight((flight) => this.deps.onFlight?.(flight, () => connection.track)),
       ...HOST_LINK_TOPICS.map((topic) =>
         connection.subscribe(topic, (payload) => this.republish(topic, payload))
       )
@@ -177,6 +185,7 @@ export class HostLink {
   private close(): void {
     for (const unsubscribe of this.unsubscribers) unsubscribe()
     this.unsubscribers = []
+    this.deps.onFlight?.(null, () => [])
     this.connection?.stop()
     this.connection = null
   }
@@ -186,7 +195,9 @@ export class HostLink {
    * @param payload Its new value.
    */
   private republish<T extends LiveTopic>(topic: T, payload: unknown): void {
-    this.deps.hub.publish(topic, payload as LiveTopics[T])
+    const mapped = this.deps.mapTopic ? this.deps.mapTopic(topic, payload) : payload
+    // A value that cannot be re-labelled yet (its flight has not synced) is held back, not shown against the wrong flight.
+    if (mapped !== null) this.deps.hub.publish(topic, mapped as LiveTopics[T])
     if (topic === 'simConnectionStatus') {
       this.hostSimChanged((payload as LiveTopics['simConnectionStatus']).state)
     }

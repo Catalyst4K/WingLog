@@ -3,7 +3,7 @@ import { sql } from 'drizzle-orm'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import { createDb } from '../db/client'
 import { createAircraft } from '../db/aircraft-repo'
-import { createFlight } from '../db/flight-repo'
+import { createFlight, getFlightUuidById } from '../db/flight-repo'
 import { lanFlightKey, lanFlightSnapshot } from './lan-flight'
 
 function freshDb() {
@@ -80,6 +80,8 @@ describe('lanFlightSnapshot', () => {
     const snapshot = lanFlightSnapshot(db, flight.id)
     expect(snapshot?.flight).toEqual({
       flightId: flight.id,
+      uuid: expect.stringMatching(/^[0-9a-f-]{36}$/),
+      tracking: true,
       depIcao: 'WSSS',
       arrIcao: 'EGLL',
       flightNumber: 'SIA321',
@@ -100,6 +102,16 @@ describe('lanFlightSnapshot', () => {
       }
     })
     expect(snapshot?.trackPoints).toEqual([])
+  })
+
+  it('says whether the flight shown is the one being tracked, and gives its uuid, which is how a twin finds its own row', () => {
+    const db = freshDb()
+    const aircraftId = createAircraft(db, { registration: '9V-SKA', icaoType: 'A388' }).id
+    const planned = createFlight(db, { aircraftId, depIcao: 'WSSS', arrIcao: 'EGLL', status: 'planned' })
+    const shown = lanFlightSnapshot(db, undefined)?.flight
+    expect(shown).toMatchObject({ flightId: planned.id, tracking: false })
+    expect(shown?.uuid).toBe(getFlightUuidById(db, planned.id))
+    expect(lanFlightSnapshot(db, planned.id)?.flight.tracking).toBe(true)
   })
 
   it('gives the airline of the fleet aircraft, for the logo beside the flight number', () => {

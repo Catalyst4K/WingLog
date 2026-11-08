@@ -5,6 +5,7 @@
 
 import { winglogApi } from '../data/winglog-api'
 import { isRetired } from '@shared/aircraft'
+import { useDataChanged } from '../app/use-data-changed'
 import { useEffect, useState } from 'react'
 import {
   defaultDispatchOptions,
@@ -46,6 +47,19 @@ export function useDispatchLists(): DispatchLists {
   const [fleetStats, setFleetStats] = useState<FleetStats[]>([])
   const [pastFlights, setPastFlights] = useState<LogbookFlight[]>([])
   const [generationAvailable, setGenerationAvailable] = useState(false)
+
+  const loadLists = (): void => {
+    runAsync(
+      'DispatchView aircraftList',
+      winglogApi()
+        .aircraftList()
+        .then((list) => setAircraft(list.filter((a) => !isRetired(a))))
+    )
+    runAsync('DispatchView logbookFleetStats', winglogApi().logbookFleetStats().then(setFleetStats))
+    runAsync('DispatchView flightList', winglogApi().flightList().then(setPastFlights))
+  }
+  // After a sync with the sim PC brings in aircraft or flights, the lists are read again.
+  useDataChanged(loadLists)
 
   useEffect(() => {
     // Retired aircraft (replacedByAircraftId set — docs/plans/aircraft-replacement.md) have

@@ -3,7 +3,7 @@
 import type { Flight, LanFlightSnapshot, ProcedureSelection } from '@shared/ipc'
 import type { WingLogDb } from '../db/client'
 import { getLiveAircraftById } from '../db/aircraft-repo'
-import { getLiveFlight, listFlightSummaries } from '../db/flight-repo'
+import { getFlightUuidById, getLiveFlight, listFlightSummaries } from '../db/flight-repo'
 import { listTrackPoints } from '../db/track-point-repo'
 
 /**
@@ -69,6 +69,8 @@ export function lanFlightSnapshot(
   return {
     flight: {
       flightId: flight.id,
+      uuid: getFlightUuidById(db, flight.id) ?? null,
+      tracking: flight.id === activeFlightId,
       depIcao: flight.depIcao,
       arrIcao: flight.arrIcao,
       flightNumber: flight.flightNumber,

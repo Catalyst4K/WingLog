@@ -2,6 +2,7 @@
 
 import { winglogApi } from './data/winglog-api'
 import { useEffect, useState } from 'react'
+import { useDataChanged } from './app/use-data-changed'
 import { Button } from '@/components/ui/button'
 import { useTranslation } from 'react-i18next'
 import type {
@@ -102,6 +103,7 @@ export function LogbookView(props: {
       reload().finally(() => setLoading(false))
     )
   }, [])
+  useDataChanged(() => runAsync('LogbookView reload', reload()))
 
   /**
    * A free flight tracked with no fleet aircraft has no aircraftId to look up — falls back

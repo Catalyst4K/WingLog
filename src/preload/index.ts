@@ -466,6 +466,11 @@ const api: WingLogApi = {
   hostLinkPair: (address: string, code: string) =>
     ipcRenderer.invoke(IpcChannels.hostLinkPair, address, code),
   hostLinkForget: () => ipcRenderer.invoke(IpcChannels.hostLinkForget),
+  onDataChanged: (listener: () => void) => {
+    const handler = (): void => listener()
+    ipcRenderer.on(IpcChannels.dataChanged, handler)
+    return () => ipcRenderer.removeListener(IpcChannels.dataChanged, handler)
+  },
   onHostLinkStatus: (listener: (status: HostLinkStatus) => void) => {
     const handler = (_event: Electron.IpcRendererEvent, status: HostLinkStatus): void => listener(status)
     ipcRenderer.on(IpcChannels.hostLinkStatus, handler)

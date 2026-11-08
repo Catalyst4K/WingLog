@@ -28,6 +28,8 @@ test('a client pairs with the host by address and code, follows its sim and keep
     const host = await launchApp({
       env: {
         WINGLOG_E2E_LAN_ADDRESS: '127.0.0.1',
+        // BeyondATC is switched on at this host below: aim it at a port nothing listens on, never at a real BeyondATC that may be running.
+        WINGLOG_E2E_BEYONDATC_PORT: String(await freePort()),
         WINGLOG_E2E_FIXTURE: fixture,
         WINGLOG_E2E_REPLAY_MODE: 'paced',
         WINGLOG_E2E_REPLAY_SPEED: '200'
@@ -111,6 +113,42 @@ test('a client pairs with the host by address and code, follows its sim and keep
         expect(await client.window.evaluate(() => window.winglog.hostLinkGetStatus())).toMatchObject({
           sync: { state: 'idle' }
         })
+        // The host starts tracking a flight; the client's own Track screen reads it as its own flight, found by uuid, with the host's
+        // track so far, though the client tracks nothing and its flight ids are not the host's.
+        const hostFlight = await host.window.evaluate(async () => {
+          const aircraft = (await window.winglog.aircraftList()).find((a) => a.registration === 'G-HOST')
+          return window.winglog.trackingStartFree({
+            aircraftId: aircraft?.id ?? null,
+            simRegistration: null,
+            simIcaoType: null,
+            depIcao: 'EGLL',
+            arrIcao: 'EGCC',
+            flightNumber: 'TST1'
+          })
+        })
+        expect(hostFlight).toBeTruthy()
+        await expect
+          .poll(
+            () =>
+              client.window.evaluate(async () => {
+                const active = await window.winglog.trackingGetActive()
+                if (!active) return null
+                const flight = (await window.winglog.flightList()).find((f) => f.id === active.flightId)
+                return flight ? `${flight.depIcao}-${flight.arrIcao}` : 'unknown flight'
+              }),
+            { timeout: 30_000 }
+          )
+          .toBe('EGLL-EGCC')
+        await expect
+          .poll(
+            () =>
+              client.window.evaluate(async () => {
+                const active = await window.winglog.trackingGetActive()
+                return active ? (await window.winglog.trackPointList(active.flightId)).length : 0
+              }),
+            { timeout: 30_000 }
+          )
+          .toBeGreaterThan(0)
         expect(await client.window.evaluate(() => window.winglog.hostLinkGetStatus())).toMatchObject({
           state: 'connected',
           address: `127.0.0.1:${port}`

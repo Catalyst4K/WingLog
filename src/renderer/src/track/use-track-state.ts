@@ -4,6 +4,7 @@
  */
 
 import { winglogApi } from '../data/winglog-api'
+import { useDataChanged } from '../app/use-data-changed'
 import { useEffect, useRef, useState } from 'react'
 import type { ActiveTracking, Aircraft, LogbookFlight, SimTelemetry, TrackPoint } from '@shared/ipc'
 import { flightLabel } from '../flight-label'
@@ -110,6 +111,8 @@ export function useTrackedFlights(onFlightEnded: (() => void) | undefined): Trac
   useEffect(() => {
     onFlightEndedRef.current = onFlightEnded
   }, [onFlightEnded])
+
+  useDataChanged(() => runAsync('TrackView reload', reload()))
 
   useEffect(() => {
     runAsync('TrackView reload', reload())

@@ -89,6 +89,19 @@ describe('logbook IPC handlers', () => {
     registerLogbookHandlers(ipc.ipcMain, { db, window, scheduleBackgroundSync: sync })
   })
 
+  it('lists the points a client has from the sim PC for the flight being tracked there, and the database’s for any other', () => {
+    const ipc = fakeIpc()
+    const live = [{ id: 1, flightId: flightId }]
+    registerLogbookHandlers(ipc.ipcMain, {
+      db,
+      window,
+      scheduleBackgroundSync: sync,
+      liveTrack: (id) => (id === 77 ? (live as never) : null)
+    })
+    expect(ipc.invoke(IpcChannels.trackPointList, 77)).toBe(live)
+    expect(ipc.invoke(IpcChannels.trackPointList, flightId)).toEqual([])
+  })
+
   it('lists flights, a flight, and the statistics', () => {
     expect((invoke(IpcChannels.flightList) as { id: number }[]).map((f) => f.id)).toEqual([flightId])
     expect((invoke(IpcChannels.logbookListCompletedFlights) as { id: number }[]).map((f) => f.id)).toEqual([

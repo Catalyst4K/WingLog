@@ -1,6 +1,7 @@
 /** The Fleet tab: the aircraft list, one aircraft's detail page, and the add / edit / replace flows. */
 
 import { winglogApi } from './data/winglog-api'
+import { useDataChanged } from './app/use-data-changed'
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
@@ -120,6 +121,7 @@ export function FleetView(props: {
   useEffect(() => {
     runAsync('FleetView reload', reload())
   }, [])
+  useDataChanged(() => runAsync('FleetView reload', reload()))
 
   async function handleCreate(data: NewAircraft): Promise<void> {
     await winglogApi().aircraftCreate(data)

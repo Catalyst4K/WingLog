@@ -230,6 +230,7 @@ export const IpcChannels = {
   hostLinkPair: 'host-link:pair',
   hostLinkForget: 'host-link:forget',
   hostLinkStatus: 'host-link:status',
+  dataChanged: 'data:changed',
   lanSetSettings: 'lan:set-settings',
   lanStartPairing: 'lan:start-pairing',
   lanStopPairing: 'lan:stop-pairing',
