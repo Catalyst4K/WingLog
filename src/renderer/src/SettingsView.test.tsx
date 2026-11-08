@@ -64,7 +64,12 @@ function createWinglog(overrides: Record<string, unknown> = {}): typeof window.w
     appGetCapabilities: vi.fn().mockResolvedValue({ runMode: 'host', canHostSim: true, multiDevice: false }),
     settingsGetRunMode: vi.fn().mockResolvedValue(null),
     settingsSetRunMode: vi.fn().mockResolvedValue(undefined),
-    hostLinkGetStatus: vi.fn().mockResolvedValue({ state: 'unpaired', address: null, hostSim: null }),
+    hostLinkGetStatus: vi.fn().mockResolvedValue({
+      state: 'unpaired',
+      address: null,
+      hostSim: null,
+      sync: { state: 'idle', lastSyncedAt: null }
+    }),
     onHostLinkStatus: vi.fn(() => () => {}),
     settingsGetUpdates: vi.fn().mockResolvedValue({ checkEnabled: true }),
     settingsSetUpdates: vi.fn().mockResolvedValue(undefined),
@@ -325,9 +330,12 @@ describe('SettingsView', () => {
       it('lights the Sim PC page by the link: green connected, off when nothing is paired', async () => {
         setWinglog({
           appGetCapabilities: vi.fn().mockResolvedValue(CLIENT),
-          hostLinkGetStatus: vi
-            .fn()
-            .mockResolvedValue({ state: 'connected', address: '192.168.1.20:5051', hostSim: 'connected' })
+          hostLinkGetStatus: vi.fn().mockResolvedValue({
+            state: 'connected',
+            address: '192.168.1.20:5051',
+            hostSim: 'connected',
+            sync: { state: 'idle', lastSyncedAt: null }
+          })
         })
         renderSettings()
         const tab = await screen.findByRole('tab', { name: /Sim PC/ })

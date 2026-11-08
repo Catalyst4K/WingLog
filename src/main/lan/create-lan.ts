@@ -35,6 +35,8 @@ import { trackCommands } from '../live/commands'
 import type { LiveCommand } from '@shared/live'
 import { fetchMetars } from '../weather/metar-client'
 import { LanController } from './LanController'
+import { twinSyncQueries } from './twin-sync'
+import { onLocalWrite } from '../sync/local-write-hints'
 import { lanFlightKey, lanFlightSnapshot } from './lan-flight'
 import { LanServer, type StaticFile } from './LanServer'
 import { PlannedRoutePublisher } from './PlannedRoutePublisher'
@@ -43,6 +45,8 @@ import { staticFilesFrom } from './static-files'
 /** What the second screen needs from the rest of the app. */
 export interface CreateLanDeps {
   db: WingLogDb
+  /** The database file's path: where a twin's sync conflicts are logged, next to it. */
+  dbPath: string
   liveHub: Pick<LiveHub, 'subscribe' | 'snapshot' | 'publish'>
   trackingController: Pick<TrackingController, 'getActive' | 'on'>
   /** The procedure choice for the flight shown: the one every screen follows. */
@@ -170,6 +174,7 @@ export function lanQueries(
  */
 export function createLan({
   db,
+  dbPath,
   liveHub,
   trackingController,
   selection,
@@ -222,30 +227,35 @@ export function createLan({
       const settings = getLanSettings(db)
       return { screen: settings.enabled, twin: settings.twinEnabled }
     },
-    queries: lanQueries(navdata, {
-      display: () => ({
-        weightUnit: getWeightUnit(db),
-        altitudeUnit: getAltitudeUnit(db),
-        windSpeedUnit: getWindSpeedUnit(db),
-        mapLanguage: getMapLanguage(db),
-        appLanguage: getAppLanguage(db),
-        theme: getTheme(db),
-        systemLocale: systemLocale()
-      }),
-      addOns: () => ({
-        gsxRemote: getGsxRemoteSettings(db).enabled,
-        beyondAtc: getBeyondAtcSettings(db).enabled
-      }),
-      routines: () => allRoutines(getGsxRoutines(db).routines, getHiddenBuiltInRoutines(db)),
-      metars: (codes) => fetchMetars(codes, userAgent, metarUrl),
-      atis: (requests) => atis(requests)
-    }),
+    queries: {
+      ...twinSyncQueries(db, dbPath),
+      ...lanQueries(navdata, {
+        display: () => ({
+          weightUnit: getWeightUnit(db),
+          altitudeUnit: getAltitudeUnit(db),
+          windSpeedUnit: getWindSpeedUnit(db),
+          mapLanguage: getMapLanguage(db),
+          appLanguage: getAppLanguage(db),
+          theme: getTheme(db),
+          systemLocale: systemLocale()
+        }),
+        addOns: () => ({
+          gsxRemote: getGsxRemoteSettings(db).enabled,
+          beyondAtc: getBeyondAtcSettings(db).enabled
+        }),
+        routines: () => allRoutines(getGsxRoutines(db).routines, getHiddenBuiltInRoutines(db)),
+        metars: (codes) => fetchMetars(codes, userAgent, metarUrl),
+        atis: (requests) => atis(requests)
+      })
+    },
     flightKey: () => lanFlightKey(db, trackingController.getActive()?.flightId),
     onFlightChanged: () => route.refresh(),
     flight: () => lanFlightSnapshot(db, trackingController.getActive()?.flightId, selection.current()),
     staticFile: (path) => (files ??= staticFilesFrom(pageFolder))(path),
     now: () => Date.now()
   })
+  // A write to this PC's database is a hint to the twins that they can sync.
+  onLocalWrite(() => server.notifyTwins())
   return new LanController({
     server,
     settings: { get: () => getLanSettings(db), set: (settings) => setLanSettings(db, settings) },

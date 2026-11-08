@@ -8,7 +8,7 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http'
 import type { Duplex } from 'node:stream'
 import { WebSocketServer, type WebSocket } from 'ws'
-import { laneOf, type LanQueryLane } from '@shared/lan-queries'
+import { laneOf, TWIN_ONLY_QUERIES, type LanQueryLane } from '@shared/lan-queries'
 import { parseReport, parseReportDetail } from '@shared/lan-report'
 import type { LiveCommand, LiveSnapshot, LiveTopic } from '@shared/live'
 import type { LanDeviceKind } from '@shared/ipc'
@@ -16,6 +16,7 @@ import { describeError } from '../logging/describe-error'
 import { logger } from '../logging/logger'
 import type { LiveHub } from '../live/LiveHub'
 import { dispatchCommand } from '../live/commands'
+import { originMatches, pageSecurityPolicy } from './lan-http'
 import { cleanDeviceName, hashToken, newDeviceToken, PAIRING_WINDOW_MS, PairingWindow } from './pairing'
 
 /** The topics a paired device is sent. A topic added to `LiveTopics` is not sent until it is added here on purpose. */
@@ -56,8 +57,12 @@ const MAX_QUERY_ARGS = 6
 export const MAX_PENDING_FAST = 4
 /** Slow lookups (that reach the sim or the internet) one device may have waiting at once, counted apart so they cannot hold up quick ones. */
 export const MAX_PENDING_SLOW = 2
+/** How long after a write a twin is told, so changes close together are one hint. */
+const SYNC_HINT_DELAY_MS = 1000
 /** Largest message a device may send, in bytes. */
 export const MAX_MESSAGE_BYTES = 16 * 1024
+/** Largest message a twin may send: it pushes rows of its logbook, which are larger than a phone's commands. A phone, or a socket not yet let in, keeps the small limit. */
+export const TWIN_MAX_MESSAGE_BYTES = 4 * 1024 * 1024
 /** Most open sockets at once. */
 export const MAX_SOCKETS = 8
 /** Most sockets one address may have open without having paired or said hello, so one device on the network can't fill every slot. */
@@ -147,6 +152,8 @@ interface Client {
   authTimer: NodeJS.Timeout
 }
 
+export { pageSecurityPolicy }
+
 /** The second-screen HTTP and WebSocket server. */
 export class LanServer {
   private server: Server | null = null
@@ -156,6 +163,8 @@ export class LanServer {
   private hostHeader = ''
   /** The open pairing window of each kind: a second screen and a twin pair with their own codes. */
   private readonly pairings = new Map<LanDeviceKind, PairingWindow>()
+  /** The pending hint to twins, so a burst of writes sends one. */
+  private syncHint: NodeJS.Timeout | null = null
   private readonly clients = new Set<Client>()
   /** The flight the connected devices were last told about. */
   private sentFlightId: number | null = null
@@ -183,7 +192,7 @@ export class LanServer {
   start(address: string, port: number): Promise<void> {
     if (this.server) return Promise.reject(new Error('Already listening'))
     const server = createServer((req, res) => this.handleHttp(req, res))
-    const wss = new WebSocketServer({ noServer: true, maxPayload: MAX_MESSAGE_BYTES })
+    const wss = new WebSocketServer({ noServer: true, maxPayload: TWIN_MAX_MESSAGE_BYTES })
     server.on('upgrade', (req, socket, head) => this.handleUpgrade(wss, req, socket, head))
     this.hostHeader = `${address}:${port}`
     return new Promise((resolve, reject) => {
@@ -256,6 +265,16 @@ export class LanServer {
    */
   private kindEnabled(kind: LanDeviceKind): boolean {
     return this.deps.enabledKinds?.()[kind] ?? true
+  }
+
+  /** Tells every connected twin that this PC's database changed, so it syncs soon; several changes close together are one message. */
+  notifyTwins(): void {
+    if (this.syncHint) return
+    this.syncHint = setTimeout(() => {
+      this.syncHint = null
+      for (const client of this.clients) if (client.kind === 'twin') this.send(client, { t: 'sync' })
+    }, SYNC_HINT_DELAY_MS)
+    this.syncHint.unref()
   }
 
   /**
@@ -373,6 +392,11 @@ export class LanServer {
     this.clients.add(client)
     socket.on('message', (data, isBinary) => {
       if (isBinary) return
+      // Only a paired twin may send more than a phone does; anyone else over the small limit is cut off, as the socket's own limit once did.
+      if (client.kind !== 'twin' && (data as Buffer).length > MAX_MESSAGE_BYTES) {
+        socket.close()
+        return
+      }
       this.handleMessage(client, data.toString())
     })
     socket.on('pong', () => (client.alive = true))
@@ -464,8 +488,10 @@ export class LanServer {
   private handleQuery(client: Client, message: { id: unknown; name: unknown; args: unknown }): void {
     const { id, name } = message
     if (typeof id !== 'number' || !Number.isSafeInteger(id)) return
+    // The twin-only lookups do not exist for anything else.
+    const allowed = typeof name === 'string' && (client.kind === 'twin' || !TWIN_ONLY_QUERIES.includes(name))
     const query =
-      typeof name === 'string' && Object.hasOwn(this.deps.queries, name) ? this.deps.queries[name] : null
+      allowed && Object.hasOwn(this.deps.queries, name as string) ? this.deps.queries[name as string] : null
     const args = message.args === undefined ? [] : message.args
     if (!query || !Array.isArray(args) || args.length > MAX_QUERY_ARGS) {
       logger.warn(
@@ -648,39 +674,6 @@ export class LanServer {
  */
 function logName(name: unknown): string {
   return typeof name === 'string' ? `"${name.slice(0, 40).replace(/[^\w.:-]/g, '?')}"` : '(not a name)'
-}
-
-/**
- * What the page may load: its own files, the map tiles and style from OpenFreeMap, the airline logos from images.kiwi.com (images only,
- * the same service the PC's window uses), and its WebSocket back to this server, nothing else.
- *
- * @param host The host (with port) this server is bound to.
- * @returns The Content-Security-Policy header value.
- */
-export function pageSecurityPolicy(host: string): string {
-  return [
-    "default-src 'self'",
-    "img-src 'self' data: blob: https://tiles.openfreemap.org https://images.kiwi.com",
-    `connect-src 'self' ws://${host} https://tiles.openfreemap.org`,
-    "style-src 'self' 'unsafe-inline'",
-    "worker-src 'self' blob:",
-    "frame-ancestors 'none'",
-    "base-uri 'none'",
-    "form-action 'none'"
-  ].join('; ')
-}
-
-/**
- * @param origin The Origin header.
- * @param host The host (with port) this server is bound to.
- * @returns True when the origin is a web page served by this server.
- */
-function originMatches(origin: string, host: string): boolean {
-  try {
-    return new URL(origin).host === host
-  } catch {
-    return false
-  }
 }
 
 /**

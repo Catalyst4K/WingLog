@@ -42,6 +42,11 @@ test('a client pairs with the host by address and code, follows its sim and keep
       }, port)
       expect(code).toMatch(/^\d{6}$/)
 
+      // The host has an aircraft before the client ever connects; the client will make one of its own.
+      await host.window.evaluate(() =>
+        window.winglog.aircraftCreate({ registration: 'G-HOST', icaoType: 'A320' })
+      )
+
       // BeyondATC and GSX are switched on at the host: their tabs follow on the client once it is connected.
       await host.window.evaluate(() =>
         window.winglog.settingsSetBeyondAtc({ enabled: true, host: '127.0.0.1' })
@@ -77,6 +82,35 @@ test('a client pairs with the host by address and code, follows its sim and keep
         await client.window.getByRole('tab', { name: 'BeyondATC' }).click()
         await expect(client.window.getByRole('textbox', { name: 'COM1 frequency' })).toBeVisible()
         await expect(client.window.getByText('Something went wrong')).toHaveCount(0)
+        // The fleets come level: the host's aircraft reaches the client, and the client's reaches the host (LAN sync, both ways).
+        await expect
+          .poll(
+            () =>
+              client.window.evaluate(async () =>
+                (await window.winglog.aircraftList()).map((a) => a.registration)
+              ),
+            {
+              timeout: 20_000
+            }
+          )
+          .toContain('G-HOST')
+        await client.window.evaluate(() =>
+          window.winglog.aircraftCreate({ registration: 'G-MACX', icaoType: 'B738' })
+        )
+        await expect
+          .poll(
+            () =>
+              host.window.evaluate(async () =>
+                (await window.winglog.aircraftList()).map((a) => a.registration)
+              ),
+            {
+              timeout: 20_000
+            }
+          )
+          .toContain('G-MACX')
+        expect(await client.window.evaluate(() => window.winglog.hostLinkGetStatus())).toMatchObject({
+          sync: { state: 'idle' }
+        })
         expect(await client.window.evaluate(() => window.winglog.hostLinkGetStatus())).toMatchObject({
           state: 'connected',
           address: `127.0.0.1:${port}`

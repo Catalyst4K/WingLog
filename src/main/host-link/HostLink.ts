@@ -13,6 +13,7 @@ import { logger } from '../logging/logger'
 import { LAN_TOPICS } from '../lan/LanServer'
 import type { LiveHub } from '../live/LiveHub'
 import type { HostLinkStore } from './host-link-store'
+import type { TwinSyncPort } from './TwinSync'
 
 /**
  * The topics a client takes from the host. Not the host's disk space: a client warns about its own.
@@ -37,7 +38,12 @@ export interface HostLinkDeps {
   deviceName: string
   /** Called whenever the status changes. */
   onStatus: (status: HostLinkStatus) => void
+  /** Keeps the two databases in step; asked to sync when the link comes up and when the sim PC says it changed. Left out in tests of the link alone. */
+  sync?: TwinSyncPort
 }
+
+/** How soon after the sim PC says its data changed a client syncs, in milliseconds. */
+const SYNC_AFTER_HINT_MS = 500
 
 /** The link to the sim PC, kept for the life of the app. */
 export class HostLink {
@@ -48,12 +54,19 @@ export class HostLink {
   private unsubscribers: (() => void)[] = []
 
   /** @param deps The hub to follow into, where the link is kept, how to open a socket, and who to tell of changes. */
-  constructor(private readonly deps: HostLinkDeps) {}
+  constructor(private readonly deps: HostLinkDeps) {
+    deps.sync?.onChange(() => this.emit())
+  }
 
   /** @returns Where the link stands. */
   getStatus(): HostLinkStatus {
     const state: HostLinkState = this.connection ? STATE_OF[this.connection.state] : 'unpaired'
-    return { state, address: this.address, hostSim: this.hostSim }
+    return {
+      state,
+      address: this.address,
+      hostSim: this.hostSim,
+      sync: this.deps.sync?.status() ?? { state: 'idle', lastSyncedAt: null }
+    }
   }
 
   /** Connects to the sim PC this computer was paired with, if there was one. */
@@ -149,8 +162,11 @@ export class HostLink {
       connection.onState((state) => {
         // A host that cannot be reached must not leave its last telemetry on screen as if it were live.
         if (state === 'offline') this.hostSimChanged('disconnected')
+        // Each time the link comes up, the two databases are brought level.
+        if (state === 'connected') this.deps.sync?.syncSoon(0)
         this.emit()
       }),
+      connection.onSyncHint(() => this.deps.sync?.syncSoon(SYNC_AFTER_HINT_MS)),
       ...HOST_LINK_TOPICS.map((topic) =>
         connection.subscribe(topic, (payload) => this.republish(topic, payload))
       )

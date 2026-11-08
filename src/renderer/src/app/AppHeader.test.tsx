@@ -96,17 +96,45 @@ describe('AppHeader on a client', () => {
 
   it.each([
     [
-      { state: 'connected', address: '192.168.1.20:5051', hostSim: 'connected' } as const,
+      {
+        state: 'connected',
+        address: '192.168.1.20:5051',
+        hostSim: 'connected',
+        sync: { state: 'idle', lastSyncedAt: null }
+      } as const,
       'green',
       'connected'
     ],
     [
-      { state: 'offline', address: '192.168.1.20:5051', hostSim: 'disconnected' } as const,
+      {
+        state: 'offline',
+        address: '192.168.1.20:5051',
+        hostSim: 'disconnected',
+        sync: { state: 'idle', lastSyncedAt: null }
+      } as const,
       'amber',
       'not reachable'
     ],
-    [{ state: 'connecting', address: '192.168.1.20:5051', hostSim: null } as const, 'amber', 'connecting'],
-    [{ state: 'unpaired', address: null, hostSim: null } as const, 'off', 'not paired']
+    [
+      {
+        state: 'connecting',
+        address: '192.168.1.20:5051',
+        hostSim: null,
+        sync: { state: 'idle', lastSyncedAt: null }
+      } as const,
+      'amber',
+      'connecting'
+    ],
+    [
+      {
+        state: 'unpaired',
+        address: null,
+        hostSim: null,
+        sync: { state: 'idle', lastSyncedAt: null }
+      } as const,
+      'off',
+      'not paired'
+    ]
   ])(
     'shows the link to the sim PC (%j) as %s lights, and says "%s" to a screen reader',
     async (link, light, word) => {
@@ -124,7 +152,12 @@ describe('AppHeader on a client', () => {
   )
 
   it('writes the word Sim PC beside the lights', async () => {
-    renderClient({ state: 'connected', address: '192.168.1.20:5051', hostSim: 'connected' })
+    renderClient({
+      state: 'connected',
+      address: '192.168.1.20:5051',
+      hostSim: 'connected',
+      sync: { state: 'idle', lastSyncedAt: null }
+    })
     expect(await screen.findByText('Sim PC', { selector: '[aria-hidden="true"]' })).toBeInTheDocument()
   })
 })

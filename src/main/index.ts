@@ -328,6 +328,30 @@ function startFleetAndLookups(
 }
 
 /**
+ * Registers the tracking and flight IPC, and applies the auto-finish setting.
+ *
+ * @param deps The database, the sim, tracking and what they tell when flights change.
+ */
+function registerTrackingAreas(
+  deps: Omit<Parameters<typeof registerTrackingHandlers>[1], 'getLastTelemetry' | 'releaseReplay'> & {
+    sim: SimConnectService | ReplaySimConnectService
+  }
+): void {
+  const { sim, ...rest } = deps
+  const trackingDeps = {
+    ...rest,
+    getLastTelemetry: () => sim.getLastTelemetry(),
+    // An e2e replay held until tracking starts (WINGLOG_E2E_REPLAY_HOLD) plays from here.
+    releaseReplay: () => {
+      if (sim instanceof ReplaySimConnectService) sim.release()
+    }
+  }
+  registerTrackingHandlers(ipcMain, trackingDeps)
+  registerFlightHandlers(ipcMain, trackingDeps)
+  rest.trackingController.setAutoFinish(getTrackingSettings(rest.db).autoFinish)
+}
+
+/**
  * Opens the database and the window, starts the services, and registers every IPC area.
  *
  * @param cloudSession The saved cloud-sync session, read before startup; null when signed out.
@@ -414,27 +438,21 @@ function startApp(cloudSession: StoredSession | null): void {
   })
   app.on('before-quit', flightServices.stop)
 
-  const trackingDeps = {
+  registerTrackingAreas({
     db,
+    sim,
     trackingController,
     autoStartDetector,
-    getLastTelemetry: () => sim.getLastTelemetry(),
-    // An e2e replay held until tracking starts (WINGLOG_E2E_REPLAY_HOLD) plays from here.
-    releaseReplay: () => {
-      if (sim instanceof ReplaySimConnectService) sim.release()
-    },
     scheduleBackgroundSync,
     onFlightsChanged: flightServices.onFlightsChanged
-  }
-  registerTrackingHandlers(ipcMain, trackingDeps)
-  registerFlightHandlers(ipcMain, trackingDeps)
-  trackingController.setAutoFinish(getTrackingSettings(db).autoFinish)
+  })
 
   registerGsxHandlers(ipcMain, { db, window, scheduleBackgroundSync })
-  if (isClient) startClientServices({ liveHub, window, handled: handledChannels })
+  if (isClient) startClientServices({ liveHub, window, handled: handledChannels, db, dbPath })
   else {
     startHostServices({
       db,
+      dbPath,
       liveHub,
       devDiagnostics,
       sim,

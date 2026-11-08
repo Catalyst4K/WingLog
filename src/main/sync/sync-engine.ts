@@ -121,7 +121,7 @@ function omit<T extends Record<string, unknown>>(obj: T, keys: string[]): Record
  *  legitimate last-write-wins loser against this device's own not-yet-pushed local edit
  *  (see upsertAircraftByUuid's comment) — distinct from `ok: false`, which means the row
  *  itself couldn't be applied at all (malformed data, unresolved parent reference). */
-type ApplyResult = { ok: true; applied: boolean } | { ok: false; error: string }
+export type ApplyResult = { ok: true; applied: boolean } | { ok: false; error: string }
 
 // --- aircraft ---------------------------------------------------------------------------
 
@@ -350,7 +350,13 @@ function applyFlightInvoice(db: WingLogDb, row: SyncRow): ApplyResult {
 
 // --- dispatch -----------------------------------------------------------------------------
 
-function listAndSerializeForPush(db: WingLogDb, table: SyncTable, since: string | null): SyncRow[] {
+/**
+ * @param db The database.
+ * @param table A synced table.
+ * @param since The cursor: only rows changed after it; every row when null.
+ * @returns The rows as they are pushed or served to a twin.
+ */
+export function listAndSerializeForPush(db: WingLogDb, table: SyncTable, since: string | null): SyncRow[] {
   switch (table) {
     case 'aircraft':
       return listAircraftForSync(db, since).map((row) => serializeAircraft(db, row))
@@ -369,7 +375,15 @@ function listAndSerializeForPush(db: WingLogDb, table: SyncTable, since: string 
   }
 }
 
-function applyPulledRow(db: WingLogDb, table: SyncTable, row: SyncRow): ApplyResult {
+/**
+ * Applies one row that came from another device, by uuid, with last write wins.
+ *
+ * @param db The database.
+ * @param table The table the row is for.
+ * @param row The row.
+ * @returns Whether it applied, lost to a newer local row, or could not be applied.
+ */
+export function applyPulledRow(db: WingLogDb, table: SyncTable, row: SyncRow): ApplyResult {
   switch (table) {
     case 'aircraft':
       return applyAircraft(db, row)
@@ -419,6 +433,43 @@ export function splitPushBatches(rows: SyncRow[]): { batches: SyncRow[][]; overs
 }
 
 /**
+ * The host's side of a twin's push: applies each row as a pull would, which is last write wins by `updatedAt`, with every row validated.
+ *
+ * @param db The database.
+ * @param table The table the rows are for.
+ * @param rows The rows the twin pushed.
+ * @param dbPath The database file's path, which says where sync-conflicts.log goes.
+ * @returns The uuids applied, and those not (a newer row here, or a row that could not be applied: both are logged).
+ */
+export function applyPushedRows(
+  db: WingLogDb,
+  table: SyncTable,
+  rows: SyncRow[],
+  dbPath: string
+): { upserted: string[]; rejected: string[] } {
+  const upserted: string[] = []
+  const rejected: string[] = []
+  const applied: SyncRow[] = []
+  for (const row of rows) {
+    const outcome = applyPulledRow(db, table, row)
+    if (outcome.ok && outcome.applied) {
+      upserted.push(row.uuid)
+      applied.push(row)
+      continue
+    }
+    rejected.push(row.uuid)
+    logSyncEvent(dbPath, {
+      direction: 'twin-push',
+      table,
+      uuid: row.uuid,
+      reason: outcome.ok ? 'this PC already had a newer or equal updatedAt (last-write-wins)' : outcome.error
+    })
+  }
+  if (table === 'aircraft') linkPulledReplacements(db, applied)
+  return { upserted, rejected }
+}
+
+/**
  * Runs one full pull-then-push cycle across all four synced tables, in dependency order.
  * `dbPath` is only used to place sync-conflicts.log next to the database file, per the
  * plan's "next to the DB, not a new table" — never opened directly here.
@@ -427,13 +478,15 @@ export function splitPushBatches(rows: SyncRow[]): { batches: SyncRow[][]; overs
  * @param client The backend sync client.
  * @param session The signed-in session.
  * @param dbPath The database file's path.
+ * @param scope Whose cursors these are: left out for the cloud account, `lan` for a twin link, so the two never move each other's.
  * @returns What was pulled, pushed and skipped.
  */
 export async function runSync(
   db: WingLogDb,
   client: SyncClient,
   session: SyncSession,
-  dbPath: string
+  dbPath: string,
+  scope?: string
 ): Promise<SyncResult> {
   // Captured once, before any table is touched — a local write that lands in the exact
   // window between this and a table's own read is simply picked up on the *next* sync
@@ -444,7 +497,8 @@ export async function runSync(
 
   for (const table of SYNC_TABLES) {
     const result: SyncTableResult = { pulled: 0, pushed: 0, rejected: [], skipped: [] }
-    const since = getLastSyncedAt(db, table)
+    const cursor = scope ? `${scope}:${table}` : table
+    const since = getLastSyncedAt(db, cursor)
 
     const pulledRows = await client.syncPull(session.email, session.token, table, since)
     const appliedRows: SyncRow[] = []
@@ -496,7 +550,7 @@ export async function runSync(
     // Only advance the cursor once both directions for this table have returned without
     // throwing — a mid-sync failure (network drop, 401) leaves it unmoved, so the retry
     // naturally re-covers whatever this attempt didn't finish.
-    setLastSyncedAt(db, table, syncedAt)
+    setLastSyncedAt(db, cursor, syncedAt)
     tables[table] = result
   }
 

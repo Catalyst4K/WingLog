@@ -3,6 +3,7 @@
  * follows each local change, and the account and sync IPC. Every channel is a query
  * (coding-standards.md §9) between this device's database and the backend.
  */
+import { localWriteHappened } from '../sync/local-write-hints'
 import { runLogged } from '../logging/run-logged'
 import type { IpcMain } from 'electron'
 import { IpcChannels } from '@shared/ipc'
@@ -31,6 +32,8 @@ export function createBackgroundSync(
 ): () => void {
   let timer: NodeJS.Timeout | null = null
   return () => {
+    // The twin link wants to know about every write, signed in to the cloud or not.
+    localWriteHappened()
     if (!cloudSync.getStatus().loggedIn) return
     if (timer) clearTimeout(timer)
     timer = setTimeout(() => runLogged('background sync', cloudSync.syncNow()), BACKGROUND_SYNC_DELAY_MS)

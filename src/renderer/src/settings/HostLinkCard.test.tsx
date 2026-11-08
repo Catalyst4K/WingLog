@@ -23,8 +23,18 @@ function setup(
   return { api, push: (status: HostLinkStatus) => act(() => push(status)) }
 }
 
-const UNPAIRED: HostLinkStatus = { state: 'unpaired', address: null, hostSim: null }
-const CONNECTED: HostLinkStatus = { state: 'connected', address: '192.168.1.20:5051', hostSim: 'connected' }
+const UNPAIRED: HostLinkStatus = {
+  state: 'unpaired',
+  address: null,
+  hostSim: null,
+  sync: { state: 'idle', lastSyncedAt: null }
+}
+const CONNECTED: HostLinkStatus = {
+  state: 'connected',
+  address: '192.168.1.20:5051',
+  hostSim: 'connected',
+  sync: { state: 'idle', lastSyncedAt: null }
+}
 
 describe('HostLinkCard', () => {
   it('asks for the address and the code, and pairs with what was typed', async () => {
@@ -75,9 +85,19 @@ describe('HostLinkCard', () => {
     const { push } = setup(CONNECTED)
     render(<HostLinkCard />)
     await screen.findByText('Connected')
-    push({ state: 'offline', address: '192.168.1.20:5051', hostSim: 'disconnected' })
+    push({
+      state: 'offline',
+      address: '192.168.1.20:5051',
+      hostSim: 'disconnected',
+      sync: { state: 'idle', lastSyncedAt: null }
+    })
     expect(await screen.findByText('Not reachable, trying again')).toBeInTheDocument()
-    push({ state: 'wrong-code', address: '192.168.1.20:5051', hostSim: null })
+    push({
+      state: 'wrong-code',
+      address: '192.168.1.20:5051',
+      hostSim: null,
+      sync: { state: 'idle', lastSyncedAt: null }
+    })
     expect(await screen.findByText('Wrong code')).toBeInTheDocument()
     expect(screen.getByLabelText('Pairing code')).toBeInTheDocument()
   })

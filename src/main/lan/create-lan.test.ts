@@ -13,7 +13,8 @@ import { createFlight } from '../db/flight-repo'
 import { setAppLanguage, setLanSettings, setTheme } from '../db/settings-repo'
 import { LiveHub } from '../live/LiveHub'
 import type { LanController } from './LanController'
-import { LAN_QUERY_KINDS } from '@shared/lan-queries'
+import { LAN_QUERY_KINDS, TWIN_ONLY_QUERIES } from '@shared/lan-queries'
+import { twinSyncQueries } from './twin-sync'
 import { createLan, lanQueries } from './create-lan'
 
 /** A port nothing listens on. */
@@ -88,7 +89,10 @@ describe('lanQueries', () => {
   })
 
   it('has every lookup placed in a lane in the shared table, and nothing in the table that it does not answer', () => {
-    expect(Object.keys(queries).sort()).toEqual(Object.keys(LAN_QUERY_KINDS).sort())
+    // The twin-only lookups are answered by twin-sync.ts, not by lanQueries.
+    const second = Object.keys(LAN_QUERY_KINDS).filter((name) => !TWIN_ONLY_QUERIES.includes(name))
+    expect(Object.keys(queries).sort()).toEqual(second.sort())
+    expect(Object.keys(twinSyncQueries({} as never, '')).sort()).toEqual([...TWIN_ONLY_QUERIES].sort())
   })
 
   it('looks up weather for a few airports, and refuses anything else', async () => {
@@ -174,6 +178,7 @@ describe('createLan', () => {
     const hub = new LiveHub()
     lan = createLan({
       db,
+      dbPath: join(folders[0] as string, 'winglog.db'),
       liveHub: hub,
       trackingController: TRACKING,
       selection: fakeSelection() as never,
@@ -199,6 +204,7 @@ describe('createLan', () => {
     await lan?.stop()
     lan = createLan({
       db,
+      dbPath: join(folders[0] as string, 'winglog.db'),
       liveHub: hub,
       trackingController: tracking as never,
       selection: selection as never,
@@ -247,6 +253,7 @@ describe('createLan', () => {
     await lan?.stop()
     lan = createLan({
       db,
+      dbPath: join(folders[0] as string, 'winglog.db'),
       liveHub: hub,
       trackingController: TRACKING,
       selection: selection as never,

@@ -115,6 +115,7 @@ export class LanConnection {
   private hasConnected = false
   private readonly topics: Partial<LiveTopics> = {}
   private readonly stateListeners = new Set<StateListener>()
+  private readonly syncListeners = new Set<() => void>()
   private readonly topicListeners = new Map<LiveTopic, Set<(payload: never) => void>>()
   private readonly flightListeners = new Set<(flight: LanFlightSnapshot | null) => void>()
 
@@ -332,6 +333,15 @@ export class LanConnection {
   }
 
   /**
+   * @param listener Called when the PC says its database changed (a twin is told; a phone never is).
+   * @returns A function that stops it.
+   */
+  onSyncHint(listener: () => void): () => void {
+    this.syncListeners.add(listener)
+    return () => this.syncListeners.delete(listener)
+  }
+
+  /**
    * @param listener Called whenever the state changes.
    * @returns A function that stops it.
    */
@@ -438,6 +448,8 @@ export class LanConnection {
       this.handleSnapshot(message.topics, message.flight)
     } else if (message.t === 'result') {
       this.answerQuery(message)
+    } else if (message.t === 'sync') {
+      for (const listener of this.syncListeners) listener()
     } else if (message.t === 'flight') {
       this.replaceFlight(message.flight)
     } else if (message.t === 'topic') {
@@ -586,6 +598,7 @@ const READERS: Record<string, (r: Record<string, unknown>) => LanServerMessage |
   paired: (r) => (typeof r.token === 'string' ? { t: 'paired', token: r.token } : null),
   denied: () => ({ t: 'denied' }),
   hb: () => ({ t: 'hb' }),
+  sync: () => ({ t: 'sync' }),
   error: (r) => ({
     t: 'error',
     message: String(r.message ?? ''),

@@ -103,7 +103,7 @@ function startOnlineNetwork(
 function startSecondScreen(
   deps: Pick<
     Parameters<typeof createLan>[0],
-    'db' | 'liveHub' | 'trackingController' | 'selection' | 'navdata' | 'addOnCommands' | 'atis'
+    'db' | 'dbPath' | 'liveHub' | 'trackingController' | 'selection' | 'navdata' | 'addOnCommands' | 'atis'
   >
 ): void {
   const lan = createLan({
@@ -127,6 +127,7 @@ function startSecondScreen(
  */
 export function startHostServices(deps: {
   db: WingLogDb
+  dbPath: string
   liveHub: LiveHub
   devDiagnostics: DevDiagnostics | undefined
   sim: SimConnectService | ReplaySimConnectService
@@ -135,7 +136,8 @@ export function startHostServices(deps: {
   navdataProvider: SimFacilitiesProvider
   selection: Parameters<typeof startSecondScreen>[0]['selection']
 }): void {
-  const { db, liveHub, devDiagnostics, sim, replayStreams, trackingController, navdataProvider } = deps
+  const { db, dbPath, liveHub, devDiagnostics, sim, replayStreams, trackingController, navdataProvider } =
+    deps
   const gsxRemote = startGsxRemote({ db, liveHub, devDiagnostics, sim, replayStreams, trackingController })
   const beyondAtc = registerBeyondAtcHandlers(ipcMain, {
     db,
@@ -151,6 +153,7 @@ export function startHostServices(deps: {
   const onlineNetwork = startOnlineNetwork({ db, liveHub, sim, trackingController, beyondAtc })
   startSecondScreen({
     db,
+    dbPath,
     liveHub,
     trackingController,
     selection: deps.selection,

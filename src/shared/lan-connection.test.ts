@@ -86,6 +86,23 @@ describe('LanConnection', () => {
     expect(sockets).toHaveLength(1)
   })
 
+  it('tells a listener when the PC says its data changed, and reads the message', () => {
+    const { link, sockets } = setup()
+    link.start()
+    link.pair('123456', 'twin')
+    sockets[0].open()
+    sockets[0].say({ t: 'paired', token: 'tok' })
+    sockets[0].say({ t: 'snapshot', topics: {}, flight: null })
+    const heard = vi.fn()
+    const stop = link.onSyncHint(heard)
+    sockets[0].say({ t: 'sync' })
+    expect(heard).toHaveBeenCalledTimes(1)
+    stop()
+    sockets[0].say({ t: 'sync' })
+    expect(heard).toHaveBeenCalledTimes(1)
+    expect(parseServerMessage('{"t":"sync"}')).toEqual({ t: 'sync' })
+  })
+
   it('says it is a twin when another WingLog pairs, so the host takes it with the twin code', () => {
     const { link, sockets } = setup()
     link.start()

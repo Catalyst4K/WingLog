@@ -84,6 +84,8 @@ export type LanServerMessage =
   | { t: 'error'; message: string; retryAfterMs?: number }
   | { t: 'snapshot'; topics: LiveSnapshot; flight: LanFlightSnapshot | null }
   | { t: 'topic'; name: LiveTopic; payload: unknown }
+  /** Sent to a twin only: something changed in this PC's database, so it can sync soon. */
+  | { t: 'sync' }
   /** A different flight is being tracked from here on (or none): replaces the snapshot's flight and track. */
   | { t: 'flight'; flight: LanFlightSnapshot | null }
   /**
@@ -110,4 +112,6 @@ export interface HostLinkStatus {
   address: string | null
   /** The sim PC's own SimConnect state, as the host last said it; null before it has. */
   hostSim: 'connected' | 'connecting' | 'disconnected' | null
+  /** Keeping this computer's fleet and logbook in step with the sim PC's. */
+  sync: { state: 'idle' | 'syncing' | 'error'; lastSyncedAt: string | null }
 }

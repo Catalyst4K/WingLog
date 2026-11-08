@@ -51,6 +51,8 @@ function memoryStore(
   return store
 }
 
+const IDLE = { state: 'idle', lastSyncedAt: null } as const
+
 describe('HostLink', () => {
   let hub: LiveHub
   let sockets: FakeSocket[]
@@ -91,7 +93,7 @@ describe('HostLink', () => {
   it('starts unpaired with nothing stored, and connects to nothing', async () => {
     const link = make(memoryStore())
     await link.start()
-    expect(link.getStatus()).toEqual({ state: 'unpaired', address: null, hostSim: null })
+    expect(link.getStatus()).toEqual({ state: 'unpaired', address: null, hostSim: null, sync: IDLE })
     expect(sockets).toHaveLength(0)
   })
 
@@ -108,7 +110,8 @@ describe('HostLink', () => {
     expect(link.getStatus()).toEqual({
       state: 'connected',
       address: '192.168.1.20:5051',
-      hostSim: 'connected'
+      hostSim: 'connected',
+      sync: IDLE
     })
     expect(hub.snapshot().beyondAtcState).toEqual({ facility: null })
     expect(hub.snapshot().simConnectionStatus).toEqual({ state: 'connected', simConnectVersion: '0.4' })
@@ -182,7 +185,8 @@ describe('HostLink', () => {
     expect(link.getStatus()).toEqual({
       state: 'offline',
       address: '192.168.1.20:5051',
-      hostSim: 'disconnected'
+      hostSim: 'disconnected',
+      sync: IDLE
     })
     expect(hub.snapshot().simConnectionStatus).toEqual({ state: 'disconnected' })
     link.stop()
@@ -196,7 +200,42 @@ describe('HostLink', () => {
     link.forget()
     expect(sockets[0]?.closed).toBe(true)
     expect(store.cleared).toBe(1)
-    expect(link.getStatus()).toEqual({ state: 'unpaired', address: null, hostSim: null })
+    expect(link.getStatus()).toEqual({ state: 'unpaired', address: null, hostSim: null, sync: IDLE })
+  })
+
+  it('asks for a sync when the link comes up and when the host says its data changed, and shows the sync in its status', () => {
+    const asked: number[] = []
+    let current: { state: 'idle' | 'syncing' | 'error'; lastSyncedAt: string | null } = IDLE
+    let changed: () => void = () => {}
+    const link = new HostLink({
+      hub,
+      store: memoryStore(),
+      createSocket: (url) => {
+        const socket = new FakeSocket(url)
+        sockets.push(socket)
+        return socket
+      },
+      deviceName: 'WingLog on MAC',
+      onStatus: (status) => statuses.push(status),
+      sync: {
+        syncSoon: (delayMs) => void asked.push(delayMs),
+        status: () => current,
+        onChange: (listener) => (changed = listener)
+      }
+    })
+    link.pair('192.168.1.20:5051', '123456')
+    sockets[0]?.open()
+    sockets[0]?.hear({ t: 'paired', token: 't' })
+    expect(asked).toEqual([])
+    sockets[0]?.hear({ t: 'snapshot', topics: {}, flight: null })
+    expect(asked).toEqual([0])
+    sockets[0]?.hear({ t: 'sync' })
+    expect(asked).toEqual([0, 500])
+    current = { state: 'syncing', lastSyncedAt: '2026-11-08T12:00:00.000Z' }
+    const before = statuses.length
+    changed()
+    expect(statuses.length).toBe(before + 1)
+    expect(link.getStatus().sync).toEqual(current)
   })
 
   it('forgets a token the host no longer accepts', async () => {
