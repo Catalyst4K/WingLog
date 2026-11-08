@@ -100,7 +100,7 @@ describe('AppHeader on a client', () => {
         state: 'connected',
         address: '192.168.1.20:5051',
         hostSim: 'connected',
-        sync: { state: 'idle', lastSyncedAt: null }
+        sync: { state: 'idle', lastSyncedAt: null, problem: null }
       } as const,
       'green',
       'connected'
@@ -110,7 +110,7 @@ describe('AppHeader on a client', () => {
         state: 'offline',
         address: '192.168.1.20:5051',
         hostSim: 'disconnected',
-        sync: { state: 'idle', lastSyncedAt: null }
+        sync: { state: 'idle', lastSyncedAt: null, problem: null }
       } as const,
       'amber',
       'not reachable'
@@ -120,7 +120,7 @@ describe('AppHeader on a client', () => {
         state: 'connecting',
         address: '192.168.1.20:5051',
         hostSim: null,
-        sync: { state: 'idle', lastSyncedAt: null }
+        sync: { state: 'idle', lastSyncedAt: null, problem: null }
       } as const,
       'amber',
       'connecting'
@@ -130,7 +130,7 @@ describe('AppHeader on a client', () => {
         state: 'unpaired',
         address: null,
         hostSim: null,
-        sync: { state: 'idle', lastSyncedAt: null }
+        sync: { state: 'idle', lastSyncedAt: null, problem: null }
       } as const,
       'off',
       'not paired'
@@ -156,7 +156,7 @@ describe('AppHeader on a client', () => {
       state: 'connected',
       address: '192.168.1.20:5051',
       hostSim: 'connected',
-      sync: { state: 'idle', lastSyncedAt: null }
+      sync: { state: 'idle', lastSyncedAt: null, problem: null }
     })
     expect(await screen.findByText('Sim PC', { selector: '[aria-hidden="true"]' })).toBeInTheDocument()
   })

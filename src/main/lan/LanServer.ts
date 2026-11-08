@@ -106,6 +106,11 @@ export interface LanServerDeps {
   flight(): unknown
   /** Read-only lookups a device may ask for (airfields, taxi charts, stands), each checking its own argument. */
   queries: Record<string, (...args: unknown[]) => unknown>
+  /**
+   * Twin-only lookups that need to know which device is asking (sync, which leaves a twin's own pushes out of what it is given and marks where
+   * a pushed row came from). The server passes the device's id first; no other lookup is given it. A name here is also in TWIN_ONLY_QUERIES.
+   */
+  deviceQueries?: Record<string, (deviceId: number, ...args: unknown[]) => unknown>
   /** A cheap text that changes when `flight()` would answer differently (the flight shown, or its saved details). */
   flightKey?(): string
   /** Called when the flight shown, or its saved details, changed (as `flightKey` told), so what is built from it can be built again. */
@@ -490,8 +495,16 @@ export class LanServer {
     if (typeof id !== 'number' || !Number.isSafeInteger(id)) return
     // The twin-only lookups do not exist for anything else.
     const allowed = typeof name === 'string' && (client.kind === 'twin' || !TWIN_ONLY_QUERIES.includes(name))
-    const query =
-      allowed && Object.hasOwn(this.deps.queries, name as string) ? this.deps.queries[name as string] : null
+    const deviceQuery =
+      allowed && client.deviceId !== null && Object.hasOwn(this.deps.deviceQueries ?? {}, name as string)
+        ? (this.deps.deviceQueries as NonNullable<LanServerDeps['deviceQueries']>)[name as string]
+        : null
+    const deviceId = client.deviceId
+    const query = deviceQuery
+      ? (...queryArgs: unknown[]) => deviceQuery(deviceId as number, ...queryArgs)
+      : allowed && Object.hasOwn(this.deps.queries, name as string)
+        ? this.deps.queries[name as string]
+        : null
     const args = message.args === undefined ? [] : message.args
     if (!query || !Array.isArray(args) || args.length > MAX_QUERY_ARGS) {
       logger.warn(

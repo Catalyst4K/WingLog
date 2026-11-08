@@ -7,13 +7,19 @@
 import type { WingLogDb } from '../db/client'
 import { logger } from '../logging/logger'
 import { runLogged } from '../logging/run-logged'
-import { runSync, type SyncClient } from '../sync/sync-engine'
+import { runCursorSync, type PagedSyncClient } from '../sync/cursor-sync'
+import { compareSyncVersions, localSyncVersion, type SyncVersion } from '../sync/sync-version'
+
+/** The client the twin's sync needs: pages and pushes, and the sim PC's version to check before either. */
+export type TwinSyncClient = PagedSyncClient & { version(): Promise<SyncVersion> }
 
 /** What Settings shows of the sync. */
 export interface TwinSyncStatus {
   state: 'idle' | 'syncing' | 'error'
   /** When the last sync finished without a problem, ISO text. */
   lastSyncedAt: string | null
+  /** Why no sync was tried: the two computers run different versions, and this says which one to update. Null otherwise. */
+  problem: 'update-this-computer' | 'update-sim-pc' | null
 }
 
 /** The part of sync the link uses. */
@@ -30,7 +36,7 @@ export const SYNC_AFTER_WRITE_MS = 2000
 
 /** The sync between this computer and the sim PC. */
 export class TwinSync implements TwinSyncPort {
-  private current: TwinSyncStatus = { state: 'idle', lastSyncedAt: null }
+  private current: TwinSyncStatus = { state: 'idle', lastSyncedAt: null, problem: null }
   private running = false
   private again = false
   private waiting: { promise: Promise<boolean> } | null = null
@@ -49,7 +55,7 @@ export class TwinSync implements TwinSyncPort {
     private readonly deps: {
       db: WingLogDb
       dbPath: string
-      client: SyncClient
+      client: TwinSyncClient
       canSync: () => boolean
       afterSync?: () => Promise<unknown>
     }
@@ -92,23 +98,34 @@ export class TwinSync implements TwinSyncPort {
     }
     this.running = true
     const waiting = this.startWaiting()
-    this.set({ state: 'syncing', lastSyncedAt: this.current.lastSyncedAt })
+    const lastSyncedAt = this.current.lastSyncedAt
+    this.set({ state: 'syncing', lastSyncedAt, problem: null })
     try {
-      const result = await runSync(
-        this.deps.db,
-        this.deps.client,
-        { email: 'twin', token: '' },
-        this.deps.dbPath,
-        'lan'
-      )
-      await this.deps.afterSync?.().catch((error: unknown) => {
-        // The tables are in step; a track that could not come now is asked for again at the next sync.
-        logger.warn('[twin-sync] could not bring the tracks of completed flights:', error)
-      })
-      this.set({ state: 'idle', lastSyncedAt: result.syncedAt })
+      // Two computers that speak different versions of the sync, or keep different databases, do not sync: the live view still works, and
+      // Settings says which one to update.
+      const verdict = compareSyncVersions(localSyncVersion(this.deps.db), await this.deps.client.version())
+      if (verdict === 'same') {
+        const result = await runCursorSync(
+          this.deps.db,
+          this.deps.client,
+          { email: 'twin', token: '' },
+          this.deps.dbPath,
+          'host'
+        )
+        await this.deps.afterSync?.().catch((error: unknown) => {
+          // The tables are in step; a track that could not come now is asked for again at the next sync.
+          logger.warn('[twin-sync] could not bring the tracks of completed flights:', error)
+        })
+        this.set({ state: 'idle', lastSyncedAt: result.syncedAt, problem: null })
+      } else {
+        logger.warn(
+          `[twin-sync] not syncing: the sim PC and this computer run different versions (${verdict})`
+        )
+        this.set({ state: 'error', lastSyncedAt, problem: verdict })
+      }
     } catch (error) {
       logger.warn('[twin-sync] sync with the sim PC failed:', error)
-      this.set({ state: 'error', lastSyncedAt: this.current.lastSyncedAt })
+      this.set({ state: 'error', lastSyncedAt, problem: null })
     } finally {
       this.running = false
     }

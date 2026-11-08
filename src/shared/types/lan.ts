@@ -117,5 +117,10 @@ export interface HostLinkStatus {
   /** The sim PC's own SimConnect state, as the host last said it; null before it has. */
   hostSim: 'connected' | 'connecting' | 'disconnected' | null
   /** Keeping this computer's fleet and logbook in step with the sim PC's. */
-  sync: { state: 'idle' | 'syncing' | 'error'; lastSyncedAt: string | null }
+  sync: {
+    state: 'idle' | 'syncing' | 'error'
+    lastSyncedAt: string | null
+    /** Set when the two computers run different versions of the sync: which one to update. */
+    problem: 'update-this-computer' | 'update-sim-pc' | null
+  }
 }

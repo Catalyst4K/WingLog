@@ -293,7 +293,11 @@
       "addressLabel": "位址",
       "codeLabel": "配對碼",
       "connect": "連線",
-      "badAddress": "請輸入模擬器電腦的位址與連接埠，需為家用網路中的位址，例如 192.168.1.20:5051。"
+      "badAddress": "請輸入模擬器電腦的位址與連接埠，需為家用網路中的位址，例如 192.168.1.20:5051。",
+      "versionProblem": {
+        "update-this-computer": "此電腦上的 WingLog 比模擬器電腦上的舊，因此飛行日誌和機隊無法保持同步。請更新此電腦上的 WingLog。",
+        "update-sim-pc": "模擬器電腦上的 WingLog 比此電腦上的舊，因此飛行日誌和機隊無法保持同步。請更新模擬器電腦上的 WingLog。"
+      }
     },
     "twin": {
       "cardTitle": "其他 WingLog",

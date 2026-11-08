@@ -37,6 +37,7 @@ import {
   upsertFlightByUuid
 } from '../db/flight-repo'
 import { hasLandingUnderOtherUuid, listLandingsForSync, upsertLandingByUuid } from '../db/landing-repo'
+import { markOrigin } from '../db/sync-change-repo'
 import { getLastSyncedAt, getSetting, setLastSyncedAt, setSetting } from '../db/settings-repo'
 import { SYNC_TABLES, type SyncRow, type SyncTable } from '../backend/sync-client'
 import { aircraft, flight, flightInvoice, landing } from '../db/schema'
@@ -554,13 +555,15 @@ export function splitPushBatches(rows: SyncRow[]): { batches: SyncRow[][]; overs
  * @param table The table the rows are for.
  * @param rows The rows the twin pushed.
  * @param dbPath The database file's path, which says where sync-conflicts.log goes.
+ * @param origin Who the rows came from (a twin), recorded so they are not sent back to it.
  * @returns The uuids applied, and those not (a newer row here, or a row that could not be applied: both are logged).
  */
 export function applyPushedRows(
   db: WingLogDb,
   table: SyncTable,
   rows: SyncRow[],
-  dbPath: string
+  dbPath: string,
+  origin?: string
 ): { upserted: string[]; rejected: string[] } {
   const upserted: string[] = []
   const rejected: string[] = []
@@ -570,6 +573,8 @@ export function applyPushedRows(
     if (outcome.ok && outcome.applied) {
       upserted.push(row.uuid)
       applied.push(row)
+      // Marked on the uuid the row was written under, so a row from this twin is not handed back to it, while one from another peer still goes on.
+      if (origin !== undefined) markOrigin(db, table, outcome.uuid, origin)
       continue
     }
     rejected.push(row.uuid)

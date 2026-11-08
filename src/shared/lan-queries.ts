@@ -56,6 +56,7 @@ export const LAN_QUERY_KINDS: Record<string, LanQueryKind> = {
 
 /** The lookups only a twin (another WingLog) may ask: a phone or tablet is refused them as if they did not exist. */
 export const TWIN_ONLY_QUERIES: readonly string[] = [
+  'sync.version',
   'sync.pull',
   'sync.push',
   'sync.trackPoints',

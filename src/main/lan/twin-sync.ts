@@ -1,38 +1,39 @@
 /**
- * The host's side of a twin's sync (winglog-backend's docs/plans/multi-device.md, Part 4): two lookups only a twin may ask, built on the
- * cloud sync engine's own list-for-push and apply-a-row, so a row means the same here as it does in the cloud, with last write wins,
- * tombstones and every row validated before it is stored.
+ * The host's side of a twin's sync (winglog-backend's docs/plans/multi-device.md, Part 4, and sync-cursors.md): the lookups only a twin may
+ * ask, built on the sync engine's own serialize-a-row and apply-a-row, so a row means the same here as it does in the cloud, with last write
+ * wins, tombstones and every row validated before it is stored. What a twin is given is found by this database's change counter, never by
+ * a time, and a twin's own pushes are left out of what it is given.
  */
 
 import type { WingLogDb } from '../db/client'
 import { SYNC_TABLES, type SyncRow, type SyncTable } from '../backend/sync-client'
 import { getFlightIdByUuid } from '../db/flight-repo'
+import { listChangesAfter } from '../db/sync-change-repo'
 import { countTrackPoints, listTrackPointRows } from '../db/track-point-repo'
-import {
-  applyPushedRows,
-  listAndSerializeForPush,
-  MAX_PUSH_ROWS,
-  MAX_ROW_DATA_BYTES
-} from '../sync/sync-engine'
+import { applyPushedRows, MAX_PUSH_ROWS, MAX_ROW_DATA_BYTES, serializeChange } from '../sync/sync-engine'
+import { localSyncVersion } from '../sync/sync-version'
 
 /** The most one page of changed rows carries, in bytes and rows: a whole table in one answer could be tens of megabytes. */
 export const PULL_PAGE_BYTES = 3_000_000
 export const PULL_PAGE_ROWS = 200
 
-/** Where a page ended, so the next one starts after it. */
-export interface PullCursor {
-  updatedAt: string
-  uuid: string
-}
-
-/** One page of a table's changed rows, and where the next begins (null at the end). */
+/** One page of a table's changed rows, the counter to ask from next, and whether there is a further page. */
 export interface PullPage {
   rows: SyncRow[]
-  next: PullCursor | null
+  cursor: number
+  more: boolean
 }
 
 /** Longest text taken for a uuid or a time. */
 const MAX_KEY_CHARS = 64
+
+/**
+ * @param deviceId A twin's device id.
+ * @returns What its pushes are marked with, so they are not sent back to it: the same text on the way in and the way out.
+ */
+export function twinOrigin(deviceId: number): string {
+  return `twin:${deviceId}`
+}
 
 /**
  * @param value A table name from a twin.
@@ -46,34 +47,15 @@ function tableArg(value: unknown): SyncTable {
 }
 
 /**
- * @param value A cursor time from a twin.
- * @returns The time, or null for "every row".
+ * @param value A cursor from a twin: the `cursor` of the last page it was given.
+ * @returns The counter, or null for "every row".
  * @throws When it is neither.
  */
-function sinceArg(value: unknown): string | null {
+function cursorArg(value: unknown): number | null {
   if (value === null || value === undefined) return null
-  if (typeof value !== 'string' || value.length > MAX_KEY_CHARS) throw new Error('Invalid cursor')
-  return value
-}
-
-/**
- * @param value Where the last page ended, from a twin.
- * @returns The place, or null for the start.
- * @throws When it is neither.
- */
-function afterArg(value: unknown): PullCursor | null {
-  if (value === null || value === undefined) return null
-  const record = typeof value === 'object' ? (value as Record<string, unknown>) : null
-  if (
-    !record ||
-    typeof record.updatedAt !== 'string' ||
-    typeof record.uuid !== 'string' ||
-    record.updatedAt.length > MAX_KEY_CHARS ||
-    record.uuid.length > MAX_KEY_CHARS
-  ) {
+  if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 0)
     throw new Error('Invalid cursor')
-  }
-  return { updatedAt: record.updatedAt, uuid: record.uuid }
+  return value
 }
 
 /**
@@ -102,43 +84,45 @@ function rowsArg(value: unknown): SyncRow[] {
 }
 
 /**
- * @param a A row.
- * @param b Another row.
- * @returns Their order: by when they changed, then by uuid, so a page boundary is exact.
- */
-function byChange(a: PullCursor, b: PullCursor): number {
-  return a.updatedAt === b.updatedAt ? a.uuid.localeCompare(b.uuid) : a.updatedAt.localeCompare(b.updatedAt)
-}
-
-/**
- * One page of the rows of a table that changed after a cursor, in the order they changed.
+ * One page of a table's changes after the twin's cursor, in the order they happened, leaving out what the twin itself sent. The cursor moves
+ * past every change looked at, sent or not, so a twin's own rows (or a row that can't be sent yet) never hold up the ones behind them.
  *
  * @param db The database.
  * @param table The table.
- * @param since The twin's cursor for this table, or null for every row.
- * @param after Where the last page ended, or null for the first.
- * @returns The page, and where the next begins.
+ * @param cursor The `cursor` of the last page this twin was given for the table, or null for everything.
+ * @param deviceId The asking twin.
+ * @returns The page, the cursor to ask from next, and whether there is more.
  */
-export function pullPage(
+export function pullChanges(
   db: WingLogDb,
   table: SyncTable,
-  since: string | null,
-  after: PullCursor | null
+  cursor: number | null,
+  deviceId: number
 ): PullPage {
-  const all = listAndSerializeForPush(db, table, since).sort(byChange)
-  const start = after ? all.findIndex((row) => byChange(row, after) > 0) : 0
-  if (start < 0) return { rows: [], next: null }
+  const from = cursor ?? 0
+  const found = listChangesAfter(db, table, from, PULL_PAGE_ROWS + 1)
+  const looked = found.slice(0, PULL_PAGE_ROWS)
+  const own = twinOrigin(deviceId)
   const rows: SyncRow[] = []
+  let last = from
   let bytes = 0
-  for (const row of all.slice(start)) {
-    const size = Buffer.byteLength(row.data) + row.uuid.length + row.updatedAt.length
-    if (rows.length > 0 && (rows.length >= PULL_PAGE_ROWS || bytes + size > PULL_PAGE_BYTES)) break
-    rows.push(row)
-    bytes += size
+  let more = found.length > PULL_PAGE_ROWS
+  for (const change of looked) {
+    if (change.origin !== own) {
+      const row = serializeChange(db, table, change.uuid)
+      if (row) {
+        const size = Buffer.byteLength(row.data) + row.uuid.length + row.updatedAt.length
+        if (rows.length > 0 && bytes + size > PULL_PAGE_BYTES) {
+          more = true
+          break
+        }
+        rows.push(row)
+        bytes += size
+      }
+    }
+    last = change.seq
   }
-  const last = rows.at(-1)
-  const more = start + rows.length < all.length
-  return { rows, next: more && last ? { updatedAt: last.updatedAt, uuid: last.uuid } : null }
+  return { rows, cursor: last, more }
 }
 
 /** Track points in one answer: a point is about 200 bytes, so a page stays well under what a twin takes in one message. */
@@ -188,16 +172,27 @@ function offsetArg(value: unknown): number {
 
 /**
  * @param db The database.
- * @param dbPath The database file's path, where conflicts are logged next to it.
- * @returns The lookups a twin may ask: `sync.pull`, `sync.push` and `sync.trackPoints`.
+ * @returns The lookups a twin may ask that don't need to know which twin it is: `sync.version` and `sync.trackPoints`.
  */
-export function twinSyncQueries(
+export function twinSyncQueries(db: WingLogDb): Record<string, (...args: unknown[]) => unknown> {
+  return {
+    'sync.version': () => localSyncVersion(db),
+    'sync.trackPoints': (uuid, offset) => trackPointsPage(db, uuidArg(uuid), offsetArg(offset))
+  }
+}
+
+/**
+ * @param db The database.
+ * @param dbPath The database file's path, where conflicts are logged next to it.
+ * @returns The lookups a twin may ask that need its device id: `sync.pull` and `sync.push`.
+ */
+export function twinSyncDeviceQueries(
   db: WingLogDb,
   dbPath: string
-): Record<string, (...args: unknown[]) => unknown> {
+): Record<string, (deviceId: number, ...args: unknown[]) => unknown> {
   return {
-    'sync.pull': (table, since, after) => pullPage(db, tableArg(table), sinceArg(since), afterArg(after)),
-    'sync.push': (table, rows) => applyPushedRows(db, tableArg(table), rowsArg(rows), dbPath),
-    'sync.trackPoints': (uuid, offset) => trackPointsPage(db, uuidArg(uuid), offsetArg(offset))
+    'sync.pull': (deviceId, table, cursor) => pullChanges(db, tableArg(table), cursorArg(cursor), deviceId),
+    'sync.push': (deviceId, table, rows) =>
+      applyPushedRows(db, tableArg(table), rowsArg(rows), dbPath, twinOrigin(deviceId))
   }
 }

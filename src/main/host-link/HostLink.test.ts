@@ -3,6 +3,7 @@ import type { LinkSocket } from '@shared/lan-connection'
 import type { HostLinkStatus } from '@shared/ipc'
 import { LiveHub } from '../live/LiveHub'
 import { HostLink, HOST_LINK_TOPICS } from './HostLink'
+import type { TwinSyncStatus } from './TwinSync'
 import type { HostLinkStore, StoredHostLink } from './host-link-store'
 
 vi.mock('../logging/logger', () => ({ logger: { warn: vi.fn(), info: vi.fn(), error: vi.fn() } }))
@@ -51,7 +52,7 @@ function memoryStore(
   return store
 }
 
-const IDLE = { state: 'idle', lastSyncedAt: null } as const
+const IDLE = { state: 'idle', lastSyncedAt: null, problem: null } as const
 
 describe('HostLink', () => {
   let hub: LiveHub
@@ -205,7 +206,7 @@ describe('HostLink', () => {
 
   it('asks for a sync when the link comes up and when the host says its data changed, and shows the sync in its status', () => {
     const asked: number[] = []
-    let current: { state: 'idle' | 'syncing' | 'error'; lastSyncedAt: string | null } = IDLE
+    let current: TwinSyncStatus = IDLE
     let changed: () => void = () => {}
     const link = new HostLink({
       hub,
@@ -231,7 +232,7 @@ describe('HostLink', () => {
     expect(asked).toEqual([0])
     sockets[0]?.hear({ t: 'sync' })
     expect(asked).toEqual([0, 500])
-    current = { state: 'syncing', lastSyncedAt: '2026-11-08T12:00:00.000Z' }
+    current = { state: 'syncing', lastSyncedAt: '2026-11-08T12:00:00.000Z', problem: null }
     const before = statuses.length
     changed()
     expect(statuses.length).toBe(before + 1)

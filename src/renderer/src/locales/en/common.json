@@ -298,7 +298,11 @@
       "addressLabel": "Address",
       "codeLabel": "Pairing code",
       "connect": "Connect",
-      "badAddress": "Enter the sim PC’s address with its port, an address on your home network, such as 192.168.1.20:5051."
+      "badAddress": "Enter the sim PC’s address with its port, an address on your home network, such as 192.168.1.20:5051.",
+      "versionProblem": {
+        "update-this-computer": "This computer’s WingLog is older than the sim PC’s, so the logbook and fleet are not being kept in step. Update WingLog on this computer.",
+        "update-sim-pc": "The sim PC’s WingLog is older than this computer’s, so the logbook and fleet are not being kept in step. Update WingLog on the sim PC."
+      }
     },
     "twin": {
       "cardTitle": "Other WingLogs",

@@ -300,7 +300,11 @@
       "addressLabel": "Dirección",
       "codeLabel": "Código de vinculación",
       "connect": "Conectar",
-      "badAddress": "Introduce la dirección del PC del simulador con su puerto, una dirección de tu red doméstica, como 192.168.1.20:5051."
+      "badAddress": "Introduce la dirección del PC del simulador con su puerto, una dirección de tu red doméstica, como 192.168.1.20:5051.",
+      "versionProblem": {
+        "update-this-computer": "WingLog en este equipo es más antiguo que el del PC del simulador, así que el cuaderno de vuelo y la flota no se mantienen al día. Actualiza WingLog en este equipo.",
+        "update-sim-pc": "WingLog en el PC del simulador es más antiguo que el de este equipo, así que el cuaderno de vuelo y la flota no se mantienen al día. Actualiza WingLog en el PC del simulador."
+      }
     },
     "twin": {
       "cardTitle": "Otros WingLog",
