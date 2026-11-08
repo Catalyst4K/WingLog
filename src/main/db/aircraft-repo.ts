@@ -355,11 +355,20 @@ export function upsertAircraftByUuid(
  * @param db The database.
  * @param uuid The retired aircraft's sync uuid.
  * @param replacedByUuid The replacing aircraft's sync uuid.
- * @returns False when either aircraft isn't here, so nothing changed.
+ * @param onlyIfUnlinked Leave an aircraft that already has a replacement as it is: used for a row that lost to a newer one here, which may
+ *   still know something this device doesn't.
+ * @returns False when either aircraft isn't here or the link was left as it was, so nothing changed.
  */
-export function linkReplacedAircraftByUuid(db: WingLogDb, uuid: string, replacedByUuid: string): boolean {
+export function linkReplacedAircraftByUuid(
+  db: WingLogDb,
+  uuid: string,
+  replacedByUuid: string,
+  onlyIfUnlinked = false
+): boolean {
   const replacedById = getAircraftIdByUuid(db, replacedByUuid)
   if (replacedById === undefined || getAircraftIdByUuid(db, uuid) === undefined) return false
-  db.update(aircraft).set({ replacedByAircraftId: replacedById }).where(eq(aircraft.uuid, uuid)).run()
-  return true
+  const where = onlyIfUnlinked
+    ? and(eq(aircraft.uuid, uuid), isNull(aircraft.replacedByAircraftId))
+    : eq(aircraft.uuid, uuid)
+  return db.update(aircraft).set({ replacedByAircraftId: replacedById }).where(where).run().changes > 0
 }
