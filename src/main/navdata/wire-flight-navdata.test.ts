@@ -106,6 +106,41 @@ describe('wireFlightNavdata', () => {
     expect(calls).toContain('taxi EGLL')
   })
 
+  it('fetches the taxi networks again when tracking starts, as the flight is loaded with its scenery by then', async () => {
+    const { db, aircraftId, sim, calls, provider } = setup()
+    sim.status = { state: 'connected', simConnectVersion: '12.2' }
+    createFlight(db, { aircraftId, depIcao: 'ZSPD', arrIcao: 'EGLL' })
+    const controller = tracking()
+    const fetcher = wireFlightNavdata({ db, sim, trackingController: controller as never, provider })
+    await fetcher.idle()
+    calls.length = 0
+    controller.emit('started')
+    await fetcher.idle()
+    expect(calls).toEqual(['taxi EGLL', 'taxi ZSPD'])
+  })
+
+  it('fetches the taxi networks again on the first telemetry of each sim session, even with tracking left running (ZSPD, 2026-11-05)', async () => {
+    const { db, aircraftId, sim, calls, provider } = setup()
+    sim.status = { state: 'connected', simConnectVersion: '12.2' }
+    const flight = createFlight(db, { aircraftId, depIcao: 'ZSPD', arrIcao: 'EGLL' })
+    const fetcher = wireFlightNavdata({ db, sim, trackingController: tracking(flight.id) as never, provider })
+    await fetcher.idle()
+    calls.length = 0
+    // The sim is closed, and opened again with the add-on scenery.
+    sim.set({ state: 'disconnected' })
+    sim.set({ state: 'connected', simConnectVersion: '12.2' })
+    await fetcher.idle()
+    expect(calls.filter((call) => call.startsWith('taxi'))).toEqual([])
+    sim.emit('telemetry', {})
+    await fetcher.idle()
+    expect(calls.filter((call) => call.startsWith('taxi')).sort()).toEqual(['taxi EGLL', 'taxi ZSPD'])
+    // Only the first one of the session.
+    calls.length = 0
+    sim.emit('telemetry', {})
+    await fetcher.idle()
+    expect(calls).toEqual([])
+  })
+
   it('fetches at start-up for a flight planned before the app was last closed, if the sim is up', async () => {
     const { db, aircraftId, sim, calls, provider } = setup()
     sim.status = { state: 'connected', simConnectVersion: '12.2' }
