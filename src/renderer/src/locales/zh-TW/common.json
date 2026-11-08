@@ -22,7 +22,8 @@
     "ariaLabel": "跑道 {{ident}} 的接地示意圖"
   },
   "aircraftPhoto": {
-    "credit": "照片來自 airport-data.com"
+    "credit": "照片來自 airport-data.com",
+    "creditPhotographer": "照片：{{photographer}}"
   },
   "settingsView": {
     "title": "設定",
@@ -356,7 +357,7 @@
     "unknownOperator": "未知航空公司",
     "icaoType": "ICAO 機型代碼",
     "icaoTypePlaceholder": "例如 A350、Boeing、B77W，或直接輸入 ICAO 代碼",
-    "icaoTypeHint": "註冊號查詢與機型資料來自 adsbdb.com（PlaneBase）。飛機照片來自 airport-data.com。",
+    "icaoTypeHint": "註冊號查詢與機型資料來自 adsbdb.com（PlaneBase）。飛機照片來自 Planespotters.net 和 airport-data.com。",
     "airline": "航空公司",
     "airlinePlaceholder": "例如 British Airways、BAW，或直接輸入名稱",
     "profile": "設定檔",
@@ -379,7 +380,14 @@
     "currentAirport": "目前所在機場",
     "saving": "正在儲存…",
     "save": "儲存",
-    "cancel": "取消"
+    "cancel": "取消",
+    "photo": {
+      "label": "照片",
+      "choose": "選擇自己的照片…",
+      "replace": "選擇其他照片…",
+      "remove": "移除我的照片",
+      "hint": "將顯示你自己的圖片，而不是依註冊號碼查詢到的照片。支援 JPEG 或 PNG。"
+    }
   },
   "airportSearch": {
     "placeholder": "ICAO 代碼或依名稱搜尋"
@@ -771,6 +779,112 @@
     "waitingFor": "等待：{{reason}}",
     "ok": "確定",
     "cancel": "取消"
+  },
+  "gsxRoutines": {
+    "title": "流程",
+    "new": "新增流程",
+    "newName": "我的流程",
+    "edit": "編輯 {{name}}",
+    "editButton": "編輯",
+    "cancel": "取消",
+    "stageOf": "第 {{stage}} 階段，共 {{count}} 階段",
+    "services": {
+      "Deboarding": "下客",
+      "Cleaning": "清潔",
+      "Lavatory": "廁所服務",
+      "Water": "加水",
+      "Catering": "配餐",
+      "Refueling": "加油",
+      "Boarding": "登機",
+      "GPU": "地面電源",
+      "OperateJetways": "空橋"
+    },
+    "state": {
+      "waiting": "等待中",
+      "asking": "請求中",
+      "running": "進行中",
+      "done": "完成",
+      "skipped": "已略過"
+    },
+    "builtIn": {
+      "departure": "離場",
+      "arrival": "抵達",
+      "turnaroundClean": "過站清潔"
+    },
+    "note": {
+      "starting": "正在啟動…",
+      "openingMenu": "正在開啟 GSX 選單以請求{{service}}…",
+      "asking": "正在向 GSX 請求{{service}}…",
+      "waitingForStage": "正在等待：{{services}}。",
+      "waitingForPilot": "等待你操作：{{menu}}",
+      "waitingForFuelEntry": "登機前，正在等待燃油資料輸入完成。",
+      "waitingForFuelEntryGap": "正在等待燃油：與目標相差 {{kg}} kg。",
+      "waitingForPayloadEntry": "加油前，正在等待載重資料輸入完成。",
+      "entryTimedOut": "有一項資料輸入耗時過長，流程已略過並繼續執行。",
+      "following": "正在等待：{{services}}。",
+      "stalled": "30 分鐘後仍在等待：{{services}}。",
+      "skipped": {
+        "notOffered": "已略過{{service}}：GSX 在此處不提供。",
+        "dropped": "已略過{{service}}：GSX 兩次捨棄了該請求。",
+        "bypassed": "已略過{{service}}：GSX 已將其繞過。"
+      },
+      "finished": "流程已完成。",
+      "stopped": {
+        "cancelled": "流程已取消。",
+        "gsxDisconnected": "流程已停止：GSX 已中斷連線。",
+        "aircraftMoved": "流程已停止：飛機已移動。",
+        "departure": "流程已停止：已請求推出。",
+        "menuFailed": "流程已停止：GSX 選單未能開啟。",
+        "gsxHasNoPlan": "流程已停止：GSX 沒有 SimBrief 計畫。請使用「Reload SimBrief」。",
+        "noPlannedWeight": "流程已停止：WingLog 沒有此航班的計畫重量。"
+      },
+      "ending": {
+        "abort": "正在 GSX 中止 {{services}}…",
+        "complete": "正在 GSX 完成 {{services}}…"
+      },
+      "endingFailed": "例程已取消。WingLog 無法在 GSX 選單中操作：{{services}}。保持原樣。"
+    },
+    "editor": {
+      "titleNew": "新增流程",
+      "titleEdit": "流程",
+      "description": "勾選此流程要向 GSX 請求的服務。WingLog 會依安全的順序排列，你也可以調整。",
+      "name": "名稱",
+      "servicesHeading": "服務",
+      "groupMain": "GSX 主選單",
+      "groupAdditional": "附加服務",
+      "stagesHeading": "順序",
+      "stage": "第 {{n}} 階段",
+      "startsAtOnce": "立即開始",
+      "startsLabel": "第 {{n}} 階段等待的內容",
+      "startsWhenDone": "在{{service}}完成後開始",
+      "moveLabel": "將{{service}}移到",
+      "newStage": "新階段",
+      "relayNote": "勾選或取消勾選服務時，會重新排列各階段。",
+      "answerGsxChoice": "替我採用 GSX 的預設選擇",
+      "answerGsxChoiceNote": "當 GSX 詢問要使用哪個地勤或配餐業者時，選擇 GSX 標記為其建議的那個。其他問題一律由你決定。",
+      "yes": "是",
+      "no": "否",
+      "fuel": "加油量",
+      "fuelAsk": "詢問我",
+      "fuelBlock": "SimBrief 計畫燃油",
+      "save": "儲存",
+      "close": "關閉",
+      "duplicate": "複製",
+      "delete": "刪除",
+      "confirmDelete": "刪除「{{name}}」？此操作無法復原。",
+      "cancelDelete": "取消",
+      "saveFailed": "無法儲存：{{reason}}",
+      "copyOf": "{{name}} 副本",
+      "noServices": "請至少勾選一項服務。"
+    },
+    "cancelPrompt": {
+      "label": "取消例程",
+      "question": "{{services}} 仍在進行。要如何處理？",
+      "abort": "中止",
+      "complete": "立即完成",
+      "leave": "保持運行",
+      "keepGoing": "繼續例程"
+    }
   },
   "beyondAtcView": {
     "title": "BeyondATC"

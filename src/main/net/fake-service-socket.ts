@@ -11,7 +11,9 @@ export class FakeServiceSocket implements ServiceSocket {
   readonly OPEN = 1
   readyState = 0
   closed = false
-  private readonly listeners = new Map<keyof ServiceSocketListeners, (() => void)[]>()
+  /** Everything the service sent, as the text it sent. */
+  readonly sent: string[] = []
+  private readonly listeners = new Map<keyof ServiceSocketListeners, ((...args: never[]) => void)[]>()
 
   /** @param url The address the service asked for. */
   constructor(readonly url: string) {
@@ -22,10 +24,12 @@ export class FakeServiceSocket implements ServiceSocket {
     type: K,
     listener: ServiceSocketListeners[K]
   ): void {
-    this.listeners.set(type, [...(this.listeners.get(type) ?? []), listener as () => void])
+    this.listeners.set(type, [...(this.listeners.get(type) ?? []), listener])
   }
 
-  send(): void {}
+  send(text: string): void {
+    this.sent.push(text)
+  }
 
   close(): void {
     this.closed = true
@@ -34,6 +38,17 @@ export class FakeServiceSocket implements ServiceSocket {
   /** Connects, as a server answering would. */
   open(): void {
     this.readyState = this.OPEN
-    for (const listener of this.listeners.get('open') ?? []) listener()
+    for (const listener of this.listeners.get('open') ?? []) (listener as () => void)()
+  }
+
+  /**
+   * Delivers a message, as the server would.
+   *
+   * @param payload What the server sent; it goes out as JSON.
+   */
+  receive(payload: unknown): void {
+    const event = { data: JSON.stringify(payload) }
+    for (const listener of this.listeners.get('message') ?? [])
+      (listener as (e: { data: unknown }) => void)(event)
   }
 }

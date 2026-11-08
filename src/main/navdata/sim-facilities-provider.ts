@@ -32,10 +32,47 @@ import type {
   ProcedureKind
 } from './navdata-provider'
 import type { NavdataStand } from '@shared/ipc'
-import { fetchAirportNavdata, fetchTaxiNetwork, type FetchedStand } from './sim-facilities-fetch'
+import { isPlacedPosition } from '@shared/geo'
+import type { ParsedLeg } from '../sim/facility-fields'
+import {
+  fetchAirportNavdata,
+  fetchTaxiNetwork,
+  type FetchedAirportNavdata,
+  type FetchedStand
+} from './sim-facilities-fetch'
 import { staleBeforeMs, type NavdataSignature } from './sim-navdata-signature'
 
 const APP_NAME = 'WingLog navdata'
+/** How many of the unplaced fixes a refused fetch names in its error. */
+const UNPLACED_NAMED = 3
+
+/**
+ * The fixes an airport's fetch names without a position. The sim can hand one over while it's still loading (flight 259's ILS 05R,
+ * navdata-notes.md 2026-11-02), so a fetch with any isn't cached.
+ *
+ * @param fetched The fetched airport.
+ * @returns Each as its procedure and fix ("ILS 05R CF05R"), in fetch order; empty when every fix has a position.
+ */
+export function unplacedFixes(fetched: FetchedAirportNavdata): string[] {
+  const unplaced = (procedure: string, legs: ParsedLeg[]): string[] =>
+    legs.flatMap((leg) =>
+      leg.fixIdent !== null && !isPlacedPosition(leg.fixLatitude, leg.fixLongitude)
+        ? [`${procedure} ${leg.fixIdent}`]
+        : []
+    )
+  return [
+    ...[...fetched.departures, ...fetched.arrivals].flatMap((p) =>
+      unplaced(p.name, [
+        ...p.commonLegs,
+        ...p.runwayTransitions.flatMap((t) => t.legs),
+        ...p.enrouteTransitions.flatMap((t) => t.legs)
+      ])
+    ),
+    ...fetched.approaches.flatMap((a) =>
+      unplaced(a.identifier, [...a.finalLegs, ...a.transitions.flatMap((t) => t.legs)])
+    )
+  ]
+}
 
 /** After a background refresh fails (the sim isn't running), wait this long before trying that airport again. */
 const REFRESH_RETRY_MS = 10 * 60 * 1000
@@ -127,10 +164,24 @@ export class SimFacilitiesProvider implements NavdataProvider {
     return () => this.refreshedListeners.delete(listener)
   }
 
+  /**
+   * Fetches an airport's runways and procedures from the sim and replaces the cached ones, then tells the listeners. A fetch that
+   * names any fix without a position is refused, so what was cached stays and the caller tries again later.
+   *
+   * @param icao The airport.
+   * @throws When the sim can't be reached, the fetch fails, or its data isn't ready.
+   */
   async refreshAirport(icao: string): Promise<void> {
     const { handle } = await this.openSimConnect(APP_NAME, Protocol.SunRise)
     try {
       const fetched = await fetchAirportNavdata(handle, icao)
+      const unplaced = unplacedFixes(fetched)
+      if (unplaced.length > 0) {
+        const named = unplaced.slice(0, UNPLACED_NAMED).join(', ')
+        throw new Error(
+          `the sim gave ${unplaced.length} fix(es) no position (${named}), so its data isn't ready yet`
+        )
+      }
       const firstWithThresholds = runwaysLackDisplacedThresholds(this.db, icao)
       replaceAirportNavdata(this.db, icao, fetched, this.now().toISOString())
       if (firstWithThresholds) {

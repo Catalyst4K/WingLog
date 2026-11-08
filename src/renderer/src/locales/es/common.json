@@ -24,7 +24,8 @@
     "ariaLabel": "Diagrama de aterrizaje de la pista {{ident}}"
   },
   "aircraftPhoto": {
-    "credit": "Foto vía airport-data.com"
+    "credit": "Foto vía airport-data.com",
+    "creditPhotographer": "Foto: {{photographer}}"
   },
   "settingsView": {
     "title": "Ajustes",
@@ -364,7 +365,7 @@
     "unknownOperator": "operador desconocido",
     "icaoType": "Tipo ICAO",
     "icaoTypePlaceholder": "p. ej. A350, Boeing, B77W, o escribe un código ICAO",
-    "icaoTypeHint": "Búsqueda de matrícula y datos de tipo de aeronave vía adsbdb.com (PlaneBase). Fotos de aeronaves vía airport-data.com.",
+    "icaoTypeHint": "Búsqueda de matrícula y datos de tipo de aeronave vía adsbdb.com (PlaneBase). Fotos de aeronaves vía Planespotters.net y airport-data.com.",
     "airline": "Aerolínea",
     "airlinePlaceholder": "p. ej. British Airways, BAW, o escribe un nombre",
     "profile": "Perfil",
@@ -387,7 +388,14 @@
     "currentAirport": "Aeropuerto actual",
     "saving": "Guardando…",
     "save": "Guardar",
-    "cancel": "Cancelar"
+    "cancel": "Cancelar",
+    "photo": {
+      "label": "Foto",
+      "choose": "Elegir tu propia foto…",
+      "replace": "Elegir otra foto…",
+      "remove": "Quitar mi foto",
+      "hint": "Tu propia imagen se muestra en lugar de la de la búsqueda por matrícula. JPEG o PNG."
+    }
   },
   "airportSearch": {
     "placeholder": "ICAO o buscar por nombre"
@@ -781,6 +789,112 @@
     "waitingFor": "Esperando: {{reason}}",
     "ok": "Aceptar",
     "cancel": "Cancelar"
+  },
+  "gsxRoutines": {
+    "title": "Rutinas",
+    "new": "Nueva rutina",
+    "newName": "Mi rutina",
+    "edit": "Editar {{name}}",
+    "editButton": "Editar",
+    "cancel": "Cancelar",
+    "stageOf": "Etapa {{stage}} de {{count}}",
+    "services": {
+      "Deboarding": "Desembarque",
+      "Cleaning": "Limpieza",
+      "Lavatory": "Aseos",
+      "Water": "Agua",
+      "Catering": "Catering",
+      "Refueling": "Repostaje",
+      "Boarding": "Embarque",
+      "GPU": "GPU",
+      "OperateJetways": "Pasarela"
+    },
+    "state": {
+      "waiting": "en espera",
+      "asking": "solicitando",
+      "running": "en curso",
+      "done": "hecho",
+      "skipped": "omitido"
+    },
+    "builtIn": {
+      "departure": "Salida",
+      "arrival": "Llegada",
+      "turnaroundClean": "Limpieza de escala"
+    },
+    "note": {
+      "starting": "Iniciando…",
+      "openingMenu": "Abriendo el menú de GSX para solicitar {{service}}…",
+      "asking": "Solicitando {{service}} a GSX…",
+      "waitingForStage": "Esperando a: {{services}}.",
+      "waitingForPilot": "Esperando por ti: {{menu}}",
+      "waitingForFuelEntry": "Esperando a que se introduzca el combustible antes del embarque.",
+      "waitingForFuelEntryGap": "Esperando el combustible: a {{kg}} kg del objetivo.",
+      "waitingForPayloadEntry": "Esperando a que se introduzca la carga de pago antes del repostaje.",
+      "entryTimedOut": "Una introducción de datos tardó demasiado y la rutina siguió sin ella.",
+      "following": "Esperando a: {{services}}.",
+      "stalled": "Sigue esperando a: {{services}} tras 30 minutos.",
+      "skipped": {
+        "notOffered": "{{service}} omitido: GSX no lo ofrece aquí.",
+        "dropped": "{{service}} omitido: GSX descartó la solicitud dos veces.",
+        "bypassed": "{{service}} omitido: GSX lo ha omitido."
+      },
+      "finished": "Rutina terminada.",
+      "stopped": {
+        "cancelled": "Rutina cancelada.",
+        "gsxDisconnected": "Rutina detenida: GSX se desconectó.",
+        "aircraftMoved": "Rutina detenida: el avión se movió.",
+        "departure": "Rutina detenida: se solicitó el pushback.",
+        "menuFailed": "Rutina detenida: el menú de GSX no se abrió.",
+        "gsxHasNoPlan": "Rutina detenida: GSX no tiene plan de SimBrief. Usa «Reload SimBrief».",
+        "noPlannedWeight": "Rutina detenida: WingLog no tiene peso planificado para este vuelo."
+      },
+      "ending": {
+        "abort": "Abortando {{services}} en GSX…",
+        "complete": "Completando {{services}} en GSX…"
+      },
+      "endingFailed": "Rutina cancelada. WingLog no pudo llegar en el menú de GSX a: {{services}}. Se queda como está."
+    },
+    "editor": {
+      "titleNew": "Nueva rutina",
+      "titleEdit": "Rutina",
+      "description": "Marca los servicios que esta rutina solicita a GSX. WingLog los ordena de forma segura y puedes cambiarlo.",
+      "name": "Nombre",
+      "servicesHeading": "Servicios",
+      "groupMain": "Menú principal de GSX",
+      "groupAdditional": "Servicios adicionales",
+      "stagesHeading": "Orden",
+      "stage": "Etapa {{n}}",
+      "startsAtOnce": "Empieza de inmediato",
+      "startsLabel": "Qué espera la etapa {{n}}",
+      "startsWhenDone": "Empieza cuando {{service}} termine",
+      "moveLabel": "Mover {{service}} a",
+      "newStage": "Nueva etapa",
+      "relayNote": "Al marcar o desmarcar un servicio, las etapas se ordenan de nuevo.",
+      "answerGsxChoice": "Responder con la opción predeterminada de GSX",
+      "answerGsxChoiceNote": "Cuando GSX pregunta qué operador de handling o de catering usar, elige el que marca como su elección. Las demás preguntas siempre son tuyas.",
+      "yes": "Sí",
+      "no": "No",
+      "fuel": "Nivel de repostaje",
+      "fuelAsk": "Preguntarme",
+      "fuelBlock": "Combustible de bloque de SimBrief",
+      "save": "Guardar",
+      "close": "Cerrar",
+      "duplicate": "Duplicar",
+      "delete": "Eliminar",
+      "confirmDelete": "¿Eliminar «{{name}}»? No se puede deshacer.",
+      "cancelDelete": "Cancelar",
+      "saveFailed": "No se pudo guardar: {{reason}}",
+      "copyOf": "Copia de {{name}}",
+      "noServices": "Marca al menos un servicio."
+    },
+    "cancelPrompt": {
+      "label": "Cancelar la rutina",
+      "question": "{{services}} sigue en marcha. ¿Qué hacemos con ello?",
+      "abort": "Abortarlo",
+      "complete": "Completarlo ya",
+      "leave": "Dejarlo en marcha",
+      "keepGoing": "Seguir con la rutina"
+    }
   },
   "beyondAtcView": {
     "title": "BeyondATC"

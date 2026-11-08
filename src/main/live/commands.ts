@@ -17,6 +17,13 @@ import type { StepClimbController } from '../beyondatc/step-climb'
 /** One command: its arguments arrive unchecked, as a client sent them. */
 type CommandFn = (...args: unknown[]) => void
 
+/** Starting and cancelling a GSX routine, as the commands see it. The id arrives unchecked. */
+export interface RoutineControl {
+  start(id: unknown): void
+  /** @param choice What to do with the services under way; unchecked, and anything unknown leaves them running. */
+  cancel(choice?: unknown): void
+}
+
 /** A table of commands, keyed by name. */
 export type CommandTable<K extends LiveCommand> = { [C in K]: CommandFn }
 
@@ -66,6 +73,7 @@ export function atcCommands(
  *
  * @param service The current GSX Remote service, read on every call; undefined while GSX Remote
  *   is off, when every command does nothing.
+ * @param routines The GSX routine control, read on every call for the same reason.
  * @returns The table.
  */
 export function gsxCommands(
@@ -74,7 +82,8 @@ export function gsxCommands(
         GsxRemoteService,
         'pickMenu' | 'search' | 'toggleMenu' | 'submitPrompt' | 'cancelPrompt' | 'runCommand'
       >
-    | undefined
+    | undefined,
+  routines: () => RoutineControl | undefined
 ): CommandTable<GsxCommand> {
   return {
     'gsx.pickMenu': (index) => service()?.pickMenu(index),
@@ -82,7 +91,9 @@ export function gsxCommands(
     'gsx.toggleMenu': () => service()?.toggleMenu(),
     'gsx.submitPrompt': (gen, text) => service()?.submitPrompt(gen, text),
     'gsx.cancelPrompt': (gen) => service()?.cancelPrompt(gen),
-    'gsx.runCommand': (id) => service()?.runCommand(id)
+    'gsx.runCommand': (id) => service()?.runCommand(id),
+    'gsx.startRoutine': (id) => routines()?.start(id),
+    'gsx.cancelRoutine': (choice) => routines()?.cancel(choice)
   }
 }
 

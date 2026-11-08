@@ -1,4 +1,4 @@
-/** Connects the flight navdata fetcher to the app: when the shown flight may have changed, and when the sim connects. */
+/** Connects the flight navdata fetcher to the app: when the shown flight may have changed, when the sim connects, and when tracking starts. */
 
 import type { WingLogDb } from '../db/client'
 import { getLiveFlight } from '../db/flight-repo'
@@ -48,10 +48,26 @@ export function wireFlightNavdata({
     simConnected: () => sim.getStatus().state === 'connected',
     now: () => Date.now()
   })
-  for (const event of ['started', 'stopped', 'completed'] as const)
-    trackingController.on(event, () => fetcher.refresh())
+  for (const event of ['stopped', 'completed'] as const) trackingController.on(event, () => fetcher.refresh())
+  // The flight is loaded now, with its scenery: the taxi networks fetched before it (at the main menu) may be the default layout.
+  trackingController.on('started', () => {
+    fetcher.refresh()
+    fetcher.refreshTaxiNetworks()
+  })
+  // The sim loads a flight, and its scenery, after it connects, and a pilot can quit and load another one (the add-on airport after
+  // the default one, ZSPD 2026-11-05) while WingLog keeps tracking: the first telemetry after each connect is the loaded flight.
+  let awaitingFlight = true
   sim.on('status', (status) => {
-    if (status.state === 'connected') fetcher.refresh()
+    if (status.state !== 'connected') {
+      awaitingFlight = true
+      return
+    }
+    fetcher.refresh()
+  })
+  sim.on('telemetry', () => {
+    if (!awaitingFlight) return
+    awaitingFlight = false
+    fetcher.refreshTaxiNetworks()
   })
   fetcher.refresh()
   return fetcher

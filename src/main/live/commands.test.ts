@@ -70,7 +70,10 @@ describe('atcCommands', () => {
 describe('gsxCommands', () => {
   it('reaches the service with the arguments as sent', () => {
     const service = fakeGsx()
-    const table = gsxCommands(() => service)
+    const table = gsxCommands(
+      () => service,
+      () => undefined
+    )
     dispatchCommand(table, 'gsx.pickMenu', [2])
     dispatchCommand(table, 'gsx.search', ['A12'])
     dispatchCommand(table, 'gsx.toggleMenu', [])
@@ -88,11 +91,41 @@ describe('gsxCommands', () => {
   it('does nothing while GSX Remote is off', () => {
     expect(() =>
       dispatchCommand(
-        gsxCommands(() => undefined),
+        gsxCommands(
+          () => undefined,
+          () => undefined
+        ),
         'gsx.toggleMenu',
         []
       )
     ).not.toThrow()
+  })
+
+  it('starts and cancels a routine through the routine control, passing the id as sent', () => {
+    const routines = { start: vi.fn(), cancel: vi.fn() }
+    const table = gsxCommands(
+      () => undefined,
+      () => routines
+    )
+    dispatchCommand(table, 'gsx.startRoutine', ['builtin-fenix-departure'])
+    dispatchCommand(table, 'gsx.startRoutine', [{ not: 'an id' }])
+    dispatchCommand(table, 'gsx.cancelRoutine', [])
+    dispatchCommand(table, 'gsx.cancelRoutine', ['abort'])
+    dispatchCommand(table, 'gsx.cancelRoutine', [{ not: 'a choice' }])
+    expect(routines.start).toHaveBeenNthCalledWith(1, 'builtin-fenix-departure')
+    expect(routines.start).toHaveBeenNthCalledWith(2, { not: 'an id' })
+    expect(routines.cancel).toHaveBeenNthCalledWith(1, undefined)
+    expect(routines.cancel).toHaveBeenNthCalledWith(2, 'abort')
+    expect(routines.cancel).toHaveBeenNthCalledWith(3, { not: 'a choice' })
+  })
+
+  it('does nothing for a routine command while GSX Remote is off', () => {
+    const table = gsxCommands(
+      () => undefined,
+      () => undefined
+    )
+    expect(() => dispatchCommand(table, 'gsx.startRoutine', ['x'])).not.toThrow()
+    expect(() => dispatchCommand(table, 'gsx.cancelRoutine', [])).not.toThrow()
   })
 })
 
@@ -162,7 +195,10 @@ describe('trackCommands', () => {
 })
 
 describe('dispatchCommand', () => {
-  const table = gsxCommands(() => fakeGsx())
+  const table = gsxCommands(
+    () => fakeGsx(),
+    () => undefined
+  )
 
   it('refuses a name that is not in the table, whatever its type', () => {
     for (const name of [

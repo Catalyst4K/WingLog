@@ -14,11 +14,17 @@ vi.mock('../db/aircraft-import-export', () => ({
   exportAircraft: (...args: unknown[]) => exportAircraft(...args)
 }))
 
+const pickAircraftPhoto = vi.fn()
+vi.mock('../aircraft-lookup/aircraft-photo-file', () => ({
+  pickAircraftPhoto: (...args: unknown[]) => pickAircraftPhoto(...args)
+}))
+
 describe('fleet IPC handlers', () => {
   let db: WingLogDb
   let invoke: ReturnType<typeof fakeIpc>['invoke']
   const sync = vi.fn()
   const window = {} as BrowserWindow
+  const openExternal = vi.fn().mockResolvedValue(undefined)
 
   beforeEach(() => {
     db = createDb(':memory:').db
@@ -26,9 +32,11 @@ describe('fleet IPC handlers', () => {
     sync.mockClear()
     importAircraft.mockReset()
     exportAircraft.mockReset()
+    pickAircraftPhoto.mockReset()
+    openExternal.mockClear()
     const ipc = fakeIpc()
     invoke = ipc.invoke
-    registerFleetHandlers(ipc.ipcMain, { db, window, scheduleBackgroundSync: sync })
+    registerFleetHandlers(ipc.ipcMain, { db, window, scheduleBackgroundSync: sync, openExternal })
   })
 
   it('creates, updates and lists aircraft, syncing after each change', () => {
@@ -81,6 +89,46 @@ describe('fleet IPC handlers', () => {
     expect(sync).toHaveBeenCalledTimes(1)
     invoke(IpcChannels.aircraftExport, 'csv')
     expect(exportAircraft).toHaveBeenCalledWith(db, window, 'csv')
+  })
+
+  it('opens the photo dialog over the window and answers with what it returns, saving nothing', async () => {
+    pickAircraftPhoto
+      .mockResolvedValueOnce({ dataUrl: 'data:image/jpeg;base64,AAAA' })
+      .mockResolvedValueOnce(null)
+    expect(await invoke(IpcChannels.aircraftPickPhoto)).toEqual({ dataUrl: 'data:image/jpeg;base64,AAAA' })
+    expect(pickAircraftPhoto).toHaveBeenCalledWith(window)
+    expect(await invoke(IpcChannels.aircraftPickPhoto)).toBeNull()
+    expect(sync).not.toHaveBeenCalled()
+    expect(invoke(IpcChannels.aircraftList)).toEqual([])
+  })
+
+  it('opens a Planespotters photo page in the browser', async () => {
+    const page = 'https://www.planespotters.net/photo/1947470/g-eztk?utm_source=api'
+    await invoke(IpcChannels.aircraftOpenPhotoPage, page)
+    expect(openExternal).toHaveBeenCalledExactlyOnceWith(page)
+  })
+
+  it.each([
+    ['another site', 'https://evil.example/photo/1'],
+    ['a look-alike host', 'https://www.planespotters.net.evil.example/photo/1'],
+    ['a file', 'file:///C:/Windows/System32/calc.exe'],
+    ['a script', 'javascript:alert(1)'],
+    ['http', 'http://www.planespotters.net/photo/1'],
+    ['something that is not text', 42]
+  ])('does not open %s, which the renderer could send', async (_label, url) => {
+    await invoke(IpcChannels.aircraftOpenPhotoPage, url)
+    expect(openExternal).not.toHaveBeenCalled()
+  })
+
+  it('refuses a photo that is not a picture we made, from the renderer', () => {
+    expect(() =>
+      invoke(IpcChannels.aircraftCreate, {
+        registration: 'G-EVIL',
+        icaoType: 'A320',
+        customPhoto: 'https://example.com/tracker.gif'
+      })
+    ).toThrow('"customPhoto" is not a picture or link WingLog can keep')
+    expect(sync).not.toHaveBeenCalled()
   })
 
   it("lists an aircraft's flights, landings and last stands", () => {

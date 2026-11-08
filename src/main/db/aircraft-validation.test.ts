@@ -69,6 +69,66 @@ describe('parseAircraftInput', () => {
     })
   })
 
+  describe('the photo fields', () => {
+    const base = { registration: 'G-ABCD', icaoType: 'A320' }
+    const OWN = 'data:image/jpeg;base64,/9j/4AAQSkZJRg=='
+
+    it('carries a looked-up photo link, its full-size link and the pilot’s own picture', () => {
+      const result = parseAircraftInput({
+        ...base,
+        photoThumbnailUrl: 'https://airport-data.com/images/aircraft/thumbnails/001/685/001685661.jpg',
+        photoUrl: 'https://image.airport-data.com/aircraft/001685661.jpg',
+        customPhoto: OWN
+      })
+      expect(result).toEqual({
+        data: {
+          ...base,
+          photoThumbnailUrl: 'https://airport-data.com/images/aircraft/thumbnails/001/685/001685661.jpg',
+          photoUrl: 'https://image.airport-data.com/aircraft/001685661.jpg',
+          customPhoto: OWN
+        }
+      })
+    })
+
+    it('carries a Planespotters photo with its photographer and page', () => {
+      const photo = {
+        planespottersPhotoUrl: 'https://t.plnspttrs.net/00978/1947470_54b1bd86b7_280.jpg',
+        planespottersPhotographer: 'John Robert Murdoch',
+        planespottersPageUrl: 'https://www.planespotters.net/photo/1947470/g-eztk'
+      }
+      expect(parseAircraftInput({ ...base, ...photo })).toEqual({ data: { ...base, ...photo } })
+    })
+
+    it('clears the pilot’s own picture when it is sent as null', () => {
+      expect(parseAircraftInput({ ...base, customPhoto: null })).toEqual({
+        data: { ...base, customPhoto: null }
+      })
+    })
+
+    it.each([
+      ['a link that is not https', 'photoUrl', 'http://image.airport-data.com/aircraft/1.jpg'],
+      ['a script link', 'photoThumbnailUrl', 'javascript:alert(1)'],
+      ['text that is not a link', 'photoUrl', 'not a url'],
+      ['a file link', 'photoUrl', 'file:///C:/Users/pilot/secret.jpg'],
+      ['a picture that is not a JPEG', 'customPhoto', 'data:image/svg+xml;base64,PHN2Zz48L3N2Zz4='],
+      ['a data URL that is not base64', 'customPhoto', 'data:image/jpeg;base64,not base64!'],
+      ['a plain link in place of a picture', 'customPhoto', 'https://example.com/me.jpg'],
+      ['a picture over the size limit', 'customPhoto', 'data:image/jpeg;base64,' + 'A'.repeat(1_500_000)],
+      ['a Planespotters photo on another host', 'planespottersPhotoUrl', 'https://evil.example/a.jpg'],
+      ['a Planespotters page on another host', 'planespottersPageUrl', 'https://evil.example/photo/1'],
+      [
+        'a Planespotters page that is not https',
+        'planespottersPageUrl',
+        'http://www.planespotters.net/photo/1'
+      ],
+      ['a photographer with a control character', 'planespottersPhotographer', 'Eve\u0007']
+    ])('rejects %s', (_label, field, value) => {
+      expect(parseAircraftInput({ ...base, [field]: value })).toEqual({
+        error: `"${field}" is not a picture or link WingLog can keep`
+      })
+    })
+  })
+
   it('still omits a field genuinely absent from the input, distinct from an explicit blank', () => {
     const result = parseAircraftInput({ registration: 'G-ABCD', icaoType: 'A320' })
     expect(result).toEqual({ data: { registration: 'G-ABCD', icaoType: 'A320' } })

@@ -35,11 +35,11 @@ function sessionFilePath(userDataPath: string): string {
  * @param session The signed-in account and its token.
  * @throws When the OS can't encrypt it (no keychain).
  */
-export function saveSession(userDataPath: string, session: StoredSession): void {
-  if (!safeStorage.isEncryptionAvailable()) {
+export async function saveSession(userDataPath: string, session: StoredSession): Promise<void> {
+  if (!(await safeStorage.isAsyncEncryptionAvailable())) {
     throw new Error(t('errors.credentialEncryptionUnavailable'))
   }
-  writeFileSync(sessionFilePath(userDataPath), safeStorage.encryptString(JSON.stringify(session)))
+  writeFileSync(sessionFilePath(userDataPath), await safeStorage.encryptStringAsync(JSON.stringify(session)))
 }
 
 /** Null for "no session" — never set, cleared, or a file that's corrupted/undecryptable
@@ -49,11 +49,16 @@ export function saveSession(userDataPath: string, session: StoredSession): void 
  * @param userDataPath Electron's userData directory.
  * @returns The session, or null.
  */
-export function loadSession(userDataPath: string): StoredSession | null {
+export async function loadSession(userDataPath: string): Promise<StoredSession | null> {
   const path = sessionFilePath(userDataPath)
   if (!existsSync(path)) return null
   try {
-    return JSON.parse(safeStorage.decryptString(readFileSync(path))) as StoredSession
+    const { result, shouldReEncrypt } = await safeStorage.decryptStringAsync(readFileSync(path))
+    const session = JSON.parse(result) as StoredSession
+    // The OS key has rotated since this was written (never seen on Windows; possible with the Mac's keychain): write the file
+    // again so it follows the current key. Failing to rewrite it must not lose a session that did read.
+    if (shouldReEncrypt) await saveSession(userDataPath, session).catch(() => undefined)
+    return session
   } catch {
     return null
   }

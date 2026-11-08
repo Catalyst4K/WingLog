@@ -31,6 +31,7 @@ import {
   visibleServices
 } from './gsx-remote-format'
 import { asyncHandler, runAsync } from './report-error'
+import { GsxRoutines } from './GsxRoutines'
 
 const EMPTY_MENU: GsxRemoteMenuState = {
   menuShown: false,
@@ -491,9 +492,10 @@ const NO_SERVICES: GsxRemoteServiceStatus[] = []
 /**
  * The GSX Remote panel, live from GSX's state.
  *
+ * @param props `canEditRoutines`: whether the routine editor is offered; the PC's window does, a phone does not.
  * @returns The element.
  */
-export function GsxRemotePanel(): React.JSX.Element {
+export function GsxRemotePanel(props: { canEditRoutines?: boolean }): React.JSX.Element {
   const { t } = useTranslation()
   const [settings, setSettings] = useState<GsxRemoteSettings | null>(null)
   // Live state through the LiveClient (live-data-seam.md, part C), each fetched on mount as
@@ -543,6 +545,7 @@ export function GsxRemotePanel(): React.JSX.Element {
         commandBar={commandBar}
         onRun={asyncHandler('GsxRemotePanel gsx.runCommand', (id) => live.command('gsx.runCommand', id))}
       />
+      <GsxRoutines canEdit={props.canEditRoutines ?? true} />
       <MenuHeader
         menu={menu}
         onToggle={asyncHandler('GsxRemotePanel gsx.toggleMenu', () => live.command('gsx.toggleMenu'))}

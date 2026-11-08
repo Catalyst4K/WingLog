@@ -42,6 +42,9 @@ describe('aircraft repo', () => {
     expect(created.operator).toBeNull()
     expect(created.simbriefAirframeId).toBeNull()
     expect(created.currentIcao).toBeNull()
+    expect(created.photoThumbnailUrl).toBeNull()
+    expect(created.photoUrl).toBeNull()
+    expect(created.customPhoto).toBeNull()
     expect(listAircraft(db)).toEqual([created])
   })
 
@@ -59,6 +62,33 @@ describe('aircraft repo', () => {
     expect(created.operatorIcao).toBe('TST')
     expect(created.simbriefAirframeId).toBe('123456_1582090020')
     expect(created.currentIcao).toBe('EGLL')
+  })
+
+  it('keeps the pilot’s own picture beside the lookup’s photos, and clearing it leaves them', () => {
+    const own = 'data:image/jpeg;base64,/9j/4AAQSkZJRg=='
+    const created = createAircraft(db, {
+      registration: 'G-ABCD',
+      icaoType: 'A320',
+      photoThumbnailUrl: 'https://airport-data.com/thumb.jpg',
+      photoUrl: 'https://image.airport-data.com/full.jpg',
+      customPhoto: own
+    })
+    expect(created).toMatchObject({
+      photoThumbnailUrl: 'https://airport-data.com/thumb.jpg',
+      photoUrl: 'https://image.airport-data.com/full.jpg',
+      customPhoto: own
+    })
+    const cleared = updateAircraft(db, {
+      id: created.id,
+      registration: 'G-ABCD',
+      icaoType: 'A320',
+      customPhoto: null
+    })
+    expect(cleared).toMatchObject({
+      photoThumbnailUrl: 'https://airport-data.com/thumb.jpg',
+      photoUrl: 'https://image.airport-data.com/full.jpg',
+      customPhoto: null
+    })
   })
 
   it('rejects a duplicate registration', () => {

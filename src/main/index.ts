@@ -5,6 +5,8 @@
  * modules and the services, not here.
  */
 import { runLogged } from './logging/run-logged'
+import { backfillAircraftPhotos } from './aircraft-lookup/photo-backfill'
+import { planespottersUserAgent } from './aircraft-lookup/planespotters-client'
 import { join } from 'node:path'
 import { canShowTray, currentPlatform, quitsWhenAllWindowsClose } from './platform/platform'
 import { CloseGuard } from './window/CloseGuard'
@@ -27,7 +29,7 @@ import { startStorageMaintenance } from './db/storage-maintenance'
 import type { Database as SqliteDatabase } from 'better-sqlite3'
 import { migrateDb } from './db/migrate'
 import { migrateLegacyUserData } from './db/legacy-userdata'
-import { getFlight, getInProgressFlight, setParkedStand } from './db/flight-repo'
+import { getFlight, getInProgressFlight, getLiveFlight, setParkedStand } from './db/flight-repo'
 import {
   getAppLanguage,
   getMinimizeToTray,
@@ -54,6 +56,7 @@ import { registerGsxRemoteHandlers } from './ipc/gsx-remote-handlers'
 import { registerBeyondAtcHandlers } from './ipc/beyondatc-handlers'
 import { registerLanHandlers } from './ipc/lan-handlers'
 import { createLan } from './lan/create-lan'
+import { shownFlightId } from './lan/lan-flight'
 import { resolveFeedUrls } from './online/feed-urls'
 import { registerAtcAreas } from './online/atc-areas-handlers'
 import { resolveAreaSource } from './online/atc-areas-download'
@@ -78,6 +81,7 @@ import { recordParkedStand } from './tracking/parked-stand'
 import { createDiag, openDiagLog } from './diagnostics/diag'
 import { DevDiagnostics } from './diagnostics/dev-diagnostics'
 import { FlightCapture } from './diagnostics/flight-capture'
+import { loadSession, type StoredSession } from './backend/session-store'
 import { CloudSyncController } from './sync/cloud-sync-controller'
 
 /**
@@ -220,6 +224,38 @@ function wireTracking(
 }
 
 /**
+ * GSX Remote, and the GSX routines that run on its connection. A routine's data-entry guard needs the plan's zero fuel weight: the
+ * flight a second screen would show.
+ *
+ * @param deps The database, LiveHub, diagnostics, the sim (and its replayed GSX stream in e2e) and tracking.
+ * @returns GSX Remote's commands, for a second screen.
+ */
+function startGsxRemote(deps: {
+  db: WingLogDb
+  liveHub: LiveHub
+  devDiagnostics: DevDiagnostics | undefined
+  sim: SimConnectService | ReplaySimConnectService
+  replayStreams: ReplayedCapture | undefined
+  trackingController: TrackingController
+}): ReturnType<typeof registerGsxRemoteHandlers> {
+  const { db, liveHub, devDiagnostics, sim, replayStreams, trackingController } = deps
+  const gsxRemote = registerGsxRemoteHandlers(ipcMain, {
+    db,
+    liveHub,
+    devDiagnostics,
+    socketCtor:
+      process.env.WINGLOG_E2E_REPLAY_STREAMS === 'beyondatc' ? undefined : replayStreams?.gsx.socketCtor,
+    telemetry: () => sim.getLastTelemetry(),
+    plannedZfwKg: () => {
+      const id = shownFlightId(db, trackingController.getActive()?.flightId)
+      return (id === undefined ? undefined : getLiveFlight(db, id))?.zfwKg ?? null
+    }
+  })
+  app.on('before-quit', () => gsxRemote.stop())
+  return gsxRemote
+}
+
+/**
  * The room left on the drive holding the database: a warning on every screen (a live topic), and tracking's word when saving fails
  * (the overnight flight that lost seven hours to a full disk, 2026-10-16).
  *
@@ -358,8 +394,41 @@ function recordParkedStandOnCompletion(
   })
 }
 
-/** Opens the database and the window, starts the services, and registers every IPC area. */
-function startApp(): void {
+/**
+ * Registers the fleet and lookup channels, and starts the one-time pass that gives the aircraft already in the fleet their newer photos
+ * (docs/plans/aircraft-photos.md), in the background.
+ *
+ * @param db The database.
+ * @param window The window file dialogs open over.
+ * @param scheduleBackgroundSync Pushes a change to the cloud copy, when signed in.
+ */
+function startFleetAndLookups(
+  db: WingLogDb,
+  window: BrowserWindow,
+  scheduleBackgroundSync: () => void
+): void {
+  registerFleetHandlers(ipcMain, {
+    db,
+    window,
+    scheduleBackgroundSync,
+    openExternal: (url) => shell.openExternal(url)
+  })
+  registerLookupHandlers(ipcMain)
+  runLogged(
+    'aircraft photo backfill',
+    backfillAircraftPhotos(db, {
+      onChanged: scheduleBackgroundSync,
+      userAgent: planespottersUserAgent(app.getVersion())
+    })
+  )
+}
+
+/**
+ * Opens the database and the window, starts the services, and registers every IPC area.
+ *
+ * @param cloudSession The saved cloud-sync session, read before startup; null when signed out.
+ */
+function startApp(cloudSession: StoredSession | null): void {
   const { db, sqlite, dbPath, backedUp } = openDatabase(app.getPath('userData'))
 
   // Main-process strings (native dialog titles, thrown validation messages that reach
@@ -389,14 +458,13 @@ function startApp(): void {
   // exists, so this device picks up whatever changed elsewhere since it last opened.
   // Fire-and-forget: syncNow() catches its own errors into getStatus().lastError and never
   // throws, and this must never block the window opening (offline at launch is normal).
-  const cloudSync = new CloudSyncController(db, dbPath, app.getPath('userData'))
+  const cloudSync = new CloudSyncController(db, dbPath, app.getPath('userData'), cloudSession)
   if (cloudSync.getStatus().loggedIn) runLogged('cloud sync at launch', cloudSync.syncNow())
   const scheduleBackgroundSync = createBackgroundSync(cloudSync)
   startPeriodicSync(cloudSync)
 
-  registerFleetHandlers(ipcMain, { db, window, scheduleBackgroundSync })
   registerLogbookHandlers(ipcMain, { db, window, scheduleBackgroundSync })
-  registerLookupHandlers(ipcMain)
+  startFleetAndLookups(db, window, scheduleBackgroundSync)
   registerDispatchHandlers(ipcMain, { db })
 
   const { sim, replayStreams } = connectSim()
@@ -446,14 +514,7 @@ function startApp(): void {
   trackingController.setAutoFinish(getTrackingSettings(db).autoFinish)
 
   registerGsxHandlers(ipcMain, { db, window, scheduleBackgroundSync })
-  const gsxRemote = registerGsxRemoteHandlers(ipcMain, {
-    db,
-    liveHub,
-    devDiagnostics,
-    socketCtor:
-      process.env.WINGLOG_E2E_REPLAY_STREAMS === 'beyondatc' ? undefined : replayStreams?.gsx.socketCtor
-  })
-  app.on('before-quit', () => gsxRemote.stop())
+  const gsxRemote = startGsxRemote({ db, liveHub, devDiagnostics, sim, replayStreams, trackingController })
 
   const beyondAtc = registerBeyondAtcHandlers(ipcMain, {
     db,
@@ -646,7 +707,9 @@ if (!gotSingleInstanceLock) {
 
   app
     .whenReady()
-    .then(() => startApp())
+    // The saved cloud-sync session is read first, since safeStorage's methods are async (about a millisecond).
+    .then(() => loadSession(app.getPath('userData')))
+    .then((cloudSession) => startApp(cloudSession))
     .catch((error: unknown) => {
       // Without this, a startup failure (e.g. a missing/broken migration) leaves the process
       // running with no window and no visible error — indistinguishable from "still loading"

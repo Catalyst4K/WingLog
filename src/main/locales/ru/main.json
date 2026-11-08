@@ -5,7 +5,9 @@
     "exportLogbook": "Экспортировать логбук",
     "importLogbookCsv": "Импортировать CSV логбука",
     "importLogbookJson": "Импортировать JSON логбука",
-    "gsxReceiptsFolder": "Папка чеков GSX"
+    "gsxReceiptsFolder": "Папка чеков GSX",
+    "choosePhoto": "Выберите фотографию самолёта",
+    "pictures": "Изображения"
   },
   "startupFailed": "Не удалось запустить WingLog",
   "errors": {
@@ -40,7 +42,11 @@
     "notValidAirportCode": "Это не действительный код аэропорта",
     "noFlightBeingTracked": "Ни один рейс сейчас не отслеживается",
     "credentialEncryptionUnavailable": "Шифрование учётных данных на уровне ОС недоступно на этом компьютере",
-    "notLoggedIn": "Вход не выполнен"
+    "notLoggedIn": "Вход не выполнен",
+    "photoInvalid": "«{{field}}» — не изображение и не ссылка, которую WingLog может сохранить",
+    "photoUnreadable": "WingLog не смог прочитать этот файл как изображение. Выберите JPEG или PNG.",
+    "photoTooDetailed": "Это изображение слишком детальное, чтобы его сохранить. Попробуйте меньшее.",
+    "photoFileTooLarge": "Этот файл слишком большой для фотографии (предел — 25 МБ)"
   },
   "labels": {
     "unknownRegistration": "(неизвестно)",

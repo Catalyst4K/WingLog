@@ -222,7 +222,7 @@ Library.
 | [@maplibre/geojson-vt](https://github.com/maplibre/geojson-vt) | 6.3.0 | ISC |
 | [@maplibre/maplibre-gl-style-spec](https://github.com/maplibre/maplibre-style-spec) | 26.4.4 | ISC |
 | [@maplibre/mlt](https://github.com/maplibre/maplibre-tile-spec) | 1.3.0 | (MIT OR Apache-2.0) |
-| [@maplibre/vt-pbf](https://github.com/maplibre/vt-pbf) | 4.3.2 | MIT |
+| [@maplibre/vt-pbf](https://github.com/maplibre/vt-pbf) | 4.3.3 | MIT |
 | [@radix-ui/number](https://github.com/radix-ui/primitives) | 1.1.3 | MIT |
 | [@radix-ui/primitive](https://github.com/radix-ui/primitives) | 1.2.0 | MIT |
 | [@radix-ui/react-accessible-icon](https://github.com/radix-ui/primitives) | 1.2.0 | MIT |
@@ -334,7 +334,7 @@ Library.
 | [gl-matrix](https://github.com/toji/gl-matrix) | 3.4.4 | MIT |
 | [graceful-fs](https://github.com/isaacs/node-graceful-fs) | 4.2.11 | ISC |
 | [html-parse-stringify](https://github.com/i18next/html-parse-stringify) | 4.0.1 | MIT |
-| [i18next](https://github.com/i18next/i18next) | 26.5.4 | MIT |
+| [i18next](https://github.com/i18next/i18next) | 26.5.11 | MIT |
 | [immer](https://github.com/immerjs/immer) | 11.1.18 | MIT |
 | [ini](git://github.com/isaacs/ini) | 2.0.0 | ISC |
 | [internmap](https://github.com/mbostock/internmap) | 2.0.3 | ISC |
@@ -346,7 +346,7 @@ Library.
 | [lodash.escaperegexp](lodash/lodash) | 4.1.2 | MIT |
 | [lodash.isequal](lodash/lodash) | 4.5.0 | MIT |
 | [lucide-react](https://github.com/lucide-icons/lucide) | 1.61.0 | ISC |
-| [maplibre-gl](https://github.com/maplibre/maplibre-gl-js) | 6.15.0 | BSD-3-Clause |
+| [maplibre-gl](https://github.com/maplibre/maplibre-gl-js) | 6.16.0 | BSD-3-Clause |
 | [minimist](git://github.com/minimistjs/minimist) | 1.2.8 | MIT |
 | [ms](vercel/ms) | 2.1.3 | MIT |
 | [murmurhash-js](git://github.com/mikolalysenko/murmurhash-js) | 1.0.0 | MIT |
@@ -361,7 +361,7 @@ Library.
 | [radix-ui](https://github.com/radix-ui/primitives) | 1.8.1 | MIT |
 | [react](https://github.com/react/react) | 19.3.1 | MIT |
 | [react-dom](https://github.com/react/react) | 19.3.1 | MIT |
-| [react-i18next](https://github.com/i18next/react-i18next) | 17.1.0 | MIT |
+| [react-i18next](https://github.com/i18next/react-i18next) | 17.1.9 | MIT |
 | [react-is](https://github.com/react/react) | 19.2.8 | MIT |
 | [react-redux](https://github.com/reduxjs/react-redux) | 9.3.0 | MIT |
 | [react-remove-scroll](https://github.com/theKashey/react-remove-scroll) | 2.7.2 | MIT |
@@ -1042,7 +1042,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ```
 
-### @maplibre/vt-pbf 4.3.2 — MIT
+### @maplibre/vt-pbf 4.3.3 — MIT
 
 ```
 The MIT License (MIT)
@@ -4455,7 +4455,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### i18next 26.5.4 — MIT
+### i18next 26.5.11 — MIT
 
 ```
 The MIT License (MIT)
@@ -4817,7 +4817,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### maplibre-gl 6.15.0 — BSD-3-Clause
+### maplibre-gl 6.16.0 — BSD-3-Clause
 
 ```
 Copyright (c) 2023, MapLibre contributors
@@ -5259,7 +5259,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### react-i18next 17.1.0 — MIT
+### react-i18next 17.1.9 — MIT
 
 ```
 The MIT License (MIT)

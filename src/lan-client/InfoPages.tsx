@@ -105,7 +105,7 @@ export function InfoPage(props: {
     return (
       <div className="flex flex-col gap-3 p-3">
         <h1 className="font-heading text-xl font-semibold">{t('gsxRemoteView.title')}</h1>
-        <GsxRemotePanel />
+        <GsxRemotePanel canEditRoutines={false} />
       </div>
     )
   }

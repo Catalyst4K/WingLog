@@ -151,7 +151,18 @@ export default tseslint.config(
           property: 'platform',
           message:
             'Ask src/main/platform/ (currentPlatform(), canHostSim(), ...), not process.platform (cross-platform.md).'
-        }
+        },
+        // Electron 46 removes these three; the async ones read and write the same files (electron-46-ready.md).
+        // These entries come out again at the 46 bump, when the types do this job.
+        ...[
+          ['isEncryptionAvailable', 'isAsyncEncryptionAvailable'],
+          ['encryptString', 'encryptStringAsync'],
+          ['decryptString', 'decryptStringAsync']
+        ].map(([property, replacement]) => ({
+          object: 'safeStorage',
+          property,
+          message: `Electron 46 removes safeStorage.${property}; use safeStorage.${replacement} (electron-46-ready.md).`
+        }))
       ]
     }
   },

@@ -18,6 +18,18 @@ const CRUISE_ACTIONS = [
   'Radio Check'
 ]
 const LEVEL_ACTIONS = ['Cancel Altitude Change', 'FL320', 'FL340', 'FL360', 'FL380', 'Say Again']
+// The list BeyondATC left repeating for seven hours over China (flight 262, 2026-11-06): 36,000 ft is 10,973 m, so 11000m (36,089 ft)
+// is within tolerance of it, and 10400m is the 34,121 ft step.
+const METRIC_LEVEL_ACTIONS = [
+  'Cancel Altitude Change',
+  '9800m',
+  '10400m',
+  '11000m',
+  '11600m',
+  '12200m',
+  '13100m',
+  'Say Again'
+]
 
 /** Stands in for BeyondAtcService: replays BeyondATC's responses to each set_action. */
 class FakeBeyondAtc extends EventEmitter {
@@ -131,8 +143,73 @@ describe('requestAltitude', () => {
     const atc = new FakeBeyondAtc()
     atc.respond = false
     const result = requestAltitude(atc, 36000)
-    await vi.advanceTimersByTimeAsync(25_000)
-    expect(await result).toEqual({ outcome: 'noMenu', label: null })
+    await vi.advanceTimersByTimeAsync(65_000)
+    expect(await result).toMatchObject({ outcome: 'noMenu', label: null })
+  })
+
+  it('waits out a busy frequency: the list 26 s on is still used (flight 262, 2026-11-06)', async () => {
+    const atc = new FakeBeyondAtc()
+    atc.respond = false
+    const result = requestAltitude(atc, 36000)
+    await vi.advanceTimersByTimeAsync(26_000)
+    atc.respond = true
+    atc.state = { ...atc.state, actions: LEVEL_ACTIONS }
+    atc.emit('state', atc.state)
+    await vi.advanceTimersByTimeAsync(3000)
+    expect(await result).toEqual({ outcome: 'granted', label: 'FL360' })
+  })
+
+  it('closes a level list that turns up after it gave up, so BeyondATC stops asking', async () => {
+    const atc = new FakeBeyondAtc()
+    atc.respond = false
+    const result = requestAltitude(atc, 36000)
+    await vi.advanceTimersByTimeAsync(65_000)
+    expect(await result).toMatchObject({ outcome: 'noMenu', label: null })
+    atc.sent.length = 0
+    // The list arrives two minutes late.
+    await vi.advanceTimersByTimeAsync(60_000)
+    atc.state = { ...atc.state, actions: METRIC_LEVEL_ACTIONS }
+    atc.emit('state', atc.state)
+    expect(atc.sent).toEqual(['Cancel Altitude Change'])
+    // Only the once, even if BeyondATC lists it again.
+    atc.emit('state', atc.state)
+    expect(atc.sent).toEqual(['Cancel Altitude Change'])
+  })
+
+  it('stops watching for a late list after three minutes', async () => {
+    const atc = new FakeBeyondAtc()
+    atc.respond = false
+    const result = requestAltitude(atc, 36000)
+    await vi.advanceTimersByTimeAsync(65_000)
+    await result
+    atc.sent.length = 0
+    await vi.advanceTimersByTimeAsync(200_000)
+    atc.state = { ...atc.state, actions: METRIC_LEVEL_ACTIONS }
+    atc.emit('state', atc.state)
+    expect(atc.sent).toEqual([])
+  })
+
+  it('uses a level list that is already open instead of reporting unavailable (flight 262, metric China list)', async () => {
+    const atc = new FakeBeyondAtc()
+    atc.state = { ...atc.state, actions: METRIC_LEVEL_ACTIONS }
+    const result = requestAltitude(atc, 10400 / 0.3048)
+    await vi.advanceTimersByTimeAsync(3000)
+    expect(await result).toEqual({ outcome: 'granted', label: '10400m' })
+    expect(atc.sent).toEqual(['10400m'])
+  })
+
+  it('a newer request is not cancelled by the earlier one’s late-list watch', async () => {
+    const atc = new FakeBeyondAtc()
+    atc.respond = false
+    const first = requestAltitude(atc, 36000)
+    await vi.advanceTimersByTimeAsync(65_000)
+    ;(await first).stopWatching?.()
+    atc.respond = true
+    atc.sent.length = 0
+    const second = requestAltitude(atc, 36000)
+    await vi.advanceTimersByTimeAsync(3000)
+    expect(await second).toEqual({ outcome: 'granted', label: 'FL360' })
+    expect(atc.sent).toEqual(['Request Altitude Change', 'FL360'])
   })
 
   it('reports no answer when the box shows a different level', async () => {

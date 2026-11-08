@@ -126,7 +126,12 @@ const AIRCRAFT: Aircraft = {
   createdAt: '2026-01-01T00:00:00.000Z',
   replacedByAircraftId: null,
   retiredAt: null,
-  photoThumbnailUrl: null
+  photoThumbnailUrl: null,
+  photoUrl: null,
+  customPhoto: null,
+  planespottersPhotoUrl: null,
+  planespottersPhotographer: null,
+  planespottersPageUrl: null
 }
 
 function fullFlight(overrides: Partial<Flight> = {}): Flight {

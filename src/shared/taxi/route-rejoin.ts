@@ -2,23 +2,20 @@
 import type { NavdataTaxiSegment } from '@shared/ipc'
 import { toLocalXy } from '@shared/geo'
 import { itemAt } from '@shared/item-at'
-import { MinQueue } from './min-queue'
 import {
   angleBetweenDeg,
   buildGraph,
-  edgesOf,
-  isWrongWay,
   nodeKey,
   ON_TAXIWAY_DEG,
   segmentsUnder,
   startNodes,
   WRONG_WAY_PENALTY_M,
-  type Graph,
-  type GraphNode
+  type Graph
 } from './route-graph'
 import { MAX_ROUTE_LENGTH_M, type RunwayStrip, type TracedRoute } from './route-types'
 import { holdsOnSide } from './runway-crossing'
 import { turnCost, turnedBefore, TURN_WINDOW_M } from './route-turns'
+import { addNose, cameFromOf, nodeOf, nodesBack, waysBack, type WaysBack } from './route-ways'
 
 export interface RejoinRequest {
   segments: NavdataTaxiSegment[]
@@ -112,7 +109,8 @@ function candidateLine(
   fromSegment: number,
   { index, state }: Candidate
 ): TracedRoute {
-  const nodes = nodesBack(ways, state, Infinity).reverse().slice(2)
+  const full = nodesBack(ways, state, Infinity).reverse()
+  const nodes = full.slice(2)
   const point = (n: number): [number, number] => {
     const node = itemAt(graph.nodes, n, 'taxi node')
     return [node.lon, node.lat]
@@ -120,7 +118,7 @@ function candidateLine(
   if (index === null) return nodes.map(point)
   // The way back ends where it first meets the cleared route, which is followed from there: the shortest way may run on past
   // cleared taxiways to a join near the end, skipping the stretch ATC cleared (EGLL flight 239's last leg).
-  const onRoute = firstOnRoute(graph, nodes, route, fromSegment, index)
+  const onRoute = firstOnRoute(graph, full, route, fromSegment, index)
   return [...nodes.slice(0, onRoute.at + 1).map(point), ...route.slice(onRoute.index + 1)]
 }
 
@@ -189,10 +187,13 @@ export function nodeAheadOnTaxiway(
 }
 
 /**
- * Where a way back first meets the cleared route.
+ * Where a way back first meets the cleared route, and can follow it on without a turn an airliner can't make. A node of the cleared
+ * route just ahead of an aircraft facing back along it is on the way back, but following the route from there is a hairpin the search
+ * never priced (it priced the loop that avoids it): the way back runs on to a join where the turn onto the route is a real one
+ * (taxi-rules-2.md step 1, WSSS stop-and-turn runs).
  *
  * @param graph The graph.
- * @param nodes The way back, from the aircraft's node to its join.
+ * @param full The way back with the nose's two points first (tail, nose), then the nodes from the aircraft's node to its join.
  * @param route The cleared route.
  * @param fromSegment The furthest segment driven; only later points count.
  * @param joinIndex The route index of the way back's last node, used if no earlier node is on the route.
@@ -200,11 +201,12 @@ export function nodeAheadOnTaxiway(
  */
 function firstOnRoute(
   graph: Graph,
-  nodes: number[],
+  full: number[],
   route: TracedRoute,
   fromSegment: number,
   joinIndex: number
 ): { at: number; index: number } {
+  const nodes = full.slice(2)
   const indexOf = new Map<number, number>()
   for (let i = Math.max(0, fromSegment); i < route.length; i++) {
     const [lon, lat] = itemAt(route, i, 'route point')
@@ -213,124 +215,30 @@ function firstOnRoute(
   }
   for (const [at, n] of nodes.entries()) {
     const index = indexOf.get(n)
-    if (index !== undefined) return { at, index }
+    if (index === undefined) continue
+    const onward = routeNodeAt(graph, route, index + 1)
+    const turn =
+      onward === undefined
+        ? 0
+        : turnCost(graph, turnedBefore(graph, full.slice(0, at + 3).reverse()), [
+            itemAt(full, at + 1, 'route node'),
+            n,
+            onward
+          ])
+    if (turn === 0) return { at, index }
   }
   return { at: nodes.length - 1, index: joinIndex }
 }
 
-/** The ways back from the aircraft: each state (a node and the node come from) with its cost and the state before it. */
-interface WaysBack {
-  graph: Graph
-  cost: Map<number, number>
-  previous: Map<number, number>
-}
-
-/** Where the nose points: two points the graph gains for one search, at the aircraft (`nose`) and behind it along its heading
- *  (`tail`), joined from `nose` to every start. The search starts at `nose` come from `tail`, so the turn from the heading onto
- *  the first point counts like any other turn: a start on a junction's fillet curving back the way the aircraft came (VHHH flight
- *  253's arrival), or the nearest point a few metres behind (ZJSY flight 253's departure), costs the U-turn it is. */
-interface Nose {
-  tail: number
-  nose: number
-}
-
-/** How far behind the aircraft `tail` is: enough to give the heading a direction (turnAt). */
-const NOSE_BACK_M = 5
-
 /**
- * Adds the nose's two points to the graph.
- *
- * @param graph The graph, changed.
- * @param from The aircraft's position.
- * @param headingDeg Its heading; null puts both points on the aircraft, with no direction.
- * @param starts Where the way can start (startNodes), each with its distance from the aircraft: the cost of getting there.
- * @returns The two points.
+ * @param graph The graph.
+ * @param route The cleared route.
+ * @param i A point's index in the route.
+ * @returns The point's node, or undefined past the route's end or off the network (a stand's own point).
  */
-function addNose(
-  graph: Graph,
-  from: { lat: number; lon: number },
-  headingDeg: number | null,
-  starts: { node: number; distanceM: number }[]
-): Nose {
-  const heading = ((headingDeg ?? 0) * Math.PI) / 180
-  const back = (metres: number): GraphNode => {
-    const m = headingDeg === null ? 0 : metres
-    return {
-      lat: from.lat - (m * Math.cos(heading)) / 111_320,
-      lon: from.lon - (m * Math.sin(heading)) / (111_320 * Math.cos((from.lat * Math.PI) / 180)),
-      holdShort: false
-    }
-  }
-  const tail = graph.nodes.push(back(NOSE_BACK_M)) - 1
-  graph.edges.push([])
-  const nose = graph.nodes.push(back(0)) - 1
-  graph.edges.push(starts.map(({ node, distanceM }) => ({ to: node, name: null, lengthM: distanceM })))
-  return { tail, nose }
-}
-
-const stateOf = (graph: Graph, node: number, cameFrom: number): number =>
-  (cameFrom + 1) * graph.nodes.length + node
-const nodeOf = (graph: Graph, state: number): number => state % graph.nodes.length
-const cameFromOf = (graph: Graph, state: number): number => Math.floor(state / graph.nodes.length) - 1
-
-/**
- * The cheapest way from the aircraft to every node, by the node come from: plain distance, plus WRONG_WAY_PENALTY_M for a first edge
- * against the heading and the cost of turning more than an airliner can (route-turns.ts), from the nose on. No immediate U-turns.
- *
- * @param graph The graph, with the nose added.
- * @param nose The nose (addNose).
- * @param headingDeg The aircraft's heading, or null.
- * @returns Every reached state's cost and the state before it.
- */
-function waysBack(graph: Graph, { tail, nose }: Nose, headingDeg: number | null): WaysBack {
-  const ways: WaysBack = { graph, cost: new Map(), previous: new Map() }
-  const queue = new MinQueue()
-  const first = stateOf(graph, nose, tail)
-  ways.cost.set(first, 0)
-  ways.previous.set(first, stateOf(graph, tail, -1))
-  queue.push(first, 0)
-  while (queue.size > 0) {
-    const [state, stateCost] = queue.pop()
-    if (stateCost > (ways.cost.get(state) ?? Infinity)) continue
-    const node = nodeOf(graph, state)
-    const cameFrom = cameFromOf(graph, state)
-    const turned = turnedBefore(graph, nodesBack(ways, state, TURN_WINDOW_M))
-    for (const edge of edgesOf(graph, node)) {
-      if (edge.to === cameFrom) continue
-      const wrongWay = cameFrom === nose && isWrongWay(graph, node, edge.to, headingDeg)
-      const next = stateOf(graph, edge.to, node)
-      const nextCost =
-        stateCost +
-        edge.lengthM +
-        (wrongWay ? WRONG_WAY_PENALTY_M : 0) +
-        turnCost(graph, turned, [cameFrom, node, edge.to])
-      if (nextCost >= (ways.cost.get(next) ?? Infinity)) continue
-      ways.cost.set(next, nextCost)
-      ways.previous.set(next, state)
-      queue.push(next, nextCost)
-    }
-  }
-  return ways
-}
-
-/**
- * The nodes of the way to a state, latest first.
- *
- * @param ways The ways back.
- * @param state A reached state.
- * @param limitM How far back to go; Infinity for the whole way.
- * @returns The nodes.
- */
-function nodesBack({ graph, previous }: WaysBack, state: number, limitM: number): number[] {
-  const nodes = [nodeOf(graph, state)]
-  let distance = 0
-  for (let s = previous.get(state); s !== undefined && distance < limitM; s = previous.get(s)) {
-    const a = itemAt(graph.nodes, itemAt(nodes, nodes.length - 1, 'route node'), 'taxi node')
-    const b = itemAt(graph.nodes, nodeOf(graph, s), 'taxi node')
-    distance += graph.distanceM(a.lat, a.lon, b.lat, b.lon)
-    nodes.push(nodeOf(graph, s))
-  }
-  return nodes
+function routeNodeAt(graph: Graph, route: TracedRoute, i: number): number | undefined {
+  const point = route[i]
+  return point ? graph.nodeIndex.get(nodeKey(point[1], point[0])) : undefined
 }
 
 /**

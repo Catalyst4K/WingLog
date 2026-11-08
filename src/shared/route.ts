@@ -2,7 +2,7 @@
 
 import type { NavdataLeg, NavdataProcedureOption, ProcedureSelection } from './ipc'
 import { isVisualApproach } from './visual-approach'
-import { destinationPoint, METRES_PER_NM, wrapLongitude } from './geo'
+import { destinationPoint, isPlacedPosition, METRES_PER_NM, wrapLongitude } from './geo'
 import { navlogFixes, parseRouteFromOfpJson } from './ofp-route'
 
 /**
@@ -241,7 +241,8 @@ function legEnd(
 }
 
 /**
- * Turns a procedure's legs into route waypoints, skipping legs that name no fix.
+ * Turns a procedure's legs into route waypoints, skipping legs that name no fix, or a fix with no position (one cached before
+ * `refreshAirport` refused them would otherwise be drawn at 0,0, off West Africa).
  *
  * @param legs The procedure legs.
  * @param segment The route segment the waypoints belong to.
@@ -250,7 +251,7 @@ function legEnd(
 function legsToWaypoints(legs: NavdataLeg[], segment: RouteSegment): Waypoint[] {
   const waypoints: Waypoint[] = []
   for (const leg of legs) {
-    if (leg.fixIdent === null) continue
+    if (leg.fixIdent === null || !isPlacedPosition(leg.fixLatitude, leg.fixLongitude)) continue
     // ALTITUDE1/2's exact "no restriction" sentinel isn't confirmed (facility-fields.ts) —
     // treated as 0 here as the safest fallback, matching how a SimBrief fix with no
     // altitude constraint already reads (parseWaypointsFromOfpJson's `?? 0`).

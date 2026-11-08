@@ -21,7 +21,7 @@ particular:
 - **Weather** is from the US National Weather Service's Aviation Weather Center
   (aviationweather.gov).
 - **Exchange rates** come from Frankfurter.
-- **Aircraft photos** come from airport-data.com and are credited to it where shown.
+- **Aircraft photos** come from [Planespotters.net](https://www.planespotters.net)'s public photo service, shown with the photographer's name and a link to the photo's page, or else from airport-data.com, credited to it where shown. The photos belong to their photographers.
 - **Airline logos** are fetched when shown and remain the property of the respective airlines.
 
 ## Trademarks

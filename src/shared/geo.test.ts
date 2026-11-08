@@ -5,6 +5,7 @@ import {
   greatCircleM,
   greatCircleNm,
   initialBearingDeg,
+  isPlacedPosition,
   offsetBy,
   offsetFrom,
   pointToLineM,
@@ -81,5 +82,23 @@ describe('local flat projection', () => {
     expect(pointToLineM(beyond, a, b)).toBeCloseTo(30, 1)
     expect(pointToSegmentM(beyond, a, b)).toBeCloseTo(Math.hypot(400, 30), 0)
     expect(pointToLineM(beside, a, a)).toBeCloseTo(Math.hypot(500, 30), 0)
+  })
+})
+
+describe('isPlacedPosition', () => {
+  it('takes real places, the equator and the prime meridian among them', () => {
+    expect(isPlacedPosition(53.21977235376835, -2.5413917005062103)).toBe(true) // EGCC's CF05R
+    expect(isPlacedPosition(WSSS.lat, WSSS.lon)).toBe(true)
+    expect(isPlacedPosition(0, 6.71)).toBe(true)
+    expect(isPlacedPosition(51.48, 0)).toBe(true)
+  })
+
+  it('refuses 0,0, numbers that are not finite, and positions off the globe', () => {
+    expect(isPlacedPosition(0, 0)).toBe(false)
+    expect(isPlacedPosition(-0, 0.0000001)).toBe(false)
+    expect(isPlacedPosition(Number.NaN, 0.5)).toBe(false)
+    expect(isPlacedPosition(53, Number.POSITIVE_INFINITY)).toBe(false)
+    expect(isPlacedPosition(91, 10)).toBe(false)
+    expect(isPlacedPosition(10, -181)).toBe(false)
   })
 })

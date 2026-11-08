@@ -171,6 +171,28 @@ export const SIM_VARS = [
     dataType: SimConnectDataType.INT32,
     read: asBool
   },
+  // Engines 2 to 4: auto-finish waits for every engine to be off (decisions 2026-11-02).
+  {
+    key: 'engineCombustion2',
+    name: 'ENG COMBUSTION:2',
+    unit: 'bool',
+    dataType: SimConnectDataType.INT32,
+    read: asBool
+  },
+  {
+    key: 'engineCombustion3',
+    name: 'ENG COMBUSTION:3',
+    unit: 'bool',
+    dataType: SimConnectDataType.INT32,
+    read: asBool
+  },
+  {
+    key: 'engineCombustion4',
+    name: 'ENG COMBUSTION:4',
+    unit: 'bool',
+    dataType: SimConnectDataType.INT32,
+    read: asBool
+  },
   {
     key: 'gearHandlePosition',
     name: 'GEAR HANDLE POSITION',
@@ -186,6 +208,8 @@ export const SIM_VARS = [
     read: (d) => d.readInt32()
   },
   // NOTE: word order corrected vs an earlier draft — confirmed against the MSFS 2024 SDK docs.
+  // Recorded only: nothing decides on it, since an aircraft can stop passing it to the sim
+  // (the Fenix A320, decisions 2026-11-02).
   {
     key: 'parkingBrakeOn',
     name: 'BRAKE PARKING POSITION',

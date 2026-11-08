@@ -14,7 +14,7 @@ import {
   syncPull,
   syncPush
 } from '../backend/sync-client'
-import { clearSession, loadSession, saveSession, type StoredSession } from '../backend/session-store'
+import { clearSession, saveSession, type StoredSession } from '../backend/session-store'
 import { join } from 'node:path'
 import { backupBeforeFirstSync } from '../db/backup'
 import { getLastSyncCompletedAt, getSetting, setLastSyncCompletedAt, setSetting } from '../db/settings-repo'
@@ -33,9 +33,11 @@ export class CloudSyncController {
   constructor(
     private readonly db: WingLogDb,
     private readonly dbPath: string,
-    private readonly userDataPath: string
+    private readonly userDataPath: string,
+    // Read before startup (session-store.ts reads it asynchronously); null when signed out.
+    session: StoredSession | null
   ) {
-    this.session = loadSession(userDataPath)
+    this.session = session
     this.lastSyncedAt = getLastSyncCompletedAt(db)
   }
 
@@ -51,8 +53,10 @@ export class CloudSyncController {
 
   async login(email: string, password: string): Promise<SyncStatus> {
     const { token, expiresAt } = await backendLogin(email, password)
-    this.session = { email, token, expiresAt }
-    saveSession(this.userDataPath, this.session)
+    const session = { email, token, expiresAt }
+    // Saved first: if the OS cannot encrypt it, the login fails instead of leaving a session that is lost on restart.
+    await saveSession(this.userDataPath, session)
+    this.session = session
     this.lastError = null
     return this.getStatus()
   }

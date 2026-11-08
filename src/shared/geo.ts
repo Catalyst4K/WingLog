@@ -20,11 +20,31 @@ export const METRES_PER_NM = 1852
 export const METRES_PER_DEGREE_LAT = 111_320
 
 const RAD = Math.PI / 180
+/** How close to 0,0 a position counts as unplaced, in degrees (about 0.1 m). */
+const UNPLACED_DEG = 1e-6
 
 /** A position in degrees. */
 export interface LatLon {
   lat: number
   lon: number
+}
+
+/**
+ * Whether a position from outside the app is a real place: finite, on the globe, and not 0,0, which is where a fix the sim
+ * handed over without a position ends up (navdata-notes.md, 2026-11-02).
+ *
+ * @param lat Latitude, degrees.
+ * @param lon Longitude, degrees.
+ * @returns True for a real position.
+ */
+export function isPlacedPosition(lat: number, lon: number): boolean {
+  return (
+    Number.isFinite(lat) &&
+    Number.isFinite(lon) &&
+    Math.abs(lat) <= 90 &&
+    Math.abs(lon) <= 180 &&
+    (Math.abs(lat) >= UNPLACED_DEG || Math.abs(lon) >= UNPLACED_DEG)
+  )
 }
 
 /** Metres east and north of a reference point. */

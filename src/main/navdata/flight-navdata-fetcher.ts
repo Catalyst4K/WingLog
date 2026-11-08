@@ -5,6 +5,11 @@
  *
  * It fetches once per airport per flight. A fetch that fails (the sim is down, or still loading) is not counted as done, so it is tried
  * again the next time the shown flight changes or the sim connects.
+ *
+ * The taxi networks are fetched again (`refreshTaxiNetworks`) when tracking starts, and on the first telemetry of each sim session: the
+ * scenery in the sim changes with the flight loaded, and a pilot can quit the sim and load another flight while tracking carries on
+ * (ZSPD, 2026-11-05: the default airport was loaded when the network was fetched, the add-on after the sim was restarted; the cache
+ * kept the default one, with none of the add-on's type 1 paths).
  */
 
 import { describeError } from '../logging/describe-error'
@@ -91,6 +96,19 @@ export class FlightNavdataFetcher {
     // The arrival's runways and procedures first: the suggested approach waits on them.
     for (const kind of ['airport', 'taxi'] as const)
       for (const icao of airports) this.enqueue(flight.flightId, icao, kind)
+  }
+
+  /**
+   * Fetches the shown flight's taxi networks (and stands) again, whatever was fetched before: the flight is loaded now, with its
+   * scenery. A fetch that fails leaves what is cached, as any other does.
+   */
+  refreshTaxiNetworks(): void {
+    const flight = this.deps.shownFlight()
+    if (!flight || !this.deps.simConnected()) return
+    for (const icao of airportsOf(flight)) {
+      this.done.delete(`${flight.flightId}:${icao}:taxi`)
+      this.enqueue(flight.flightId, icao, 'taxi')
+    }
   }
 
   /**

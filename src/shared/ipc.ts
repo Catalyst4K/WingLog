@@ -12,6 +12,7 @@ import type {
   AircraftImportSummary,
   AircraftLastParked,
   AircraftLookupResult,
+  AircraftPhotoPick,
   AircraftTypeOption,
   AircraftUpdate,
   AirlineOption,
@@ -108,6 +109,8 @@ import type {
   WindSpeedUnit
 } from './types/settings'
 import type { StorageStatus } from './types/storage'
+import type { GsxRoutineCancelChoice, GsxRoutineProgress } from './gsx-routine-progress'
+import type { GsxRoutine } from './gsx-routines'
 import type { EstimatedStretch, TrackEstimateResult } from './track-gap-fill'
 import type { SimConnectionStatus, SimTelemetry } from './types/sim'
 
@@ -124,7 +127,12 @@ export type * from './types/settings'
 export type * from './types/storage'
 export type * from './types/dispatch'
 export type * from './types/navdata'
+export type * from './gsx-routine-progress'
+export type { GsxRoutine, GsxRoutineBuiltIn, GsxRoutineService, GsxRoutineStage } from './gsx-routines'
 export { IpcChannels } from './ipc-channels'
+
+/** What saving a routine answers: the list as it is now, or why the routine was refused. */
+export type GsxRoutinesResult = { ok: true; routines: GsxRoutine[] } | { ok: false; reason: string }
 
 export interface WingLogApi {
   aircraftList: () => Promise<Aircraft[]>
@@ -149,6 +157,16 @@ export interface WingLogApi {
   aircraftImport: (format?: DataFormat) => Promise<AircraftImportSummary | null>
   /** Opens a native file-save dialog in the main process; false if the user cancels. */
   aircraftExport: (format?: DataFormat) => Promise<boolean>
+  /**
+   * Opens a native file dialog in the main process for a picture of an aircraft, and answers with it shrunk and ready to keep, or
+   * with why it can't be used. Null if the pilot cancels. Nothing is saved until the aircraft is.
+   */
+  aircraftPickPhoto: () => Promise<AircraftPhotoPick | null>
+  /**
+   * Opens the page of a Planespotters photo in the browser. The main process opens the link only if it is an https link on
+   * planespotters.net; anything else is ignored, so the renderer can't make it open an arbitrary address.
+   */
+  aircraftOpenPhotoPage: (url: string) => Promise<void>
   /**
    * Current status, for a renderer mounting after the initial connect already happened —
    * `onSimConnectionStatus` only delivers *future* changes, since Electron doesn't replay
@@ -589,6 +607,19 @@ export interface WingLogApi {
   /** Runs one of the three command-bar commands (`command.run`) — GSX's own client requires
    *  a second confirming call for RESTART_COUATL (the UI enforces this, not this method). */
   gsxRemoteRunCommand: (id: GsxRemoteCommandId) => Promise<void>
+  /** The GSX routine running now, or the last one for two minutes after it ended; null when none has run lately. Same reasoning as
+   *  gsxRemoteGetServices. */
+  gsxRoutineGet: () => Promise<GsxRoutineProgress | null>
+  onGsxRoutine: (listener: (progress: GsxRoutineProgress | null) => void) => () => void
+  /** Starts a routine by its id; does nothing for an unknown id, or while one is running. */
+  gsxRoutineStart: (id: string) => Promise<void>
+  gsxRoutineCancel: (choice?: GsxRoutineCancelChoice) => Promise<void>
+  /** The three built-in routines, then the pilot's own. */
+  gsxRoutinesList: () => Promise<GsxRoutine[]>
+  /** Saves one of the pilot's own routines, new or changed. Main checks it again; the answer is the whole list, or why it was refused. */
+  gsxRoutinesSave: (routine: GsxRoutine) => Promise<GsxRoutinesResult>
+  /** Deletes a routine, one of the pilot's own or one that comes with WingLog (it only leaves the list, for good). Answers with the whole list. */
+  gsxRoutinesDelete: (id: string) => Promise<GsxRoutine[]>
   /** The ATC areas in use, and whether the app keeps them up to date by itself. */
   atcAreasGetStatus: () => Promise<AtcAreasStatus>
   /** Turns the automatic look for newer ATC areas on or off. */
