@@ -39,8 +39,20 @@ describe('effectiveRunMode', () => {
 
 describe('appCapabilities', () => {
   it('reports the run mode with what it was decided from', () => {
-    expect(appCapabilities('client', true, true)).toEqual({ runMode: 'client', canHostSim: true, multiDevice: true })
-    expect(appCapabilities(null, true, false)).toEqual({ runMode: 'client', canHostSim: false, multiDevice: true })
-    expect(appCapabilities('client', false, true)).toEqual({ runMode: 'host', canHostSim: true, multiDevice: false })
+    expect(appCapabilities('client', true, true)).toEqual({
+      runMode: 'client',
+      canHostSim: true,
+      multiDevice: true
+    })
+    expect(appCapabilities(null, true, false)).toEqual({
+      runMode: 'client',
+      canHostSim: false,
+      multiDevice: true
+    })
+    expect(appCapabilities('client', false, true)).toEqual({
+      runMode: 'host',
+      canHostSim: true,
+      multiDevice: false
+    })
   })
 })
