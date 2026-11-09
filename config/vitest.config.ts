@@ -40,7 +40,7 @@ export default defineConfig({
           name: 'unit',
           environment: 'node',
           include: ['src/**/*.test.ts', 'scripts/**/*.test.ts'],
-          setupFiles: ['./vitest.setup.unit.ts']
+          setupFiles: ['./config/vitest.setup.unit.ts']
         }
       },
       {
@@ -49,7 +49,7 @@ export default defineConfig({
           name: 'renderer',
           environment: 'jsdom',
           include: ['src/renderer/**/*.test.tsx', 'src/lan-client/**/*.test.tsx'],
-          setupFiles: ['./vitest.setup.renderer.ts']
+          setupFiles: ['./config/vitest.setup.renderer.ts']
         }
       }
     ],

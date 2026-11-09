@@ -6,7 +6,7 @@ import '@testing-library/jest-dom/vitest'
 // initialized i18next instance to render at all, and fixing the language here means every
 // existing test's literal English string assertions keep working without each one needing
 // its own setup.
-import './src/renderer/src/i18n'
+import '../src/renderer/src/i18n'
 
 // Explicit rather than relying on @testing-library/react's own auto-cleanup, which only
 // registers itself against a global `afterEach` — this project imports test globals

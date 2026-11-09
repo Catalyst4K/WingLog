@@ -29,7 +29,13 @@ test.beforeAll(() => {
   const electronBin = electronBinary()
   execFileSync(
     electronBin,
-    ['./node_modules/vitest/vitest.mjs', 'run', 'src/main/tracking/seed-e2e-completed-flight.test.ts'],
+    [
+      './node_modules/vitest/vitest.mjs',
+      'run',
+      '--config',
+      'config/vitest.config.ts',
+      'src/main/tracking/seed-e2e-completed-flight.test.ts'
+    ],
     {
       env: { ...process.env, ELECTRON_RUN_AS_NODE: '1', WINGLOG_E2E_SEED_DB_PATH: dbPath },
       stdio: 'inherit'

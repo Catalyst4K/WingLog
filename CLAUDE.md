@@ -245,7 +245,7 @@ that reintroduces an ABI mismatch and the native module fails to load.
 business logic is the target; see that plan for the current real number and the exclusion
 list — Electron bootstrap, preload, vendored `components/ui/**`):
 
-- **Unit** (`vitest.config.ts`'s `'unit'` project, `node` environment, `*.test.ts`) — the
+- **Unit** (`config/vitest.config.ts`'s `'unit'` project, `node` environment, `*.test.ts`) — the
   original main-process/shared/pure-logic suite described above.
 - **Renderer integration** (the `'renderer'` project, `jsdom`, `*.test.tsx`) — real React
   components rendered with `@testing-library/react`, mocking only `window.winglog` (the one
@@ -262,7 +262,7 @@ list — Electron bootstrap, preload, vendored `components/ui/**`):
   both, so use it rather than calling `_electron.launch()` directly.
 
 `npm run test:coverage` runs the unit + renderer suites with coverage and checks the
-threshold in `vitest.config.ts` — a ratchet, raised as real coverage improves, not the
+threshold in `config/vitest.config.ts` — a ratchet, raised as real coverage improves, not the
 100% target itself; never lower it to make a red build green.
 
 **Going forward (rule as of 2026-09-12 — see `winglog-backend`'s `docs/decisions.md`):
@@ -283,7 +283,7 @@ changes need only one:
 A change spanning more than one layer (e.g. a new IPC channel backing a new UI control)
 needs a test in each layer it touches. This applies equally to a `plan/<name>` branch and a
 `fix/<name>` branch — a fix with no regression test is exactly the kind of gap this rule
-exists to prevent. The coverage ratchet in `vitest.config.ts` is the backstop, not the
+exists to prevent. The coverage ratchet in `config/vitest.config.ts` is the backstop, not the
 target: it only proves nothing dropped, not that the right things were tested, so use the
 judgement above rather than writing tests to satisfy the number.
 

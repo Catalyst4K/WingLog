@@ -2,7 +2,7 @@
  * Pictures of the PC window and a phone side by side through the second-screen faults (winglog-backend
  * docs/plans/taxi-and-second-screen-robustness.md, stage 9's visual report): the recorded ZJSY taxi replayed through the built app, with
  * the taxi chart on, after a phone's reload, with the sim gone, and after the flight is finished. Writes release/sim/robustness-2/shots/
- * (gitignored). Run with `npx playwright test -c playwright.screenshots.config.ts e2e/robustness-screens.shots.ts` after `npm run build`.
+ * (gitignored). Run with `npx playwright test -c config/playwright.screenshots.config.ts e2e/robustness-screens.shots.ts` after `npm run build`.
  */
 import { mkdirSync } from 'node:fs'
 import { join } from 'node:path'
