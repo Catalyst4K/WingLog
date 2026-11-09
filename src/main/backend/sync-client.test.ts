@@ -7,8 +7,15 @@ import {
   logout,
   provision,
   syncPullPage,
-  syncPush
+  syncPush,
+  CLOUD_SYNC_TABLES
 } from './sync-client'
+
+describe('the tables sent to the cloud', () => {
+  it('are exactly the five the Worker takes (winglog-backend SYNC_TABLES), GSX routines included', () => {
+    expect([...CLOUD_SYNC_TABLES]).toEqual(['aircraft', 'flight', 'landing', 'flightInvoice', 'gsxRoutine'])
+  })
+})
 
 function fetchMock(status: number, body: unknown) {
   return vi.fn<

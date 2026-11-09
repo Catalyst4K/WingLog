@@ -10,8 +10,8 @@ export const SYNC_TABLES = ['aircraft', 'flight', 'landing', 'flightInvoice', 'g
 export type SyncTable = (typeof SYNC_TABLES)[number]
 
 /** The tables the Worker accepts — must match winglog-backend's own SYNC_TABLES exactly, since the server validates against its own copy of
- *  this list. The routines join it once the Worker has been updated and deployed to take a fifth table. */
-export const CLOUD_SYNC_TABLES: readonly SyncTable[] = ['aircraft', 'flight', 'landing', 'flightInvoice']
+ *  this list. The Worker must be deployed with the GSX routines table (winglog-backend 2026-11-09) before a build with this list is used. */
+export const CLOUD_SYNC_TABLES: readonly SyncTable[] = SYNC_TABLES
 
 export interface SyncRow {
   uuid: string
