@@ -262,6 +262,9 @@ function mergeIntoMatchingFlight(
   data: Record<string, unknown>,
   incomingAircraftId: number | null
 ): { uuid: string; aircraftId: number | null } | undefined {
+  // Only a live copy is the same flight as a live one here. A deleted copy (a duplicate someone removed) must stay its own deleted row:
+  // merged into the live original, its deletion would delete the original, and then sync it back to every device.
+  if ((data.deletedAt ?? null) !== null) return undefined
   const { depIcao, arrIcao, actualOutUtc, aircraftUuid } = data
   if (typeof depIcao !== 'string' || typeof arrIcao !== 'string' || typeof actualOutUtc !== 'string')
     return undefined

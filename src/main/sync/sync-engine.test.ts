@@ -928,6 +928,33 @@ describe('sync-engine', () => {
       expect(flights[0]).toMatchObject({ id: mine.flightId, aircraftId: mine.aircraftId, fuelBurnKg: 1234 })
     })
 
+    it('does not let a deleted copy from the other device delete this device’s live flight', async () => {
+      const mine = myFlight()
+      // The other device removed a duplicate of this flight (same route and out-time, another uuid) and now sends the deletion.
+      server.seed('aircraft', {
+        uuid: 'their-aircraft',
+        updatedAt: LATER,
+        data: JSON.stringify({ registration: 'G-OLDX', icaoType: 'A320' })
+      })
+      server.seed('flight', theirFlight('their-aircraft', { deletedAt: LATER }))
+
+      await runSync(db, server, SESSION, dbPath)
+      await runSync(db, server, SESSION, dbPath)
+
+      // This device's flight is still live; the deleted copy is kept as its own deleted row, and nothing is sent back to delete the original.
+      const mineNow = db.select().from(flight).where(eq(flight.id, mine.flightId)).get()
+      expect(mineNow?.deletedAt).toBeNull()
+      expect(
+        db
+          .select()
+          .from(flight)
+          .all()
+          .filter((f) => f.deletedAt === null)
+      ).toHaveLength(1)
+      const sent = (await server.held('flight')).filter((r) => r.uuid !== 'their-flight')
+      expect(sent.every((r) => JSON.parse(r.data).deletedAt == null)).toBe(true)
+    })
+
     it('leaves this device’s own newer edit alone', async () => {
       const mine = myFlight()
       db.update(flight)
