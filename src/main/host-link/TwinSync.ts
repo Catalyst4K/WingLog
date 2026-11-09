@@ -39,6 +39,7 @@ export class TwinSync implements TwinSyncPort {
   private current: TwinSyncStatus = { state: 'idle', lastSyncedAt: null, problem: null }
   private running = false
   private again = false
+  private tracksRunning = false
   private waiting: { promise: Promise<boolean> } | null = null
   private timer: NodeJS.Timeout | null = null
   private readonly listeners: (() => void)[] = []
@@ -112,11 +113,8 @@ export class TwinSync implements TwinSyncPort {
           this.deps.dbPath,
           'host'
         )
-        await this.deps.afterSync?.().catch((error: unknown) => {
-          // The tables are in step; a track that could not come now is asked for again at the next sync.
-          logger.warn('[twin-sync] could not bring the tracks of completed flights:', error)
-        })
         this.set({ state: 'idle', lastSyncedAt: result.syncedAt, problem: null })
+        this.bringTracks()
       } else {
         logger.warn(
           `[twin-sync] not syncing: the sim PC and this computer run different versions (${verdict})`
@@ -138,6 +136,24 @@ export class TwinSync implements TwinSyncPort {
     }
     waiting.settle(result)
     return result
+  }
+
+  /**
+   * Brings the tracks of completed flights after the tables are level, without holding anyone up: Fly, Start and Cancel wait for the sync
+   * so the sim PC has the flight, and a long download of old tracks must not stand between a pilot and the button. One pass at a time; a
+   * track that could not come now is asked for again at the next sync.
+   */
+  private bringTracks(): void {
+    const { afterSync } = this.deps
+    if (!afterSync || this.tracksRunning) return
+    this.tracksRunning = true
+    afterSync()
+      .catch((error: unknown) => {
+        logger.warn('[twin-sync] could not bring the tracks of completed flights:', error)
+      })
+      .finally(() => {
+        this.tracksRunning = false
+      })
   }
 
   /** @returns What those who ask during a sync wait on. */

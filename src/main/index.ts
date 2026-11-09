@@ -512,6 +512,8 @@ function startApp(cloudSession: StoredSession | null): void {
     onFlightsChanged: flightServices.onFlightsChanged
   })
 
+  // Before a client takes the airport-data channels over (client-ipc.ts): a second handler for a channel throws.
+  registerNavdataHandlers(ipcMain, { navdataProvider, readSignature: readNavdataSignature })
   registerGsxHandlers(ipcMain, { db, window, scheduleBackgroundSync })
   if (isClient)
     startClientServices({
@@ -543,7 +545,6 @@ function startApp(cloudSession: StoredSession | null): void {
   startDiskSpaceWarning(liveHub, trackingController)
   registerAppAreas({ db, window, trackingController, capabilities })
 
-  registerNavdataHandlers(ipcMain, { navdataProvider, readSignature: readNavdataSignature })
   recordParkedStandOnCompletion(db, sim, trackingController, navdataProvider)
 
   // CI packaging check (see .github/workflows/package.yml): proves the built

@@ -144,6 +144,24 @@ export function listCompletedFlightsWithoutTrack(db: WingLogDb): { id: number; u
 }
 
 /**
+ * @param db The database.
+ * @returns The uuids of the flights that have recorded track points here, so a twin asks for the tracks that exist and not for every flight.
+ */
+export function listFlightUuidsWithTrack(db: WingLogDb): string[] {
+  return db
+    .select({ uuid: flight.uuid })
+    .from(flight)
+    .where(
+      and(
+        isNull(flight.deletedAt),
+        sql`exists (select 1 from ${trackPoint} where ${trackPoint.flightId} = ${flight.id})`
+      )
+    )
+    .all()
+    .flatMap((row) => (row.uuid ? [row.uuid] : []))
+}
+
+/**
  * Stores track points brought from another computer, as one transaction.
  *
  * @param db The database.

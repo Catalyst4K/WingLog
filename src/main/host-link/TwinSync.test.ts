@@ -311,6 +311,26 @@ describe('TwinSync', () => {
     cleanup()
   })
 
+  it('does not hold the sync back for the tracks of completed flights, and brings them one pass at a time', async () => {
+    let finishTracks: () => void = () => {}
+    const afterSync = vi.fn(() => new Promise<void>((resolve) => (finishTracks = resolve)))
+    const { twin, release, cleanup } = sync({ afterSync })
+    const first = twin.run()
+    release()
+    // The sync is over, and whoever waited for it (Fly) is released, while the tracks are still coming.
+    await expect(first).resolves.toBe(true)
+    expect(afterSync).toHaveBeenCalledTimes(1)
+    expect(twin.status().state).toBe('idle')
+    // Another sync while the tracks are still coming does not start a second pass.
+    await twin.run()
+    expect(afterSync).toHaveBeenCalledTimes(1)
+    finishTracks()
+    await new Promise((resolve) => setImmediate(resolve))
+    await twin.run()
+    expect(afterSync).toHaveBeenCalledTimes(2)
+    cleanup()
+  })
+
   it('counts the sync as good even when bringing the tracks of completed flights fails afterwards', async () => {
     const { twin, release, cleanup } = sync({ afterSync: () => Promise.reject(new Error('tracks')) })
     const done = twin.run()

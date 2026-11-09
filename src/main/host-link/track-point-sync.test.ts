@@ -111,6 +111,45 @@ describe('the track of completed flights, from the sim PC', () => {
     expect(listCompletedFlightsWithoutTrack(client)).toHaveLength(1)
   })
 
+  it('asks only for the tracks the sim PC has: a flight it has none for costs no round trip', async () => {
+    const { clientId, uuid } = seed(5)
+    // A second completed flight the sim PC never recorded (imported from a logbook): it has no track there either.
+    const otherAircraft = createAircraft(client, { registration: 'G-IMPT', icaoType: 'A320' }).id
+    createFlight(client, { aircraftId: otherAircraft, depIcao: 'EGLL', arrIcao: 'EGPH', status: 'completed' })
+    expect(listCompletedFlightsWithoutTrack(client)).toHaveLength(2)
+    const asked: string[] = []
+    const inner = ask()
+    expect(
+      await syncTrackPoints(client, (name, ...args) => {
+        asked.push(name)
+        return inner(name, ...args)
+      })
+    ).toBe(1)
+    expect(listTrackPoints(client, clientId)).toHaveLength(5)
+    // One question for which flights have a track, then pages for the one that does.
+    expect(asked.filter((name) => name === 'sync.trackedFlights')).toHaveLength(1)
+    expect(asked.filter((name) => name === 'sync.trackPoints')).toHaveLength(1)
+    expect(uuid).toBeTruthy()
+  })
+
+  it('asks for every flight when the sim PC cannot say which have a track, as an older one could not', async () => {
+    const { clientId } = seed(3)
+    const inner = ask()
+    expect(
+      await syncTrackPoints(client, (name, ...args) =>
+        name === 'sync.trackedFlights' ? Promise.reject(new Error('Unknown query')) : inner(name, ...args)
+      )
+    ).toBe(1)
+    expect(listTrackPoints(client, clientId)).toHaveLength(3)
+  })
+
+  it('lists the flights that have a track, and only those', () => {
+    const { uuid } = seed(2)
+    const other = createAircraft(host, { registration: 'G-NOTR', icaoType: 'A320' }).id
+    createFlight(host, { aircraftId: other, depIcao: 'EGLL', arrIcao: 'EGPH', status: 'completed' })
+    expect(twinSyncQueries(host)['sync.trackedFlights']()).toEqual([uuid])
+  })
+
   it('refuses a point that is not a point, keeps the rest, and refuses an answer that is not a page', async () => {
     const { clientId, uuid } = seed(0)
     const good = point(0, 1) as Record<string, unknown>

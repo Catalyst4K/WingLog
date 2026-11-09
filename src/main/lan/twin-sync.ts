@@ -9,7 +9,7 @@ import type { WingLogDb } from '../db/client'
 import { SYNC_TABLES, type SyncRow, type SyncTable } from '../backend/sync-client'
 import { getFlightIdByUuid } from '../db/flight-repo'
 import { listChangesAfter } from '../db/sync-change-repo'
-import { countTrackPoints, listTrackPointRows } from '../db/track-point-repo'
+import { countTrackPoints, listFlightUuidsWithTrack, listTrackPointRows } from '../db/track-point-repo'
 import { applyPushedRows, MAX_PUSH_ROWS, MAX_ROW_DATA_BYTES, serializeChange } from '../sync/sync-engine'
 import { localSyncVersion } from '../sync/sync-version'
 
@@ -172,11 +172,12 @@ function offsetArg(value: unknown): number {
 
 /**
  * @param db The database.
- * @returns The lookups a twin may ask that don't need to know which twin it is: `sync.version` and `sync.trackPoints`.
+ * @returns The lookups a twin may ask that don't need to know which twin it is: `sync.version`, `sync.trackedFlights` (which flights have a track) and `sync.trackPoints`.
  */
 export function twinSyncQueries(db: WingLogDb): Record<string, (...args: unknown[]) => unknown> {
   return {
     'sync.version': () => localSyncVersion(db),
+    'sync.trackedFlights': () => listFlightUuidsWithTrack(db),
     'sync.trackPoints': (uuid, offset) => trackPointsPage(db, uuidArg(uuid), offsetArg(offset))
   }
 }

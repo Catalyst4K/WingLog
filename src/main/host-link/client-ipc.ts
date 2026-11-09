@@ -81,6 +81,29 @@ const ADD_ON_OFF = {
   beyondAtc: { enabled: false, host: '127.0.0.1' }
 }
 
+/**
+ * The airport data a client's screens read through the app's own channels (Procedures' runways and procedures, the taxi chart, stands): the
+ * channel, the lookup the sim PC answers it with (the same ones the phone page uses), and what it reads as while the sim PC cannot be asked (undefined: the
+ * error goes to the screen, which then does not remember an empty answer for the session, as the taxi chart would).
+ * The data is the sim's, cached on the sim PC; a client has no sim to fill a cache of its own.
+ */
+export const NAVDATA_LOOKUPS: readonly (readonly [channel: string, lookup: string, fallback: unknown])[] = [
+  [IpcChannels.navdataListRunways, 'navdata.listRunways', []],
+  [IpcChannels.navdataListSids, 'navdata.listSids', []],
+  [IpcChannels.navdataListStars, 'navdata.listStars', []],
+  [IpcChannels.navdataListApproaches, 'navdata.listApproaches', []],
+  [IpcChannels.navdataGetProcedureWaypoints, 'navdata.procedureWaypoints', []],
+  [IpcChannels.navdataHasTaxiNetwork, 'taxi.has', undefined],
+  [IpcChannels.navdataGetTaxiNetwork, 'taxi.get', undefined],
+  [IpcChannels.navdataGetStands, 'stands', []]
+]
+
+/** Refreshing airport data needs the sim, so on a client it does nothing: the sim PC fetches the shown flight's airports itself. */
+const NAVDATA_REFRESHES: readonly string[] = [
+  IpcChannels.navdataRefreshAirport,
+  IpcChannels.navdataRefreshTaxiNetwork
+]
+
 /** Longest text taken for an address or a code, so a pasted page cannot become a connection string. */
 const MAX_FIELD_CHARS = 200
 
@@ -135,5 +158,20 @@ export function registerHostLinkHandlers(
   for (const [topic, channel] of Object.entries(TOPIC_GETTERS)) {
     answer(channel, () => hub.snapshot()[topic as LiveTopic] ?? TOPIC_DEFAULTS[topic as LiveTopic])
   }
+  for (const [channel, lookup, fallback] of NAVDATA_LOOKUPS) {
+    answer(channel, (...args) =>
+      link.query(lookup, ...args).catch((error: unknown) => {
+        if (fallback === undefined) throw error
+        return fallback
+      })
+    )
+  }
+  for (const channel of NAVDATA_REFRESHES) answer(channel, () => undefined)
+  answer(IpcChannels.navdataHasAirport, (icao) =>
+    link.query('navdata.listRunways', icao).then(
+      (runways) => Array.isArray(runways) && runways.length > 0,
+      () => false
+    )
+  )
   if (taken.length > 0) logger.info('[host-link] took over from the local services:', taken.join(', '))
 }

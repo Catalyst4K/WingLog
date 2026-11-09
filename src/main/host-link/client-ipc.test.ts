@@ -5,7 +5,7 @@ import { IpcChannels } from '@shared/ipc'
 import { fakeIpc } from '../ipc/fake-ipc'
 import { LiveHub } from '../live/LiveHub'
 import type { HostLink } from './HostLink'
-import { FORWARDED_COMMANDS, registerHostLinkHandlers, TOPIC_GETTERS } from './client-ipc'
+import { FORWARDED_COMMANDS, NAVDATA_LOOKUPS, registerHostLinkHandlers, TOPIC_GETTERS } from './client-ipc'
 
 function setup() {
   const hub = new LiveHub()
@@ -121,6 +121,66 @@ describe('a client IPC handlers', () => {
     link.query.mockRejectedValue(new Error('Not connected'))
     expect(await invoke(IpcChannels.settingsGetGsxRemote)).toMatchObject({ enabled: false })
     expect(await invoke(IpcChannels.settingsGetBeyondAtc)).toMatchObject({ enabled: false })
+  })
+
+  it('asks the sim PC for runways, procedures, the taxi chart and stands, with the arguments the screen gave', async () => {
+    const { invoke, link } = setup()
+    link.query.mockResolvedValue([{ ident: '07L' }])
+    expect(await invoke(IpcChannels.navdataListRunways, 'VHHH')).toEqual([{ ident: '07L' }])
+    expect(link.query).toHaveBeenLastCalledWith('navdata.listRunways', 'VHHH')
+    await invoke(IpcChannels.navdataListSids, 'VHHH', '07L')
+    expect(link.query).toHaveBeenLastCalledWith('navdata.listSids', 'VHHH', '07L')
+    await invoke(IpcChannels.navdataGetProcedureWaypoints, 'VHHH', 'sid', 'BEKOL1A', '07L', null)
+    expect(link.query).toHaveBeenLastCalledWith(
+      'navdata.procedureWaypoints',
+      'VHHH',
+      'sid',
+      'BEKOL1A',
+      '07L',
+      null
+    )
+    await invoke(IpcChannels.navdataGetTaxiNetwork, 'VHHH')
+    expect(link.query).toHaveBeenLastCalledWith('taxi.get', 'VHHH')
+    await invoke(IpcChannels.navdataHasTaxiNetwork, 'VHHH')
+    expect(link.query).toHaveBeenLastCalledWith('taxi.has', 'VHHH')
+    await invoke(IpcChannels.navdataGetStands, 'VHHH')
+    expect(link.query).toHaveBeenLastCalledWith('stands', 'VHHH')
+    expect(NAVDATA_LOOKUPS).toHaveLength(8)
+  })
+
+  it('reads the lists as empty while the sim PC cannot be asked, but lets the taxi chart fail so it is not remembered as empty', async () => {
+    const { invoke, link } = setup()
+    link.query.mockRejectedValue(new Error('Not connected'))
+    expect(await invoke(IpcChannels.navdataListRunways, 'VHHH')).toEqual([])
+    expect(await invoke(IpcChannels.navdataListApproaches, 'VHHH', null)).toEqual([])
+    expect(await invoke(IpcChannels.navdataGetStands, 'VHHH')).toEqual([])
+    await expect(invoke(IpcChannels.navdataGetTaxiNetwork, 'VHHH')).rejects.toThrow('Not connected')
+    await expect(invoke(IpcChannels.navdataHasTaxiNetwork, 'VHHH')).rejects.toThrow('Not connected')
+  })
+
+  it('does nothing for a refresh, which needs a sim, and says an airport is known when the sim PC has runways for it', async () => {
+    const { invoke, link } = setup()
+    expect(await invoke(IpcChannels.navdataRefreshAirport, 'VHHH')).toBeUndefined()
+    expect(await invoke(IpcChannels.navdataRefreshTaxiNetwork, 'VHHH')).toBeUndefined()
+    expect(link.query).not.toHaveBeenCalled()
+    link.query.mockResolvedValueOnce([{ ident: '07L' }])
+    expect(await invoke(IpcChannels.navdataHasAirport, 'VHHH')).toBe(true)
+    link.query.mockResolvedValueOnce([])
+    expect(await invoke(IpcChannels.navdataHasAirport, 'VHHH')).toBe(false)
+    link.query.mockRejectedValueOnce(new Error('Not connected'))
+    expect(await invoke(IpcChannels.navdataHasAirport, 'VHHH')).toBe(false)
+  })
+
+  it('takes over the airport-data channels the local navdata handlers already answer', () => {
+    const ipc = fakeIpc()
+    const remove = vi.spyOn(ipc.ipcMain, 'removeHandler')
+    const channels = NAVDATA_LOOKUPS.map(([channel]) => channel)
+    registerHostLinkHandlers(ipc.ipcMain, {
+      link: { query: vi.fn() } as unknown as HostLink,
+      hub: new LiveHub(),
+      handled: new Set(channels)
+    })
+    expect(remove.mock.calls.map((call) => call[0])).toEqual(expect.arrayContaining(channels))
   })
 
   it('does not take the sim connection status, which the sim handler answers (from the host on a client)', () => {

@@ -29,6 +29,22 @@ function pageFrom(value: unknown): { points: Record<string, unknown>[]; next: nu
 }
 
 /**
+ * @param ask Asks the sim PC a lookup.
+ * @returns The uuids of the flights the sim PC has a track for; null when it cannot say (an older sim PC, or an answer that is not a list), and
+ *   then every flight is asked for, as before. Asking for a track the sim PC does not have costs a round trip each, so with 150 imported
+ *   flights that never had one the pass took longer than the sync it followed.
+ */
+async function flightsWithTrack(ask: Ask): Promise<Set<string> | null> {
+  try {
+    const answer = await ask('sync.trackedFlights')
+    if (!Array.isArray(answer) || answer.some((uuid) => typeof uuid !== 'string')) return null
+    return new Set(answer as string[])
+  } catch {
+    return null
+  }
+}
+
+/**
  * Fetches the track of every completed flight that has none here, and stores it.
  *
  * @param db The database.
@@ -37,7 +53,9 @@ function pageFrom(value: unknown): { points: Record<string, unknown>[]; next: nu
  */
 export async function syncTrackPoints(db: WingLogDb, ask: Ask): Promise<number> {
   let brought = 0
+  const tracked = await flightsWithTrack(ask)
   for (const flight of listCompletedFlightsWithoutTrack(db)) {
+    if (tracked && !tracked.has(flight.uuid)) continue
     const rows: (typeof trackPoint.$inferInsert)[] = []
     let offset: number | null = 0
     for (let page = 0; offset !== null && page < MAX_PAGES; page++) {
