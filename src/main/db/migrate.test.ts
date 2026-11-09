@@ -233,4 +233,99 @@ describe('migrateDb', () => {
     expect(sqlite.prepare('select count(*) c from landing where flight_id = 1').get()).toEqual({ c: 1 })
     sqlite.close()
   })
+
+  // Migrations 0044 and 0045 (the gsx_routine table, and the routines the pilot already had copied out of two settings into rows). A database that
+  // already holds routines, a deleted built-in, a duplicate id, a bad entry and malformed settings must come through with the good ones as rows,
+  // each counted for sync, the settings left in place, and nothing thrown.
+  it('copies the GSX routines already in the settings into synced rows, and tolerates settings that are broken', () => {
+    tempDir = mkdtempSync(join(tmpdir(), 'winglog-migrate-0044-test-'))
+    const dbPath = join(tempDir, 'winglog.db')
+    const realDrizzleDir = join(process.cwd(), 'drizzle')
+    const baselineDir = join(tempDir, 'drizzle-baseline')
+    buildBaselineMigrationsFolder(realDrizzleDir, baselineDir, 44)
+
+    const routine = (id: string, name: string): Record<string, unknown> => ({
+      id,
+      name,
+      stages: [{ services: ['Cleaning'], startsWhen: [] }],
+      answerGsxChoice: true,
+      fuel: 'ask'
+    })
+    const baseline = createDb(dbPath)
+    migrate(baseline.db, { migrationsFolder: baselineDir })
+    const put = baseline.sqlite.prepare('INSERT INTO app_setting (key, value) VALUES (?, ?)')
+    put.run(
+      'gsxRoutines',
+      JSON.stringify([
+        routine('cabin-turn', 'Cabin turn'),
+        routine('cabin-turn', 'The same id again'),
+        { name: 'No id' },
+        'not an object',
+        routine('builtin-arrival', 'My arrival')
+      ])
+    )
+    put.run('gsxRoutinesHidden', JSON.stringify(['builtin-fenix-departure', 42]))
+    baseline.sqlite.close()
+
+    expect(() => migrateDb(dbPath, realDrizzleDir)).not.toThrow()
+
+    const { sqlite } = createDb(dbPath)
+    const rows = sqlite.prepare('select uuid, kind, data, deleted_at from gsx_routine order by id').all() as {
+      uuid: string
+      kind: string
+      data: string
+      deleted_at: string | null
+    }[]
+    expect(rows.map((r) => [r.uuid, r.kind])).toEqual([
+      ['cabin-turn', 'routine'],
+      ['builtin-arrival', 'routine'],
+      ['hidden-builtin-fenix-departure', 'hidden']
+    ])
+    // The first of the duplicate ids wins, and the routine is stored whole.
+    expect(JSON.parse(rows[0].data)).toMatchObject({ id: 'cabin-turn', name: 'Cabin turn' })
+    expect(rows.every((r) => r.deleted_at === null)).toBe(true)
+    // Every copied row is counted, so it reaches the other computers.
+    expect(
+      (
+        sqlite.prepare("select uuid from sync_change where table_name = 'gsxRoutine'").all() as {
+          uuid: string
+        }[]
+      )
+        .map((r) => r.uuid)
+        .sort()
+    ).toEqual(['builtin-arrival', 'cabin-turn', 'hidden-builtin-fenix-departure'])
+    // The settings are left where they were, as a way back.
+    expect(sqlite.prepare("select count(*) c from app_setting where key like 'gsxRoutines%'").get()).toEqual({
+      c: 2
+    })
+    sqlite.close()
+  })
+
+  it('migrates a database with no routines, and one whose routine settings are not JSON, without copying anything', () => {
+    for (const settings of [
+      [],
+      [
+        ['gsxRoutines', '{broken'],
+        ['gsxRoutinesHidden', '"text"']
+      ]
+    ]) {
+      tempDir = mkdtempSync(join(tmpdir(), 'winglog-migrate-0044b-test-'))
+      const dbPath = join(tempDir, 'winglog.db')
+      const realDrizzleDir = join(process.cwd(), 'drizzle')
+      const baselineDir = join(tempDir, 'drizzle-baseline')
+      buildBaselineMigrationsFolder(realDrizzleDir, baselineDir, 44)
+      const baseline = createDb(dbPath)
+      migrate(baseline.db, { migrationsFolder: baselineDir })
+      for (const [key, value] of settings) {
+        baseline.sqlite.prepare('INSERT INTO app_setting (key, value) VALUES (?, ?)').run(key, value)
+      }
+      baseline.sqlite.close()
+
+      expect(() => migrateDb(dbPath, realDrizzleDir)).not.toThrow()
+
+      const { sqlite } = createDb(dbPath)
+      expect(sqlite.prepare('select count(*) c from gsx_routine').get()).toEqual({ c: 0 })
+      sqlite.close()
+    }
+  })
 })

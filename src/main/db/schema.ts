@@ -574,3 +574,18 @@ export const navdataStand = sqliteTable(
   },
   (table) => [index('navdata_stand_icao_idx').on(table.icao)]
 )
+/**
+ * A GSX routine, or a built-in routine the pilot deleted (winglog-backend's docs/plans/gsx-routines-sync.md). One row per routine, synced
+ * like the logbook so a routine made or edited on one computer reaches the others. `uuid` is the routine's own id (letters, digits and
+ * hyphens), or `hidden-<built-in id>` for a deleted built-in, so the same routine is the same row on every computer.
+ */
+export const gsxRoutine = sqliteTable('gsx_routine', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  uuid: text('uuid').notNull().unique(),
+  kind: text('kind', { enum: ['routine', 'hidden'] }).notNull(),
+  /** The routine as JSON (`GsxRoutine`); `{}` for a hidden built-in. */
+  data: text('data').notNull(),
+  updatedAt: text('updated_at').notNull(),
+  /** Set when the routine is deleted; the row stays so the deletion reaches the other computers. */
+  deletedAt: text('deleted_at')
+})

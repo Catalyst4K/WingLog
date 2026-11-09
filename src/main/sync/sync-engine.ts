@@ -28,7 +28,9 @@ import { hasLandingUnderOtherUuid, upsertLandingByUuid } from '../db/landing-rep
 import { markOrigin } from '../db/sync-change-repo'
 import { getSetting, setSetting } from '../db/settings-repo'
 import type { SyncRow, SyncTable } from '../backend/sync-client'
-import { aircraft, flight, flightInvoice, landing } from '../db/schema'
+import { aircraft, flight, flightInvoice, gsxRoutine, landing } from '../db/schema'
+import { getGsxRoutineByUuid, upsertGsxRoutineByUuid } from '../db/gsx-routine-repo'
+import { BUILT_IN_ROUTINES, checkRoutine } from '@shared/gsx-routines'
 import { ofpFromWire, ofpToWire } from './ofp-wire'
 import { timeSlicer } from './time-slice'
 import { validateSyncFields } from './sync-row-validation'
@@ -421,6 +423,60 @@ function applyFlightInvoice(db: WingLogDb, row: SyncRow): ApplyResult {
   }
 }
 
+// --- gsxRoutine ---------------------------------------------------------------------------
+
+function serializeGsxRoutine(row: typeof gsxRoutine.$inferSelect): SyncRow {
+  return {
+    uuid: row.uuid,
+    updatedAt: row.updatedAt,
+    data: JSON.stringify({ kind: row.kind, data: row.data, deletedAt: row.deletedAt })
+  }
+}
+
+/**
+ * Applies one pulled GSX routine row. External data, so it is checked as a routine is checked when the pilot saves one: a row that is not
+ * a valid routine, or whose key is not the routine's own id, is refused and never run.
+ *
+ * @param db The database.
+ * @param row The pulled row.
+ * @returns Whether it applied, or the reason it didn't.
+ */
+function applyGsxRoutine(db: WingLogDb, row: SyncRow): ApplyResult {
+  const data = parseRowData(row.data)
+  if (!data || (data.kind !== 'routine' && data.kind !== 'hidden') || typeof data.data !== 'string') {
+    return { ok: false, error: 'malformed gsxRoutine data' }
+  }
+  const deletedAt = data.deletedAt ?? null
+  if (deletedAt !== null && (typeof deletedAt !== 'string' || deletedAt.length > 40)) {
+    return { ok: false, error: 'malformed gsxRoutine deletedAt' }
+  }
+  let stored = '{}'
+  if (data.kind === 'hidden') {
+    if (!BUILT_IN_ROUTINES.some((routine) => `hidden-${routine.id}` === row.uuid)) {
+      return { ok: false, error: 'a hidden routine that is not a built-in' }
+    }
+  } else if (deletedAt === null) {
+    let parsed: unknown
+    try {
+      parsed = JSON.parse(data.data)
+    } catch {
+      return { ok: false, error: 'the routine is not valid JSON' }
+    }
+    const checked = checkRoutine(parsed)
+    if (!checked.ok) return { ok: false, error: `not a valid routine: ${checked.reason}` }
+    if (checked.routine.id !== row.uuid) return { ok: false, error: 'the routine id is not the row key' }
+    stored = JSON.stringify(checked.routine)
+  }
+  const applied = upsertGsxRoutineByUuid(db, {
+    uuid: row.uuid,
+    kind: data.kind,
+    data: stored,
+    deletedAt,
+    updatedAt: row.updatedAt
+  })
+  return { ok: true, applied, uuid: row.uuid }
+}
+
 // --- dispatch -----------------------------------------------------------------------------
 
 /**
@@ -449,6 +505,10 @@ export function serializeChange(db: WingLogDb, table: SyncTable, uuid: string): 
       const row = db.select().from(flightInvoice).where(eq(flightInvoice.uuid, uuid)).get()
       return row ? serializeFlightInvoice(db, row) : null
     }
+    case 'gsxRoutine': {
+      const row = getGsxRoutineByUuid(db, uuid)
+      return row ? serializeGsxRoutine(row) : null
+    }
   }
 }
 
@@ -470,6 +530,8 @@ export function applyPulledRow(db: WingLogDb, table: SyncTable, row: SyncRow): A
       return applyLanding(db, row)
     case 'flightInvoice':
       return applyFlightInvoice(db, row)
+    case 'gsxRoutine':
+      return applyGsxRoutine(db, row)
   }
 }
 

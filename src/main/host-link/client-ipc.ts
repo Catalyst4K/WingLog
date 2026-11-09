@@ -141,8 +141,6 @@ export function registerHostLinkHandlers(
   ipcMain.handle(IpcChannels.settingsGetBeyondAtc, () =>
     link.query('settings.beyondAtc').catch(() => ADD_ON_OFF.beyondAtc)
   )
-  // The GSX routines are the sim PC's, kept there: a client lists them and starts or cancels them (the commands above), and does not edit.
-  ipcMain.handle(IpcChannels.gsxRoutinesList, () => link.query('gsx.routines').catch(() => []))
   const taken: string[] = []
   const answer = (channel: string, reply: (...args: unknown[]) => unknown): void => {
     // Electron refuses a second handler for a channel, so one a local service already answers is replaced: a client's answer is the sim PC's.
@@ -153,8 +151,11 @@ export function registerHostLinkHandlers(
     ipcMain.handle(channel, (_event, ...args: unknown[]) => reply(...args))
   }
   for (const [command, channel] of Object.entries(FORWARDED_COMMANDS)) {
+    if (command === 'gsx.startRoutine') continue
     answer(channel, (...args) => link.command(command, args))
   }
+  // The routines are rows that sync, so a routine made or edited here a moment ago may not have reached the sim PC: start it after a sync.
+  answer(IpcChannels.gsxRoutineStart, (...args) => link.commandAfterSync('gsx.startRoutine', args))
   for (const [topic, channel] of Object.entries(TOPIC_GETTERS)) {
     answer(channel, () => hub.snapshot()[topic as LiveTopic] ?? TOPIC_DEFAULTS[topic as LiveTopic])
   }

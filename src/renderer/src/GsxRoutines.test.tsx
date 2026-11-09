@@ -462,4 +462,19 @@ describe('GsxRoutines', () => {
       expect(api.gsxRoutinesSave).not.toHaveBeenCalled()
     })
   })
+
+  it('reads the list again when a sync brings in a routine made on the other computer', async () => {
+    const { api } = withWinglog({ routines: [] })
+    let dataChanged: () => void = () => {}
+    ;(api as Record<string, unknown>).onDataChanged = vi.fn((listener: () => void) => {
+      dataChanged = listener
+      return () => {}
+    })
+    render(<GsxRoutines canEdit />)
+    await waitFor(() => expect(api.gsxRoutinesList).toHaveBeenCalledTimes(1))
+    expect(screen.queryByRole('button', { name: 'A320 turnaround' })).not.toBeInTheDocument()
+    api.gsxRoutinesList.mockResolvedValue(allRoutines([OWN]))
+    act(() => dataChanged())
+    expect(await screen.findByRole('button', { name: 'A320 turnaround' })).toBeInTheDocument()
+  })
 })

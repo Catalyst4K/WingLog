@@ -195,6 +195,7 @@ async function pushTable(
  * @param session The signed-in session.
  * @param dbPath The database file's path, which says where sync-conflicts.log goes.
  * @param peer Who this is: `cloud`, `host`, or on the sim PC `twin:<device id>`. Its cursors and its rows' origin are kept under this name.
+ * @param syncTables The tables to sync; the peer's own list (the cloud's Worker takes four), all of them by default.
  * @returns What was pulled, pushed and skipped.
  */
 export async function runCursorSync(
@@ -202,10 +203,18 @@ export async function runCursorSync(
   client: PagedSyncClient,
   session: SyncSession,
   dbPath: string,
-  peer: string
+  peer: string,
+  syncTables: readonly SyncTable[] = SYNC_TABLES
 ): Promise<SyncResult> {
-  const tables = {} as Record<SyncTable, SyncTableResult>
-  for (const table of SYNC_TABLES) {
+  const nothing = (): SyncTableResult => ({ pulled: 0, pushed: 0, rejected: [], skipped: [] })
+  const tables: Record<SyncTable, SyncTableResult> = {
+    aircraft: nothing(),
+    flight: nothing(),
+    landing: nothing(),
+    flightInvoice: nothing(),
+    gsxRoutine: nothing()
+  }
+  for (const table of syncTables) {
     const result: SyncTableResult = { pulled: 0, pushed: 0, rejected: [], skipped: [] }
     await pullTable(db, client, session, dbPath, peer, table, result)
     await pushTable(db, client, session, dbPath, peer, table, result)

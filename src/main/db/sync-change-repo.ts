@@ -8,7 +8,7 @@
 
 import { and, asc, eq, gt, like, or } from 'drizzle-orm'
 import type { WingLogDb } from './client'
-import { aircraft, appSetting, flight, flightInvoice, landing, syncChange } from './schema'
+import { aircraft, appSetting, flight, flightInvoice, gsxRoutine, landing, syncChange } from './schema'
 import { getSetting, setSetting } from './settings-repo'
 
 /** A counted change: which row, and where it came from (null: changed here). */
@@ -132,6 +132,9 @@ export function localUpdatedAt(db: WingLogDb, table: string, uuid: string): stri
       return db.select({ at: flight.updatedAt }).from(flight).where(eq(flight.uuid, uuid)).get()?.at
     case 'landing':
       return db.select({ at: landing.updatedAt }).from(landing).where(eq(landing.uuid, uuid)).get()?.at
+    case 'gsxRoutine':
+      return db.select({ at: gsxRoutine.updatedAt }).from(gsxRoutine).where(eq(gsxRoutine.uuid, uuid)).get()
+        ?.at
     default:
       return db
         .select({ at: flightInvoice.updatedAt })

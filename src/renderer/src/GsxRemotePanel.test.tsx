@@ -76,7 +76,7 @@ function progressLine(text: string) {
 describe('GsxRemotePanel on a client', () => {
   const routine = { id: 'departure', name: 'Departure', stages: [], builtIn: 'departure' }
 
-  it('lists the sim PC routines and offers no routine editor, as on a phone', async () => {
+  it('lists this computer’s own routines (synced with the sim PC) and offers the routine editor, as on the host', async () => {
     withWinglog({ gsxRoutinesList: vi.fn().mockResolvedValue([routine]) } as Partial<WingLogApi>)
     render(
       <CapabilitiesContext.Provider value={{ runMode: 'client', canHostSim: false, multiDevice: true }}>
@@ -84,8 +84,15 @@ describe('GsxRemotePanel on a client', () => {
       </CapabilitiesContext.Provider>
     )
     expect(await screen.findByRole('button', { name: 'Departure' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'New routine' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Edit' })).toBeInTheDocument()
+  })
+
+  it('offers no editor on a phone, which has no routines of its own', async () => {
+    withWinglog({ gsxRoutinesList: vi.fn().mockResolvedValue([routine]) } as Partial<WingLogApi>)
+    render(<GsxRemotePanel canEditRoutines={false} />)
+    expect(await screen.findByRole('button', { name: 'Departure' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'New routine' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument()
   })
 
   it('offers the editor on the host', async () => {

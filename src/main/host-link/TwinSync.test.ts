@@ -217,8 +217,8 @@ describe('TwinSync', () => {
     await first
     // Whoever asked during the sync hears how the next one went.
     expect(await Promise.all(during)).toEqual([true, true])
-    // Four tables pulled in the first run, four again in the one asked for while it ran, however many times it was asked.
-    expect(ask.mock.calls.filter(([name]) => name === 'sync.pull')).toHaveLength(8)
+    // Five tables pulled in the first run, five again in the one asked for while it ran, however many times it was asked.
+    expect(ask.mock.calls.filter(([name]) => name === 'sync.pull')).toHaveLength(10)
     expect(states).toEqual(['syncing', 'idle', 'syncing', 'idle'])
     cleanup()
   })

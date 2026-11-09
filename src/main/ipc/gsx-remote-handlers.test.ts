@@ -4,6 +4,7 @@ import { IpcChannels } from '@shared/ipc'
 import { createDb, type WingLogDb } from '../db/client'
 import { stageRoutine } from '@shared/gsx-routines'
 import { getSetting, setGsxRemoteSettings, setSetting } from '../db/settings-repo'
+import { listHiddenBuiltIns, listOwnRoutines } from '../db/gsx-routine-repo'
 import { EMPTY_COMMAND_BAR, EMPTY_MENU } from '../gsx-remote/GsxRemoteService'
 import { FakeServiceSocket } from '../net/fake-service-socket'
 import { fakeIpc } from './fake-ipc'
@@ -226,10 +227,10 @@ describe('GSX routines IPC', () => {
         ['builtin-arrival', 'My arrival'],
         ['builtin-turnaround-clean', 'Turnaround clean']
       ])
-      expect(getSetting(db, 'gsxRoutines')).toContain('My arrival')
+      expect(listOwnRoutines(db).routines.map((r) => r.name)).toEqual(['My arrival'])
       const after = invoke(IpcChannels.gsxRoutinesDelete, 'builtin-arrival') as { id: string }[]
       expect(after.map((r) => r.id)).toEqual(['builtin-fenix-departure', 'builtin-turnaround-clean'])
-      expect(getSetting(db, 'gsxRoutines')).toBe('[]')
+      expect(listOwnRoutines(db).routines).toEqual([])
     })
 
     it('deleting the same built-in twice, or an id it does not know, changes nothing more', () => {
@@ -238,7 +239,7 @@ describe('GSX routines IPC', () => {
       invoke(IpcChannels.gsxRoutinesDelete, 'builtin-arrival')
       const after = invoke(IpcChannels.gsxRoutinesDelete, 'no-such-routine') as { id: string }[]
       expect(after).toHaveLength(2)
-      expect(JSON.parse(getSetting(db, 'gsxRoutinesHidden') ?? '[]')).toEqual(['builtin-arrival'])
+      expect(listHiddenBuiltIns(db)).toEqual(['builtin-arrival'])
     })
 
     it('still leaves a deleted built-in out when a routine is saved afterwards', () => {

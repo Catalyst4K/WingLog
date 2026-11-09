@@ -10,13 +10,12 @@ import {
   revokeLanDevice,
   touchLanDevice
 } from '../db/lan-device-repo'
+import { listHiddenBuiltIns, listOwnRoutines } from '../db/gsx-routine-repo'
 import {
   getAltitudeUnit,
   getAppLanguage,
   getBeyondAtcSettings,
   getGsxRemoteSettings,
-  getGsxRoutines,
-  getHiddenBuiltInRoutines,
   getLanSettings,
   getMapLanguage,
   getTheme,
@@ -252,7 +251,7 @@ export function createLan({
           gsxRemote: getGsxRemoteSettings(db).enabled,
           beyondAtc: getBeyondAtcSettings(db).enabled
         }),
-        routines: () => allRoutines(getGsxRoutines(db).routines, getHiddenBuiltInRoutines(db)),
+        routines: () => allRoutines(listOwnRoutines(db).routines, listHiddenBuiltIns(db)),
         metars: (codes) => fetchMetars(codes, userAgent, metarUrl),
         atis: (requests) => atis(requests)
       })

@@ -13,6 +13,7 @@ import { HostLink } from './host-link/HostLink'
 import { mapFlightTopic, type FlightMirror } from './host-link/flight-mirror'
 import type { FlightRelay } from './host-link/flight-relay'
 import { registerHostLinkHandlers } from './host-link/client-ipc'
+import { registerRoutineQueries } from './ipc/gsx-remote-handlers'
 import { fileHostLinkStore } from './host-link/host-link-store'
 import { LanSyncClient } from './host-link/lan-sync-client'
 import { SYNC_AFTER_WRITE_MS, TwinSync } from './host-link/TwinSync'
@@ -64,6 +65,8 @@ export function startClientServices(deps: {
     onFlight: (flight, track) => (flight ? mirror.setFlight(flight, track) : mirror.clear())
   })
   registerHostLinkHandlers(ipcMain, { link, hub: liveHub, handled })
+  // The GSX routines are rows in this computer's own database, synced with the sim PC's: listed, saved and deleted here.
+  registerRoutineQueries(ipcMain, db)
   relay.bind(sync, (name, ...args) => link.query(name, ...args))
   // Each time a sync ends well the lists on screen can be read again: rows may have come in.
   let lastSeen: string | null = null

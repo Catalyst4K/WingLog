@@ -74,12 +74,12 @@ test('a client pairs with the host by address and code, follows its sim and keep
         ] as const)
         await expect(client.window.getByText('Sim PC: connected')).toBeAttached({ timeout: 15_000 })
         await expect(client.window.getByRole('tab', { name: 'BeyondATC' })).toBeVisible({ timeout: 15_000 })
-        // The add-on pages open on the client (one that gets nothing for a lookup used to fall over), with the host's routines and no editor.
+        // The add-on pages open on the client (one that gets nothing for a lookup used to fall over), with the routine editor: routines are rows that sync.
         await client.window.getByRole('tab', { name: 'Ground services' }).click()
         await expect(client.window.getByRole('button', { name: 'Departure', exact: true })).toBeVisible({
           timeout: 15_000
         })
-        await expect(client.window.getByRole('button', { name: 'New routine' })).toHaveCount(0)
+        await expect(client.window.getByRole('button', { name: 'New routine' })).toBeVisible()
         await expect(client.window.getByText('Something went wrong')).toHaveCount(0)
         await client.window.getByRole('tab', { name: 'BeyondATC' }).click()
         await expect(client.window.getByRole('textbox', { name: 'COM1 frequency' })).toBeVisible()
@@ -113,6 +113,33 @@ test('a client pairs with the host by address and code, follows its sim and keep
         expect(await client.window.evaluate(() => window.winglog.hostLinkGetStatus())).toMatchObject({
           sync: { state: 'idle' }
         })
+        // A GSX routine made on the client reaches the host, and one edited on the host comes back: they are rows that sync like the logbook.
+        const cabinTurn = {
+          id: 'cabin-turn',
+          name: 'Cabin turn',
+          stages: [{ services: ['Cleaning', 'Water'], startsWhen: [] }],
+          answerGsxChoice: true,
+          fuel: 'ask'
+        }
+        await client.window.evaluate((routine) => window.winglog.gsxRoutinesSave(routine), cabinTurn as never)
+        await expect
+          .poll(
+            () =>
+              host.window.evaluate(async () => (await window.winglog.gsxRoutinesList()).map((r) => r.name)),
+            { timeout: 20_000 }
+          )
+          .toContain('Cabin turn')
+        await host.window.evaluate((routine) => window.winglog.gsxRoutinesSave(routine), {
+          ...cabinTurn,
+          name: 'Cabin turn (PC)'
+        } as never)
+        await expect
+          .poll(
+            () =>
+              client.window.evaluate(async () => (await window.winglog.gsxRoutinesList()).map((r) => r.name)),
+            { timeout: 20_000 }
+          )
+          .toContain('Cabin turn (PC)')
         // The host's own window is told when the client changes something there, since it did not make the change itself.
         await host.window.evaluate(() => {
           const counter = window as unknown as { __dataChanged: number }

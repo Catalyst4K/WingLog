@@ -20,6 +20,7 @@ import { GsxRoutineEditor } from './GsxRoutineEditor'
 import { blankRoutine, copyRoutine, newRoutineId } from './gsx-routine-edit'
 import { describeNote, routineName, serviceLabel, serviceList } from './gsx-routine-text'
 import { useLiveClient, useLiveTopic } from './live/LiveClient'
+import { useDataChanged } from './app/use-data-changed'
 import { asyncHandler, runAsync } from './report-error'
 
 const NO_ROUTINES: GsxRoutine[] = []
@@ -160,9 +161,11 @@ export function GsxRoutines(props: { canEdit: boolean }): React.JSX.Element {
   const isRunning = progress?.state === 'running'
   const [isEditMode, setIsEditMode] = useState(false)
 
-  useEffect(() => {
+  const load = (): void =>
     runAsync('GsxRoutines gsxRoutinesList', winglogApi().gsxRoutinesList().then(setRoutines))
-  }, [])
+  useEffect(load, [])
+  // A routine made or changed on the other computer arrives by sync: read the list again.
+  useDataChanged(load)
 
   return (
     <section

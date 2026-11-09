@@ -309,6 +309,20 @@
       "when": 1794177427249,
       "tag": "0043_sync_change_triggers",
       "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "6",
+      "when": 1794237812637,
+      "tag": "0044_gsx_routine",
+      "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "6",
+      "when": 1794237827764,
+      "tag": "0045_gsx_routine_sync",
+      "breakpoints": true
     }
   ]
 }

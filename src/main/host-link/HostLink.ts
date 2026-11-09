@@ -126,6 +126,19 @@ export class HostLink {
   }
 
   /**
+   * Sends the host a command after bringing the two databases level, for a command that names something the pilot may have just made here.
+   *
+   * @param name The command's name.
+   * @param args Its arguments.
+   * @throws When the link is not up.
+   */
+  async commandAfterSync(name: string, args: unknown[]): Promise<void> {
+    if (!this.connection) throw new Error('Not connected to the sim PC')
+    await this.deps.sync?.run()
+    this.command(name, args)
+  }
+
+  /**
    * Asks the host for read-only data (an airport's runways, a taxi chart).
    *
    * @param name The lookup's name.

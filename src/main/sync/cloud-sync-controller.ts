@@ -14,6 +14,7 @@ import {
   forgotPassword as backendForgotPassword,
   resetPassword as backendResetPassword,
   provision as backendProvision,
+  CLOUD_SYNC_TABLES,
   syncPullPage,
   syncPush
 } from '../backend/sync-client'
@@ -168,7 +169,8 @@ export class CloudSyncController {
         { syncPullPage, syncPush },
         this.session,
         this.dbPath,
-        CLOUD_PEER
+        CLOUD_PEER,
+        CLOUD_SYNC_TABLES
       )
       this.lastSyncedAt = result.syncedAt
       setLastSyncCompletedAt(this.db, result.syncedAt)

@@ -35,6 +35,7 @@ const {
 
 vi.mock('../backend/session-store', () => ({ saveSession, clearSession }))
 vi.mock('../backend/sync-client', () => ({
+  CLOUD_SYNC_TABLES: ['aircraft', 'flight', 'landing', 'flightInvoice'],
   login,
   logout,
   deleteAccount,
@@ -240,7 +241,13 @@ describe('CloudSyncController', () => {
 
     const status = await controller.syncNow()
 
-    expect(runCursorSync).toHaveBeenCalledWith(db, expect.any(Object), SESSION, '/fake/db/path', 'cloud')
+    // The cloud is given the four tables the Worker takes, not the GSX routines until it takes a fifth.
+    expect(runCursorSync).toHaveBeenCalledWith(db, expect.any(Object), SESSION, '/fake/db/path', 'cloud', [
+      'aircraft',
+      'flight',
+      'landing',
+      'flightInvoice'
+    ])
     expect(status.syncing).toBe(false)
     expect(status.lastSyncedAt).toBe('2026-09-11T12:00:00.000Z')
     expect(status.lastError).toBeNull()

@@ -82,13 +82,13 @@ describe('the sync change counter', () => {
   } as const
 
   describe('the guard', () => {
-    it('has an insert, an update and a delete trigger on each of the four synced tables', () => {
+    it('has an insert, an update and a delete trigger on each of the five synced tables', () => {
       const names = (
         sqlite.prepare("SELECT name FROM sqlite_master WHERE type = 'trigger' ORDER BY name").all() as {
           name: string
         }[]
       ).map((row) => row.name)
-      const expected = ['aircraft', 'flight', 'landing', 'flight_invoice'].flatMap((table) =>
+      const expected = ['aircraft', 'flight', 'landing', 'flight_invoice', 'gsx_routine'].flatMap((table) =>
         ['insert', 'update', 'delete'].map((kind) => `sync_change_${table}_${kind}`)
       )
       expect(names).toEqual(expected.sort())

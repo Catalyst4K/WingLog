@@ -24,6 +24,8 @@ export interface TwinSyncStatus {
 
 /** The part of sync the link uses. */
 export interface TwinSyncPort {
+  /** Runs a sync now, or after the one under way; resolves when it has ended. */
+  run(): Promise<boolean>
   /** Asks for a sync after a wait (a later ask moves it). */
   syncSoon(delayMs: number): void
   status(): TwinSyncStatus

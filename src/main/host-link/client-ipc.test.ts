@@ -90,13 +90,32 @@ describe('a client IPC handlers', () => {
     expect(link.command).toHaveBeenCalledWith('gsx.pickMenu', [2])
   })
 
-  it('lists the GSX routines from the sim PC, and an empty list while it cannot be asked', async () => {
-    const { invoke, link } = setup()
-    link.query.mockResolvedValueOnce([{ id: 'departure' }])
-    expect(await invoke(IpcChannels.gsxRoutinesList)).toEqual([{ id: 'departure' }])
-    expect(link.query).toHaveBeenLastCalledWith('gsx.routines')
-    link.query.mockRejectedValue(new Error('Not connected'))
-    expect(await invoke(IpcChannels.gsxRoutinesList)).toEqual([])
+  it('does not answer the routines list, which is this computer’s own rows now (they sync with the sim PC)', () => {
+    const { has } = setup()
+    expect(has(IpcChannels.gsxRoutinesList)).toBe(false)
+  })
+
+  it('starts a routine only after the two computers are brought level, so one just made here is on the sim PC', async () => {
+    const order: string[] = []
+    const link = {
+      getStatus: vi.fn(),
+      commandAfterSync: vi.fn((name: string, args: unknown[]) => {
+        order.push(`after-sync ${name} ${JSON.stringify(args)}`)
+        return Promise.resolve()
+      }),
+      command: vi.fn(() => order.push('plain command'))
+    }
+    const ipc = fakeIpc()
+    registerHostLinkHandlers(ipc.ipcMain, {
+      link: link as unknown as HostLink,
+      hub: new LiveHub(),
+      handled: new Set()
+    })
+    await ipc.invoke(IpcChannels.gsxRoutineStart, 'my-routine-id')
+    expect(order).toEqual(['after-sync gsx.startRoutine ["my-routine-id"]'])
+    // The other commands are sent at once, as before.
+    ipc.invoke(IpcChannels.gsxRoutineCancel)
+    expect(order.at(-1)).toBe('plain command')
   })
 
   it('reads a topic as its empty value before the host has said anything, never as undefined', () => {

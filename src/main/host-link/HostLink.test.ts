@@ -175,6 +175,50 @@ describe('HostLink', () => {
     expect(sockets[0]?.sent.at(-1)).toEqual({ t: 'cmd', name: 'atc.setAction', args: ['Request Taxi'] })
   })
 
+  it('sends a command after the two databases are level, so what was just made here is on the host first', async () => {
+    const order: string[] = []
+    let release: () => void = () => {}
+    const link = new HostLink({
+      hub,
+      store: memoryStore(),
+      createSocket: (url) => {
+        const socket = new FakeSocket(url)
+        sockets.push(socket)
+        return socket
+      },
+      deviceName: 'WingLog on MAC',
+      onStatus: () => {},
+      sync: {
+        run: () => {
+          order.push('sync started')
+          return new Promise<boolean>((resolve) => {
+            release = () => {
+              order.push('sync ended')
+              resolve(true)
+            }
+          })
+        },
+        syncSoon: () => undefined,
+        status: () => IDLE,
+        onChange: () => undefined
+      }
+    })
+    await expect(link.commandAfterSync('gsx.startRoutine', ['my-routine'])).rejects.toThrow('Not connected')
+    link.pair('192.168.1.20:5051', '123456')
+    sockets[0]?.open()
+    sockets[0]?.hear({ t: 'paired', token: 't' })
+    sockets[0]?.hear({ t: 'snapshot', topics: {}, flight: null })
+    const sentBefore = sockets[0]?.sent.length ?? 0
+    const sending = link.commandAfterSync('gsx.startRoutine', ['my-routine'])
+    // Nothing is sent while the sync is running.
+    await Promise.resolve()
+    expect(sockets[0]?.sent.length).toBe(sentBefore)
+    release()
+    await sending
+    expect(order).toEqual(['sync started', 'sync ended'])
+    expect(sockets[0]?.sent.at(-1)).toEqual({ t: 'cmd', name: 'gsx.startRoutine', args: ['my-routine'] })
+  })
+
   it('marks the host sim disconnected when the link drops, so stale telemetry is not shown as live', () => {
     vi.useFakeTimers()
     const link = make(memoryStore())
@@ -220,6 +264,7 @@ describe('HostLink', () => {
       deviceName: 'WingLog on MAC',
       onStatus: (status) => statuses.push(status),
       sync: {
+        run: () => Promise.resolve(true),
         syncSoon: (delayMs) => void asked.push(delayMs),
         status: () => current,
         onChange: (listener) => (changed = listener)
