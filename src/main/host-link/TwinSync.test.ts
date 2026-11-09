@@ -42,7 +42,8 @@ describe('LanSyncClient and the host’s lookups, end to end between two databas
       const sent = JSON.parse(JSON.stringify(args)) as unknown[]
       asked.push({ name, args: sent })
       const answer = deviceQueries[name] ? deviceQueries[name](1, ...sent) : queries[name](...sent)
-      return Promise.resolve(JSON.parse(JSON.stringify(answer)))
+      // A lookup may answer later (a push is applied a few rows at a time).
+      return Promise.resolve(answer).then((value) => JSON.parse(JSON.stringify(value)))
     }
     return new TwinSync({
       db: client,

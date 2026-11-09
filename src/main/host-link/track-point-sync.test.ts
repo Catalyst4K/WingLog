@@ -3,9 +3,16 @@ import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import { createDb, type WingLogDb } from '../db/client'
 import { createAircraft } from '../db/aircraft-repo'
 import { completeFlight, createFlight, getFlightIdByUuid, getFlightUuidById } from '../db/flight-repo'
-import { createTrackPoint, listCompletedFlightsWithoutTrack, listTrackPoints } from '../db/track-point-repo'
+import { getSetting } from '../db/settings-repo'
+import {
+  createTrackPoint,
+  insertTrackPointRows,
+  listCompletedFlightsWithoutTrack,
+  listTrackPoints,
+  markTrackUnfinished
+} from '../db/track-point-repo'
 import { TRACK_PAGE_ROWS, trackPointsPage, twinSyncQueries } from '../lan/twin-sync'
-import { syncTrackPoints } from './track-point-sync'
+import { INSERT_CHUNK, syncTrackPoints } from './track-point-sync'
 
 vi.mock('../logging/logger', () => ({ logger: { warn: vi.fn(), info: vi.fn(), error: vi.fn() } }))
 
@@ -109,6 +116,30 @@ describe('the track of completed flights, from the sim PC', () => {
     const aircraftId = createAircraft(client, { registration: 'G-OTHR', icaoType: 'A320' }).id
     createFlight(client, { aircraftId, depIcao: 'EGLL', arrIcao: 'EGCC', status: 'active' })
     expect(listCompletedFlightsWithoutTrack(client)).toHaveLength(1)
+  })
+
+  it('stores a long track in chunks and leaves no mark behind once it is whole', async () => {
+    const { clientId, uuid } = seed(INSERT_CHUNK * 2 + 7)
+    expect(await syncTrackPoints(client, ask())).toBe(1)
+    expect(listTrackPoints(client, clientId)).toHaveLength(INSERT_CHUNK * 2 + 7)
+    expect(getSetting(client, `trackSyncing:${uuid}`)).toBeUndefined()
+  })
+
+  it('mends a track left half stored by a stop between chunks: the pieces are removed and the whole track fetched', async () => {
+    const { clientId, uuid } = seed(20)
+    // The app stopped after storing three points of the flight and before finishing.
+    markTrackUnfinished(client, uuid)
+    insertTrackPointRows(
+      client,
+      listTrackPoints(host, 1)
+        .slice(0, 3)
+        .map((p) => ({ ...p, id: undefined, flightId: clientId })) as never
+    )
+    expect(listTrackPoints(client, clientId)).toHaveLength(3)
+    expect(listCompletedFlightsWithoutTrack(client)).toEqual([])
+    expect(await syncTrackPoints(client, ask())).toBe(1)
+    expect(listTrackPoints(client, clientId)).toHaveLength(20)
+    expect(getSetting(client, `trackSyncing:${uuid}`)).toBeUndefined()
   })
 
   it('asks only for the tracks the sim PC has: a flight it has none for costs no round trip', async () => {

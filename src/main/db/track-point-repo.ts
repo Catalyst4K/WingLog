@@ -2,10 +2,10 @@
  * A flight's recorded track points: written once a second while tracking, listed in order for the
  * map, and marked or re-segmented by the resume cleanup. Never synced.
  */
-import { and, asc, eq, isNull, notExists, sql } from 'drizzle-orm'
+import { and, asc, eq, isNull, like, notExists, sql } from 'drizzle-orm'
 import type { NewTrackPoint, TrackPoint } from '@shared/ipc'
 import type { TrackCleanupResult } from '../tracking/resume-cleanup'
-import { flight, trackPoint } from './schema'
+import { appSetting, flight, trackPoint } from './schema'
 import type { WingLogDb } from './client'
 
 /**
@@ -159,6 +159,54 @@ export function listFlightUuidsWithTrack(db: WingLogDb): string[] {
     )
     .all()
     .flatMap((row) => (row.uuid ? [row.uuid] : []))
+}
+
+/** Marks a flight whose track is being brought from another computer in several transactions and is not whole yet. */
+const UNFINISHED_PREFIX = 'trackSyncing:'
+
+/**
+ * Notes that a flight's track is about to be stored in several transactions, so a stop half way is known and mended (`discardUnfinishedTracks`).
+ *
+ * @param db The database.
+ * @param uuid The flight's uuid.
+ */
+export function markTrackUnfinished(db: WingLogDb, uuid: string): void {
+  db.insert(appSetting)
+    .values({ key: UNFINISHED_PREFIX + uuid, value: '1' })
+    .onConflictDoNothing()
+    .run()
+}
+
+/**
+ * @param db The database.
+ * @param uuid The flight's uuid, whose track has been stored whole.
+ */
+export function markTrackFinished(db: WingLogDb, uuid: string): void {
+  db.delete(appSetting)
+    .where(eq(appSetting.key, UNFINISHED_PREFIX + uuid))
+    .run()
+}
+
+/**
+ * Removes the points of any flight whose track was left half stored (the app stopped between chunks), so that it is fetched again whole; a flight
+ * with any point counts as having its track.
+ *
+ * @param db The database.
+ * @returns How many flights were mended.
+ */
+export function discardUnfinishedTracks(db: WingLogDb): number {
+  const unfinished = db
+    .select({ key: appSetting.key })
+    .from(appSetting)
+    .where(like(appSetting.key, `${UNFINISHED_PREFIX}%`))
+    .all()
+  for (const { key } of unfinished) {
+    const uuid = key.slice(UNFINISHED_PREFIX.length)
+    const id = db.select({ id: flight.id }).from(flight).where(eq(flight.uuid, uuid)).get()?.id
+    if (id !== undefined) db.delete(trackPoint).where(eq(trackPoint.flightId, id)).run()
+    db.delete(appSetting).where(eq(appSetting.key, key)).run()
+  }
+  return unfinished.length
 }
 
 /**

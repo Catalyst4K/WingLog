@@ -5,13 +5,23 @@
  */
 
 import type { WingLogDb } from '../db/client'
-import { listCompletedFlightsWithoutTrack, insertTrackPointRows } from '../db/track-point-repo'
+import {
+  discardUnfinishedTracks,
+  insertTrackPointRows,
+  listCompletedFlightsWithoutTrack,
+  markTrackFinished,
+  markTrackUnfinished
+} from '../db/track-point-repo'
 import { trackPoint } from '../db/schema'
 import { logger } from '../logging/logger'
 import { validateSyncFields } from '../sync/sync-row-validation'
+import { timeSlicer } from '../sync/time-slice'
 
 /** Asks the sim PC a lookup (`HostLink.query`). */
 type Ask = (name: string, ...args: unknown[]) => Promise<unknown>
+
+/** Points stored in one transaction: a few tens of milliseconds, so the app is never held for long. */
+export const INSERT_CHUNK = 1000
 
 /** A host that never says it has no more pages is not asked for ever: a flight has far fewer than this many. */
 const MAX_PAGES = 1000
@@ -53,7 +63,12 @@ async function flightsWithTrack(ask: Ask): Promise<Set<string> | null> {
  */
 export async function syncTrackPoints(db: WingLogDb, ask: Ask): Promise<number> {
   let brought = 0
+  // A track left half stored by a stop between chunks is removed, and so fetched again whole.
+  discardUnfinishedTracks(db)
   const tracked = await flightsWithTrack(ask)
+  // A track is thousands of points checked one by one, and stored in chunks: the app gets the thread back between them. Because a flight with
+  // any point counts as having its track, the flight is marked while it is stored in pieces.
+  const slice = timeSlicer()
   for (const flight of listCompletedFlightsWithoutTrack(db)) {
     if (tracked && !tracked.has(flight.uuid)) continue
     const rows: (typeof trackPoint.$inferInsert)[] = []
@@ -61,6 +76,7 @@ export async function syncTrackPoints(db: WingLogDb, ask: Ask): Promise<number> 
     for (let page = 0; offset !== null && page < MAX_PAGES; page++) {
       const answer = pageFrom(await ask('sync.trackPoints', flight.uuid, offset))
       for (const point of answer.points) {
+        await slice()
         const checked = validateSyncFields(trackPoint, point, ['flightId'])
         if (checked.ok)
           rows.push({ ...checked.fields, flightId: flight.id } as typeof trackPoint.$inferInsert)
@@ -69,7 +85,12 @@ export async function syncTrackPoints(db: WingLogDb, ask: Ask): Promise<number> 
       offset = answer.next
     }
     if (rows.length > 0) {
-      insertTrackPointRows(db, rows)
+      markTrackUnfinished(db, flight.uuid)
+      for (let i = 0; i < rows.length; i += INSERT_CHUNK) {
+        insertTrackPointRows(db, rows.slice(i, i + INSERT_CHUNK))
+        await slice()
+      }
+      markTrackFinished(db, flight.uuid)
       brought += 1
     }
   }

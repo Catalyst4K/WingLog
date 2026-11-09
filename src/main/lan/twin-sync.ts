@@ -16,6 +16,8 @@ import { localSyncVersion } from '../sync/sync-version'
 /** The most one page of changed rows carries, in bytes and rows: a whole table in one answer could be tens of megabytes. */
 export const PULL_PAGE_BYTES = 3_000_000
 export const PULL_PAGE_ROWS = 200
+/** The most work one page takes to build, milliseconds: a page that has taken this long ends there and the twin asks for the next, so the host's window is never held for long. */
+export const PULL_PAGE_BUDGET_MS = 40
 
 /** One page of a table's changed rows, the counter to ask from next, and whether there is a further page. */
 export interface PullPage {
@@ -107,7 +109,12 @@ export function pullChanges(
   let last = from
   let bytes = 0
   let more = found.length > PULL_PAGE_ROWS
+  const started = performance.now()
   for (const change of looked) {
+    if (rows.length > 0 && performance.now() - started > PULL_PAGE_BUDGET_MS) {
+      more = true
+      break
+    }
     if (change.origin !== own) {
       const row = serializeChange(db, table, change.uuid)
       if (row) {
@@ -196,9 +203,13 @@ export function twinSyncDeviceQueries(
   return {
     'sync.pull': (deviceId, table, cursor) => pullChanges(db, tableArg(table), cursorArg(cursor), deviceId),
     'sync.push': (deviceId, table, rows) => {
-      const result = applyPushedRows(db, tableArg(table), rowsArg(rows), dbPath, twinOrigin(deviceId))
-      if (result.upserted.length > 0) onApplied()
-      return result
+      // Checked now, so a bad request is refused at once; the rows are then applied a few at a time.
+      const checkedTable = tableArg(table)
+      const checkedRows = rowsArg(rows)
+      return applyPushedRows(db, checkedTable, checkedRows, dbPath, twinOrigin(deviceId)).then((result) => {
+        if (result.upserted.length > 0) onApplied()
+        return result
+      })
     }
   }
 }

@@ -27,6 +27,7 @@ import {
   type SyncSession,
   type SyncTableResult
 } from './sync-engine'
+import { timeSlicer } from './time-slice'
 
 /** A peer that serves pages: the cloud, or the sim PC's host. */
 export interface PagedSyncClient {
@@ -70,9 +71,12 @@ async function pullTable(
 ): Promise<void> {
   const pulledRows: { row: SyncRow; applied: boolean }[] = []
   let cursor = getPullCursor(db, peer, table)
+  // A page can be hundreds of rows: the app gets the thread back between rows.
+  const slice = timeSlicer()
   for (;;) {
     const page = await client.syncPullPage(session.email, session.token, table, cursor)
     for (const row of page.rows) {
+      await slice()
       const outcome = applyPulledRow(db, table, row)
       if (outcome.ok) pulledRows.push({ row, applied: outcome.applied })
       if (!outcome.ok) {
@@ -126,12 +130,14 @@ async function pushTable(
   result: SyncTableResult
 ): Promise<void> {
   let after = getPushCursor(db, peer, table)
+  const slice = timeSlicer()
   for (;;) {
     const changes = listChangesAfter(db, table, after, PUSH_CHUNK)
     if (changes.length === 0) break
     const rows: SyncRow[] = []
     for (const change of changes) {
       if (change.origin === peer) continue
+      await slice()
       const row = serializeChange(db, table, change.uuid)
       if (row) rows.push(row)
       else {

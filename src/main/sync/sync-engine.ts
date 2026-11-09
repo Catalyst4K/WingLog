@@ -30,6 +30,7 @@ import { getSetting, setSetting } from '../db/settings-repo'
 import type { SyncRow, SyncTable } from '../backend/sync-client'
 import { aircraft, flight, flightInvoice, landing } from '../db/schema'
 import { ofpFromWire, ofpToWire } from './ofp-wire'
+import { timeSlicer } from './time-slice'
 import { validateSyncFields } from './sync-row-validation'
 
 export interface SyncSession {
@@ -518,17 +519,20 @@ export function splitPushBatches(rows: SyncRow[]): { batches: SyncRow[][]; overs
  * @param origin Who the rows came from (a twin), recorded so they are not sent back to it.
  * @returns The uuids applied, and those not (a newer row here, or a row that could not be applied: both are logged).
  */
-export function applyPushedRows(
+export async function applyPushedRows(
   db: WingLogDb,
   table: SyncTable,
   rows: SyncRow[],
   dbPath: string,
   origin?: string
-): { upserted: string[]; rejected: string[] } {
+): Promise<{ upserted: string[]; rejected: string[] }> {
   const upserted: string[] = []
   const rejected: string[] = []
   const pulled: { row: SyncRow; applied: boolean }[] = []
+  // A push can be hundreds of rows: the window gets the thread back between rows.
+  const slice = timeSlicer()
   for (const row of rows) {
+    await slice()
     const outcome = applyPulledRow(db, table, row)
     if (outcome.ok) pulled.push({ row, applied: outcome.applied })
     if (outcome.ok && outcome.applied) {
