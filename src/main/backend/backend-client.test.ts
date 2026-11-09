@@ -27,7 +27,7 @@ describe('signSimbriefRequest', () => {
 
     expect(apicode).toBe('abc123')
     const [url, init] = fetchMock.mock.calls[0]
-    expect(url).toBe('https://flightdeck-backend.callum-jones5.workers.dev/simbrief/sign')
+    expect(url).toBe('https://api.winglog.co.uk/simbrief/sign')
     expect(init?.method).toBe('POST')
     expect(JSON.parse(init?.body as string)).toEqual(PARAMS)
   })
