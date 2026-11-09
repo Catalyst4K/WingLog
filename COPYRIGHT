@@ -38,7 +38,7 @@ right to license this software under terms other than the GPL, including
 commercially. If GPL v3.0 does not suit your use case, ask.
 
 Contributions from others are accepted under the MIT licence so that this remains
-possible — see CONTRIBUTING.md.
+possible — see .github/CONTRIBUTING.md.
 
 Third-party code and data distributed with this program are covered by their own
 licences, reproduced in THIRD-PARTY-LICENSES.md. Those licences are unaffected by

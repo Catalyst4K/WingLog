@@ -8,7 +8,7 @@ import { defineConfig } from '@playwright/test'
 // into each other — an Electron app has no notion of Playwright's usual page-per-test
 // isolation on its own.
 export default defineConfig({
-  testDir: './e2e',
+  testDir: '../e2e',
   fullyParallel: false,
   workers: 1,
   reporter: 'list',

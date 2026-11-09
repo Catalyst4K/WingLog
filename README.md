@@ -132,9 +132,9 @@ To build an installer yourself: `npm run package:win` (it builds the manual firs
 - [`docs/manual/`](./docs/manual/): the user manual, in Markdown. The PDF built from it ships with
   the app.
 - [`CLAUDE.md`](./CLAUDE.md): working agreement for Claude Code sessions in this repo.
-- [`CONTRIBUTING.md`](./CONTRIBUTING.md): how contributions are licensed, and what can and can't be
+- [`CONTRIBUTING.md`](./.github/CONTRIBUTING.md): how contributions are licensed, and what can and can't be
   added as a dependency. Read this before opening a PR.
-- [`SECURITY.md`](./SECURITY.md): reporting a vulnerability.
+- [`SECURITY.md`](./.github/SECURITY.md): reporting a vulnerability.
 
 ## Licence
 
@@ -145,7 +145,7 @@ commercially; derivative works must also be GPL-3.0 and must make their source a
 Copyright (C) 2026 Callum Jones — see [`COPYRIGHT`](./COPYRIGHT) for the full notice.
 Copyright in the first-party code is held solely by the author, who retains the right to
 offer the software under other terms as well. If GPL-3.0 doesn't suit your use case, ask;
-see [`CONTRIBUTING.md`](./CONTRIBUTING.md) for how contributions are licensed so that
+see [`CONTRIBUTING.md`](./.github/CONTRIBUTING.md) for how contributions are licensed so that
 stays possible.
 
 Third-party code and data distributed with the app — including

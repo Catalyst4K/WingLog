@@ -21,7 +21,7 @@ export default defineConfig({
     environment: 'node',
     include: ['scripts/sim/*.sim.ts'],
     // No log file, as in the unit suite: a replay's log lines would land in the real main.log, which simulations read as flights.
-    setupFiles: ['./vitest.setup.unit.ts'],
+    setupFiles: ['./config/vitest.setup.unit.ts'],
     testTimeout: 600_000
   }
 })
