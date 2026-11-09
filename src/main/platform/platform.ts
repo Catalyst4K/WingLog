@@ -44,3 +44,14 @@ export function canShowTray(platform: Platform = currentPlatform()): boolean {
 export function quitsWhenAllWindowsClose(platform: Platform = currentPlatform()): boolean {
   return platform !== 'darwin'
 }
+
+/**
+ * Whether closing the window only hides it. On macOS the app keeps running with no window, and a window made again from the Dock would
+ * hear none of the live updates the services send to the first one, so the first one is kept (WindowKeeper).
+ *
+ * @param platform The platform to ask about; defaults to this machine's.
+ * @returns True on macOS.
+ */
+export function keepsWindowWhenClosed(platform: Platform = currentPlatform()): boolean {
+  return platform === 'darwin'
+}

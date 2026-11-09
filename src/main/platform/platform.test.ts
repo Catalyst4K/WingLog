@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { canHostSim, canShowTray, currentPlatform, quitsWhenAllWindowsClose } from './platform'
+import {
+  canHostSim,
+  canShowTray,
+  currentPlatform,
+  keepsWindowWhenClosed,
+  quitsWhenAllWindowsClose
+} from './platform'
 import { gsxReceiptsDefaultPath, msfsUserCfgPaths, userDataDirectory } from './paths'
 
 describe('currentPlatform', () => {
@@ -36,6 +42,14 @@ describe('quitsWhenAllWindowsClose', () => {
     expect(quitsWhenAllWindowsClose('win32')).toBe(true)
     expect(quitsWhenAllWindowsClose('linux')).toBe(true)
     expect(quitsWhenAllWindowsClose('darwin')).toBe(false)
+  })
+})
+
+describe('keepsWindowWhenClosed', () => {
+  it('is true on macOS only, where a window made again from the Dock would hear no live updates', () => {
+    expect(keepsWindowWhenClosed('darwin')).toBe(true)
+    expect(keepsWindowWhenClosed('win32')).toBe(false)
+    expect(keepsWindowWhenClosed('linux')).toBe(false)
   })
 })
 

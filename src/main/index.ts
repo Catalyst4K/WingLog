@@ -19,6 +19,7 @@ import { FlightRelay } from './host-link/flight-relay'
 import { flightControl as makeFlightControl, type FlightControl } from './lan/twin-flight'
 import { getFlightIdByUuid } from './db/flight-repo'
 import { CloseGuard } from './window/CloseGuard'
+import { keepWindowWhenClosed } from './window/WindowKeeper'
 import { CloseQuestion } from './window/CloseQuestion'
 import { registerWindowHandlers } from './ipc/window-handlers'
 import { TrayController } from './window/TrayController'
@@ -553,9 +554,8 @@ function startApp(cloudSession: StoredSession | null): void {
   // Last, so every channel a started service registered is left alone.
   if (isClient) registerInertHandlers(ipcMain, handledChannels)
 
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow(false)
-  })
+  // macOS: the Dock icon shows the window again, and closing hides it, so the services keep sending to the window on screen.
+  keepWindowWhenClosed(app, window)
 }
 
 /**
