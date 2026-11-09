@@ -19,6 +19,7 @@ import { FlightRelay } from './host-link/flight-relay'
 import { flightControl as makeFlightControl, type FlightControl } from './lan/twin-flight'
 import { getFlightIdByUuid } from './db/flight-repo'
 import { CloseGuard } from './window/CloseGuard'
+import { dataChangedNotifier } from './window/data-changed'
 import { keepWindowWhenClosed } from './window/WindowKeeper'
 import { CloseQuestion } from './window/CloseQuestion'
 import { registerWindowHandlers } from './ipc/window-handlers'
@@ -530,6 +531,7 @@ function startApp(cloudSession: StoredSession | null): void {
       db,
       dbPath,
       flightControl,
+      onTwinChange: dataChangedNotifier(window),
       liveHub,
       devDiagnostics,
       sim,

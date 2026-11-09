@@ -50,6 +50,8 @@ export interface CreateLanDeps {
   dbPath: string
   /** What a twin may make this computer do with a flight (fly, start, finish, stop, cancel). */
   flightControl: FlightControl
+  /** Called when another WingLog changed data here (rows it pushed, a flight it flew or cancelled): the window reads again. */
+  onTwinChange?: () => void
   liveHub: Pick<LiveHub, 'subscribe' | 'snapshot' | 'publish'>
   trackingController: Pick<TrackingController, 'getActive' | 'on'>
   /** The procedure choice for the flight shown: the one every screen follows. */
@@ -179,6 +181,7 @@ export function createLan({
   db,
   dbPath,
   flightControl,
+  onTwinChange,
   liveHub,
   trackingController,
   selection,
@@ -231,10 +234,10 @@ export function createLan({
       const settings = getLanSettings(db)
       return { screen: settings.enabled, twin: settings.twinEnabled }
     },
-    deviceQueries: twinSyncDeviceQueries(db, dbPath),
+    deviceQueries: twinSyncDeviceQueries(db, dbPath, onTwinChange),
     queries: {
       ...twinSyncQueries(db),
-      ...twinFlightQueries(flightControl),
+      ...twinFlightQueries(flightControl, onTwinChange),
       ...lanQueries(navdata, {
         display: () => ({
           weightUnit: getWeightUnit(db),

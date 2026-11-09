@@ -2,7 +2,7 @@ import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { eq } from 'drizzle-orm'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import { createDb, type WingLogDb } from '../db/client'
 import { createAircraft } from '../db/aircraft-repo'
@@ -144,6 +144,23 @@ describe('a twin’s sync lookups on the host', () => {
     expect(queries['sync.version']()).toEqual(localSyncVersion(db))
     expect(localSyncVersion(db)).toMatchObject({ protocol: 2 })
     expect(localSyncVersion(db).schema).toBeGreaterThan(40)
+  })
+
+  it('tells the window when a push stored rows, and not when it stored none', () => {
+    const applied = vi.fn()
+    const watching = twinSyncDeviceQueries(db, join(dir, 'winglog.db'), applied)
+    const row = {
+      uuid: 'pushed-aircraft',
+      updatedAt: '2026-11-09T10:00:00.000Z',
+      data: JSON.stringify({ registration: 'G-PUSH', icaoType: 'A320' })
+    }
+    watching['sync.push'](TWIN, 'aircraft', [row])
+    expect(applied).toHaveBeenCalledTimes(1)
+    // The same row again changes nothing here.
+    watching['sync.push'](TWIN, 'aircraft', [row])
+    expect(applied).toHaveBeenCalledTimes(1)
+    watching['sync.push'](TWIN, 'aircraft', [])
+    expect(applied).toHaveBeenCalledTimes(1)
   })
 
   it('applies pushed rows by last write wins, and says which were not applied', () => {

@@ -113,6 +113,12 @@ test('a client pairs with the host by address and code, follows its sim and keep
         expect(await client.window.evaluate(() => window.winglog.hostLinkGetStatus())).toMatchObject({
           sync: { state: 'idle' }
         })
+        // The host's own window is told when the client changes something there, since it did not make the change itself.
+        await host.window.evaluate(() => {
+          const counter = window as unknown as { __dataChanged: number }
+          counter.__dataChanged = 0
+          window.winglog.onDataChanged(() => (counter.__dataChanged += 1))
+        })
         // A flight is planned on the client and flown on the host, where the sim is: Fly sends it across, Start tracks it there, Finish ends it.
         const planned = await client.window.evaluate(async () => {
           const aircraft = (await window.winglog.aircraftList()).find((a) => a.registration === 'G-HOST')
@@ -134,6 +140,14 @@ test('a client pairs with the host by address and code, follows its sim and keep
             { timeout: 30_000 }
           )
           .toEqual(['MAC1'])
+        await expect
+          .poll(
+            () => host.window.evaluate(() => (window as unknown as { __dataChanged: number }).__dataChanged),
+            {
+              timeout: 10_000
+            }
+          )
+          .toBeGreaterThan(0)
         await client.window.evaluate((id) => window.winglog.trackingStart(id), planned.id)
         await expect
           .poll(() => host.window.evaluate(async () => (await window.winglog.trackingGetActive()) !== null), {

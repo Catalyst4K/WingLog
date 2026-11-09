@@ -79,6 +79,36 @@ describe('what a twin may make the sim PC do with a flight', () => {
     expect(() => control().cancel('unknown')).not.toThrow()
   })
 
+  it('tells the window after each command, so it reads the flights again, and not after a command that was refused', () => {
+    const changed = vi.fn()
+    const ok = twinFlightQueries(
+      { fly: vi.fn(), start: vi.fn(), finish: vi.fn(), stop: vi.fn(), cancel: vi.fn() },
+      changed
+    )
+    ok['flight.fly']('u')
+    ok['flight.start']('u')
+    ok['flight.finish']()
+    ok['flight.stop']()
+    ok['flight.cancel']('u')
+    expect(changed).toHaveBeenCalledTimes(5)
+    const refused = vi.fn()
+    const failing = twinFlightQueries(
+      {
+        fly: vi.fn(() => {
+          throw new Error('Unknown flight')
+        }),
+        start: vi.fn(),
+        finish: vi.fn(),
+        stop: vi.fn(),
+        cancel: vi.fn()
+      },
+      refused
+    )
+    expect(() => failing['flight.fly']('u')).toThrow('Unknown flight')
+    expect(() => failing['flight.fly'](5)).toThrow('Invalid flight')
+    expect(refused).not.toHaveBeenCalled()
+  })
+
   it('exposes them as lookups that check their argument', () => {
     const queries = twinFlightQueries({
       fly: vi.fn(),

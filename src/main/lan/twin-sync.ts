@@ -185,15 +185,20 @@ export function twinSyncQueries(db: WingLogDb): Record<string, (...args: unknown
 /**
  * @param db The database.
  * @param dbPath The database file's path, where conflicts are logged next to it.
+ * @param onApplied Called when a push stored rows, so the window on this computer can read them (it did not make the change).
  * @returns The lookups a twin may ask that need its device id: `sync.pull` and `sync.push`.
  */
 export function twinSyncDeviceQueries(
   db: WingLogDb,
-  dbPath: string
+  dbPath: string,
+  onApplied: () => void = () => {}
 ): Record<string, (deviceId: number, ...args: unknown[]) => unknown> {
   return {
     'sync.pull': (deviceId, table, cursor) => pullChanges(db, tableArg(table), cursorArg(cursor), deviceId),
-    'sync.push': (deviceId, table, rows) =>
-      applyPushedRows(db, tableArg(table), rowsArg(rows), dbPath, twinOrigin(deviceId))
+    'sync.push': (deviceId, table, rows) => {
+      const result = applyPushedRows(db, tableArg(table), rowsArg(rows), dbPath, twinOrigin(deviceId))
+      if (result.upserted.length > 0) onApplied()
+      return result
+    }
   }
 }

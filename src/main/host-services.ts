@@ -107,6 +107,7 @@ function startSecondScreen(
     | 'db'
     | 'dbPath'
     | 'flightControl'
+    | 'onTwinChange'
     | 'liveHub'
     | 'trackingController'
     | 'selection'
@@ -138,6 +139,8 @@ export function startHostServices(deps: {
   db: WingLogDb
   dbPath: string
   flightControl: FlightControl
+  /** Called when another WingLog changed data here: the window reads again. */
+  onTwinChange: () => void
   liveHub: LiveHub
   devDiagnostics: DevDiagnostics | undefined
   sim: SimConnectService | ReplaySimConnectService
@@ -165,6 +168,7 @@ export function startHostServices(deps: {
     db,
     dbPath,
     flightControl: deps.flightControl,
+    onTwinChange: deps.onTwinChange,
     liveHub,
     trackingController,
     selection: deps.selection,

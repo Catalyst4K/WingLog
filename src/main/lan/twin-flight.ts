@@ -103,14 +103,22 @@ export function flightControl(deps: {
 
 /**
  * @param control What a twin may make this computer do with a flight.
+ * @param onChanged Called after a command ran, so the window on this computer reads the flights again (it did not make the change).
  * @returns The lookups a twin may ask: \`flight.fly\`, \`flight.start\`, \`flight.finish\`, \`flight.stop\` and \`flight.cancel\`.
  */
-export function twinFlightQueries(control: FlightControl): Record<string, (...args: unknown[]) => unknown> {
+export function twinFlightQueries(
+  control: FlightControl,
+  onChanged: () => void = () => {}
+): Record<string, (...args: unknown[]) => unknown> {
+  const then = (run: () => void): void => {
+    run()
+    onChanged()
+  }
   return {
-    'flight.fly': (uuid) => control.fly(uuidArg(uuid)),
-    'flight.start': (uuid) => control.start(uuidArg(uuid)),
-    'flight.finish': () => control.finish(),
-    'flight.stop': () => control.stop(),
-    'flight.cancel': (uuid) => control.cancel(uuidArg(uuid))
+    'flight.fly': (uuid) => then(() => control.fly(uuidArg(uuid))),
+    'flight.start': (uuid) => then(() => control.start(uuidArg(uuid))),
+    'flight.finish': () => then(() => control.finish()),
+    'flight.stop': () => then(() => control.stop()),
+    'flight.cancel': (uuid) => then(() => control.cancel(uuidArg(uuid)))
   }
 }
