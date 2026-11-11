@@ -196,7 +196,7 @@ describe('a twin’s sync lookups on the host', () => {
     expect(await push('aircraft', [older])).toEqual({ upserted: [], rejected: [row.uuid] })
     const newer = {
       ...row,
-      updatedAt: '2999-01-01T00:00:00.000Z',
+      updatedAt: new Date(Date.now() + 3_600_000).toISOString(),
       data: JSON.stringify({ ...JSON.parse(row.data), icaoType: 'B738' })
     }
     expect(await push('aircraft', [newer])).toEqual({ upserted: [row.uuid], rejected: [] })
@@ -214,6 +214,40 @@ describe('a twin’s sync lookups on the host', () => {
     expect(await push('aircraft', [fresh])).toMatchObject({ upserted: [fresh.uuid] })
     const bad = { ...fresh, uuid: '99999999-0000-0000-0000-000000000000', data: '{"registration":5}' }
     expect(await push('aircraft', [bad])).toEqual({ upserted: [], rejected: [bad.uuid] })
+  })
+
+  it('refuses a twin row timed zzzz, and still takes a real, newer edit to the same row from another twin (audit M2)', async () => {
+    const uuid = '11111111-2222-3333-4444-555555555555'
+    const data = (icaoType: string): string => JSON.stringify({ registration: 'G-ZZZZ', icaoType })
+    expect(await push('aircraft', [{ uuid, updatedAt: 'zzzz', data: data('A320') }], TWIN)).toEqual({
+      upserted: [],
+      rejected: [uuid]
+    })
+    expect(
+      await push('aircraft', [{ uuid, updatedAt: '9999-12-31T23:59:59.999Z', data: data('A320') }], TWIN)
+    ).toEqual({
+      upserted: [],
+      rejected: [uuid]
+    })
+    const real = new Date().toISOString()
+    expect(await push('aircraft', [{ uuid, updatedAt: real, data: data('B738') }], OTHER_TWIN)).toEqual({
+      upserted: [uuid],
+      rejected: []
+    })
+    expect(JSON.parse(pull('aircraft', null, TWIN).rows[0].data).icaoType).toBe('B738')
+  })
+
+  it('applies a twin push’s other rows when one has a bad time', async () => {
+    const good = (n: number): { uuid: string; updatedAt: string; data: string } => ({
+      uuid: `00000000-0000-0000-0000-00000000000${n}`,
+      updatedAt: new Date().toISOString(),
+      data: JSON.stringify({ registration: `G-GOO${n}`, icaoType: 'A320' })
+    })
+    const bad = { ...good(2), updatedAt: 'zzzz' }
+    expect(await push('aircraft', [good(1), bad, good(3)])).toEqual({
+      upserted: [good(1).uuid, good(3).uuid],
+      rejected: [bad.uuid]
+    })
   })
 
   it('refuses a table that is not synced, a bad cursor and malformed or oversize rows', () => {

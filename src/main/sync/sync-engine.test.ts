@@ -23,6 +23,10 @@ import {
   splitPushBatches
 } from './sync-engine'
 
+/** Later than any row made while the tests run, yet inside the day a peer's row time may be ahead of the clock (`checkedPeerTime`). */
+const SOON = new Date(Date.now() + 3_600_000).toISOString()
+const SOON_AFTER = new Date(Date.now() + 7_200_000).toISOString()
+
 /** A high-fidelity fake of winglog-backend's real UserStore.push/pullPage semantics (last-write-wins on updatedAt, every write takes the
  *  next number, a pull is a page after a cursor) — see winglog-backend's src/user-store.ts, which this deliberately mirrors rather than
  *  reinventing. */
@@ -144,7 +148,7 @@ describe('sync-engine', () => {
     const localRow = db.select().from(aircraft).where(eq(aircraft.id, created.id)).get()!
     server.seed('aircraft', {
       uuid: localRow.uuid as string,
-      updatedAt: '2099-01-01T00:00:00.000Z', // far in the future — always wins
+      updatedAt: SOON, // far in the future — always wins
       data: JSON.stringify({ registration: 'G-ABCD', icaoType: 'A320' })
     })
 
@@ -408,7 +412,7 @@ describe('sync-engine', () => {
     const otherUuid = db.select().from(aircraft).where(eq(aircraft.id, other.id)).get()!.uuid as string
     server.seed('aircraft', {
       uuid: otherUuid,
-      updatedAt: '2099-01-01T00:00:00.000Z',
+      updatedAt: SOON,
       data: JSON.stringify({ registration: 'G-DUPE', icaoType: 'B738' })
     })
 
@@ -441,7 +445,7 @@ describe('sync-engine', () => {
       // After the uuid-establishing sync above, this table's cursor has already advanced —
       // a fixed past timestamp would be filtered out by the fake server's own since-filter,
       // same as a real one would.
-      updatedAt: '2099-01-01T00:00:00.000Z',
+      updatedAt: SOON,
       data: JSON.stringify({ flightUuid }) // every other NOT NULL landing field is missing
     })
 
@@ -568,7 +572,7 @@ describe('sync-engine', () => {
 
     server.seed('flightInvoice', {
       uuid: 'incomplete-invoice',
-      updatedAt: '2099-01-01T00:00:00.000Z', // see the landing test above for why not a past date
+      updatedAt: SOON, // see the landing test above for why not a past date
       data: JSON.stringify({ flightUuid, receiptId: 'RCPT-INCOMPLETE' }) // sourceHtmlPath etc. missing
     })
 
@@ -588,12 +592,61 @@ describe('sync-engine', () => {
 
     expect(result.tables.flightInvoice.skipped).toEqual(['invoice-for-unknown-flight'])
   })
+  describe('a pulled row’s time is checked before the row is written (audit M2)', () => {
+    const aircraftRow = (uuid: string, updatedAt: string): SyncRow => ({
+      uuid,
+      updatedAt,
+      data: JSON.stringify({ registration: 'G-TIME', icaoType: 'A320' })
+    })
+
+    it.each([
+      ['text that is not a time', 'zzzz'],
+      ['a time two days ahead of this computer’s clock', new Date(Date.now() + 2 * 86_400_000).toISOString()],
+      ['the last time there is', '9999-12-31T23:59:59.999Z'],
+      ['a date that does not exist', '2026-02-31T10:00:00.000Z']
+    ])('refuses a row timed with %s, and writes nothing', (_name, updatedAt) => {
+      const outcome = applyPulledRow(db, 'aircraft', aircraftRow('timed-row', updatedAt))
+      expect(outcome).toMatchObject({ ok: false })
+      expect(db.select().from(aircraft).all()).toHaveLength(0)
+    })
+
+    it('stores a time without milliseconds the way toISOString writes it', () => {
+      expect(applyPulledRow(db, 'aircraft', aircraftRow('short-time', '2026-11-11T10:00:00Z'))).toMatchObject(
+        {
+          ok: true,
+          applied: true
+        }
+      )
+      expect(db.select().from(aircraft).get()?.updatedAt).toBe('2026-11-11T10:00:00.000Z')
+    })
+
+    it('skips and logs a bad-time row in a pull, and carries on with the rest', async () => {
+      server.seed('aircraft', aircraftRow('bad-time', 'zzzz'))
+      server.seed('aircraft', {
+        ...aircraftRow('good-time', '2026-11-11T10:00:00.000Z'),
+        data: JSON.stringify({ registration: 'G-GOOD', icaoType: 'A320' })
+      })
+
+      const result = await runSync(db, server, SESSION, dbPath)
+
+      expect(result.tables.aircraft.skipped).toEqual(['bad-time'])
+      expect(
+        db
+          .select()
+          .from(aircraft)
+          .all()
+          .map((a) => a.registration)
+      ).toEqual(['G-GOOD'])
+      expect(readFileSync(dbPath.replace('winglog.db', 'sync-conflicts.log'), 'utf8')).toContain('bad-time')
+    })
+  })
+
   describe('a pulled row is checked against its table before it is written', () => {
     it('never lets a pulled row choose its own local id', async () => {
       const mine = createAircraft(db, { registration: 'G-MINE', icaoType: 'A320' })
       server.seed('aircraft', {
         uuid: 'planted-id',
-        updatedAt: '2099-01-01T00:00:00.000Z',
+        updatedAt: SOON,
         data: JSON.stringify({ id: mine.id, registration: 'G-PLNT', icaoType: 'B738' })
       })
 
@@ -617,7 +670,7 @@ describe('sync-engine', () => {
         .get()!.uuid as string
       server.seed('flight', {
         uuid: 'bad-fuel',
-        updatedAt: '2099-01-01T00:00:00.000Z',
+        updatedAt: SOON,
         data: JSON.stringify({ aircraftUuid, depIcao: 'EGLL', arrIcao: 'EGKK', fuelOutKg: 'lots' })
       })
 
@@ -638,7 +691,7 @@ describe('sync-engine', () => {
         .uuid as string
       server.seed('flightInvoice', {
         uuid: 'bad-path',
-        updatedAt: '2099-01-01T00:00:00.000Z',
+        updatedAt: SOON,
         data: JSON.stringify({
           flightUuid,
           serviceGroup: 'fuel',
@@ -659,7 +712,7 @@ describe('sync-engine', () => {
     it('ignores a field the table does not have rather than failing the row', async () => {
       server.seed('aircraft', {
         uuid: 'newer-app',
-        updatedAt: '2099-01-01T00:00:00.000Z',
+        updatedAt: SOON,
         data: JSON.stringify({ registration: 'G-NEWR', icaoType: 'A21N', fieldFromTheFuture: true })
       })
 
@@ -702,7 +755,7 @@ describe('sync-engine', () => {
       migrate(second.db, { migrationsFolder: 'drizzle' })
       createAircraft(second.db, { registration: 'G-OLD1', icaoType: 'A320' })
       createAircraft(second.db, { registration: 'G-NEW1', icaoType: 'A320' })
-      second.db.update(aircraft).set({ updatedAt: '2099-01-01T00:00:00.000Z' }).run()
+      second.db.update(aircraft).set({ updatedAt: SOON }).run()
       await runSync(second.db, server, SESSION, join(tempDir, 'second.db'))
 
       const rows = second.db.select().from(aircraft).all()
@@ -724,7 +777,7 @@ describe('sync-engine', () => {
       createAircraft(second.db, { registration: 'G-NEW1', icaoType: 'A320' })
       const other = createAircraft(second.db, { registration: 'G-OTH1', icaoType: 'A320' })
       replaceAircraft(second.db, { retiredId: localOld.id, replacementId: other.id })
-      second.db.update(aircraft).set({ updatedAt: '2099-01-01T00:00:00.000Z' }).run()
+      second.db.update(aircraft).set({ updatedAt: SOON }).run()
       await runSync(second.db, server, SESSION, join(tempDir, 'second.db'))
 
       const row = second.db.select().from(aircraft).where(eq(aircraft.registration, 'G-OLD1')).get()
@@ -734,7 +787,7 @@ describe('sync-engine', () => {
     it('links even when the replacement comes later in the same pull', async () => {
       server.seed('aircraft', {
         uuid: 'retired',
-        updatedAt: '2099-01-01T00:00:00.000Z',
+        updatedAt: SOON,
         data: JSON.stringify({
           registration: 'G-RET1',
           icaoType: 'A320',
@@ -743,7 +796,7 @@ describe('sync-engine', () => {
       })
       server.seed('aircraft', {
         uuid: 'successor',
-        updatedAt: '2099-01-02T00:00:00.000Z',
+        updatedAt: SOON_AFTER,
         data: JSON.stringify({ registration: 'G-SUC1', icaoType: 'A320' })
       })
 
@@ -759,7 +812,7 @@ describe('sync-engine', () => {
       const mine = createAircraft(db, { registration: 'G-MINE', icaoType: 'A320' })
       server.seed('aircraft', {
         uuid: 'forged',
-        updatedAt: '2099-01-01T00:00:00.000Z',
+        updatedAt: SOON,
         data: JSON.stringify({
           registration: 'G-FRG1',
           icaoType: 'A320',
@@ -838,10 +891,10 @@ describe('sync-engine', () => {
     it('merges into the local aircraft instead of skipping it, and attaches its flights', async () => {
       const mine = createAircraft(db, { registration: 'G-ABCD', icaoType: 'A320' })
       await runSync(db, server, SESSION, dbPath)
-      server.seed('aircraft', remoteAircraft('2099-01-01T00:00:00.000Z', 'A321'))
+      server.seed('aircraft', remoteAircraft(SOON, 'A321'))
       server.seed('flight', {
         uuid: 'remote-flight',
-        updatedAt: '2099-01-01T00:00:00.000Z',
+        updatedAt: SOON,
         data: JSON.stringify({ aircraftUuid: 'other-device-uuid', depIcao: 'EGLL', arrIcao: 'EGCC' })
       })
 
@@ -869,7 +922,7 @@ describe('sync-engine', () => {
 
   describe('the same flight held by two devices under different uuids', () => {
     const OUT = '2026-04-12T22:52:00.000Z'
-    const LATER = '2099-01-01T00:00:00.000Z'
+    const LATER = SOON
     const LANDING = {
       seq: 1,
       icao: null,
@@ -982,12 +1035,12 @@ describe('sync-engine', () => {
         updatedAt: LATER,
         data: JSON.stringify({ registration: 'G-OLDX', icaoType: 'A320' })
       })
-      server.seed('flight', { ...theirFlight('their-aircraft'), updatedAt: '2099-01-01T00:00:00.000Z' })
+      server.seed('flight', { ...theirFlight('their-aircraft'), updatedAt: SOON })
       // A second flight that only the other device has, on its name for the aircraft.
       server.seed('flight', {
         ...theirFlight('their-aircraft', { actualOutUtc: '2026-04-20T10:00:00.000Z' }),
         uuid: 'their-other-flight',
-        updatedAt: '2099-01-02T00:00:00.000Z'
+        updatedAt: SOON_AFTER
       })
 
       const result = await runSync(db, server, SESSION, dbPath)
@@ -1185,7 +1238,7 @@ describe('sync-engine', () => {
     it('still skips a flight whose aircraftUuid is missing altogether', async () => {
       server.seed('flight', {
         uuid: 'broken',
-        updatedAt: '2099-01-01T00:00:00.000Z',
+        updatedAt: SOON,
         data: JSON.stringify({ depIcao: 'EGLL', arrIcao: 'EGCC' })
       })
 
@@ -1249,10 +1302,7 @@ describe('sync-engine', () => {
       await runSync(other.db, server, SESSION, otherPath)
       expect(other.db.select().from(flight).get()?.ofpJson).toBe('{"a":1}')
 
-      db.update(flight)
-        .set({ ofpJson: null, updatedAt: '2099-01-01T00:00:00.000Z' })
-        .where(eq(flight.id, id))
-        .run()
+      db.update(flight).set({ ofpJson: null, updatedAt: SOON }).where(eq(flight.id, id)).run()
       await runSync(db, server, SESSION, dbPath)
       await runSync(other.db, server, SESSION, otherPath)
 
@@ -1262,12 +1312,12 @@ describe('sync-engine', () => {
     it('still applies a row from before ofpJsonZ that carries a plain ofpJson', async () => {
       server.seed('aircraft', {
         uuid: 'a1',
-        updatedAt: '2099-01-01T00:00:00.000Z',
+        updatedAt: SOON,
         data: JSON.stringify({ registration: 'G-OLD1', icaoType: 'A320' })
       })
       server.seed('flight', {
         uuid: 'old-flight',
-        updatedAt: '2099-01-01T00:00:00.000Z',
+        updatedAt: SOON,
         data: JSON.stringify({
           aircraftUuid: 'a1',
           depIcao: 'EGLL',
@@ -1284,17 +1334,17 @@ describe('sync-engine', () => {
     it('skips a row whose OFP cannot be read, and carries on with the rest', async () => {
       server.seed('aircraft', {
         uuid: 'a1',
-        updatedAt: '2099-01-01T00:00:00.000Z',
+        updatedAt: SOON,
         data: JSON.stringify({ registration: 'G-OLD1', icaoType: 'A320' })
       })
       server.seed('flight', {
         uuid: 'broken-ofp',
-        updatedAt: '2099-01-01T00:00:00.000Z',
+        updatedAt: SOON,
         data: JSON.stringify({ aircraftUuid: 'a1', depIcao: 'EGLL', arrIcao: 'EGCC', ofpJsonZ: 'AAAA' })
       })
       server.seed('flight', {
         uuid: 'fine',
-        updatedAt: '2099-01-02T00:00:00.000Z',
+        updatedAt: SOON_AFTER,
         data: JSON.stringify({ aircraftUuid: 'a1', depIcao: 'EGCC', arrIcao: 'EGLL' })
       })
 
@@ -1308,12 +1358,12 @@ describe('sync-engine', () => {
     it('skips a pulled aircraft or landing whose fields are the wrong type, and says why', async () => {
       server.seed('aircraft', {
         uuid: 'bad-aircraft',
-        updatedAt: '2099-01-01T00:00:00.000Z',
+        updatedAt: SOON,
         data: JSON.stringify({ registration: 'G-BAD1', icaoType: 'A320', operator: 5 })
       })
       server.seed('landing', {
         uuid: 'bad-landing',
-        updatedAt: '2099-01-01T00:00:00.000Z',
+        updatedAt: SOON,
         data: JSON.stringify({ flightUuid: 'whatever', verticalSpeedMs: 'hard' })
       })
 
@@ -1333,7 +1383,7 @@ describe('sync-engine', () => {
       setSetting(db, 'aircraftAlias:other-device', 'gone-from-here')
       const outcome = applyPulledRow(db, 'aircraft', {
         uuid: 'other-device',
-        updatedAt: '2099-01-01T00:00:00.000Z',
+        updatedAt: SOON,
         data: JSON.stringify({ registration: 'G-NEWR', icaoType: 'A320' })
       })
       expect(outcome).toMatchObject({ ok: true, applied: true, uuid: 'gone-from-here' })

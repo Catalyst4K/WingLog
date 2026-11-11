@@ -26,6 +26,7 @@ import { findLiveFlightByContent } from '../db/flight-match-repo'
 import { getFlightIdByUuid, getFlightUuidById, upsertFlightByUuid } from '../db/flight-repo'
 import { hasLandingUnderOtherUuid, upsertLandingByUuid } from '../db/landing-repo'
 import { markOrigin } from '../db/sync-change-repo'
+import { checkedPeerTime } from '../db/sync-rows'
 import { getSetting, setSetting } from '../db/settings-repo'
 import type { SyncRow, SyncTable } from '../backend/sync-client'
 import { aircraft, flight, flightInvoice, gsxRoutine, landing } from '../db/schema'
@@ -513,14 +514,23 @@ export function serializeChange(db: WingLogDb, table: SyncTable, uuid: string): 
 }
 
 /**
- * Applies one row that came from another device, by uuid, with last write wins.
+ * Applies one row that came from another device, by uuid, with last write wins. Its time is checked first (`checkedPeerTime`): a time that is not real, or is more than a day ahead, refuses the row, and a valid one is stored in `toISOString`'s form.
  *
  * @param db The database.
  * @param table The table the row is for.
- * @param row The row.
+ * @param pulled The row, as it came.
  * @returns Whether it applied, lost to a newer local row, or could not be applied.
  */
-export function applyPulledRow(db: WingLogDb, table: SyncTable, row: SyncRow): ApplyResult {
+export function applyPulledRow(db: WingLogDb, table: SyncTable, pulled: SyncRow): ApplyResult {
+  // Every row from outside goes through here (the cloud pull, a twin's pull, a twin's push), so this is the one place its time is checked.
+  const updatedAt = checkedPeerTime(pulled.updatedAt, Date.now())
+  if (updatedAt === null) {
+    return {
+      ok: false,
+      error: `updatedAt is not a real time within a day of this computer's clock: ${JSON.stringify(pulled.updatedAt).slice(0, 80)}`
+    }
+  }
+  const row = { ...pulled, updatedAt }
   switch (table) {
     case 'aircraft':
       return applyAircraft(db, row)

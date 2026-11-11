@@ -13,6 +13,9 @@ import type { SyncRow, SyncTable } from '../backend/sync-client'
 import { runCursorSync, resetPeer, type PagedSyncClient } from './cursor-sync'
 import { applyPulledRow } from './sync-engine'
 
+/** Later than any row made while the tests run, yet inside the day a peer's row time may be ahead of the clock (`checkedPeerTime`). */
+const SOON = new Date(Date.now() + 3_600_000).toISOString()
+
 /** A peer that behaves like the Worker: every write takes the next number, last write wins, and a pull is a page after a cursor. */
 class FakePeer implements PagedSyncClient {
   private rows = new Map<SyncTable, Map<string, { row: SyncRow; seq: number }>>()
@@ -203,7 +206,7 @@ describe('runCursorSync', () => {
     createAircraft(pc.db, { registration: 'G-ABCD', icaoType: 'A320' })
     await sync(pc)
     await sync(mac)
-    mac.db.update(aircraft).set({ icaoType: 'A321', updatedAt: '2099-01-01T00:00:00.000Z' }).run()
+    mac.db.update(aircraft).set({ icaoType: 'A321', updatedAt: SOON }).run()
 
     const result = await sync(mac)
 
@@ -264,7 +267,7 @@ describe('runCursorSync', () => {
     // Another device's copy of the same flight, under its own uuid, newer than the local one.
     peer.seed('flight', {
       uuid: 'their-flight',
-      updatedAt: '2099-01-01T00:00:00.000Z',
+      updatedAt: SOON,
       data: JSON.stringify({
         aircraftUuid: planeUuid,
         depIcao: 'EGLL',

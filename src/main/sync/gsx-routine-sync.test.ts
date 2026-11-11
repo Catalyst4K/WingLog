@@ -11,6 +11,9 @@ import type { GsxRoutine } from '@shared/gsx-routines'
 import { runCursorSync } from './cursor-sync'
 import { applyPulledRow } from './sync-engine'
 
+/** Later than any row made while the tests run, yet inside the day a peer's row time may be ahead of the clock (`checkedPeerTime`). */
+const SOON = new Date(Date.now() + 3_600_000).toISOString()
+
 vi.mock('../logging/logger', () => ({ logger: { warn: vi.fn(), info: vi.fn(), error: vi.fn() } }))
 
 const ROUTINE: GsxRoutine = {
@@ -70,7 +73,7 @@ describe('a GSX routine row arriving from another computer', () => {
   })
 
   it('is refused when it is malformed: not JSON, the wrong kind, no data, a long deleted time', () => {
-    expect(applyPulledRow(db, 'gsxRoutine', { uuid: 'x', updatedAt: 't', data: 'nope' })).toMatchObject({
+    expect(applyPulledRow(db, 'gsxRoutine', { uuid: 'x', updatedAt: SOON, data: 'nope' })).toMatchObject({
       ok: false
     })
     expect(applyPulledRow(db, 'gsxRoutine', row('x', { kind: 'other', data: '{}' }))).toMatchObject({
@@ -91,11 +94,7 @@ describe('a GSX routine row arriving from another computer', () => {
 
   it('removes a routine when it arrives as deleted, without needing the routine itself to be valid', () => {
     saveOwnRoutine(db, ROUTINE)
-    const newer = row(
-      'cabin-turn',
-      { kind: 'routine', data: '{}', deletedAt: '2099-01-01T00:00:00.000Z' },
-      '2099-01-01T00:00:00.000Z'
-    )
+    const newer = row('cabin-turn', { kind: 'routine', data: '{}', deletedAt: SOON }, SOON)
     expect(applyPulledRow(db, 'gsxRoutine', newer)).toMatchObject({ ok: true, applied: true })
     expect(listOwnRoutines(db).routines).toEqual([])
   })
