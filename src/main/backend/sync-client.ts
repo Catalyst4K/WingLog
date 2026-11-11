@@ -125,11 +125,12 @@ export async function logout(email: string, token: string): Promise<void> {
   await postJson('/auth/logout', { email, token })
 }
 
-/** One page of a pull: the rows, the cursor to ask from next, and whether there is a further page. */
+/** One page of a pull: the rows, the cursor to ask from next, and whether there is a further page. `head` is the table's newest change number on the Worker, when it says (an older Worker does not). */
 export interface SyncPage {
   rows: SyncRow[]
   cursor: number
   more: boolean
+  head?: number
 }
 
 /** A sync call carries up to 20 MB, so it gets longer than an account call, but not for ever (audit L6). */
@@ -181,11 +182,17 @@ export async function syncPullPage(
     !rowsOk ||
     !Number.isSafeInteger(page.cursor) ||
     (page.cursor as number) < 0 ||
-    typeof page.more !== 'boolean'
+    typeof page.more !== 'boolean' ||
+    (page.head !== undefined && (!Number.isSafeInteger(page.head) || page.head < 0))
   ) {
     throw new Error(BAD_ANSWER)
   }
-  return { rows: page.rows as SyncRow[], cursor: page.cursor as number, more: page.more }
+  return {
+    rows: page.rows as SyncRow[],
+    cursor: page.cursor as number,
+    more: page.more,
+    ...(page.head === undefined ? {} : { head: page.head })
+  }
 }
 
 /**

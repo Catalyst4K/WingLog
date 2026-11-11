@@ -89,6 +89,47 @@ describe('LanSyncClient and the host’s lookups, end to end between two databas
     expect(asked.filter((a) => a.name === 'sync.push')).toEqual([])
   })
 
+  it('sends a new sim PC database everything when the twin pairs again, and forgets nothing it has not been asked to (audit M8)', async () => {
+    addAircraft(host, 'G-HOST')
+    addAircraft(client, 'G-MACX')
+    const first = link()
+    await first.run()
+    await first.run()
+    expect(getPullCursor(client, 'host', 'aircraft')).toBeGreaterThan(0)
+    expect(getPushCursor(client, 'host', 'aircraft')).toBeGreaterThan(0)
+
+    // Pairing again, or forgetting the sim PC, drops the cursors kept for the old one.
+    first.forgetCursors()
+    expect(getPullCursor(client, 'host', 'aircraft')).toBeNull()
+    expect(getPushCursor(client, 'host', 'aircraft')).toBe(0)
+    // The cloud account's cursors are not the sim PC's to drop.
+    expect(getPullCursor(client, 'cloud', 'aircraft')).toBeNull()
+
+    // The sim PC now keeps a new, empty database: the twin sends it every row.
+    host = freshDb()
+    await link().run()
+    // G-HOST came from the old sim PC, so it is not sent back to a sim PC; G-MACX was made here and is.
+    expect(registrations(host)).toEqual(['G-MACX'])
+  })
+
+  it('also starts the sim PC again on its own when its database is new and the cursors were kept (no pairing between)', async () => {
+    addAircraft(client, 'G-MACX')
+    addAircraft(client, 'G-MACY')
+    addAircraft(client, 'G-MACZ')
+    const first = link()
+    await first.run()
+    await first.run()
+    expect(registrations(host)).toEqual(['G-MACX', 'G-MACY', 'G-MACZ'])
+
+    // A restored or new database on the sim PC, with a counter that starts low.
+    host = freshDb()
+    addAircraft(host, 'G-NEWH')
+    await link().run()
+
+    expect(registrations(host)).toEqual(['G-MACX', 'G-MACY', 'G-MACZ', 'G-NEWH'])
+    expect(registrations(client)).toEqual(['G-MACX', 'G-MACY', 'G-MACZ', 'G-NEWH'])
+  })
+
   it('pages a long table across the link', async () => {
     for (let i = 0; i < 260; i++) addAircraft(host, `G-${String(i).padStart(4, '0')}`)
     await link().run()
@@ -143,6 +184,15 @@ describe('LanSyncClient refuses what is not rows', () => {
     ]) {
       await expect(pull(bad)).rejects.toThrow('not rows')
     }
+    for (const head of [-1, 1.5, '3', null]) {
+      await expect(pull({ rows: [], cursor: 3, more: true, head })).rejects.toThrow('not rows')
+    }
+    await expect(pull({ rows: [], cursor: 3, more: false, head: 7 })).resolves.toEqual({
+      rows: [],
+      cursor: 3,
+      more: false,
+      head: 7
+    })
     await expect(pull({ rows: [], cursor: 3, more: true })).resolves.toEqual({
       rows: [],
       cursor: 3,

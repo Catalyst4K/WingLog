@@ -200,6 +200,7 @@ describe('HostLink', () => {
         },
         syncSoon: () => undefined,
         status: () => IDLE,
+        forgetCursors: () => undefined,
         onChange: () => undefined
       }
     })
@@ -238,6 +239,33 @@ describe('HostLink', () => {
     link.stop()
   })
 
+  it('drops the cursors kept for the old sim PC whenever it pairs and when it forgets, before anything new is synced (audit M8)', () => {
+    const events: string[] = []
+    const link = new HostLink({
+      hub,
+      store: memoryStore(),
+      createSocket: (url) => {
+        const socket = new FakeSocket(url)
+        sockets.push(socket)
+        events.push('socket')
+        return socket
+      },
+      deviceName: 'WingLog on MAC',
+      onStatus: () => {},
+      sync: {
+        run: () => Promise.resolve(true),
+        syncSoon: () => undefined,
+        status: () => IDLE,
+        forgetCursors: () => void events.push('forget cursors'),
+        onChange: () => undefined
+      }
+    })
+    link.pair('192.168.1.20:5051', '123456')
+    expect(events).toEqual(['forget cursors', 'socket'])
+    link.forget()
+    expect(events).toEqual(['forget cursors', 'socket', 'forget cursors'])
+  })
+
   it('forgets the sim PC: closes the link, deletes the stored token and goes back to unpaired', () => {
     const store = memoryStore()
     const link = make(store)
@@ -267,6 +295,7 @@ describe('HostLink', () => {
         run: () => Promise.resolve(true),
         syncSoon: (delayMs) => void asked.push(delayMs),
         status: () => current,
+        forgetCursors: () => undefined,
         onChange: (listener) => (changed = listener)
       }
     })

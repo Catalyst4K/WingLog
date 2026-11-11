@@ -98,6 +98,8 @@ export class HostLink {
     this.close()
     this.address = address
     this.token = null
+    // The sim PC may have a new or restored database whose counter starts low: what was sent to and taken from the one before means nothing now.
+    this.deps.sync?.forgetCursors()
     // Another WingLog pairs as a twin, with the code of the host's Pair another WingLog, not the second screen's.
     this.open()?.pair(code, 'twin')
     this.emit()
@@ -109,6 +111,7 @@ export class HostLink {
     this.address = null
     this.token = null
     this.hostSim = null
+    this.deps.sync?.forgetCursors()
     this.deps.store.clear()
     this.emit()
   }

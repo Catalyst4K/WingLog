@@ -6,7 +6,7 @@
  * The peer is `cloud`, or on a twin `host`, or on the sim PC `twin:<device id>`.
  */
 
-import { and, asc, eq, gt, like, or } from 'drizzle-orm'
+import { and, asc, eq, gt, like, max, or } from 'drizzle-orm'
 import type { WingLogDb } from './client'
 import { aircraft, appSetting, flight, flightInvoice, gsxRoutine, landing, syncChange } from './schema'
 import { getSetting, setSetting } from './settings-repo'
@@ -62,6 +62,21 @@ export function listChangesAfter(db: WingLogDb, table: string, afterSeq: number,
     .orderBy(asc(syncChange.seq))
     .limit(limit)
     .all()
+}
+
+/**
+ * @param db The database.
+ * @param table The synced table.
+ * @returns The highest counter any change to the table holds here, or 0 when it has none: what a peer's cursor can never be past unless
+ *   this database's counter went back (it was made again, or restored from a backup).
+ */
+export function latestChangeSeq(db: WingLogDb, table: string): number {
+  const row = db
+    .select({ seq: max(syncChange.seq) })
+    .from(syncChange)
+    .where(eq(syncChange.tableName, table))
+    .get()
+  return row?.seq ?? 0
 }
 
 /**

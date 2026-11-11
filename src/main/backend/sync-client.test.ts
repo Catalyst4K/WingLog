@@ -153,6 +153,20 @@ describe('syncPullPage', () => {
     expect(init?.signal).toBeInstanceOf(AbortSignal)
   })
 
+  it('passes on the Worker’s newest change number when it sends one, and refuses one that is not a counter', async () => {
+    vi.stubGlobal('fetch', fetchMock(200, { rows: [], cursor: 7, more: false, head: 7 }))
+    expect(await syncPullPage('callum@example.com', 'tok', 'aircraft', 7)).toEqual({
+      rows: [],
+      cursor: 7,
+      more: false,
+      head: 7
+    })
+    for (const head of [-1, 1.5, '7', null]) {
+      vi.stubGlobal('fetch', fetchMock(200, { rows: [], cursor: 7, more: false, head }))
+      await expect(syncPullPage('callum@example.com', 'tok', 'aircraft', 7)).rejects.toThrow('unexpected')
+    }
+  })
+
   it('asks for everything with a null cursor', async () => {
     const mock = fetchMock(200, { rows: [], cursor: 0, more: false })
     vi.stubGlobal('fetch', mock)

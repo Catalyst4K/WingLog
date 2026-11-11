@@ -8,7 +8,7 @@
 import type { WingLogDb } from '../db/client'
 import { SYNC_TABLES, type SyncRow, type SyncTable } from '../backend/sync-client'
 import { getFlightIdByUuid } from '../db/flight-repo'
-import { listChangesAfter } from '../db/sync-change-repo'
+import { latestChangeSeq, listChangesAfter } from '../db/sync-change-repo'
 import { countTrackPoints, listFlightUuidsWithTrack, listTrackPointRows } from '../db/track-point-repo'
 import { applyPushedRows, MAX_PUSH_ROWS, MAX_ROW_DATA_BYTES, serializeChange } from '../sync/sync-engine'
 import { localSyncVersion } from '../sync/sync-version'
@@ -19,11 +19,13 @@ export const PULL_PAGE_ROWS = 200
 /** The most work one page takes to build, milliseconds: a page that has taken this long ends there and the twin asks for the next, so the host's window is never held for long. */
 export const PULL_PAGE_BUDGET_MS = 40
 
-/** One page of a table's changed rows, the counter to ask from next, and whether there is a further page. */
+/** One page of a table's changed rows, the counter to ask from next, whether there is a further page, and the newest change number this database holds for the table. */
 export interface PullPage {
   rows: SyncRow[]
   cursor: number
   more: boolean
+  /** A twin whose cursor is past this knows this database's counter went back (it is new, or restored), and starts again (audit M8). */
+  head: number
 }
 
 /** Longest text taken for a uuid or a time. */
@@ -93,7 +95,7 @@ function rowsArg(value: unknown): SyncRow[] {
  * @param table The table.
  * @param cursor The `cursor` of the last page this twin was given for the table, or null for everything.
  * @param deviceId The asking twin.
- * @returns The page, the cursor to ask from next, and whether there is more.
+ * @returns The page, the cursor to ask from next, whether there is more, and the table's newest change number (`head`).
  */
 export function pullChanges(
   db: WingLogDb,
@@ -129,7 +131,7 @@ export function pullChanges(
     }
     last = change.seq
   }
-  return { rows, cursor: last, more }
+  return { rows, cursor: last, more, head: latestChangeSeq(db, table) }
 }
 
 /** Track points in one answer: a point is about 200 bytes, so a page stays well under what a twin takes in one message. */

@@ -33,10 +33,10 @@ function rowFrom(value: unknown): SyncRow | null {
 
 /**
  * @param value The host's answer to a pull.
- * @returns Its rows, the cursor to ask from next, and whether there is more.
+ * @returns Its rows, the cursor to ask from next, whether there is more, and the host's newest change number when it sent one (an older host does not).
  * @throws When the answer is not a page.
  */
-function pageFrom(value: unknown): { rows: SyncRow[]; cursor: number; more: boolean } {
+function pageFrom(value: unknown): { rows: SyncRow[]; cursor: number; more: boolean; head?: number } {
   const page = typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : null
   if (
     !page ||
@@ -47,9 +47,17 @@ function pageFrom(value: unknown): { rows: SyncRow[]; cursor: number; more: bool
   ) {
     throw new Error('The sim PC sent a page that is not rows')
   }
+  if (page.head !== undefined && (!Number.isSafeInteger(page.head) || (page.head as number) < 0)) {
+    throw new Error('The sim PC sent a page that is not rows')
+  }
   const rows = page.rows.map(rowFrom)
   if (rows.some((row) => row === null)) throw new Error('The sim PC sent a row that is not a row')
-  return { rows: rows as SyncRow[], cursor: page.cursor as number, more: page.more }
+  return {
+    rows: rows as SyncRow[],
+    cursor: page.cursor as number,
+    more: page.more,
+    ...(page.head === undefined ? {} : { head: page.head as number })
+  }
 }
 
 /**
@@ -96,7 +104,7 @@ export class LanSyncClient implements PagedSyncClient {
     _token: string,
     table: SyncTable,
     cursor: number | null
-  ): Promise<{ rows: SyncRow[]; cursor: number; more: boolean }> {
+  ): Promise<{ rows: SyncRow[]; cursor: number; more: boolean; head?: number }> {
     return pageFrom(await this.ask('sync.pull', table, cursor))
   }
 

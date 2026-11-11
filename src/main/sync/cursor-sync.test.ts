@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { and, eq } from 'drizzle-orm'
@@ -29,6 +29,10 @@ class FakePeer implements PagedSyncClient {
   asked: Record<string, (number | null)[]> = {}
   refuse = new Set<string>()
   stuck = false
+  /** When true, each page also says the newest change number this peer holds for the table (the Worker and the sim PC do). */
+  sendHead = false
+  /** Says this as the head instead of the real one. */
+  headOverride: number | null = null
 
   async syncPullPage(_e: string, _t: string, table: SyncTable, cursor: number | null) {
     this.pullCalls++
@@ -40,7 +44,21 @@ class FakePeer implements PagedSyncClient {
     const page = after.slice(0, this.pageSize)
     const more = after.length > page.length
     if (this.stuck) return { rows: page.map((entry) => entry.row), cursor: cursor ?? 0, more: true }
-    return { rows: page.map((entry) => entry.row), cursor: page.at(-1)?.seq ?? cursor ?? 0, more }
+    const head =
+      this.headOverride ??
+      Math.max(0, ...[...(this.rows.get(table)?.values() ?? [])].map((entry) => entry.seq))
+    return {
+      rows: page.map((entry) => entry.row),
+      cursor: page.at(-1)?.seq ?? cursor ?? 0,
+      more,
+      ...(this.sendHead ? { head } : {})
+    }
+  }
+
+  /** The peer starts over, as an account made again or a database restored from a backup does: nothing held, the counter back at zero. */
+  wipe(): void {
+    this.rows.clear()
+    this.counter = 0
   }
 
   async syncPush(_e: string, _t: string, table: SyncTable, rows: SyncRow[]) {
@@ -347,5 +365,98 @@ describe('runCursorSync', () => {
         .where(and(eq(syncChange.tableName, 'aircraft')))
         .all()
     ).toHaveLength(1)
+  })
+})
+
+describe('a peer whose counter went back (audit M8)', () => {
+  let dir: string
+  let peer: FakePeer
+
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), 'winglog-cursor-head-'))
+    peer = new FakePeer()
+    peer.sendHead = true
+  })
+  afterEach(() => rmSync(dir, { recursive: true, force: true }))
+
+  function device(name: string): { db: WingLogDb; path: string } {
+    const created = createDb(':memory:')
+    migrate(created.db, { migrationsFolder: 'drizzle' })
+    return { db: created.db, path: join(dir, `${name}.db`) }
+  }
+  const sync = (d: { db: WingLogDb; path: string }) => runCursorSync(d.db, peer, SESSION, d.path, 'cloud')
+  const registrations = (d: { db: WingLogDb }): string[] =>
+    d.db
+      .select()
+      .from(aircraft)
+      .all()
+      .map((a) => a.registration)
+      .sort()
+
+  /** A computer that has synced three aircraft with a peer, which is then wiped and gets one aircraft from another computer. */
+  async function wipedPeer(): Promise<{ pc: { db: WingLogDb; path: string } }> {
+    const pc = device('pc')
+    for (const registration of ['G-AAAA', 'G-BBBB', 'G-CCCC']) {
+      createAircraft(pc.db, { registration, icaoType: 'A320' })
+    }
+    // The first sync sends; the second takes the echoes back, which is what moves the pull cursor.
+    await sync(pc)
+    await sync(pc)
+    expect(getPullCursor(pc.db, 'cloud', 'aircraft')).toBe(3)
+    peer.wipe()
+    peer.seed('aircraft', {
+      uuid: 'from-the-new-account',
+      updatedAt: '2026-11-11T10:00:00.000Z',
+      data: JSON.stringify({ registration: 'G-NEWW', icaoType: 'B738' })
+    })
+    return { pc }
+  }
+
+  it('starts the peer again when its newest change is behind the cursor, and so takes its rows and sends this computer’s', async () => {
+    const { pc } = await wipedPeer()
+
+    const result = await sync(pc)
+
+    expect(registrations(pc)).toEqual(['G-AAAA', 'G-BBBB', 'G-CCCC', 'G-NEWW'])
+    expect(peer.count('aircraft')).toBe(4)
+    expect(result.tables.aircraft.pulled).toBe(1)
+    expect(result.tables.aircraft.pushed).toBe(3)
+    // The cursor sent first, then none: the whole table asked for again.
+    expect(peer.asked.aircraft.slice(-2)).toEqual([3, null])
+    expect(readFileSync(join(dir, 'sync-conflicts.log'), 'utf8')).toContain('counter went back')
+  })
+
+  it('does nothing of the kind while the cursor is at or below the newest change', async () => {
+    const pc = device('pc')
+    createAircraft(pc.db, { registration: 'G-AAAA', icaoType: 'A320' })
+    await sync(pc)
+    await sync(pc)
+    const asked = peer.asked.aircraft.length
+    await sync(pc)
+    // Asked once more, from the cursor, and not again from the start.
+    expect(peer.asked.aircraft.slice(asked)).toEqual([1])
+  })
+
+  it('leaves a peer that sends no head as it is: the old behaviour, which never gets the new account’s rows', async () => {
+    const { pc } = await wipedPeer()
+    peer.sendHead = false
+
+    const result = await sync(pc)
+
+    expect(result.tables.aircraft.pulled).toBe(0)
+    expect(registrations(pc)).toEqual(['G-AAAA', 'G-BBBB', 'G-CCCC'])
+    expect(peer.count('aircraft')).toBe(1)
+  })
+
+  it('starts again once per pull, so a peer that keeps saying a low head cannot hold a sync in a loop', async () => {
+    const { pc } = await wipedPeer()
+    peer.headOverride = 0
+    const before = peer.asked.aircraft.length
+
+    await sync(pc)
+
+    // Cursor 3 once, then none; no third ask.
+    expect(peer.asked.aircraft.slice(before)).toEqual([3, null])
+    expect(registrations(pc)).toContain('G-NEWW')
   })
 })

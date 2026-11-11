@@ -7,7 +7,7 @@
 import type { WingLogDb } from '../db/client'
 import { logger } from '../logging/logger'
 import { runLogged } from '../logging/run-logged'
-import { runCursorSync, type PagedSyncClient } from '../sync/cursor-sync'
+import { resetPeer, runCursorSync, type PagedSyncClient } from '../sync/cursor-sync'
 import { compareSyncVersions, localSyncVersion, type SyncVersion } from '../sync/sync-version'
 
 /** The client the twin's sync needs: pages and pushes, and the sim PC's version to check before either. */
@@ -29,9 +29,14 @@ export interface TwinSyncPort {
   /** Asks for a sync after a wait (a later ask moves it). */
   syncSoon(delayMs: number): void
   status(): TwinSyncStatus
+  /** Forgets what has been sent to and taken from the sim PC, so the next sync with it is a full one (a new sim PC database is sent everything). */
+  forgetCursors(): void
   /** Called whenever the status changes. */
   onChange(listener: () => void): void
 }
+
+/** The name this computer keeps the sim PC's cursors and its rows' origin under. */
+const HOST_PEER = 'host'
 
 /** How long after a write a client syncs, in milliseconds. */
 export const SYNC_AFTER_WRITE_MS = 2000
@@ -66,6 +71,10 @@ export class TwinSync implements TwinSyncPort {
 
   status(): TwinSyncStatus {
     return this.current
+  }
+
+  forgetCursors(): void {
+    resetPeer(this.deps.db, HOST_PEER)
   }
 
   onChange(listener: () => void): void {
@@ -113,7 +122,7 @@ export class TwinSync implements TwinSyncPort {
           this.deps.client,
           { email: 'twin', token: '' },
           this.deps.dbPath,
-          'host'
+          HOST_PEER
         )
         this.set({ state: 'idle', lastSyncedAt: result.syncedAt, problem: null })
         this.bringTracks()

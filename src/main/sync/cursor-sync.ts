@@ -36,7 +36,7 @@ export interface PagedSyncClient {
     token: string,
     table: SyncTable,
     cursor: number | null
-  ): Promise<{ rows: SyncRow[]; cursor: number; more: boolean }>
+  ): Promise<{ rows: SyncRow[]; cursor: number; more: boolean; head?: number }>
   syncPush(
     email: string,
     token: string,
@@ -73,8 +73,24 @@ async function pullTable(
   let cursor = getPullCursor(db, peer, table)
   // A page can be hundreds of rows: the app gets the thread back between rows.
   const slice = timeSlicer()
+  let startedAgain = false
   for (;;) {
     const page = await client.syncPullPage(session.email, session.token, table, cursor)
+    // A cursor past the peer's newest change means its counter went back (the account was made again, a backup was restored, or a twin met a
+    // new sim PC database): nothing after the cursor will ever come, and the push cursors say rows were sent that were not. Start the peer again
+    // and take everything; last write wins makes that safe, and it costs one full sync. A peer that sends no `head` (an older one) is taken as now.
+    if (!startedAgain && cursor !== null && page.head !== undefined && cursor > page.head) {
+      startedAgain = true
+      resetPeer(db, peer)
+      cursor = null
+      logSyncEvent(dbPath, {
+        direction: 'pull',
+        table,
+        uuid: '',
+        reason: `the peer's newest change (${page.head}) is behind this computer's cursor (${page.cursor}): its counter went back, so everything is synced again`
+      })
+      continue
+    }
     for (const row of page.rows) {
       await slice()
       const outcome = applyPulledRow(db, table, row)

@@ -162,6 +162,24 @@ describe('a twin’s sync lookups on the host', () => {
     expect(pull('aircraft', page.cursor).rows.map((r) => JSON.parse(r.data).registration)).toEqual(['G-AFTR'])
   })
 
+  it('says the newest change number it holds for the table, so a twin can tell its counter went back (audit M8)', async () => {
+    expect(pull('aircraft').head).toBe(0)
+    addAircraft('G-AAAA')
+    addAircraft('G-BBBB')
+    const first = pull('aircraft')
+    expect(first.head).toBe(first.cursor)
+    expect(first.head).toBeGreaterThan(0)
+    // A page that ends early still says where the table ends, and another table has a head of its own.
+    expect(pull('flight').head).toBe(0)
+    const fresh = {
+      uuid: '11111111-2222-3333-4444-555555555555',
+      updatedAt: new Date().toISOString(),
+      data: JSON.stringify({ registration: 'G-TWIN', icaoType: 'B738' })
+    }
+    await push('aircraft', [fresh])
+    expect(pull('aircraft', first.cursor, OTHER_TWIN).head).toBeGreaterThan(first.head)
+  })
+
   it('names a twin’s rows by its device id', () => {
     expect(twinOrigin(7)).toBe('twin:7')
   })
