@@ -111,6 +111,34 @@ describe('sync IPC handlers', () => {
     expect(cloudSync.syncNow).toHaveBeenCalled()
   })
 
+  it('refuses sign-in and sign-up arguments that are not text of a sensible length, before the controller is called (audit L7)', () => {
+    const cloudSync = fakeCloudSync(true)
+    const { ipcMain, invoke } = fakeIpc()
+    registerSyncHandlers(ipcMain, { cloudSync: cloudSync as unknown as CloudSyncController, enabled: true })
+    for (const bad of [undefined, null, 5, {}, '', 'x'.repeat(255)]) {
+      expect(() => invoke(IpcChannels.authLogin, bad, 'secret')).toThrow('Invalid email')
+      expect(() => invoke(IpcChannels.authSignup, bad, 'secret', 'INVITE')).toThrow('Invalid email')
+    }
+    for (const bad of [undefined, null, 5, {}, '', 'x'.repeat(1025)]) {
+      expect(() => invoke(IpcChannels.authLogin, 'pilot@example.com', bad)).toThrow('Invalid password')
+      expect(() => invoke(IpcChannels.authSignup, 'pilot@example.com', bad, 'INVITE')).toThrow(
+        'Invalid password'
+      )
+    }
+    for (const bad of [undefined, 5, '', 'x'.repeat(513)]) {
+      expect(() => invoke(IpcChannels.authSignup, 'pilot@example.com', 'secret', bad)).toThrow(
+        'Invalid invite code'
+      )
+    }
+    expect(cloudSync.login).not.toHaveBeenCalled()
+    expect(cloudSync.signup).not.toHaveBeenCalled()
+    // The longest values the service takes are passed on.
+    invoke(IpcChannels.authLogin, 'x'.repeat(254), 'p'.repeat(1024))
+    invoke(IpcChannels.authSignup, 'x'.repeat(254), 'p'.repeat(1024), 'i'.repeat(512))
+    expect(cloudSync.login).toHaveBeenCalledTimes(1)
+    expect(cloudSync.signup).toHaveBeenCalledTimes(1)
+  })
+
   it('passes a password reset request and the reset itself to the controller, and refuses what is not text of a sensible length', () => {
     const cloudSync = fakeCloudSync(true)
     const { ipcMain, invoke } = fakeIpc()

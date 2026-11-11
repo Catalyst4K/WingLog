@@ -17,6 +17,8 @@ const MAX_PASSWORD_CHARS = 1024
 /** As the service has them: an address up to 254 characters, a code typed from an email up to 32. */
 const MAX_EMAIL_CHARS = 254
 const MAX_CODE_CHARS = 32
+/** The invite code is the service's provisioning secret, which has no limit of its own; this is well past any real one and under what a header can carry. */
+const MAX_INVITE_CHARS = 512
 
 /**
  * @param value Something from the window.
@@ -93,11 +95,18 @@ export function registerSyncHandlers(
   { cloudSync, enabled }: { cloudSync: CloudSyncController; enabled: boolean }
 ): void {
   if (!enabled) return
-  ipcMain.handle(IpcChannels.authLogin, (_event, email: string, password: string) =>
-    cloudSync.login(email, password)
+  ipcMain.handle(IpcChannels.authLogin, (_event, email: unknown, password: unknown) =>
+    cloudSync.login(
+      boundedText(email, MAX_EMAIL_CHARS, 'email'),
+      boundedText(password, MAX_PASSWORD_CHARS, 'password')
+    )
   )
-  ipcMain.handle(IpcChannels.authSignup, (_event, email: string, password: string, inviteCode: string) =>
-    cloudSync.signup(email, password, inviteCode)
+  ipcMain.handle(IpcChannels.authSignup, (_event, email: unknown, password: unknown, inviteCode: unknown) =>
+    cloudSync.signup(
+      boundedText(email, MAX_EMAIL_CHARS, 'email'),
+      boundedText(password, MAX_PASSWORD_CHARS, 'password'),
+      boundedText(inviteCode, MAX_INVITE_CHARS, 'invite code')
+    )
   )
   ipcMain.handle(IpcChannels.authLogout, () => cloudSync.logout())
   ipcMain.handle(IpcChannels.authDeleteAccount, (_event, password: unknown) =>
