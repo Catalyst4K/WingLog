@@ -2,6 +2,7 @@
 
 import WebSocket from 'ws'
 import type { LinkSocket } from '@shared/lan-connection'
+import { homeNetworkLookup } from './home-lookup'
 
 /** How long to wait for the host to accept the connection before giving up on this attempt, in milliseconds. */
 const HANDSHAKE_TIMEOUT_MS = 10_000
@@ -12,7 +13,12 @@ const HANDSHAKE_TIMEOUT_MS = 10_000
  */
 export function openHostSocket(url: string): LinkSocket {
   // No Origin header is sent, which the host's upgrade check allows (it only refuses an Origin that names another server).
-  const socket = new WebSocket(url, { handshakeTimeout: HANDSHAKE_TIMEOUT_MS, maxPayload: 8 * 1024 * 1024 })
+  const socket = new WebSocket(url, {
+    handshakeTimeout: HANDSHAKE_TIMEOUT_MS,
+    maxPayload: 8 * 1024 * 1024,
+    // The name is looked up here, and the connection goes to an address that was checked as being on the home network (audit L8).
+    lookup: homeNetworkLookup() as never
+  })
   const link: LinkSocket = {
     get readyState() {
       return socket.readyState

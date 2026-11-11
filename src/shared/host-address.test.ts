@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatPairingText, parseHostAddress, parsePairingText } from './host-address'
+import { formatPairingText, isHomeNetworkAddress, parseHostAddress, parsePairingText } from './host-address'
 
 describe('parseHostAddress', () => {
   it('accepts a private address with a port, however it was copied', () => {
@@ -74,5 +74,52 @@ describe('the pairing text', () => {
     expect(parsePairingText('hello')).toBeNull()
     expect(parsePairingText('winglog-pair://8.8.8.8:5051/123456')).toBeNull()
     expect(parsePairingText('example.com:5051 123456')).toBeNull()
+  })
+})
+
+describe('isHomeNetworkAddress (audit L8)', () => {
+  it.each([
+    '10.1.2.3',
+    '172.16.0.1',
+    '172.31.255.255',
+    '192.168.1.20',
+    '169.254.10.10',
+    '127.0.0.1',
+    '::1',
+    '0:0:0:0:0:0:0:1',
+    'fe80::1',
+    'febf::1',
+    'fc00::1',
+    'fd12:3456:789a::5',
+    '::ffff:192.168.1.5',
+    '::ffff:c0a8:0105',
+    '::ffff:127.0.0.1'
+  ])('accepts %s', (address) => {
+    expect(isHomeNetworkAddress(address)).toBe(true)
+  })
+
+  it.each([
+    '8.8.8.8',
+    '172.32.0.1',
+    '192.169.1.1',
+    '256.1.1.1',
+    '2606:4700::1111',
+    '2001:db8::1',
+    'fec0::1',
+    'fb00::1',
+    '::',
+    '::2',
+    '::ffff:8.8.8.8',
+    '::ffff:0808:0808',
+    '1::2::3',
+    'fe80::g',
+    '1:2:3:4:5:6:7:8:9',
+    '1:2:3:4:5:6:7',
+    '::ffff:300.1.1.1',
+    'simpc',
+    'simpc.local',
+    ''
+  ])('refuses %s', (address) => {
+    expect(isHomeNetworkAddress(address)).toBe(false)
   })
 })

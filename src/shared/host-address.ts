@@ -86,3 +86,62 @@ export function parsePairingText(text: string): { address: string; code: string 
   const address = parseHostAddress(match[1] as string)
   return address ? { address, code: match[2] ?? null } : null
 }
+
+/**
+ * @param address An IPv6 address as text.
+ * @returns Its eight 16-bit groups, or null when it is not an IPv6 address. An IPv4 tail (`::ffff:192.168.1.5`) is read as two groups.
+ */
+function ipv6Groups(address: string): number[] | null {
+  let text = address.toLowerCase()
+  const tail = /(\d{1,3}(?:\.\d{1,3}){3})$/.exec(text)?.[1]
+  if (tail) {
+    const octets = tail.split('.').map(Number)
+    if (octets.some((octet) => octet > 255)) return null
+    const [a, b, c, d] = octets as [number, number, number, number]
+    text = `${text.slice(0, -tail.length)}${((a << 8) | b).toString(16)}:${((c << 8) | d).toString(16)}`
+  }
+  const halves = text.split('::')
+  if (halves.length > 2) return null
+  const parse = (part: string): number[] | null => {
+    if (part === '') return []
+    const groups = part.split(':')
+    return groups.every((group) => /^[0-9a-f]{1,4}$/.test(group)) ? groups.map((g) => parseInt(g, 16)) : null
+  }
+  const head = parse(halves[0] as string)
+  const rest = halves.length === 2 ? parse(halves[1] as string) : []
+  if (!head || !rest) return null
+  if (halves.length === 1) return head.length === 8 ? head : null
+  const missing = 8 - head.length - rest.length
+  return missing < 1 ? null : [...head, ...new Array<number>(missing).fill(0), ...rest]
+}
+
+/**
+ * Whether an address a name resolved to is on the home network (winglog-backend's docs/plans/security-audit-v2.md, L8): a private,
+ * link-local or loopback IPv4 address, or the IPv6 loopback, a link-local (`fe80::/10`) or a unique local (`fc00::/7`) address, or an IPv4
+ * address of those kinds written as IPv6 (`::ffff:192.168.1.5`). Anything else, including text that is not an address, is not.
+ *
+ * @param address One address, as text.
+ * @returns True when it is on the home network.
+ */
+export function isHomeNetworkAddress(address: string): boolean {
+  if (isPrivateIpv4(address)) return true
+  const groups = ipv6Groups(address)
+  return groups !== null && isHomeIpv6(groups)
+}
+
+/**
+ * @param groups The eight 16-bit groups of an IPv6 address.
+ * @returns True for the loopback, a link-local or unique local address, or an IPv4-mapped address whose IPv4 is on the home network.
+ */
+function isHomeIpv6(groups: number[]): boolean {
+  const first = groups[0] as number
+  const last = groups[7] as number
+  const zeros = (from: number, to: number): boolean => groups.slice(from, to).every((group) => group === 0)
+  if (zeros(0, 7) && last === 1) return true
+  if ((first & 0xffc0) === 0xfe80 || (first & 0xfe00) === 0xfc00) return true
+  if (zeros(0, 5) && groups[5] === 0xffff) {
+    const [high, low] = [groups[6] as number, last]
+    return isPrivateIpv4(`${high >> 8}.${high & 255}.${low >> 8}.${low & 255}`)
+  }
+  return false
+}
