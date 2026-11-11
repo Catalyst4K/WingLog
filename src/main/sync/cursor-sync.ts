@@ -49,6 +49,15 @@ export interface PagedSyncClient {
 const PUSH_CHUNK = 500
 
 /**
+ * @param cursor The cursor sent with a pull, or null for everything.
+ * @param head The peer's newest change number for the table, when it says.
+ * @returns True when the cursor is past the peer's newest change: its counter has gone back. A peer that sends no `head` is never taken to have.
+ */
+function peerCounterWentBack(cursor: number | null, head: number | undefined): boolean {
+  return cursor !== null && head !== undefined && cursor > head
+}
+
+/**
  * Takes every page the peer has after this database's cursor for the table, applying each row and saving the cursor after each page, so a pull
  * that fails part-way carries on from where it stopped instead of starting again.
  *
@@ -69,6 +78,7 @@ async function pullTable(
   table: SyncTable,
   result: SyncTableResult
 ): Promise<void> {
+  // Kept only for the aircraft table, the one that links replacements afterwards: a first pull of the flight table would hold every flight in memory.
   const pulledRows: { row: SyncRow; applied: boolean }[] = []
   let cursor = getPullCursor(db, peer, table)
   // A page can be hundreds of rows: the app gets the thread back between rows.
@@ -79,7 +89,7 @@ async function pullTable(
     // A cursor past the peer's newest change means its counter went back (the account was made again, a backup was restored, or a twin met a
     // new sim PC database): nothing after the cursor will ever come, and the push cursors say rows were sent that were not. Start the peer again
     // and take everything; last write wins makes that safe, and it costs one full sync. A peer that sends no `head` (an older one) is taken as now.
-    if (!startedAgain && cursor !== null && page.head !== undefined && cursor > page.head) {
+    if (!startedAgain && peerCounterWentBack(cursor, page.head)) {
       startedAgain = true
       resetPeer(db, peer)
       cursor = null
@@ -94,7 +104,7 @@ async function pullTable(
     for (const row of page.rows) {
       await slice()
       const outcome = applyPulledRow(db, table, row)
-      if (outcome.ok) pulledRows.push({ row, applied: outcome.applied })
+      if (outcome.ok && table === 'aircraft') pulledRows.push({ row, applied: outcome.applied })
       if (!outcome.ok) {
         result.skipped.push(row.uuid)
         logSyncEvent(dbPath, { direction: 'pull', table, uuid: row.uuid, reason: outcome.error })

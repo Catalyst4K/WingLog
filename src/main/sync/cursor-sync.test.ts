@@ -149,6 +149,23 @@ describe('runCursorSync', () => {
     expect(peer.count('aircraft')).toBe(1)
   })
 
+  it('applies every flight of a table that takes several pages, though only the aircraft pull keeps its rows (audit L15)', async () => {
+    const pc = device('pc')
+    const mac = device('mac')
+    const plane = createAircraft(pc.db, { registration: 'G-ABCD', icaoType: 'A320' })
+    for (let i = 0; i < 7; i++)
+      createFlight(pc.db, { aircraftId: plane.id, depIcao: 'EGLL', arrIcao: `EG0${i}` })
+    await sync(pc)
+    expect(peer.pageSize).toBe(2)
+
+    const result = await sync(mac)
+
+    // 7 flights at 2 a page: four pages, every row applied.
+    expect(result.tables.flight.pulled).toBe(7)
+    expect(mac.db.select().from(flight).all()).toHaveLength(7)
+    expect(peer.asked.flight).toHaveLength(5)
+  })
+
   it('gets an edit pushed after the other device already synced, which a time cursor lost for good', async () => {
     const pc = device('pc')
     const mac = device('mac')
