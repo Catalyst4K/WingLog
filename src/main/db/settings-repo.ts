@@ -83,6 +83,16 @@ export function setSetting(db: WingLogDb, key: string, value: string): void {
 }
 
 /**
+ * Removes one raw setting, so `getSetting` finds nothing for it again. Nothing happens when it was never set.
+ *
+ * @param db The database.
+ * @param key The setting's key.
+ */
+export function deleteSetting(db: WingLogDb, key: string): void {
+  db.delete(appSetting).where(eq(appSetting.key, key)).run()
+}
+
+/**
  * The pilot's SimBrief username.
  *
  * @param db The database.

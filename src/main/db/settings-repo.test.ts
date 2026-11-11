@@ -4,6 +4,7 @@ import { createDb, type WingLogDb } from './client'
 import { appSetting } from './schema'
 import { APP_LANGUAGE_OPTIONS } from '@shared/app-language'
 import {
+  deleteSetting,
   getAircraftIdForTitle,
   getAltitudeUnit,
   getAppLanguage,
@@ -67,6 +68,15 @@ describe('settings repo', () => {
   it('round-trips a generic setting', () => {
     setSetting(db, 'someKey', 'someValue')
     expect(getSetting(db, 'someKey')).toBe('someValue')
+  })
+
+  it('removes one setting and leaves the others, and does nothing for one that was never set', () => {
+    setSetting(db, 'someKey', 'someValue')
+    setSetting(db, 'otherKey', 'otherValue')
+    deleteSetting(db, 'someKey')
+    expect(getSetting(db, 'someKey')).toBeUndefined()
+    expect(getSetting(db, 'otherKey')).toBe('otherValue')
+    expect(() => deleteSetting(db, 'never-set')).not.toThrow()
   })
 
   it('overwrites an existing setting rather than duplicating it', () => {

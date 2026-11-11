@@ -2,7 +2,7 @@ import { join } from 'node:path'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import { createDb, type WingLogDb } from '../db/client'
-import { getLastSyncCompletedAt } from '../db/settings-repo'
+import { getLastSyncCompletedAt, getSetting } from '../db/settings-repo'
 import type { StoredSession } from '../backend/session-store'
 import type { SyncResult } from './sync-engine'
 import { BackendError } from '../backend/backend-error'
@@ -350,6 +350,45 @@ describe('CloudSyncController', () => {
 
       // What a sync leaves behind is kept by the next one: the account is no longer new.
       await controller.syncNow()
+      expect(resetPeer).toHaveBeenCalledTimes(1)
+    })
+
+    it('treats the next sign-in as a first sync again once a 401 has shown the account is gone, even under the same email (audit L11)', async () => {
+      loaded = SESSION
+      runCursorSync.mockResolvedValueOnce(okResult)
+      const controller = new CloudSyncController(db, '/fake/db/path', '/fake/userdata', loaded)
+      await controller.syncNow()
+      expect(getSetting(db, `firstSyncBackup:${SESSION.email}`)).toBeDefined()
+      expect(resetPeer).toHaveBeenCalledTimes(1)
+      expect(backupBeforeFirstSync).toHaveBeenCalledTimes(1)
+
+      // The account is deleted from another computer and made again under the same address: this computer's token is refused.
+      runCursorSync.mockRejectedValueOnce(new BackendError('invalid or expired session', 401))
+      expect((await controller.syncNow()).loggedIn).toBe(false)
+      expect(getSetting(db, `firstSyncBackup:${SESSION.email}`)).toBeUndefined()
+
+      login.mockResolvedValue({ token: 'new-token', expiresAt: '2099-01-01T00:00:00.000Z' })
+      await controller.login(SESSION.email, 'password')
+      runCursorSync.mockResolvedValueOnce(okResult)
+      await controller.syncNow()
+
+      expect(backupBeforeFirstSync).toHaveBeenCalledTimes(2)
+      expect(resetPeer).toHaveBeenCalledTimes(2)
+      expect(getSetting(db, `firstSyncBackup:${SESSION.email}`)).toBeDefined()
+    })
+
+    it('keeps the marker when the failure is not a 401, so an offline computer does not start over', async () => {
+      loaded = SESSION
+      runCursorSync.mockResolvedValueOnce(okResult)
+      const controller = new CloudSyncController(db, '/fake/db/path', '/fake/userdata', loaded)
+      await controller.syncNow()
+
+      runCursorSync.mockRejectedValueOnce(new Error('server unreachable'))
+      await controller.syncNow()
+      runCursorSync.mockResolvedValueOnce(okResult)
+      await controller.syncNow()
+
+      expect(getSetting(db, `firstSyncBackup:${SESSION.email}`)).toBeDefined()
       expect(resetPeer).toHaveBeenCalledTimes(1)
     })
 

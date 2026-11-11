@@ -22,12 +22,26 @@ import { isSessionRefused } from '../backend/backend-error'
 import { clearSession, saveSession, type StoredSession } from '../backend/session-store'
 import { join } from 'node:path'
 import { backupBeforeFirstSync } from '../db/backup'
-import { getLastSyncCompletedAt, getSetting, setLastSyncCompletedAt, setSetting } from '../db/settings-repo'
+import {
+  deleteSetting,
+  getLastSyncCompletedAt,
+  getSetting,
+  setLastSyncCompletedAt,
+  setSetting
+} from '../db/settings-repo'
 import type { WingLogDb } from '../db/client'
 import { resetPeer, runCursorSync } from './cursor-sync'
 
 /** Whose cursors and whose rows' origin these are: the cloud account, as against a twin or the sim PC. */
 const CLOUD_PEER = 'cloud'
+
+/**
+ * @param email The account's address.
+ * @returns The setting that says this computer has already made its first sync with the account (and where the backup before it went).
+ */
+function firstSyncBackupKey(email: string): string {
+  return `firstSyncBackup:${email}`
+}
 
 /**
  * Cloud sync for the app: the signed-in session, its status, and running a sync.
@@ -157,7 +171,7 @@ export class CloudSyncController {
     try {
       // A device's first sync with an account can overwrite local rows with newer ones from another
       // device, so snapshot the database first. If the snapshot fails, no sync runs.
-      const backupKey = `firstSyncBackup:${this.session.email}`
+      const backupKey = firstSyncBackupKey(this.session.email)
       if (getSetting(this.db, backupKey) === undefined) {
         const backup = backupBeforeFirstSync(this.dbPath, join(this.userDataPath, 'backups'))
         // The cursors belong to the account the device last synced with. A new account starts empty, so with the old cursors it would be sent only
@@ -182,6 +196,9 @@ export class CloudSyncController {
       // so the status correctly falls back to "log in again" rather than reporting
       // "logged in" while every future sync silently fails against the same dead token.
       if (isSessionRefused(err)) {
+        // The account may have been deleted and made again under this address: the next sign-in is a first sync again (a backup, then
+        // everything sent and fetched), not a continuation with cursors that belong to the account that is gone (audit L11).
+        if (this.session) deleteSetting(this.db, firstSyncBackupKey(this.session.email))
         this.session = null
         clearSession(this.userDataPath)
       }
