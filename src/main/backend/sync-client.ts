@@ -4,6 +4,7 @@
  * duplicating it (CLAUDE.md's one-constant-per-base-URL discipline).
  */
 import { BACKEND_BASE_URL } from './backend-client'
+import { BackendError } from './backend-error'
 
 /** Every table WingLog syncs between its own computers: the four of cloud-sync.md, and the GSX routines (docs/plans/gsx-routines-sync.md). */
 export const SYNC_TABLES = ['aircraft', 'flight', 'landing', 'flightInvoice', 'gsxRoutine'] as const
@@ -27,7 +28,7 @@ export interface SyncRow {
  * @param headers Extra request headers.
  * @param timeoutMs How long to wait for the whole call before giving up, so a stalled connection cannot hold a sync open for ever.
  * @returns The response's JSON.
- * @throws The backend's own error message, or the HTTP status.
+ * @throws A `BackendError` carrying the HTTP status, with the backend's own error message or one that names the status.
  */
 async function postJson<T>(
   path: string,
@@ -43,7 +44,7 @@ async function postJson<T>(
   })
   if (!res.ok) {
     const errorBody = (await res.json().catch(() => null)) as { error?: string } | null
-    throw new Error(errorBody?.error ?? `Request to ${path} failed (${res.status})`)
+    throw new BackendError(errorBody?.error ?? `Request to ${path} failed (${res.status})`, res.status)
   }
   return res.json() as Promise<T>
 }

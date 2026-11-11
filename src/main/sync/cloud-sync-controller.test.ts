@@ -5,6 +5,7 @@ import { createDb, type WingLogDb } from '../db/client'
 import { getLastSyncCompletedAt } from '../db/settings-repo'
 import type { StoredSession } from '../backend/session-store'
 import type { SyncResult } from './sync-engine'
+import { BackendError } from '../backend/backend-error'
 import { CloudSyncController } from './cloud-sync-controller'
 
 const {
@@ -286,15 +287,33 @@ describe('CloudSyncController', () => {
     expect(status.loggedIn).toBe(true)
   })
 
-  it('clears the session when a sync fails because it is invalid or expired', async () => {
+  it('clears the session when the backend answers a sync with 401, whatever the words of the answer (audit L6)', async () => {
     loaded = SESSION
-    runCursorSync.mockRejectedValue(new Error('invalid or expired session'))
+    runCursorSync.mockRejectedValue(new BackendError('Please sign in again', 401))
     const controller = new CloudSyncController(db, '/fake/db/path', '/fake/userdata', loaded)
 
     const status = await controller.syncNow()
 
     expect(status.loggedIn).toBe(false)
     expect(clearSession).toHaveBeenCalledWith('/fake/userdata')
+  })
+
+  it.each([
+    [
+      'a 500 whose text happens to say the session is invalid or expired',
+      new BackendError('invalid or expired session', 500)
+    ],
+    ['a plain error with those words', new Error('invalid or expired session')],
+    ['a 403', new BackendError('forbidden', 403)]
+  ])('keeps the session after %s', async (_name, failure) => {
+    loaded = SESSION
+    runCursorSync.mockRejectedValue(failure)
+    const controller = new CloudSyncController(db, '/fake/db/path', '/fake/userdata', loaded)
+
+    const status = await controller.syncNow()
+
+    expect(status.loggedIn).toBe(true)
+    expect(clearSession).not.toHaveBeenCalled()
   })
 
   describe("backup before an account's first sync", () => {

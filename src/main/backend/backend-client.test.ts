@@ -56,3 +56,59 @@ describe('signSimbriefRequest', () => {
     await expect(signSimbriefRequest(PARAMS)).rejects.toThrow('SimBrief signing request failed (500)')
   })
 })
+
+describe('signSimbriefRequest, when the backend is slow or odd (audit L6)', () => {
+  it('sends a signal that gives up, and says the backend did not answer when it does', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        (_url: string, init?: RequestInit) =>
+          new Promise<never>((_resolve, reject) => {
+            init?.signal?.addEventListener('abort', () => reject(init.signal?.reason))
+          })
+      )
+    )
+
+    await expect(signSimbriefRequest(PARAMS, 20)).rejects.toThrow('timed out: the backend did not answer')
+  })
+
+  it('passes any other failure to fetch on unchanged', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        throw new TypeError('fetch failed')
+      })
+    )
+
+    await expect(signSimbriefRequest(PARAMS)).rejects.toThrow('fetch failed')
+  })
+
+  it.each([
+    ['an answer with no apicode', {}],
+    ['an apicode that is not text', { apicode: 5 }],
+    ['an empty apicode', { apicode: '' }],
+    ['an answer that is not an object', null]
+  ])('refuses %s', async (_name, answer) => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({ ok: true, status: 200, json: async () => answer }))
+    )
+
+    await expect(signSimbriefRequest(PARAMS)).rejects.toThrow('something unexpected')
+  })
+
+  it('refuses an answer that is not JSON at all', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({
+        ok: true,
+        status: 200,
+        json: async () => {
+          throw new SyntaxError('Unexpected token')
+        }
+      }))
+    )
+
+    await expect(signSimbriefRequest(PARAMS)).rejects.toThrow('something unexpected')
+  })
+})

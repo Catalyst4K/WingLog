@@ -18,6 +18,7 @@ import {
   syncPullPage,
   syncPush
 } from '../backend/sync-client'
+import { isSessionRefused } from '../backend/backend-error'
 import { clearSession, saveSession, type StoredSession } from '../backend/session-store'
 import { join } from 'node:path'
 import { backupBeforeFirstSync } from '../db/backup'
@@ -177,10 +178,10 @@ export class CloudSyncController {
       this.lastError = null
     } catch (err) {
       this.lastError = err instanceof Error ? err.message : String(err)
-      // An expired/invalid session means the stored token is no longer usable — clear it
+      // A 401 means the stored token is no longer usable (judged by the status, not the words of the answer) — clear it
       // so the status correctly falls back to "log in again" rather than reporting
       // "logged in" while every future sync silently fails against the same dead token.
-      if (this.lastError.includes('invalid or expired session')) {
+      if (isSessionRefused(err)) {
         this.session = null
         clearSession(this.userDataPath)
       }

@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { BackendError, isSessionRefused } from './backend-error'
 import {
   deleteAccount,
   forgotPassword,
@@ -159,11 +160,19 @@ describe('syncPullPage', () => {
     expect(JSON.parse(mock.mock.calls[0][1]?.body as string).cursor).toBeNull()
   })
 
-  it('surfaces a 401 as a thrown error, distinguishable from a network failure', async () => {
+  it('surfaces a 401 as a BackendError carrying the status, distinguishable from a network failure', async () => {
     vi.stubGlobal('fetch', fetchMock(401, { error: 'invalid or expired session' }))
-    await expect(syncPullPage('callum@example.com', 'tok', 'aircraft', null)).rejects.toThrow(
-      'invalid or expired session'
-    )
+    const failure = await syncPullPage('callum@example.com', 'tok', 'aircraft', null).catch((e: unknown) => e)
+    expect(failure).toBeInstanceOf(BackendError)
+    expect(failure).toMatchObject({ status: 401, message: 'invalid or expired session' })
+    expect(isSessionRefused(failure)).toBe(true)
+  })
+
+  it('carries the status of any refusal, with a message naming it when the body has none', async () => {
+    vi.stubGlobal('fetch', fetchMock(503, 'not json'))
+    const failure = await syncPush('callum@example.com', 'tok', 'aircraft', []).catch((e: unknown) => e)
+    expect(failure).toMatchObject({ status: 503 })
+    expect(isSessionRefused(failure)).toBe(false)
   })
 
   it.each([
