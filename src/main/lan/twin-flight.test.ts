@@ -3,7 +3,37 @@ import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import { createDb, type WingLogDb } from '../db/client'
 import { createAircraft } from '../db/aircraft-repo'
 import { createFlight, getFlightUuidById, getLiveFlight } from '../db/flight-repo'
+import { createTrackPoint, listTrackPoints } from '../db/track-point-repo'
 import { flightControl, twinFlightQueries } from './twin-flight'
+
+/** One recorded point of a flight's track. */
+function trackPoint(flightId: number, i: number): Record<string, unknown> {
+  return {
+    flightId,
+    tsUtc: new Date(Date.UTC(2026, 10, 8, 12, 0, i)).toISOString(),
+    latitude: 51 + i / 1000,
+    longitude: -0.4,
+    altitudeM: 100 + i,
+    pressureAltitudeM: null,
+    altitudeAglM: 0,
+    indicatedAirspeedMs: 70,
+    machSpeed: 0.2,
+    groundSpeedMs: 70,
+    verticalSpeedMs: 0,
+    headingTrueDeg: 270,
+    pitchDeg: 0,
+    bankDeg: 0,
+    phase: 'climb',
+    onGround: false,
+    fuelKg: 5000,
+    gForce: 1,
+    windSpeedMs: 0,
+    windDirectionDeg: 0,
+    resumeSegment: 0,
+    simRate: 1,
+    excludedReason: null
+  }
+}
 
 describe('what a twin may make the sim PC do with a flight', () => {
   let db: WingLogDb
@@ -71,13 +101,33 @@ describe('what a twin may make the sim PC do with a flight', () => {
     expect(tracking.stop).toHaveBeenCalled()
   })
 
-  it('cancels a planned flight (it is removed, as here) and disarms auto-start, and is quiet about one it does not have', () => {
+  it('cancels a planned flight (it is removed, as here) and disarms auto-start', () => {
     const flight = planned()
     control().cancel(flight.uuid)
     expect(getLiveFlight(db, flight.id)).toBeUndefined()
     expect(autoStart.disarm).toHaveBeenCalled()
-    expect(() => control().cancel('unknown')).not.toThrow()
+    expect(flightsChanged).toHaveBeenCalled()
   })
+
+  it('refuses to cancel a flight it does not have, and does nothing (audit M9)', () => {
+    expect(() => control().cancel('unknown')).toThrow('has not reached this computer')
+    expect(autoStart.disarm).not.toHaveBeenCalled()
+    expect(flightsChanged).not.toHaveBeenCalled()
+  })
+
+  it.each(['active', 'completed'] as const)(
+    'refuses to cancel a flight that is %s, and leaves it and its track points as they were (audit M9)',
+    (status) => {
+      const flight = createFlight(db, { aircraftId, depIcao: 'EGLL', arrIcao: 'EGCC', status })
+      const uuid = getFlightUuidById(db, flight.id) as string
+      for (let i = 0; i < 3; i++) createTrackPoint(db, trackPoint(flight.id, i) as never)
+      expect(() => control().cancel(uuid)).toThrow('not planned')
+      expect(getLiveFlight(db, flight.id)?.status).toBe(status)
+      expect(listTrackPoints(db, flight.id)).toHaveLength(3)
+      expect(autoStart.disarm).not.toHaveBeenCalled()
+      expect(flightsChanged).not.toHaveBeenCalled()
+    }
+  )
 
   it('tells the window after each command, so it reads the flights again, and not after a command that was refused', () => {
     const changed = vi.fn()

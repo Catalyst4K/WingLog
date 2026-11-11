@@ -9,6 +9,7 @@ import {
   createFreeFlight,
   getFlight,
   getInProgressFlight,
+  getLiveFlight,
   startFlight
 } from '../db/flight-repo'
 import type { TrackingController } from '../tracking/TrackingController'
@@ -180,6 +181,32 @@ describe('tracking and flight IPC handlers', () => {
       expect(relay.fly).toHaveBeenCalledWith(flight.id)
       await invoke(IpcChannels.flightCancel, flight.id)
       expect(relay.cancel).toHaveBeenCalledWith(flight.id)
+    })
+
+    it('deletes its own copy of a cancelled flight only once the sim PC has accepted, and keeps it when the sim PC refuses (audit M9)', async () => {
+      const invoke = registerWithRelay()
+      const aircraftId = createAircraft(db, { registration: 'G-MACY', icaoType: 'A320' }).id
+      const flight = createFlight(db, { aircraftId, depIcao: 'EGLL', arrIcao: 'EGCC', status: 'planned' })
+
+      relay.cancel.mockRejectedValueOnce(new Error('The flight is not planned'))
+      await expect(invoke(IpcChannels.flightCancel, flight.id)).rejects.toThrow('The flight is not planned')
+      expect(getFlight(db, flight.id)?.status).toBe('planned')
+      expect(getLiveFlight(db, flight.id)).toBeDefined()
+      expect(autoStartDetector.disarm).not.toHaveBeenCalled()
+      expect(sync).not.toHaveBeenCalled()
+
+      await invoke(IpcChannels.flightCancel, flight.id)
+      expect(getLiveFlight(db, flight.id)).toBeUndefined()
+      expect(autoStartDetector.disarm).toHaveBeenCalled()
+    })
+
+    it('keeps the flight when the sim PC cannot be reached to ask', async () => {
+      const invoke = registerWithRelay()
+      const aircraftId = createAircraft(db, { registration: 'G-MACZ', icaoType: 'A320' }).id
+      const flight = createFlight(db, { aircraftId, depIcao: 'EGLL', arrIcao: 'EGCC', status: 'planned' })
+      relay.cancel.mockRejectedValueOnce(new Error('Not connected to the sim PC'))
+      await expect(invoke(IpcChannels.flightCancel, flight.id)).rejects.toThrow('Not connected')
+      expect(getLiveFlight(db, flight.id)).toBeDefined()
     })
 
     it('refuses a free flight, which is the sim aircraft as it is, on the other computer', () => {

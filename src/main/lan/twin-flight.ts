@@ -21,7 +21,7 @@ export interface FlightControl {
   finish(): void
   /** Stops tracking the flight in progress without saving it. */
   stop(): void
-  /** Cancels a planned flight: it is abandoned and auto-start is disarmed. */
+  /** Cancels a planned flight: it is abandoned and auto-start is disarmed. Refuses a flight that is not planned, as fly and start do. */
   cancel(uuid: string): void
 }
 
@@ -93,8 +93,8 @@ export function flightControl(deps: {
     finish: () => trackingController.finish(),
     stop: () => trackingController.stop(),
     cancel(uuid) {
-      const id = getFlightIdByUuid(db, uuid)
-      if (id !== undefined) abandonFlight(db, id)
+      // Only a planned flight: abandoning deletes a flight's track points for good and the deletion syncs to every computer (audit M9).
+      abandonFlight(db, plannedFlight(uuid).id)
       autoStartDetector.disarm()
       deps.onFlightsChanged?.()
     }

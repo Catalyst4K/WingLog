@@ -207,11 +207,15 @@ export function registerFlightHandlers(ipcMain: IpcMain, deps: TrackingHandlerDe
     return deps.relay ? deps.relay.fly(flight.id).then(() => flight) : flight
   })
   ipcMain.handle(IpcChannels.flightCancel, (_event, id: number) => {
-    abandonFlight(db, id)
-    autoStartDetector.disarm()
-    scheduleBackgroundSync()
-    onFlightsChanged?.()
-    return deps.relay?.cancel(id)
+    const cancelHere = (): void => {
+      abandonFlight(db, id)
+      autoStartDetector.disarm()
+      scheduleBackgroundSync()
+      onFlightsChanged?.()
+    }
+    // On a client the sim PC is asked first, and this copy is deleted only once it has accepted: a flight that is already being flown there
+    // is refused (with the reason, which reaches the screen) and nothing is lost here either (audit M9).
+    return deps.relay ? deps.relay.cancel(id).then(cancelHere) : cancelHere()
   })
   ipcMain.handle(IpcChannels.flightDeleteLocationImpact, (_event, id: number) => {
     return getDeleteLocationImpact(db, id) ?? null
