@@ -39,6 +39,8 @@ import { createDb, type WingLogDb } from './db/client'
 import { startStorageMaintenance } from './db/storage-maintenance'
 import type { Database as SqliteDatabase } from 'better-sqlite3'
 import { migrateDb } from './db/migrate'
+import { backfillOperatorIcao } from './db/operator-icao-backfill'
+import { findAirlineForOperator } from './airlines/airline-search'
 import { migrateLegacyUserData } from './db/legacy-userdata'
 import { getFlight, getInProgressFlight, setParkedStand } from './db/flight-repo'
 import {
@@ -132,6 +134,13 @@ function openDatabase(userDataPath: string): {
   migrateDb(dbPath, join(app.getAppPath(), 'drizzle'))
   const handle = createDb(dbPath)
   seedE2eTaxiNetwork(handle.db, app.isPackaged)
+  // Aircraft saved before the operator ICAO column existed have a name and an IATA code but no ICAO, which leaves Dispatch's Airline ICAO empty.
+  try {
+    const filled = backfillOperatorIcao(handle.db, findAirlineForOperator)
+    if (filled.length > 0) logger.log(`Filled the airline ICAO of ${filled.length} fleet aircraft`)
+  } catch (error) {
+    logger.error('Airline ICAO backfill failed:', error)
+  }
   return { db: handle.db, sqlite: handle.sqlite, dbPath, backedUp }
 }
 

@@ -7,6 +7,8 @@ import { writeFile } from 'node:fs/promises'
 import { dialog, type BrowserWindow } from 'electron'
 import type { AircraftImportSummary, DataFormat } from '@shared/ipc'
 import { t } from '../i18n'
+import { findAirlineForOperator } from '../airlines/airline-search'
+import { backfillOperatorIcao } from './operator-icao-backfill'
 import { createAircraft, getAircraftByRegistration, listAircraft } from './aircraft-repo'
 import { parseAircraftRecords, serializeAircraft, toAircraftExportRecord } from './aircraft-portable'
 import { parseAircraftInput } from './aircraft-validation'
@@ -87,5 +89,7 @@ export async function importAircraft(
     createAircraft(db, result.data)
     summary.imported++
   }
+  // An export from before the operator ICAO column has the airline and its IATA code but no ICAO.
+  if (summary.imported > 0) backfillOperatorIcao(db, findAirlineForOperator)
   return summary
 }

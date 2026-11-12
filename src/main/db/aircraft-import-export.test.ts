@@ -87,6 +87,32 @@ describe('aircraft import/export', () => {
       expect(listAircraft(db)).toHaveLength(1)
     })
 
+    it('fills the airline ICAO of an aircraft from an older export that has the airline and IATA code but no ICAO', async () => {
+      const filePath = join(dir, 'old-export.json')
+      writeFileSync(
+        filePath,
+        JSON.stringify([
+          { registration: 'G-OLD1', icaoType: 'A388', operator: 'British Airways', operatorIata: 'BA' },
+          {
+            registration: 'G-OLD2',
+            icaoType: 'A388',
+            operator: 'British Airways',
+            operatorIata: 'BA',
+            operatorIcao: 'XMS'
+          }
+        ]),
+        'utf-8'
+      )
+      showOpenDialog.mockResolvedValue({ canceled: false, filePaths: [filePath] })
+
+      await importAircraft(db, FAKE_WINDOW)
+
+      const icao = (registration: string) =>
+        listAircraft(db).find((a) => a.registration === registration)?.operatorIcao
+      expect(icao('G-OLD1')).toBe('BAW')
+      expect(icao('G-OLD2')).toBe('XMS')
+    })
+
     it('imports an array of aircraft, skipping invalid and duplicate entries', async () => {
       createAircraft(db, { registration: 'G-EXIST', icaoType: 'B738' })
       const filePath = join(dir, 'fleet.json')

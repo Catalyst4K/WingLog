@@ -117,3 +117,47 @@ export function findAirlineByIcao(icao: string): AirlineOption | undefined {
   if (!q) return undefined
   return getAllAirlines().find((a) => a.icao.toLowerCase() === q)
 }
+
+/**
+ * Finds the airline an aircraft's stored operator is, to recover its ICAO code (what SimBrief's `airline` parameter and Dispatch's Airline ICAO
+ * field want) when only the name and the IATA code were saved. It never guesses: the name and the IATA code agreeing is a match; an IATA code that
+ * only one airline has is a match; with no IATA code, a name only one airline has is a match. Anything else, such as "SQ" (Singapore Airlines and
+ * its cargo arm) with no name to settle it, is left unmatched.
+ *
+ * @param airlines The airline list.
+ * @param operator The operator's name as saved, or null.
+ * @param iata The operator's IATA code as saved, or null.
+ * @returns The airline, or undefined when there is none or more than one candidate.
+ */
+export function matchOperatorAirline(
+  airlines: AirlineOption[],
+  operator: string | null | undefined,
+  iata: string | null | undefined
+): AirlineOption | undefined {
+  const name = (operator ?? '').trim().toLowerCase()
+  const code = (iata ?? '').trim().toLowerCase()
+  const onlyOne = (found: AirlineOption[]): AirlineOption | undefined => {
+    const icaos = new Set(found.map((a) => a.icao))
+    return icaos.size === 1 ? found[0] : undefined
+  }
+  const byName = name ? airlines.filter((a) => a.name.toLowerCase() === name) : []
+  const byCode = code ? airlines.filter((a) => a.iata.toLowerCase() === code) : []
+  if (name && code) {
+    const both = byName.filter((a) => a.iata.toLowerCase() === code)
+    if (both.length > 0) return onlyOne(both)
+  }
+  if (byCode.length > 0) return onlyOne(byCode)
+  return code ? undefined : onlyOne(byName)
+}
+
+/**
+ * @param operator The operator's name as saved, or null.
+ * @param iata The operator's IATA code as saved, or null.
+ * @returns The vendored airline it is (see `matchOperatorAirline`), or undefined.
+ */
+export function findAirlineForOperator(
+  operator: string | null | undefined,
+  iata: string | null | undefined
+): AirlineOption | undefined {
+  return matchOperatorAirline(getAllAirlines(), operator, iata)
+}
