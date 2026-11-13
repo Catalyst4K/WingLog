@@ -9,6 +9,7 @@ import { createAircraft } from '../db/aircraft-repo'
 import { createFlight } from '../db/flight-repo'
 import { aircraft, flight } from '../db/schema'
 import { localSyncVersion } from '../sync/sync-version'
+import { countDeferredRows } from '../db/sync-deferred-repo'
 import {
   PULL_PAGE_BYTES,
   PULL_PAGE_ROWS,
@@ -305,6 +306,31 @@ describe('a twin’s sync lookups on the host', () => {
       upserted: [good(1).uuid, good(3).uuid],
       rejected: [bad.uuid]
     })
+  })
+
+  it('keeps a twin’s real edit refused because this computer’s clock is slow, and applies it at that twin’s next sync (step 23)', async () => {
+    const fresh = {
+      uuid: '11111111-2222-3333-4444-555555555555',
+      updatedAt: new Date().toISOString(),
+      data: JSON.stringify({ registration: 'G-LATE', icaoType: 'A320' })
+    }
+    const realNow = Date.now()
+    const slowClock = vi.spyOn(Date, 'now').mockReturnValue(realNow - 2 * 24 * 3_600_000)
+    try {
+      expect(await push('aircraft', [fresh])).toMatchObject({ upserted: [], rejected: [fresh.uuid] })
+      expect(countDeferredRows(db, twinOrigin(TWIN))).toBe(1)
+    } finally {
+      slowClock.mockRestore()
+    }
+    expect(pull('aircraft', null, OTHER_TWIN).rows).toEqual([])
+    // The clock is right again; the twin pulls (it has nothing new to push) and the kept row is applied, then given to the other twin.
+    pull('aircraft', null, TWIN)
+    expect(countDeferredRows(db, twinOrigin(TWIN))).toBe(0)
+    expect(pull('aircraft', null, OTHER_TWIN).rows.map((r) => JSON.parse(r.data).registration)).toEqual([
+      'G-LATE'
+    ])
+    // It counts as the twin's own, so it is not handed back to it.
+    expect(pull('aircraft', null, TWIN).rows).toEqual([])
   })
 
   it('refuses a table that is not synced, a bad cursor and malformed or oversize rows', () => {

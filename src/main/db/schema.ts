@@ -235,6 +235,21 @@ export const syncChange = sqliteTable(
   (table) => [uniqueIndex('sync_change_table_uuid_idx').on(table.tableName, table.uuid)]
 )
 
+// A row from a peer refused only because its time is more than a day ahead of this computer's clock, kept to apply once the clock catches up,
+// so a computer whose clock is slow does not pass a real edit over for good (winglog-backend's docs/plans/security-audit-v2.md, step 23).
+// One per peer, table and row (the newest kept), and only so many per peer (sync-deferred-repo.ts).
+export const syncDeferredRow = sqliteTable(
+  'sync_deferred_row',
+  {
+    peer: text('peer').notNull(),
+    tableName: text('table_name').notNull(),
+    uuid: text('uuid').notNull(),
+    updatedAt: text('updated_at').notNull(),
+    data: text('data').notNull()
+  },
+  (table) => [uniqueIndex('sync_deferred_row_key_idx').on(table.peer, table.tableName, table.uuid)]
+)
+
 // A phone or tablet paired with the second-screen server (winglog-backend's docs/plans/lan-web-viewer.md). Only a SHA-256 hash of its
 // token is stored, so a copy of the database can't be replayed against the server. Revoked rows are kept, with revoked_at set.
 export const lanDevice = sqliteTable('lan_device', {

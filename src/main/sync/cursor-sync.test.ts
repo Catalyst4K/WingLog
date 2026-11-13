@@ -3,12 +3,13 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { and, eq } from 'drizzle-orm'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createAircraft } from '../db/aircraft-repo'
 import { createDb, type WingLogDb } from '../db/client'
 import { createFlight } from '../db/flight-repo'
 import { aircraft, flight, syncChange } from '../db/schema'
 import { getKnownCounter, getPullCursor, getPushCursor, markOrigin } from '../db/sync-change-repo'
+import { countDeferredRows } from '../db/sync-deferred-repo'
 import type { SyncRow, SyncTable } from '../backend/sync-client'
 import { runCursorSync, resetPeer, type KnownCounter, type PagedSyncClient } from './cursor-sync'
 import { applyPulledRow, serializeChange } from './sync-engine'
@@ -421,6 +422,51 @@ describe('runCursorSync', () => {
     peer.seed('aircraft', row)
     const again = await sync(pc)
     expect(again.tables.aircraft.rejected).toEqual([])
+  })
+
+  it('keeps a real edit refused because this computer’s clock is two days slow, and applies it once the clock is right (step 23)', async () => {
+    const pc = device('pc')
+    peer.seed('aircraft', {
+      uuid: 'edited-elsewhere',
+      updatedAt: new Date().toISOString(),
+      data: JSON.stringify({ registration: 'G-LATE', icaoType: 'A320' })
+    })
+    const realNow = Date.now()
+    const slowClock = vi.spyOn(Date, 'now').mockReturnValue(realNow - 2 * 24 * 3_600_000)
+    try {
+      const slow = await sync(pc)
+      expect(slow.tables.aircraft.pulled).toBe(0)
+      expect(slow.tables.aircraft.skipped).toEqual(['edited-elsewhere'])
+      expect(countDeferredRows(pc.db, 'cloud')).toBe(1)
+      // Still slow at the next sync: kept, not applied, and not lost.
+      await sync(pc)
+      expect(countDeferredRows(pc.db, 'cloud')).toBe(1)
+    } finally {
+      slowClock.mockRestore()
+    }
+
+    // The clock is put right. The peer has nothing new (the cursor is past the row), yet the row is applied.
+    const right = await sync(pc)
+    expect(right.tables.aircraft.pulled).toBe(1)
+    expect(countDeferredRows(pc.db, 'cloud')).toBe(0)
+    expect(
+      pc.db
+        .select()
+        .from(aircraft)
+        .all()
+        .map((a) => a.registration)
+    ).toEqual(['G-LATE'])
+  })
+
+  it('still passes over for good a row whose time is not a real time', async () => {
+    const pc = device('pc')
+    peer.seed('aircraft', {
+      uuid: 'bad-time',
+      updatedAt: 'zzzz',
+      data: JSON.stringify({ registration: 'G-ZZZZ', icaoType: 'A320' })
+    })
+    expect((await sync(pc)).tables.aircraft.skipped).toEqual(['bad-time'])
+    expect(countDeferredRows(pc.db, 'cloud')).toBe(0)
   })
 
   it('does a full sync both ways again after the peer’s cursors are forgotten', async () => {

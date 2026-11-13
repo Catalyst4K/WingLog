@@ -41,10 +41,29 @@ const PEER_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/
  * @returns The time written as `toISOString` writes it, or null when it is not a real UTC time or is more than a day ahead of `now`.
  */
 export function checkedPeerTime(value: unknown, now: number): string | null {
+  const time = realPeerTime(value)
+  return time === null || time > now + MAX_PEER_TIME_AHEAD_MS ? null : new Date(time).toISOString()
+}
+
+/**
+ * @param value A row's `updatedAt` from another computer or the cloud.
+ * @param now This computer's clock, in milliseconds.
+ * @returns True when it is a real UTC time that is refused only for being more than a day ahead of `now`: either the peer's clock is fast or
+ *   this one's is slow, which only time tells apart, so the row is kept to try again rather than passed over (security-audit-v2, step 23).
+ */
+export function isPeerTimeAhead(value: unknown, now: number): boolean {
+  const time = realPeerTime(value)
+  return time !== null && time > now + MAX_PEER_TIME_AHEAD_MS
+}
+
+/**
+ * @param value A row's `updatedAt`.
+ * @returns It in milliseconds, or null when it is not a real UTC time in `toISOString`'s shape.
+ */
+function realPeerTime(value: unknown): number | null {
   if (typeof value !== 'string' || !PEER_TIME.test(value)) return null
   const time = Date.parse(value)
-  if (!Number.isFinite(time) || time > now + MAX_PEER_TIME_AHEAD_MS) return null
-  const normalized = new Date(time).toISOString()
+  if (!Number.isFinite(time)) return null
   // A date that does not exist (31 February) is rolled forward by Date.parse instead of refused: the same day coming back is the check.
-  return normalized.slice(0, 10) === value.slice(0, 10) ? normalized : null
+  return new Date(time).toISOString().slice(0, 10) === value.slice(0, 10) ? time : null
 }

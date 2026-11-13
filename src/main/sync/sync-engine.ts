@@ -26,7 +26,8 @@ import { findLiveFlightByContent } from '../db/flight-match-repo'
 import { getFlightIdByUuid, getFlightUuidById, upsertFlightByUuid } from '../db/flight-repo'
 import { hasLandingUnderOtherUuid, upsertLandingByUuid } from '../db/landing-repo'
 import { markOrigin } from '../db/sync-change-repo'
-import { checkedPeerTime } from '../db/sync-rows'
+import { deferRow } from '../db/sync-deferred-repo'
+import { checkedPeerTime, isPeerTimeAhead } from '../db/sync-rows'
 import { getSetting, setSetting } from '../db/settings-repo'
 import type { SyncRow, SyncTable } from '../backend/sync-client'
 import { aircraft, flight, flightInvoice, gsxRoutine, landing } from '../db/schema'
@@ -119,7 +120,9 @@ function omit<T extends Record<string, unknown>>(obj: T, keys: string[]): Record
  *  (see upsertAircraftByUuid's comment) — distinct from `ok: false`, which means the row
  *  itself couldn't be applied at all (malformed data, unresolved parent reference). `uuid` is the local uuid the row was written under: the one its alias points to when it
  *  was merged into a row this device already had, which is the row a sync mark has to go on. */
-export type ApplyResult = { ok: true; applied: boolean; uuid: string } | { ok: false; error: string }
+/** How applying a row went. `isAheadOfClock` marks a row refused only because its time is more than a day ahead of this computer's clock. */
+export type ApplyResult =
+  { ok: true; applied: boolean; uuid: string } | { ok: false; error: string; isAheadOfClock?: boolean }
 
 // --- aircraft ---------------------------------------------------------------------------
 
@@ -523,11 +526,13 @@ export function serializeChange(db: WingLogDb, table: SyncTable, uuid: string): 
  */
 export function applyPulledRow(db: WingLogDb, table: SyncTable, pulled: SyncRow): ApplyResult {
   // Every row from outside goes through here (the cloud pull, a twin's pull, a twin's push), so this is the one place its time is checked.
-  const updatedAt = checkedPeerTime(pulled.updatedAt, Date.now())
+  const now = Date.now()
+  const updatedAt = checkedPeerTime(pulled.updatedAt, now)
   if (updatedAt === null) {
     return {
       ok: false,
-      error: `updatedAt is not a real time within a day of this computer's clock: ${JSON.stringify(pulled.updatedAt).slice(0, 80)}`
+      error: `updatedAt is not a real time within a day of this computer's clock: ${JSON.stringify(pulled.updatedAt).slice(0, 80)}`,
+      ...(isPeerTimeAhead(pulled.updatedAt, now) ? { isAheadOfClock: true } : {})
     }
   }
   const row = { ...pulled, updatedAt }
@@ -543,6 +548,35 @@ export function applyPulledRow(db: WingLogDb, table: SyncTable, pulled: SyncRow)
     case 'gsxRoutine':
       return applyGsxRoutine(db, row)
   }
+}
+
+/**
+ * Keeps a row that was refused only for being ahead of this computer's clock, and logs what was done with it.
+ *
+ * @param db The database.
+ * @param dbPath The database file's path, which says where sync-conflicts.log goes.
+ * @param peer Who the row came from.
+ * @param table The table.
+ * @param row The row as it came.
+ * @param direction Which way it came, for the log: a pull, or a twin's push to the sim PC.
+ */
+export function keepRowAhead(
+  db: WingLogDb,
+  dbPath: string,
+  peer: string,
+  table: SyncTable,
+  row: SyncRow,
+  direction: 'pull' | 'twin-push'
+): void {
+  const isKept = deferRow(db, peer, table, row)
+  logSyncEvent(dbPath, {
+    direction,
+    table,
+    uuid: row.uuid,
+    reason: isKept
+      ? "its time is more than a day ahead of this computer's clock: kept, and tried again at each sync until the clock catches up"
+      : "its time is more than a day ahead of this computer's clock, and too many rows are already kept for this peer: passed over"
+  })
 }
 
 /** The backend's push limits (winglog-backend `routes/sync.ts`): rows per request, one row's data, and
@@ -614,6 +648,11 @@ export async function applyPushedRows(
       continue
     }
     rejected.push(row.uuid)
+    // A row refused only for a time ahead of this computer's clock is kept and tried again (security-audit-v2, step 23).
+    if (!outcome.ok && outcome.isAheadOfClock && origin !== undefined) {
+      keepRowAhead(db, dbPath, origin, table, row, 'twin-push')
+      continue
+    }
     logSyncEvent(dbPath, {
       direction: 'twin-push',
       table,

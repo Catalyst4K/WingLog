@@ -23,6 +23,7 @@ import type { WingLogDb } from '../db/client'
 import { SYNC_TABLES, type SyncRow, type SyncTable } from '../backend/sync-client'
 import {
   applyPulledRow,
+  keepRowAhead,
   linkPulledReplacements,
   logSyncEvent,
   serializeChange,
@@ -33,6 +34,8 @@ import {
   type SyncTableResult
 } from './sync-engine'
 import { timeSlicer } from './time-slice'
+import { retryDeferredRows } from './deferred-rows'
+import { clearDeferredRows } from '../db/sync-deferred-repo'
 
 /** What this database knows of a peer's counter, sent with a pull (review of M8): the highest number it has shown, and its epoch. */
 export interface KnownCounter {
@@ -158,7 +161,9 @@ function applyPageRow(
   const outcome = applyPulledRow(db, table, row)
   if (!outcome.ok) {
     result.skipped.push(row.uuid)
-    logSyncEvent(dbPath, { direction: 'pull', table, uuid: row.uuid, reason: outcome.error })
+    // A row refused only for a time ahead of this computer's clock is kept and tried again: the cursor moves past it (step 23).
+    if (outcome.isAheadOfClock) keepRowAhead(db, dbPath, peer, table, row, 'pull')
+    else logSyncEvent(dbPath, { direction: 'pull', table, uuid: row.uuid, reason: outcome.error })
   } else if (outcome.applied) {
     result.pulled++
     // Marked on the uuid the row was written under: a flight or aircraft merged into one already here counts under the local uuid.
@@ -226,6 +231,8 @@ async function pullTable(
     if (!page.more) break
   }
   if (table === 'aircraft') linkPulledReplacements(db, pulledRows)
+  // Rows kept from earlier pulls for a time that was ahead of this computer's clock, which may have caught up now.
+  result.pulled += retryDeferredRows(db, dbPath, peer, table)
 }
 
 /**
@@ -365,4 +372,6 @@ export async function runCursorSync(
 export function resetPeer(db: WingLogDb, peer: string): void {
   clearPeerCursors(db, peer)
   clearPeerOrigin(db, peer)
+  // The full pull that follows brings them again.
+  clearDeferredRows(db, peer)
 }

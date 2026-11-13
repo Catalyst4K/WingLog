@@ -323,6 +323,13 @@
       "when": 1794237827764,
       "tag": "0045_gsx_routine_sync",
       "breakpoints": true
+    },
+    {
+      "idx": 46,
+      "version": "6",
+      "when": 1794571780410,
+      "tag": "0046_sync_deferred_row",
+      "breakpoints": true
     }
   ]
 }

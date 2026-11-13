@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { checkedPeerTime, MAX_PEER_TIME_AHEAD_MS, shouldApplyPulledRow } from './sync-rows'
+import { checkedPeerTime, isPeerTimeAhead, MAX_PEER_TIME_AHEAD_MS, shouldApplyPulledRow } from './sync-rows'
 
 const row = (
   uuid: string | null,
@@ -65,5 +65,22 @@ describe('checkedPeerTime (audit M2)', () => {
 
   it('accepts any time in the past', () => {
     expect(checkedPeerTime('1999-01-01T00:00:00.000Z', NOW)).toBe('1999-01-01T00:00:00.000Z')
+  })
+})
+
+describe('isPeerTimeAhead (security-audit-v2, step 23)', () => {
+  const NOW = Date.parse('2026-11-11T12:00:00.000Z')
+
+  it('is true only for a real time refused for being more than a day ahead', () => {
+    expect(isPeerTimeAhead(new Date(NOW + MAX_PEER_TIME_AHEAD_MS + 1).toISOString(), NOW)).toBe(true)
+    expect(isPeerTimeAhead('9999-12-31T23:59:59.999Z', NOW)).toBe(true)
+    expect(isPeerTimeAhead(new Date(NOW + MAX_PEER_TIME_AHEAD_MS).toISOString(), NOW)).toBe(false)
+    expect(isPeerTimeAhead('2026-11-11T10:00:00Z', NOW)).toBe(false)
+  })
+
+  it('is false for what is not a real time, which is refused for good', () => {
+    for (const value of ['zzzz', '2027-02-31T00:00:00.000Z', '2027-01-01T00:00:00+01:00', 5, null, undefined]) {
+      expect(isPeerTimeAhead(value, NOW), String(value)).toBe(false)
+    }
   })
 })

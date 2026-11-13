@@ -12,6 +12,7 @@ import { highestChangeSeq, listChangesAfter, servedEpoch } from '../db/sync-chan
 import { countTrackPoints, listFlightUuidsWithTrack, listTrackPointRows } from '../db/track-point-repo'
 import { applyPushedRows, MAX_PUSH_ROWS, MAX_ROW_DATA_BYTES, serializeChange } from '../sync/sync-engine'
 import { localSyncVersion } from '../sync/sync-version'
+import { retryDeferredRows } from '../sync/deferred-rows'
 
 /** The most one page of changed rows carries, in bytes and rows: a whole table in one answer could be tens of megabytes. */
 export const PULL_PAGE_BYTES = 3_000_000
@@ -231,12 +232,21 @@ export function twinSyncDeviceQueries(
   onApplied: () => void = () => {}
 ): Record<string, (deviceId: number, ...args: unknown[]) => unknown> {
   return {
-    'sync.pull': (deviceId, table, cursor, known) =>
-      pullChanges(db, tableArg(table), cursorArg(cursor), deviceId, knownArg(known)),
+    'sync.pull': (deviceId, table, cursor, known) => {
+      const checkedTable = tableArg(table)
+      const page = pullChanges(db, checkedTable, cursorArg(cursor), deviceId, knownArg(known))
+      // A twin with nothing to push in a table still pulls it: at its last page, its rows kept for a time ahead of this computer's clock are tried too.
+      if (!page.more) {
+        if (retryDeferredRows(db, dbPath, twinOrigin(deviceId), checkedTable) > 0) onApplied()
+      }
+      return page
+    },
     'sync.push': (deviceId, table, rows) => {
       // Checked now, so a bad request is refused at once; the rows are then applied a few at a time.
       const checkedTable = tableArg(table)
       const checkedRows = rowsArg(rows)
+      // Rows this twin sent earlier that were kept for a time ahead of this computer's clock, which may have caught up now (step 23).
+      if (retryDeferredRows(db, dbPath, twinOrigin(deviceId), checkedTable) > 0) onApplied()
       return applyPushedRows(db, checkedTable, checkedRows, dbPath, twinOrigin(deviceId)).then((result) => {
         if (result.upserted.length > 0) onApplied()
         // The counter after the push, so the twin knows what it has seen before it pulls again (review of M8).
