@@ -340,6 +340,29 @@ describe('requesting a service', () => {
     session.tick(5_000)
     expect(session.progress.services[0].progress).toBe('skipped')
   })
+
+  // Flights 433, 434 and 436 (PMDG 777, WSSS): GSX holds Catering back for about nine seconds while its second operator menu,
+  // `Select catering operator`, waits to time out, so the five-second wait for the pick runs out. The service then runs.
+  it('follows a service GSX takes after the wait for the pick ran out, instead of skipping it (flights 433, 434, 436)', () => {
+    const session = new Session(custom(['Catering', 'Refueling'], { answerGsxChoice: true }))
+    session.tick()
+    session.menu = mainMenu()
+    session.tick()
+    session.menu = operatorMenu()
+    session.tick(900)
+    session.menu = menu('Select catering operator', ['DNATA Catering', 'SATS [GSX choice]', 'Back'])
+    session.quiet(36, 250)
+    // GSX's menu times out and it takes Catering in the same moment.
+    session.menu = EMPTY_MENU
+    session.states.Catering = 'requested'
+    expect(session.tick(250)).toEqual([])
+    expect(session.progress.services[0]).toEqual({ service: 'Catering', progress: 'running' })
+    session.states.Catering = 'performing'
+    session.tick(60_000)
+    session.states.Catering = 'completed'
+    session.tick()
+    expect(session.progress.services[0]).toEqual({ service: 'Catering', progress: 'done' })
+  })
 })
 
 describe('check before pick', () => {
@@ -530,6 +553,30 @@ describe('the Departure routine', () => {
     expect(session.tick(250)).toEqual([{ kind: 'openMenu' }])
     session.menu = mainMenu()
     expect(session.tick(250)[0]).toMatchObject({ label: 'Request Boarding', index: 3 })
+  })
+
+  // Flights 433 and 434 asked for Boarding while GSX was still performing Catering, because the skipped Catering counted as settled.
+  it('holds Boarding until a late-taken Catering is completed in GSX, not only done with by WingLog (flights 433, 434)', () => {
+    const session = new Session(BUILT_IN_ROUTINES[0])
+    session.tick()
+    session.menu = mainMenu()
+    session.tick()
+    session.menu = menu('Select catering operator', ['DNATA Catering', 'SATS [GSX choice]', 'Back'])
+    session.quiet(40, 250)
+    // GSX's own menu times out and it takes Catering, after the wait for the pick ran out.
+    session.menu = EMPTY_MENU
+    session.states.Catering = 'requested'
+    session.tick()
+    expect(session.progress.services[0]).toEqual({ service: 'Catering', progress: 'running' })
+    request(session, 'Refueling')
+    session.states.Catering = 'performing'
+    session.states.Refueling = 'performing'
+    expect(session.quiet(60, 1_000)).toEqual([])
+    expect(session.progress.services[2]).toEqual({ service: 'Boarding', progress: 'waiting' })
+    session.states.Catering = 'completed'
+    expect(session.tick(250)).toEqual([{ kind: 'openMenu' }])
+    session.menu = mainMenu()
+    expect(session.tick(250)[0]).toMatchObject({ label: 'Request Boarding' })
   })
 
   it('finishes when every service is done', () => {

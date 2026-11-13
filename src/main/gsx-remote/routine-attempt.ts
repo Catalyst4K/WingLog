@@ -176,6 +176,18 @@ function stepAttemptOnce(
   input: RunnerInput,
   actions: RunnerAction[]
 ): void {
+  if (attempt.step !== 'sent') {
+    // GSX can take the pick after the wait for it ran out (it holds a service back while its own operator menu times out), and
+    // the retry then finds the entry relabelled and would leave out a service that is running.
+    const gsx = serviceById(input.services, attempt.service)
+    if (gsx && isTaken(gsx.state)) {
+      if (input.menu.menuShown) actions.push({ kind: 'closeMenu' })
+      adoptService(run, attempt.service, gsx, input.nowMs)
+      run.attempt = null
+      run.settleUntilMs = input.nowMs + SETTLE_MS
+      return
+    }
+  }
   if (attempt.step === 'sent') {
     waitForGsxToTakeIt(run, attempt, input, actions)
   } else if (attempt.step === 'submenu') {
