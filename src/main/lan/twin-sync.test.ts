@@ -44,10 +44,14 @@ describe('a twin’s sync lookups on the host', () => {
     return createAircraft(db, { registration, icaoType: 'A320' })
   }
 
-  const pull = (table: string, cursor: unknown = null, deviceId = TWIN) =>
-    device['sync.pull'](deviceId, table, cursor) as PullPage
+  const pull = (table: string, cursor: unknown = null, deviceId = TWIN, known?: unknown) =>
+    device['sync.pull'](deviceId, table, cursor, known) as PullPage
   const push = (table: string, rows: unknown, deviceId = TWIN) =>
-    device['sync.push'](deviceId, table, rows) as Promise<{ upserted: string[]; rejected: string[] }>
+    device['sync.push'](deviceId, table, rows) as Promise<{
+      upserted: string[]
+      rejected: string[]
+      head: number
+    }>
 
   it('serves the rows of a table in the order they changed, as the cloud sync would push them', () => {
     addAircraft('G-AAAA')
@@ -141,7 +145,9 @@ describe('a twin’s sync lookups on the host', () => {
     }
     expect(await push('aircraft', [fresh])).toMatchObject({ upserted: [fresh.uuid] })
 
-    expect(pull('aircraft', null, TWIN).rows.map((r) => JSON.parse(r.data).registration)).toEqual(['G-HOST'])
+    expect(pull('aircraft', null, TWIN).rows.map((r) => JSON.parse(r.data).registration)).toMatchObject([
+      'G-HOST'
+    ])
     expect(pull('aircraft', null, OTHER_TWIN).rows.map((r) => JSON.parse(r.data).registration)).toEqual([
       'G-HOST',
       'G-TWIN'
@@ -162,22 +168,53 @@ describe('a twin’s sync lookups on the host', () => {
     expect(pull('aircraft', page.cursor).rows.map((r) => JSON.parse(r.data).registration)).toEqual(['G-AFTR'])
   })
 
-  it('says the newest change number it holds for the table, so a twin can tell its counter went back (audit M8)', async () => {
+  it('says the highest change number it has given, in any table, so a twin can tell its counter went back (audit M8)', async () => {
     expect(pull('aircraft').head).toBe(0)
     addAircraft('G-AAAA')
     addAircraft('G-BBBB')
     const first = pull('aircraft')
     expect(first.head).toBe(first.cursor)
     expect(first.head).toBeGreaterThan(0)
-    // A page that ends early still says where the table ends, and another table has a head of its own.
-    expect(pull('flight').head).toBe(0)
+    // The counter is the database's own, shared by its tables: a table with no rows says the same head.
+    expect(pull('flight').head).toBe(first.head)
     const fresh = {
       uuid: '11111111-2222-3333-4444-555555555555',
       updatedAt: new Date().toISOString(),
       data: JSON.stringify({ registration: 'G-TWIN', icaoType: 'B738' })
     }
-    await push('aircraft', [fresh])
-    expect(pull('aircraft', first.cursor, OTHER_TWIN).head).toBeGreaterThan(first.head)
+    // A push says the head it took the counter to, before the twin pulls again (review of M8).
+    const pushed = await push('aircraft', [fresh])
+    expect(pushed.head).toBeGreaterThan(first.head)
+    expect(pull('aircraft', first.cursor, OTHER_TWIN).head).toBe(pushed.head)
+  })
+
+  it('does not lower the head when the row holding the newest change is deleted outright (review of M8)', () => {
+    addAircraft('G-AAAA')
+    addAircraft('G-BBBB')
+    const before = pull('aircraft').head
+    db.delete(aircraft).where(eq(aircraft.registration, 'G-BBBB')).run()
+    expect(pull('aircraft').head).toBe(before)
+  })
+
+  it('keeps one epoch while the counter only goes up, and gives a new one when a twin has seen past the head (review of M8)', () => {
+    const epoch = pull('aircraft').epoch
+    expect(epoch).toMatch(/^[0-9a-f-]{36}$/)
+    addAircraft('G-AAAA')
+    const head = pull('aircraft').head
+    expect(pull('aircraft', head, TWIN, { seen: head, epoch }).epoch).toBe(epoch)
+
+    // A restored database: a twin says it has seen past the head while it holds this epoch. Every twin is given the new one.
+    const fresh = pull('aircraft', null, TWIN, { seen: head + 10, epoch }).epoch
+    expect(fresh).not.toBe(epoch)
+    expect(pull('aircraft', null, OTHER_TWIN, { seen: head + 10, epoch }).epoch).toBe(fresh)
+    // An older twin sends nothing, and is taken at its cursor.
+    expect(pull('aircraft', null, OTHER_TWIN).epoch).toBe(fresh)
+  })
+
+  it('refuses a counter from a twin that is not one', () => {
+    for (const known of [{ seen: -1 }, { seen: '3' }, { epoch: 5 }, { epoch: 'x'.repeat(65) }, 'text']) {
+      expect(() => pull('aircraft', null, TWIN, known), JSON.stringify(known)).toThrow()
+    }
   })
 
   it('names a twin’s rows by its device id', () => {
@@ -211,13 +248,13 @@ describe('a twin’s sync lookups on the host', () => {
     addAircraft('G-AAAA')
     const [row] = pull('aircraft', null, OTHER_TWIN).rows
     const older = { ...row, updatedAt: '2000-01-01T00:00:00.000Z' }
-    expect(await push('aircraft', [older])).toEqual({ upserted: [], rejected: [row.uuid] })
+    expect(await push('aircraft', [older])).toMatchObject({ upserted: [], rejected: [row.uuid] })
     const newer = {
       ...row,
       updatedAt: new Date(Date.now() + 3_600_000).toISOString(),
       data: JSON.stringify({ ...JSON.parse(row.data), icaoType: 'B738' })
     }
-    expect(await push('aircraft', [newer])).toEqual({ upserted: [row.uuid], rejected: [] })
+    expect(await push('aircraft', [newer])).toMatchObject({ upserted: [row.uuid], rejected: [] })
     expect(JSON.parse(pull('aircraft', null, OTHER_TWIN).rows[0].data).icaoType).toBe('B738')
     // The loser is logged next to the database, not lost.
     expect(readFileSync(join(dir, 'sync-conflicts.log'), 'utf8')).toContain('twin-push')
@@ -231,27 +268,29 @@ describe('a twin’s sync lookups on the host', () => {
     }
     expect(await push('aircraft', [fresh])).toMatchObject({ upserted: [fresh.uuid] })
     const bad = { ...fresh, uuid: '99999999-0000-0000-0000-000000000000', data: '{"registration":5}' }
-    expect(await push('aircraft', [bad])).toEqual({ upserted: [], rejected: [bad.uuid] })
+    expect(await push('aircraft', [bad])).toMatchObject({ upserted: [], rejected: [bad.uuid] })
   })
 
   it('refuses a twin row timed zzzz, and still takes a real, newer edit to the same row from another twin (audit M2)', async () => {
     const uuid = '11111111-2222-3333-4444-555555555555'
     const data = (icaoType: string): string => JSON.stringify({ registration: 'G-ZZZZ', icaoType })
-    expect(await push('aircraft', [{ uuid, updatedAt: 'zzzz', data: data('A320') }], TWIN)).toEqual({
+    expect(await push('aircraft', [{ uuid, updatedAt: 'zzzz', data: data('A320') }], TWIN)).toMatchObject({
       upserted: [],
       rejected: [uuid]
     })
     expect(
       await push('aircraft', [{ uuid, updatedAt: '9999-12-31T23:59:59.999Z', data: data('A320') }], TWIN)
-    ).toEqual({
+    ).toMatchObject({
       upserted: [],
       rejected: [uuid]
     })
     const real = new Date().toISOString()
-    expect(await push('aircraft', [{ uuid, updatedAt: real, data: data('B738') }], OTHER_TWIN)).toEqual({
-      upserted: [uuid],
-      rejected: []
-    })
+    expect(await push('aircraft', [{ uuid, updatedAt: real, data: data('B738') }], OTHER_TWIN)).toMatchObject(
+      {
+        upserted: [uuid],
+        rejected: []
+      }
+    )
     expect(JSON.parse(pull('aircraft', null, TWIN).rows[0].data).icaoType).toBe('B738')
   })
 
@@ -262,7 +301,7 @@ describe('a twin’s sync lookups on the host', () => {
       data: JSON.stringify({ registration: `G-GOO${n}`, icaoType: 'A320' })
     })
     const bad = { ...good(2), updatedAt: 'zzzz' }
-    expect(await push('aircraft', [good(1), bad, good(3)])).toEqual({
+    expect(await push('aircraft', [good(1), bad, good(3)])).toMatchObject({
       upserted: [good(1).uuid, good(3).uuid],
       rejected: [bad.uuid]
     })

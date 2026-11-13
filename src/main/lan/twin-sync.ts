@@ -8,7 +8,7 @@
 import type { WingLogDb } from '../db/client'
 import { SYNC_TABLES, type SyncRow, type SyncTable } from '../backend/sync-client'
 import { getFlightIdByUuid } from '../db/flight-repo'
-import { latestChangeSeq, listChangesAfter } from '../db/sync-change-repo'
+import { highestChangeSeq, listChangesAfter, servedEpoch } from '../db/sync-change-repo'
 import { countTrackPoints, listFlightUuidsWithTrack, listTrackPointRows } from '../db/track-point-repo'
 import { applyPushedRows, MAX_PUSH_ROWS, MAX_ROW_DATA_BYTES, serializeChange } from '../sync/sync-engine'
 import { localSyncVersion } from '../sync/sync-version'
@@ -19,13 +19,21 @@ export const PULL_PAGE_ROWS = 200
 /** The most work one page takes to build, milliseconds: a page that has taken this long ends there and the twin asks for the next, so the host's window is never held for long. */
 export const PULL_PAGE_BUDGET_MS = 40
 
-/** One page of a table's changed rows, the counter to ask from next, whether there is a further page, and the newest change number this database holds for the table. */
+/** One page of a table's changed rows, the counter to ask from next, whether there is a further page, and what tells a twin this database's counter went back. */
 export interface PullPage {
   rows: SyncRow[]
   cursor: number
   more: boolean
-  /** A twin whose cursor is past this knows this database's counter went back (it is new, or restored), and starts again (audit M8). */
+  /** The highest change number this database has given, in any table: a twin that has seen past it starts again (audit M8). */
   head: number
+  /** This database's sync epoch: a twin holding another starts again (review of M8). */
+  epoch: string
+}
+
+/** What a twin knows of this database's counter, as it sent it with a pull; an older twin sends nothing. */
+interface KnownByTwin {
+  seen: number | null
+  epoch: string | null
 }
 
 /** Longest text taken for a uuid or a time. */
@@ -63,6 +71,21 @@ function cursorArg(value: unknown): number | null {
 }
 
 /**
+ * @param value What a twin knows of this database's counter: `{ seen, epoch }`, or nothing from an older twin.
+ * @returns It, checked.
+ * @throws When it is there but not that shape.
+ */
+function knownArg(value: unknown): KnownByTwin {
+  if (value === undefined || value === null) return { seen: null, epoch: null }
+  const record = typeof value === 'object' ? (value as Record<string, unknown>) : null
+  const epoch = record?.epoch ?? null
+  if (!record || (epoch !== null && (typeof epoch !== 'string' || epoch.length > MAX_KEY_CHARS))) {
+    throw new Error('Invalid counter')
+  }
+  return { seen: cursorArg(record.seen), epoch }
+}
+
+/**
  * @param value The rows a twin pushed.
  * @returns The rows, each checked for its shape and size (what is in `data` is checked as each is applied).
  * @throws When there are too many, or one is malformed or too large.
@@ -95,14 +118,19 @@ function rowsArg(value: unknown): SyncRow[] {
  * @param table The table.
  * @param cursor The `cursor` of the last page this twin was given for the table, or null for everything.
  * @param deviceId The asking twin.
- * @returns The page, the cursor to ask from next, whether there is more, and the table's newest change number (`head`).
+ * @param known What the twin knows of this database's counter: a number it has seen past the head here, while it holds this database's epoch,
+ *   means the counter went back, and the epoch is changed so every twin finds out.
+ * @returns The page, the cursor to ask from next, whether there is more, this database's highest change number (`head`) and its epoch.
  */
 export function pullChanges(
   db: WingLogDb,
   table: SyncTable,
   cursor: number | null,
-  deviceId: number
+  deviceId: number,
+  known: KnownByTwin = { seen: null, epoch: null }
 ): PullPage {
+  const head = highestChangeSeq(db)
+  const epoch = servedEpoch(db, Math.max(cursor ?? 0, known.seen ?? 0), known.epoch)
   const from = cursor ?? 0
   const found = listChangesAfter(db, table, from, PULL_PAGE_ROWS + 1)
   const looked = found.slice(0, PULL_PAGE_ROWS)
@@ -131,7 +159,7 @@ export function pullChanges(
     }
     last = change.seq
   }
-  return { rows, cursor: last, more, head: latestChangeSeq(db, table) }
+  return { rows, cursor: last, more, head, epoch }
 }
 
 /** Track points in one answer: a point is about 200 bytes, so a page stays well under what a twin takes in one message. */
@@ -203,14 +231,16 @@ export function twinSyncDeviceQueries(
   onApplied: () => void = () => {}
 ): Record<string, (deviceId: number, ...args: unknown[]) => unknown> {
   return {
-    'sync.pull': (deviceId, table, cursor) => pullChanges(db, tableArg(table), cursorArg(cursor), deviceId),
+    'sync.pull': (deviceId, table, cursor, known) =>
+      pullChanges(db, tableArg(table), cursorArg(cursor), deviceId, knownArg(known)),
     'sync.push': (deviceId, table, rows) => {
       // Checked now, so a bad request is refused at once; the rows are then applied a few at a time.
       const checkedTable = tableArg(table)
       const checkedRows = rowsArg(rows)
       return applyPushedRows(db, checkedTable, checkedRows, dbPath, twinOrigin(deviceId)).then((result) => {
         if (result.upserted.length > 0) onApplied()
-        return result
+        // The counter after the push, so the twin knows what it has seen before it pulls again (review of M8).
+        return { ...result, head: highestChangeSeq(db) }
       })
     }
   }

@@ -6,13 +6,20 @@ import { addInvoicesForFlight } from './flight-invoice-repo'
 import { createFlight } from './flight-repo'
 import { createLanding } from './landing-repo'
 import { setSetting } from './settings-repo'
+import { eq } from 'drizzle-orm'
 import {
   clearPeerCursors,
+  clearPeerOrigin,
+  getKnownCounter,
   getPullCursor,
   getPushCursor,
+  highestChangeSeq,
   listChangesAfter,
   localUpdatedAt,
   markOrigin,
+  noteSeenFromPeer,
+  servedEpoch,
+  setPeerEpoch,
   setPullCursor,
   setPushCursor
 } from './sync-change-repo'
@@ -50,10 +57,56 @@ describe('sync-change-repo', () => {
     setPullCursor(db, 'cloud', 'flight', 12)
     setPushCursor(db, 'cloud', 'aircraft', 4)
     setPullCursor(db, 'host', 'flight', 3)
+    noteSeenFromPeer(db, 'cloud', 20)
+    setPeerEpoch(db, 'cloud', 'e-1')
+    noteSeenFromPeer(db, 'host', 5)
     clearPeerCursors(db, 'cloud')
     expect(getPullCursor(db, 'cloud', 'flight')).toBeNull()
     expect(getPushCursor(db, 'cloud', 'aircraft')).toBe(0)
+    expect(getKnownCounter(db, 'cloud')).toEqual({ seen: null, epoch: null })
     expect(getPullCursor(db, 'host', 'flight')).toBe(3)
+    expect(getKnownCounter(db, 'host')).toEqual({ seen: 5, epoch: null })
+  })
+
+  it('keeps only the highest number a peer has shown (review of M8)', () => {
+    expect(getKnownCounter(db, 'cloud').seen).toBeNull()
+    noteSeenFromPeer(db, 'cloud', 9)
+    noteSeenFromPeer(db, 'cloud', 4)
+    expect(getKnownCounter(db, 'cloud').seen).toBe(9)
+    noteSeenFromPeer(db, 'cloud', 10)
+    expect(getKnownCounter(db, 'cloud').seen).toBe(10)
+  })
+
+  it('gives the highest number ever handed out, which a row deleted outright does not lower (review of M8)', () => {
+    expect(highestChangeSeq(db)).toBe(0)
+    createAircraft(db, { registration: 'G-AAAA', icaoType: 'A320' })
+    createAircraft(db, { registration: 'G-BBBB', icaoType: 'A320' })
+    const before = highestChangeSeq(db)
+    expect(before).toBe(listChangesAfter(db, 'aircraft', 0, 10).at(-1)?.seq)
+    db.delete(aircraft).where(eq(aircraft.registration, 'G-BBBB')).run()
+    expect(highestChangeSeq(db)).toBe(before)
+  })
+
+  it('keeps its own epoch while no peer has seen past the head, and makes a new one when one has (review of M8)', () => {
+    const first = servedEpoch(db, 0, null)
+    expect(servedEpoch(db, 0, first)).toBe(first)
+    createAircraft(db, { registration: 'G-AAAA', icaoType: 'A320' })
+    const head = highestChangeSeq(db)
+    expect(servedEpoch(db, head, first)).toBe(first)
+    const second = servedEpoch(db, head + 1, first)
+    expect(second).not.toBe(first)
+    // A peer still on the old epoch will start again anyway: no third.
+    expect(servedEpoch(db, head + 1, first)).toBe(second)
+  })
+
+  it('forgets which rows came from one peer, and no other (review of M8)', () => {
+    createAircraft(db, { registration: 'G-AAAA', icaoType: 'A320' })
+    createAircraft(db, { registration: 'G-BBBB', icaoType: 'A320' })
+    const [a, b] = listChangesAfter(db, 'aircraft', 0, 10)
+    markOrigin(db, 'aircraft', a.uuid, 'host')
+    markOrigin(db, 'aircraft', b.uuid, 'cloud')
+    clearPeerOrigin(db, 'host')
+    expect(listChangesAfter(db, 'aircraft', 0, 10).map((c) => c.origin)).toEqual([null, 'cloud'])
   })
 
   it('lists a table’s changes after a number in order, limited, with where each came from', () => {

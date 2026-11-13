@@ -45,6 +45,7 @@ export const SYNC_AFTER_WRITE_MS = 2000
 export class TwinSync implements TwinSyncPort {
   private current: TwinSyncStatus = { state: 'idle', lastSyncedAt: null, problem: null }
   private running = false
+  private forgetWhenDone = false
   private again = false
   private tracksRunning = false
   private waiting: { promise: Promise<boolean> } | null = null
@@ -75,6 +76,9 @@ export class TwinSync implements TwinSyncPort {
 
   forgetCursors(): void {
     resetPeer(this.deps.db, HOST_PEER)
+    // A sync under way with the sim PC before can still save its cursors and origin marks after this, so they are forgotten again when it
+    // ends, before any sync with the new one (review of M8).
+    if (this.running) this.forgetWhenDone = true
   }
 
   onChange(listener: () => void): void {
@@ -137,6 +141,10 @@ export class TwinSync implements TwinSyncPort {
       this.set({ state: 'error', lastSyncedAt, problem: null })
     } finally {
       this.running = false
+      if (this.forgetWhenDone) {
+        this.forgetWhenDone = false
+        resetPeer(this.deps.db, HOST_PEER)
+      }
     }
     const ok = this.current.state === 'idle'
     // A change made during this sync gets one more, and whoever asked during it hears that one's result.

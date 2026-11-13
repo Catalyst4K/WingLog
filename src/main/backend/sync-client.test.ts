@@ -148,7 +148,9 @@ describe('syncPullPage', () => {
       email: 'callum@example.com',
       token: 'tok',
       table: 'aircraft',
-      cursor: 3
+      cursor: 3,
+      seen: null,
+      epoch: null
     })
     expect(init?.signal).toBeInstanceOf(AbortSignal)
   })
@@ -163,6 +165,25 @@ describe('syncPullPage', () => {
     })
     for (const head of [-1, 1.5, '7', null]) {
       vi.stubGlobal('fetch', fetchMock(200, { rows: [], cursor: 7, more: false, head }))
+      await expect(syncPullPage('callum@example.com', 'tok', 'aircraft', 7)).rejects.toThrow('unexpected')
+    }
+  })
+
+  it('sends what it knows of the Worker’s counter, and passes on the epoch it is given (review of M8)', async () => {
+    const mock = fetchMock(200, { rows: [], cursor: 7, more: false, head: 9, epoch: 'e-2' })
+    vi.stubGlobal('fetch', mock)
+    expect(await syncPullPage('callum@example.com', 'tok', 'aircraft', 7, { seen: 9, epoch: 'e-1' })).toEqual(
+      {
+        rows: [],
+        cursor: 7,
+        more: false,
+        head: 9,
+        epoch: 'e-2'
+      }
+    )
+    expect(JSON.parse(mock.mock.calls[0][1]?.body as string)).toMatchObject({ seen: 9, epoch: 'e-1' })
+    for (const epoch of [5, '', 'x'.repeat(65), null]) {
+      vi.stubGlobal('fetch', fetchMock(200, { rows: [], cursor: 7, more: false, epoch }))
       await expect(syncPullPage('callum@example.com', 'tok', 'aircraft', 7)).rejects.toThrow('unexpected')
     }
   })
@@ -221,6 +242,20 @@ describe('syncPush', () => {
       table: 'flight',
       rows
     })
+  })
+
+  it('passes on the Worker’s head after a push, and refuses one that is not a counter (review of M8)', async () => {
+    vi.stubGlobal('fetch', fetchMock(200, { upserted: ['a'], rejected: [], refused: [], head: 12 }))
+    expect(await syncPush('callum@example.com', 'tok', 'flight', [])).toEqual({
+      upserted: ['a'],
+      rejected: [],
+      refused: [],
+      head: 12
+    })
+    for (const head of [-1, 'x', null]) {
+      vi.stubGlobal('fetch', fetchMock(200, { upserted: [], rejected: [], refused: [], head }))
+      await expect(syncPush('callum@example.com', 'tok', 'flight', [])).rejects.toThrow('unexpected')
+    }
   })
 
   it('takes an older Worker’s answer, which has no refused list, as none refused', async () => {

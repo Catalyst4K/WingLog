@@ -2,11 +2,14 @@
  * Reading the change counter and keeping each peer's cursors (winglog-backend docs/plans/sync-cursors.md). A cursor is a counter kept by
  * the side that serves the rows, never a time:
  * - `pullCursor:<peer>:<table>` is the peer's own counter, as the peer reported it;
- * - `pushCursor:<peer>:<table>` is this database's `sync_change.seq`, up to which rows have been sent to that peer.
- * The peer is `cloud`, or on a twin `host`, or on the sim PC `twin:<device id>`.
+ * - `pushCursor:<peer>:<table>` is this database's `sync_change.seq`, up to which rows have been sent to that peer;
+ * - `peerSeen:<peer>` and `peerEpoch:<peer>` are what is known of the peer's counter: the highest number it has shown, and its epoch, which
+ *   together tell when that counter went back (review of M8).
+ * The peer is `cloud`, or on a twin `host`, or on the sim PC `twin:<device id>`. `syncEpoch` is this database's own epoch, for the peers it serves.
  */
 
-import { and, asc, eq, gt, like, max, or } from 'drizzle-orm'
+import { randomUUID } from 'node:crypto'
+import { and, asc, eq, gt, like, or, sql } from 'drizzle-orm'
 import type { WingLogDb } from './client'
 import { aircraft, appSetting, flight, flightInvoice, gsxRoutine, landing, syncChange } from './schema'
 import { getSetting, setSetting } from './settings-repo'
@@ -66,17 +69,83 @@ export function listChangesAfter(db: WingLogDb, table: string, afterSeq: number,
 
 /**
  * @param db The database.
- * @param table The synced table.
- * @returns The highest counter any change to the table holds here, or 0 when it has none: what a peer's cursor can never be past unless
- *   this database's counter went back (it was made again, or restored from a backup).
+ * @returns The highest counter this database has ever given a change, in any table, or 0 when it has given none: what a peer can never have
+ *   seen past unless this database's counter went back (it was made again, or restored from a backup). It is SQLite's own record for the
+ *   AUTOINCREMENT key, not the highest entry left, so a row deleted outright (and its entry with it) does not lower it (review of M8).
  */
-export function latestChangeSeq(db: WingLogDb, table: string): number {
-  const row = db
-    .select({ seq: max(syncChange.seq) })
-    .from(syncChange)
-    .where(eq(syncChange.tableName, table))
-    .get()
+export function highestChangeSeq(db: WingLogDb): number {
+  const row = db.get<{ seq: number } | undefined>(
+    sql`SELECT seq FROM sqlite_sequence WHERE name = 'sync_change'`
+  )
   return row?.seq ?? 0
+}
+
+/** The setting that holds this database's own sync epoch, which the peers it serves are given. */
+const SERVED_EPOCH_KEY = 'syncEpoch'
+
+/**
+ * This database's sync epoch, as the sim PC gives it to its twins (the Worker keeps one for the cloud the same way): a random name for the
+ * counter's present run of numbers. A peer keeps it with its cursors and starts again when it changes (review of M8). It is made when there
+ * is none (a new database). It is made again when a peer has seen a number above the highest here while holding the present epoch, or none:
+ * the counter went back (a backup restored), and every peer has to start again, not only the first to notice. A peer holding an older epoch
+ * starts again anyway, so it changes nothing.
+ *
+ * @param db The database.
+ * @param seen The highest counter the asking peer has seen from this database.
+ * @param peerEpoch The epoch the asking peer holds, or null for none.
+ * @returns The epoch to give the peer.
+ */
+export function servedEpoch(db: WingLogDb, seen: number, peerEpoch: string | null): string {
+  const stored = getSetting(db, SERVED_EPOCH_KEY)
+  const wentBack = seen > highestChangeSeq(db) && (peerEpoch === null || peerEpoch === stored)
+  if (stored !== undefined && !wentBack) return stored
+  const epoch = randomUUID()
+  setSetting(db, SERVED_EPOCH_KEY, epoch)
+  return epoch
+}
+
+const epochKey = (peer: string): string => `peerEpoch:${peer}`
+const seenKey = (peer: string): string => `peerSeen:${peer}`
+
+/**
+ * @param db The database.
+ * @param peer The peer.
+ * @returns What this database knows of the peer's counter: the highest number seen from it, and the epoch it gave (null for none yet).
+ */
+export function getKnownCounter(db: WingLogDb, peer: string): { seen: number | null; epoch: string | null } {
+  return { seen: parseCursor(getSetting(db, seenKey(peer))), epoch: getSetting(db, epochKey(peer)) ?? null }
+}
+
+/**
+ * Notes a number the peer has shown: a page's cursor or head, or a push's head. Only a higher one is kept.
+ *
+ * @param db The database.
+ * @param peer The peer.
+ * @param seq The number.
+ */
+export function noteSeenFromPeer(db: WingLogDb, peer: string, seq: number): void {
+  const { seen } = getKnownCounter(db, peer)
+  if (seen === null || seq > seen) setSetting(db, seenKey(peer), String(seq))
+}
+
+/**
+ * @param db The database.
+ * @param peer The peer.
+ * @param epoch The epoch the peer gave.
+ */
+export function setPeerEpoch(db: WingLogDb, peer: string, epoch: string): void {
+  setSetting(db, epochKey(peer), epoch)
+}
+
+/**
+ * Forgets which rows came from a peer, so every row is sent to it again: after its counter went back it may not have them any more (a new
+ * or restored sim PC database, an account made again), and last write wins makes a row it does have a no-op (review of M8).
+ *
+ * @param db The database.
+ * @param peer The peer.
+ */
+export function clearPeerOrigin(db: WingLogDb, peer: string): void {
+  db.update(syncChange).set({ origin: null }).where(eq(syncChange.origin, peer)).run()
 }
 
 /**
@@ -120,15 +189,22 @@ export function setPushCursor(db: WingLogDb, peer: string, table: string, seq: n
 }
 
 /**
- * Forgets both cursors for a peer, so the next sync with it starts from nothing in both directions: a new account has none of the old one's
- * rows, and a device pointed at a different one must not carry the first's place.
+ * Forgets both cursors for a peer, and what is known of its counter, so the next sync with it starts from nothing in both directions: a new
+ * account has none of the old one's rows, and a device pointed at a different one must not carry the first's place.
  *
  * @param db The database.
  * @param peer The peer.
  */
 export function clearPeerCursors(db: WingLogDb, peer: string): void {
   db.delete(appSetting)
-    .where(or(like(appSetting.key, `pullCursor:${peer}:%`), like(appSetting.key, `pushCursor:${peer}:%`)))
+    .where(
+      or(
+        like(appSetting.key, `pullCursor:${peer}:%`),
+        like(appSetting.key, `pushCursor:${peer}:%`),
+        eq(appSetting.key, seenKey(peer)),
+        eq(appSetting.key, epochKey(peer))
+      )
+    )
     .run()
 }
 

@@ -35,19 +35,19 @@ describe('LanSyncClient and the host’s lookups, end to end between two databas
   afterEach(() => rmSync(dir, { recursive: true, force: true }))
 
   /** A link in which the client asks the host's own lookups, through JSON as the socket would; the host knows this client as device 1. */
-  function link(): TwinSync {
+  function link(twin: WingLogDb = client, deviceId = 1): TwinSync {
     const queries = twinSyncQueries(host)
     const deviceQueries = twinSyncDeviceQueries(host, join(dir, 'host.db'))
     const ask = (name: string, ...args: unknown[]): Promise<unknown> => {
       const sent = JSON.parse(JSON.stringify(args)) as unknown[]
       asked.push({ name, args: sent })
-      const answer = deviceQueries[name] ? deviceQueries[name](1, ...sent) : queries[name](...sent)
+      const answer = deviceQueries[name] ? deviceQueries[name](deviceId, ...sent) : queries[name](...sent)
       // A lookup may answer later (a push is applied a few rows at a time).
       return Promise.resolve(answer).then((value) => JSON.parse(JSON.stringify(value)))
     }
     return new TwinSync({
-      db: client,
-      dbPath: join(dir, 'client.db'),
+      db: twin,
+      dbPath: join(dir, `client-${deviceId}.db`),
       client: new LanSyncClient(ask),
       canSync: () => true
     })
@@ -108,8 +108,42 @@ describe('LanSyncClient and the host’s lookups, end to end between two databas
     // The sim PC now keeps a new, empty database: the twin sends it every row.
     host = freshDb()
     await link().run()
-    // G-HOST came from the old sim PC, so it is not sent back to a sim PC; G-MACX was made here and is.
-    expect(registrations(host)).toEqual(['G-MACX'])
+    // G-HOST came from the old sim PC, which is gone: it is sent too, not only what was made here (review of M8).
+    expect(registrations(host)).toEqual(['G-HOST', 'G-MACX'])
+  })
+
+  it('starts a second twin again too when the sim PC’s database is restored from a backup (review of M8)', async () => {
+    const opened = createDb(join(dir, 'host-live.db'))
+    migrate(opened.db, { migrationsFolder: 'drizzle' })
+    host = opened.db
+    const mac2 = freshDb()
+    addAircraft(host, 'G-HOST')
+    await link(client, 1).run()
+    await link(mac2, 2).run()
+    await opened.sqlite.backup(join(dir, 'host-backup.db'))
+
+    // After the backup the first twin sends three; the second takes them and sends one of its own that the first never takes.
+    for (const registration of ['G-ONEA', 'G-ONEB', 'G-ONEC']) addAircraft(client, registration)
+    await link(client, 1).run()
+    addAircraft(mac2, 'G-TWOA')
+    await link(mac2, 2).run()
+
+    // The backup is put back. The first twin, which made four more meanwhile, syncs first: its re-send takes the counter past everything the
+    // second twin has seen, so only the new epoch tells the second one.
+    opened.sqlite.close()
+    const restored = createDb(join(dir, 'host-backup.db'))
+    host = restored.db
+    for (const registration of ['G-ONED', 'G-ONEE', 'G-ONEF', 'G-ONEG']) addAircraft(client, registration)
+    await link(client, 1).run()
+    await link(mac2, 2).run()
+    await link(client, 1).run()
+
+    expect(registrations(host)).toContain('G-TWOA')
+    expect(registrations(host)).toHaveLength(9)
+    expect(registrations(client)).toEqual(registrations(host))
+    expect(registrations(mac2)).toEqual(registrations(host))
+    // Windows will not delete the folder while a database in it is open.
+    restored.sqlite.close()
   })
 
   it('also starts the sim PC again on its own when its database is new and the cursors were kept (no pairing between)', async () => {
@@ -172,7 +206,10 @@ describe('chunkRows', () => {
 
 describe('LanSyncClient refuses what is not rows', () => {
   const pull = (answer: unknown) =>
-    new LanSyncClient(() => Promise.resolve(answer)).syncPullPage('', '', 'aircraft', null)
+    new LanSyncClient(() => Promise.resolve(answer)).syncPullPage('', '', 'aircraft', null, {
+      seen: null,
+      epoch: null
+    })
 
   it('on a pull that is not a page, a row that is not a row, or a cursor that is not a counter', async () => {
     await expect(pull('nope')).rejects.toThrow('not rows')
@@ -198,6 +235,14 @@ describe('LanSyncClient refuses what is not rows', () => {
       cursor: 3,
       more: true
     })
+    // The epoch (review of M8): a short text, or left out by an older sim PC.
+    await expect(pull({ rows: [], cursor: 3, more: false, head: 7, epoch: 'e-1' })).resolves.toMatchObject({
+      head: 7,
+      epoch: 'e-1'
+    })
+    for (const epoch of [5, '', 'x'.repeat(65), null]) {
+      await expect(pull({ rows: [], cursor: 3, more: false, epoch })).rejects.toThrow('not rows')
+    }
   })
 
   it('on a push whose answer is not a result', async () => {
@@ -205,6 +250,33 @@ describe('LanSyncClient refuses what is not rows', () => {
     await expect(
       client.syncPush('', '', 'aircraft', [{ uuid: 'a', updatedAt: 'b', data: '{}' }])
     ).rejects.toThrow('not a result')
+  })
+
+  it('passes on the highest head of a push’s chunks, and refuses one that is not a counter (review of M8)', async () => {
+    const rows = Array.from({ length: PUSH_CHUNK_ROWS + 1 }, (_, i) => ({
+      uuid: `u${i}`,
+      updatedAt: 't',
+      data: '{}'
+    }))
+    const heads = [40, 41]
+    const client = new LanSyncClient(() =>
+      Promise.resolve({ upserted: [], rejected: [], head: heads.shift() })
+    )
+    await expect(client.syncPush('', '', 'aircraft', rows)).resolves.toEqual({
+      upserted: [],
+      rejected: [],
+      head: 41
+    })
+    // An older sim PC says no head.
+    const older = new LanSyncClient(() => Promise.resolve({ upserted: ['a'], rejected: [] }))
+    await expect(older.syncPush('', '', 'aircraft', rows.slice(0, 1))).resolves.toEqual({
+      upserted: ['a'],
+      rejected: []
+    })
+    for (const head of [-1, 'x', null]) {
+      const bad = new LanSyncClient(() => Promise.resolve({ upserted: [], rejected: [], head }))
+      await expect(bad.syncPush('', '', 'aircraft', rows.slice(0, 1))).rejects.toThrow('not a result')
+    }
   })
 
   it('on a version that is not a version', async () => {
@@ -270,6 +342,19 @@ describe('TwinSync', () => {
     // Five tables pulled in the first run, five again in the one asked for while it ran, however many times it was asked.
     expect(ask.mock.calls.filter(([name]) => name === 'sync.pull')).toHaveLength(10)
     expect(states).toEqual(['syncing', 'idle', 'syncing', 'idle'])
+    cleanup()
+  })
+
+  it('forgets the sim PC’s cursors again when a sync under way while they were forgotten ends, so it cannot save the old ones (review of M8)', async () => {
+    const { twin, db, release, cleanup } = sync()
+    const running = twin.run()
+    // Pairing with another sim PC while the sync with the old one is waiting on an answer.
+    twin.forgetCursors()
+    release()
+    await running
+    // The old sync's pages would have left cursors behind; they are gone.
+    expect(getPullCursor(db, 'host', 'aircraft')).toBeNull()
+    expect(getPushCursor(db, 'host', 'aircraft')).toBe(0)
     cleanup()
   })
 
@@ -343,7 +428,9 @@ describe('TwinSync', () => {
   describe('answers that are not objects at all', () => {
     it('a page whose row is null, and a version that is null or text', async () => {
       const pull = new LanSyncClient(() => Promise.resolve({ rows: [null], cursor: 1, more: false }))
-      await expect(pull.syncPullPage('', '', 'aircraft', null)).rejects.toThrow('not a row')
+      await expect(pull.syncPullPage('', '', 'aircraft', null, { seen: null, epoch: null })).rejects.toThrow(
+        'not a row'
+      )
       for (const answer of [null, 'v2']) {
         await expect(new LanSyncClient(() => Promise.resolve(answer)).version()).rejects.toThrow(
           'not a version'

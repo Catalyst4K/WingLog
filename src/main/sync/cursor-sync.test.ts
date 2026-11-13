@@ -8,10 +8,10 @@ import { createAircraft } from '../db/aircraft-repo'
 import { createDb, type WingLogDb } from '../db/client'
 import { createFlight } from '../db/flight-repo'
 import { aircraft, flight, syncChange } from '../db/schema'
-import { getPullCursor, getPushCursor, markOrigin } from '../db/sync-change-repo'
+import { getKnownCounter, getPullCursor, getPushCursor, markOrigin } from '../db/sync-change-repo'
 import type { SyncRow, SyncTable } from '../backend/sync-client'
-import { runCursorSync, resetPeer, type PagedSyncClient } from './cursor-sync'
-import { applyPulledRow } from './sync-engine'
+import { runCursorSync, resetPeer, type KnownCounter, type PagedSyncClient } from './cursor-sync'
+import { applyPulledRow, serializeChange } from './sync-engine'
 
 /** Later than any row made while the tests run, yet inside the day a peer's row time may be ahead of the clock (`checkedPeerTime`). */
 const SOON = new Date(Date.now() + 3_600_000).toISOString()
@@ -29,36 +29,83 @@ class FakePeer implements PagedSyncClient {
   asked: Record<string, (number | null)[]> = {}
   refuse = new Set<string>()
   stuck = false
-  /** When true, each page also says the newest change number this peer holds for the table (the Worker and the sim PC do). */
+  /** When true, each page and push also says this peer's highest change number, in any table (the Worker and the sim PC do). */
   sendHead = false
   /** Says this as the head instead of the real one. */
   headOverride: number | null = null
+  /**
+   * When true, each page also says the peer's epoch, which changes when a device has seen past the head while holding it or none, as the
+   * Worker's and the sim PC's do (review of M8).
+   */
+  sendEpoch = false
+  epoch = 'epoch-1'
+  private epochs = 1
+  /** What each pull said it knew of the counter. */
+  known: KnownCounter[] = []
+  /** Run before each pull is answered: a test can change the peer between two tables of one sync. */
+  beforePull: ((table: SyncTable) => void) | null = null
 
-  async syncPullPage(_e: string, _t: string, table: SyncTable, cursor: number | null) {
+  async syncPullPage(
+    _e: string,
+    _t: string,
+    table: SyncTable,
+    cursor: number | null,
+    known: KnownCounter = { seen: null, epoch: null }
+  ) {
     this.pullCalls++
     if (this.failOnPull === this.pullCalls) throw new Error('network down')
+    this.beforePull?.(table)
     ;(this.asked[table] ??= []).push(cursor)
+    this.known.push(known)
+    const seen = Math.max(cursor ?? 0, known.seen ?? 0)
+    if (this.sendEpoch && seen > this.counter && (known.epoch === null || known.epoch === this.epoch)) {
+      this.newEpoch()
+    }
     const after = [...(this.rows.get(table)?.values() ?? [])]
       .filter((entry) => entry.seq > (cursor ?? 0))
       .sort((a, b) => a.seq - b.seq)
     const page = after.slice(0, this.pageSize)
     const more = after.length > page.length
     if (this.stuck) return { rows: page.map((entry) => entry.row), cursor: cursor ?? 0, more: true }
-    const head =
-      this.headOverride ??
-      Math.max(0, ...[...(this.rows.get(table)?.values() ?? [])].map((entry) => entry.seq))
+    const head = this.headOverride ?? this.counter
     return {
       rows: page.map((entry) => entry.row),
       cursor: page.at(-1)?.seq ?? cursor ?? 0,
       more,
-      ...(this.sendHead ? { head } : {})
+      ...(this.sendHead ? { head } : {}),
+      ...(this.sendEpoch ? { epoch: this.epoch } : {})
     }
+  }
+
+  newEpoch(): void {
+    this.epoch = `epoch-${++this.epochs}`
   }
 
   /** The peer starts over, as an account made again or a database restored from a backup does: nothing held, the counter back at zero. */
   wipe(): void {
     this.rows.clear()
     this.counter = 0
+    // A new account, or a new database, has a new epoch of its own.
+    this.newEpoch()
+  }
+
+  /** @returns What the peer holds now, to go back to with `restore`. */
+  snapshot(): { rows: Map<SyncTable, Map<string, { row: SyncRow; seq: number }>>; counter: number } {
+    return {
+      rows: new Map([...this.rows].map(([table, store]) => [table, new Map(store)])),
+      counter: this.counter
+    }
+  }
+
+  /**
+   * Goes back to an earlier point, as a point-in-time restore of an account or a backup of the sim PC's database does: the rows and the counter
+   * of then, and the epoch it had then, which is the one it has now.
+   *
+   * @param point What `snapshot` gave.
+   */
+  restore(point: ReturnType<FakePeer['snapshot']>): void {
+    this.rows = new Map([...point.rows].map(([table, store]) => [table, new Map(store)]))
+    this.counter = point.counter
   }
 
   async syncPush(_e: string, _t: string, table: SyncTable, rows: SyncRow[]) {
@@ -77,7 +124,7 @@ class FakePeer implements PagedSyncClient {
         upserted.push(row.uuid)
       }
     }
-    return { upserted, rejected, refused }
+    return { upserted, rejected, refused, ...(this.sendHead ? { head: this.counter } : {}) }
   }
 
   seed(table: SyncTable, row: SyncRow): void {
@@ -361,6 +408,21 @@ describe('runCursorSync', () => {
     await expect(sync(pc)).rejects.toThrow('did not move the cursor on')
   })
 
+  it('takes a row given back with its time written the short way as the same write, not a conflict (review nit)', async () => {
+    const pc = device('pc')
+    const row = {
+      uuid: 'short-time',
+      updatedAt: '2026-11-11T10:00:00Z',
+      data: JSON.stringify({ registration: 'G-SHRT', icaoType: 'A320' })
+    }
+    peer.seed('aircraft', row)
+    expect((await sync(pc)).tables.aircraft.pulled).toBe(1)
+    // Stored here as 10:00:00.000Z; the peer gives the same write back, still written 10:00:00Z.
+    peer.seed('aircraft', row)
+    const again = await sync(pc)
+    expect(again.tables.aircraft.rejected).toEqual([])
+  })
+
   it('does a full sync both ways again after the peer’s cursors are forgotten', async () => {
     const pc = device('pc')
     createAircraft(pc.db, { registration: 'G-ABCD', icaoType: 'A320' })
@@ -465,15 +527,121 @@ describe('a peer whose counter went back (audit M8)', () => {
     expect(peer.count('aircraft')).toBe(1)
   })
 
-  it('starts again once per pull, so a peer that keeps saying a low head cannot hold a sync in a loop', async () => {
+  it('starts again once per sync, so a peer that keeps saying a low head fails the sync instead of holding it in a loop', async () => {
     const { pc } = await wipedPeer()
     peer.headOverride = 0
     const before = peer.asked.aircraft.length
 
-    await sync(pc)
+    await expect(sync(pc)).rejects.toThrow('counter went back')
 
-    // Cursor 3 once, then none; no third ask.
+    // Cursor 3 once, then none; the second time it is found, in the restarted run, the sync stops.
     expect(peer.asked.aircraft.slice(before)).toEqual([3, null])
     expect(registrations(pc)).toContain('G-NEWW')
+  })
+
+  it('sends back the rows it took from the peer once the peer starts again, so a new account or database gets them too (review of M8)', async () => {
+    const pc = device('pc')
+    createAircraft(pc.db, { registration: 'G-AAAA', icaoType: 'A320' })
+    peer.seed('aircraft', {
+      uuid: 'made-elsewhere',
+      updatedAt: '2026-11-11T09:00:00.000Z',
+      data: JSON.stringify({ registration: 'G-ELSE', icaoType: 'B738' })
+    })
+    await sync(pc)
+    await sync(pc)
+    expect(registrations(pc)).toEqual(['G-AAAA', 'G-ELSE'])
+
+    peer.wipe()
+    await sync(pc)
+
+    // G-ELSE came from the peer, but the peer it came from is gone: it is sent too, not only what was made here.
+    expect(peer.count('aircraft')).toBe(2)
+  })
+
+  it('starts the second computer again too after a restore, though the first one’s re-send has taken the head past it (review of M8)', async () => {
+    peer.sendEpoch = true
+    const pc = device('pc')
+    const mac = device('mac')
+    const add = (d: { db: WingLogDb }, registration: string) =>
+      createAircraft(d.db, { registration, icaoType: 'A320' })
+    add(pc, 'G-PCAA')
+    await sync(pc)
+    await sync(mac)
+    const point = peer.snapshot()
+    // After the restore point the PC sends three, and the Mac takes them and sends one of its own that the PC never takes.
+    for (const registration of ['G-PCBB', 'G-PCCC', 'G-PCDD']) add(pc, registration)
+    await sync(pc)
+    add(mac, 'G-MACB')
+    await sync(mac)
+    peer.restore(point)
+
+    // The PC, which made four more meanwhile, syncs first: it has seen past the restored head, so the peer gives a new epoch, and its re-send
+    // takes the head past everything the Mac has seen, so the head alone would not tell the Mac.
+    for (const registration of ['G-PCEE', 'G-PCFF', 'G-PCGG', 'G-PCHH']) add(pc, registration)
+    await sync(pc)
+    expect(peer.epoch).toBe('epoch-2')
+    expect(peer.snapshot().counter).toBeGreaterThan(getKnownCounter(mac.db, 'cloud').seen ?? 0)
+
+    await sync(mac)
+    await sync(pc)
+
+    // The Mac's row made after the restore point reached the peer again, and both computers have every row.
+    expect(peer.count('aircraft')).toBe(9)
+    expect(registrations(pc)).toContain('G-MACB')
+    expect(registrations(mac)).toEqual(registrations(pc))
+  })
+
+  it('counts a push’s head as seen, so a restore to just before the push still shows (review of M8)', async () => {
+    peer.sendEpoch = true
+    const pc = device('pc')
+    // Only the aircraft table, so no later table's pull in the same sync says the head the push took it to: the push's own answer has to.
+    const syncAircraft = () => runCursorSync(pc.db, peer, SESSION, pc.path, 'cloud', ['aircraft'])
+    createAircraft(pc.db, { registration: 'G-AAAA', icaoType: 'A320' })
+    await syncAircraft()
+    await syncAircraft()
+    const point = peer.snapshot()
+    // The pull finds nothing new, so the pull cursor stays at the restore point; only the push's answer says the counter moved past it.
+    createAircraft(pc.db, { registration: 'G-BBBB', icaoType: 'A320' })
+    await syncAircraft()
+    expect(getPullCursor(pc.db, 'cloud', 'aircraft')).toBe(point.counter)
+    peer.restore(point)
+
+    await syncAircraft()
+
+    expect(peer.count('aircraft')).toBe(2)
+  })
+
+  it('starts the whole sync again from the first table, so a flight is never pulled before an aircraft it needs (review of M8)', async () => {
+    peer.sendEpoch = true
+    const pc = device('pc')
+    const mac = device('mac')
+    createAircraft(pc.db, { registration: 'G-PCAA', icaoType: 'A320' })
+    await sync(pc)
+    await sync(pc)
+    // The Mac's aircraft and a flight on it reach the peer, and its epoch changes, between the PC's aircraft pull and its flight pull.
+    const plane = createAircraft(mac.db, { registration: 'G-MACX', icaoType: 'A320' })
+    const trip = createFlight(mac.db, { aircraftId: plane.id, depIcao: 'EGLL', arrIcao: 'EGCC' })
+    const uuidOf = (table: typeof aircraft | typeof flight, id: number): string =>
+      mac.db.select({ uuid: table.uuid }).from(table).where(eq(table.id, id)).get()?.uuid as string
+    let changed = false
+    peer.beforePull = (table) => {
+      if (table !== 'flight' || changed) return
+      changed = true
+      peer.seed('aircraft', serializeChange(mac.db, 'aircraft', uuidOf(aircraft, plane.id)) as SyncRow)
+      peer.seed('flight', serializeChange(mac.db, 'flight', uuidOf(flight, trip.id)) as SyncRow)
+      peer.newEpoch()
+    }
+
+    const result = await sync(pc)
+
+    expect(result.tables.flight.skipped).toEqual([])
+    expect(
+      pc.db
+        .select()
+        .from(flight)
+        .all()
+        .map((f) => f.uuid)
+    ).toEqual([uuidOf(flight, trip.id)])
+    expect(registrations(pc)).toEqual(['G-MACX', 'G-PCAA'])
   })
 })

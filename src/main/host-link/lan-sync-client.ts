@@ -3,8 +3,8 @@
  * the host's pages after a counter, a push is the host's apply, so the same engine runs against the host's database as against the cloud's.
  */
 
-import type { SyncRow, SyncTable } from '../backend/sync-client'
-import type { PagedSyncClient } from '../sync/cursor-sync'
+import { isOptionalEpoch, type SyncRow, type SyncTable } from '../backend/sync-client'
+import type { KnownCounter, PagedSyncClient, PulledPage } from '../sync/cursor-sync'
 import { parseSyncVersion, type SyncVersion } from '../sync/sync-version'
 
 /** What one push may carry: the host takes a twin's message up to 4 MB, and a push is kept well under that. */
@@ -33,10 +33,11 @@ function rowFrom(value: unknown): SyncRow | null {
 
 /**
  * @param value The host's answer to a pull.
- * @returns Its rows, the cursor to ask from next, whether there is more, and the host's newest change number when it sent one (an older host does not).
+ * @returns Its rows, the cursor to ask from next, whether there is more, and the host's highest change number and epoch when it sent them (an older
+ *   host does not).
  * @throws When the answer is not a page.
  */
-function pageFrom(value: unknown): { rows: SyncRow[]; cursor: number; more: boolean; head?: number } {
+function pageFrom(value: unknown): PulledPage {
   const page = typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : null
   if (
     !page ||
@@ -47,7 +48,7 @@ function pageFrom(value: unknown): { rows: SyncRow[]; cursor: number; more: bool
   ) {
     throw new Error('The sim PC sent a page that is not rows')
   }
-  if (page.head !== undefined && (!Number.isSafeInteger(page.head) || (page.head as number) < 0)) {
+  if (!isOptionalCounter(page.head) || !isOptionalEpoch(page.epoch)) {
     throw new Error('The sim PC sent a page that is not rows')
   }
   const rows = page.rows.map(rowFrom)
@@ -56,8 +57,17 @@ function pageFrom(value: unknown): { rows: SyncRow[]; cursor: number; more: bool
     rows: rows as SyncRow[],
     cursor: page.cursor as number,
     more: page.more,
-    ...(page.head === undefined ? {} : { head: page.head as number })
+    ...(page.head === undefined ? {} : { head: page.head as number }),
+    ...(page.epoch === undefined ? {} : { epoch: page.epoch as string })
   }
+}
+
+/**
+ * @param value A counter the sim PC may leave out.
+ * @returns True when it is left out or a whole number from zero.
+ */
+function isOptionalCounter(value: unknown): boolean {
+  return value === undefined || (Number.isSafeInteger(value) && (value as number) >= 0)
 }
 
 /**
@@ -103,9 +113,11 @@ export class LanSyncClient implements PagedSyncClient {
     _email: string,
     _token: string,
     table: SyncTable,
-    cursor: number | null
-  ): Promise<{ rows: SyncRow[]; cursor: number; more: boolean; head?: number }> {
-    return pageFrom(await this.ask('sync.pull', table, cursor))
+    cursor: number | null,
+    known: KnownCounter
+  ): Promise<PulledPage> {
+    // An older sim PC takes the first two and leaves the third.
+    return pageFrom(await this.ask('sync.pull', table, cursor, known))
   }
 
   async syncPush(
@@ -113,20 +125,28 @@ export class LanSyncClient implements PagedSyncClient {
     _token: string,
     table: SyncTable,
     rows: SyncRow[]
-  ): Promise<{ upserted: string[]; rejected: string[] }> {
+  ): Promise<{ upserted: string[]; rejected: string[]; head?: number }> {
     const upserted: string[] = []
     const rejected: string[] = []
+    let head: number | undefined
     for (const chunk of chunkRows(rows)) {
       const answer = (await this.ask('sync.push', table, chunk)) as {
         upserted?: unknown
         rejected?: unknown
+        head?: unknown
       } | null
-      if (!answer || !Array.isArray(answer.upserted) || !Array.isArray(answer.rejected)) {
+      if (
+        !answer ||
+        !Array.isArray(answer.upserted) ||
+        !Array.isArray(answer.rejected) ||
+        !isOptionalCounter(answer.head)
+      ) {
         throw new Error('The sim PC sent an answer that is not a result')
       }
       upserted.push(...(answer.upserted as string[]))
       rejected.push(...(answer.rejected as string[]))
+      if (answer.head !== undefined) head = Math.max(head ?? 0, answer.head as number)
     }
-    return { upserted, rejected }
+    return { upserted, rejected, ...(head === undefined ? {} : { head }) }
   }
 }

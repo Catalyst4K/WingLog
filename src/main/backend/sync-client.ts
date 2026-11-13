@@ -5,6 +5,7 @@
  */
 import { BACKEND_BASE_URL } from './backend-client'
 import { BackendError } from './backend-error'
+import type { KnownCounter } from '../sync/cursor-sync'
 
 /** Every table WingLog syncs between its own computers: the four of cloud-sync.md, and the GSX routines (docs/plans/gsx-routines-sync.md). */
 export const SYNC_TABLES = ['aircraft', 'flight', 'landing', 'flightInvoice', 'gsxRoutine'] as const
@@ -125,12 +126,37 @@ export async function logout(email: string, token: string): Promise<void> {
   await postJson('/auth/logout', { email, token })
 }
 
-/** One page of a pull: the rows, the cursor to ask from next, and whether there is a further page. `head` is the table's newest change number on the Worker, when it says (an older Worker does not). */
+/**
+ * One page of a pull: the rows, the cursor to ask from next, and whether there is a further page. `head` is the Worker's highest change number and
+ * `epoch` names its counter's present run of numbers (review of M8); an older Worker sends neither.
+ */
 export interface SyncPage {
   rows: SyncRow[]
   cursor: number
   more: boolean
   head?: number
+  epoch?: string
+}
+
+/** The longest epoch taken: the Worker's are UUIDs. */
+const MAX_EPOCH_CHARS = 64
+
+/**
+ * @param value A counter the backend may leave out.
+ * @returns True when it is left out or a whole number from zero.
+ */
+function isOptionalCounter(value: unknown): boolean {
+  return value === undefined || (Number.isSafeInteger(value) && (value as number) >= 0)
+}
+
+/**
+ * @param value An epoch the backend may leave out.
+ * @returns True when it is left out or a short, non-empty text.
+ */
+export function isOptionalEpoch(value: unknown): boolean {
+  return (
+    value === undefined || (typeof value === 'string' && value.length > 0 && value.length <= MAX_EPOCH_CHARS)
+  )
 }
 
 /** A sync call carries up to 20 MB, so it gets longer than an account call, but not for ever (audit L6). */
@@ -153,6 +179,7 @@ function isTextList(value: unknown): value is string[] {
  * @param token Its session.
  * @param table The table to pull.
  * @param cursor The `cursor` of the last page for this table, or null for everything.
+ * @param known What this computer knows of the Worker's counter, so the Worker can tell when it went back (review of M8).
  * @returns The page.
  * @throws When the backend refuses, or answers with something that is not a page.
  */
@@ -160,11 +187,12 @@ export async function syncPullPage(
   email: string,
   token: string,
   table: SyncTable,
-  cursor: number | null
+  cursor: number | null,
+  known: KnownCounter = { seen: null, epoch: null }
 ): Promise<SyncPage> {
   const page = await postJson<Partial<SyncPage>>(
     '/sync/pull',
-    { email, token, table, cursor },
+    { email, token, table, cursor, seen: known.seen, epoch: known.epoch },
     undefined,
     SYNC_TIMEOUT_MS
   )
@@ -183,7 +211,8 @@ export async function syncPullPage(
     !Number.isSafeInteger(page.cursor) ||
     (page.cursor as number) < 0 ||
     typeof page.more !== 'boolean' ||
-    (page.head !== undefined && (!Number.isSafeInteger(page.head) || page.head < 0))
+    !isOptionalCounter(page.head) ||
+    !isOptionalEpoch(page.epoch)
   ) {
     throw new Error(BAD_ANSWER)
   }
@@ -191,7 +220,8 @@ export async function syncPullPage(
     rows: page.rows as SyncRow[],
     cursor: page.cursor as number,
     more: page.more,
-    ...(page.head === undefined ? {} : { head: page.head })
+    ...(page.head === undefined ? {} : { head: page.head }),
+    ...(page.epoch === undefined ? {} : { epoch: page.epoch })
   }
 }
 
@@ -210,17 +240,27 @@ export async function syncPush(
   token: string,
   table: SyncTable,
   rows: SyncRow[]
-): Promise<{ upserted: string[]; rejected: string[]; refused: string[] }> {
-  const result = await postJson<{ upserted?: unknown; rejected?: unknown; refused?: unknown }>(
-    '/sync/push',
-    { email, token, table, rows },
-    undefined,
-    SYNC_TIMEOUT_MS
-  )
-  // An older Worker does not send `refused`; that is the same as none.
+): Promise<{ upserted: string[]; rejected: string[]; refused: string[]; head?: number }> {
+  const result = await postJson<{
+    upserted?: unknown
+    rejected?: unknown
+    refused?: unknown
+    head?: unknown
+  }>('/sync/push', { email, token, table, rows }, undefined, SYNC_TIMEOUT_MS)
+  // An older Worker sends neither `refused` (the same as none) nor `head`.
   const refused = result.refused === undefined ? [] : result.refused
-  if (!isTextList(result.upserted) || !isTextList(result.rejected) || !isTextList(refused)) {
+  if (
+    !isTextList(result.upserted) ||
+    !isTextList(result.rejected) ||
+    !isTextList(refused) ||
+    !isOptionalCounter(result.head)
+  ) {
     throw new Error(BAD_ANSWER)
   }
-  return { upserted: result.upserted, rejected: result.rejected, refused }
+  return {
+    upserted: result.upserted,
+    rejected: result.rejected,
+    refused,
+    ...(result.head === undefined ? {} : { head: result.head as number })
+  }
 }
