@@ -148,9 +148,13 @@ export class CloudSyncController {
   }
 
   /**
+   * Signs this computer out. The account's first-sync marker goes too, so the next sign-in, to whatever account is then under this address
+   * (it may have been deleted and made again meanwhile), is a first sync: a backup, then everything sent and fetched (review of L11).
+   *
    * @returns The signed-out status, after the session and the last-synced time are forgotten here.
    */
   private forgetSession(): SyncStatus {
+    if (this.session) deleteSetting(this.db, firstSyncBackupKey(this.session.email))
     this.session = null
     clearSession(this.userDataPath)
     this.lastSyncedAt = null

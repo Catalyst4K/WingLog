@@ -377,6 +377,30 @@ describe('CloudSyncController', () => {
       expect(getSetting(db, `firstSyncBackup:${SESSION.email}`)).toBeDefined()
     })
 
+    it.each([
+      ['signing out', (c: CloudSyncController) => c.logout()],
+      ['deleting the account', (c: CloudSyncController) => c.deleteAccount('the password')],
+      [
+        'a new password',
+        (c: CloudSyncController) => c.resetPassword(SESSION.email, 'ABCD2345', 'a new password')
+      ]
+    ])('treats the next sign-in as a first sync again after %s (review of L11)', async (_name, signOut) => {
+      loaded = SESSION
+      runCursorSync.mockResolvedValue(okResult)
+      const controller = new CloudSyncController(db, '/fake/db/path', '/fake/userdata', loaded)
+      await controller.syncNow()
+      expect(getSetting(db, `firstSyncBackup:${SESSION.email}`)).toBeDefined()
+
+      expect((await signOut(controller)).loggedIn).toBe(false)
+      expect(getSetting(db, `firstSyncBackup:${SESSION.email}`)).toBeUndefined()
+
+      login.mockResolvedValue({ token: 'new-token', expiresAt: '2099-01-01T00:00:00.000Z' })
+      await controller.login(SESSION.email, 'password')
+      backupBeforeFirstSync.mockClear()
+      await controller.syncNow()
+      expect(backupBeforeFirstSync).toHaveBeenCalledTimes(1)
+    })
+
     it('keeps the marker when the failure is not a 401, so an offline computer does not start over', async () => {
       loaded = SESSION
       runCursorSync.mockResolvedValueOnce(okResult)
