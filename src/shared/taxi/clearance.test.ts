@@ -347,9 +347,9 @@ describe('a stand clearance with a suffix (VHHH flight 436, 2026-11-13: "Taxi to
       from: { lat: 22.32803, lon: 113.90531, headingDeg: 100 }
     }
     expect(clearance.stand).toBe('N32R')
-    const { stand, threshold, holdShortRunway, runways } = clearanceEnds(clearance, [N32, N32_R], [])
+    const { stand, threshold, holdShortRunway } = clearanceEnds(clearance, [N32, N32_R], [])
     expect(stand).toBe(N32_R)
-    const traced = traceClearanceDetailed(clearance, segments, stand, threshold, holdShortRunway, runways)
+    const traced = traceClearanceDetailed(clearance, segments, stand, threshold, holdShortRunway)
     const [lon, lat] = traced!.route.at(-1)!
     expect(distanceM({ lat, lon }, N32_R)).toBeLessThan(30)
   })
