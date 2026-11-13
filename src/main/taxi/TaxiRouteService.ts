@@ -221,7 +221,7 @@ export class TaxiRouteService {
     // Stands not loaded yet is not a miss: the line is traced again when they arrive (standsOf).
     if (clearance.stand && !stand && this.stands.has(icao)) {
       logger.warn(
-        `[taxi] ${icao} has no stand called ${clearance.stand}: the line ends where the last taxiway does`
+        `[taxi] ${icao} has no stand called ${JSON.stringify(clearance.stand)}: the line ends where the last taxiway does`
       )
     }
     const job: TraceJob = { clearance, segments, stand, threshold, holdShortRunway }

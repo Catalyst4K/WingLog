@@ -504,7 +504,29 @@ describe('TaxiRouteService: stands', () => {
     // The first trace is made before the stands arrive: that is not a miss.
     expect(warnedAbout()).toEqual([])
     await vi.waitFor(() => expect(warnedAbout()).toHaveLength(1))
-    expect(warnedAbout()[0]).toContain('ZJSY has no stand called N99')
+    expect(warnedAbout()[0]).toContain('ZJSY has no stand called "N99"')
+  })
+
+  it('writes the stand name in the warning without its control characters (BeyondATC text cannot start a log line)', async () => {
+    const w = setup({
+      flight: { flightId: 1, depIcao: 'VHHH', arrIcao: 'ZJSY', ofpJson: null },
+      stands: { ZJSY: [STAND] }
+    })
+    w.telemetry(ON_D)
+    w.clearance([
+      { title: 'Taxi to Gate', info: 'N9\u001b[2J' },
+      { title: 'Taxi Via 1', info: 'D' }
+    ])
+    await vi.waitFor(() =>
+      expect(vi.mocked(logger.warn).mock.calls.some((c) => String(c[0]).includes('no stand called'))).toBe(
+        true
+      )
+    )
+    const line = String(
+      vi.mocked(logger.warn).mock.calls.find((c) => String(c[0]).includes('no stand called'))![0]
+    )
+    expect(line).not.toMatch(/\p{Cc}/u)
+    expect(line).toContain('no stand called "N9\\u001b[2J"')
   })
 
   it('does not warn when the stand is found', async () => {

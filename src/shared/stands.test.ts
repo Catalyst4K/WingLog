@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { NavdataStand } from './ipc'
-import { findStand, nearestStand } from './stands'
+import { findStand, letterOfNameCode, nearestStand } from './stands'
 
 // Real VHHH stands from the sim (TAXI_PARKING spike), and where the real
 // YBBN-VHHH flight actually stopped at N32.
@@ -42,6 +42,16 @@ describe('nearestStand', () => {
   })
 })
 
+describe('letterOfNameCode', () => {
+  it("maps the sim's GATE_A..GATE_Z codes to letters, and anything else to none", () => {
+    expect(letterOfNameCode(12)).toBe('A')
+    expect(letterOfNameCode(25)).toBe('N')
+    expect(letterOfNameCode(29)).toBe('R')
+    expect(letterOfNameCode(37)).toBe('Z')
+    expect([0, 1, 10, 11, 11.5, 38].map(letterOfNameCode)).toEqual(['', '', '', '', '', ''])
+  })
+})
+
 describe('findStand', () => {
   it("matches ATC's plain name to the entry without a suffix, whatever the case", () => {
     expect(findStand(STANDS, 'N32')).toBe(N32)
@@ -57,6 +67,15 @@ describe('findStand', () => {
     expect(findStand(STANDS, 'N32L')).toBe(N32)
     expect(findStand(STANDS, 'N99R')).toBeNull()
     expect(findStand(STANDS, 'N')).toBeNull()
+  })
+
+  it("reads every letter the same way, from the sim's name codes (A is 12, so 12B is suffix 13)", () => {
+    const plain: NavdataStand = { ...N32, name: '12', number: 12, suffix: 0 }
+    const twinB: NavdataStand = { ...N32_TWIN, name: '12', number: 12, suffix: 13 }
+    const twinL: NavdataStand = { ...N32_TWIN, name: '12', number: 12, suffix: 23 }
+    expect(findStand([plain, twinL, twinB], '12B')).toBe(twinB)
+    expect(findStand([plain, twinL, twinB], '12L')).toBe(twinL)
+    expect(findStand([plain, twinL, twinB], '12C')).toBe(plain)
   })
 
   it('falls back to a twin when only twins exist, and finds nothing for an unknown stand', () => {
