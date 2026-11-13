@@ -60,7 +60,7 @@ export interface RoutineRun {
   windDown: WindDown | null
   /** No new request before this time: a late follow-up menu may still open after a pick. */
   settleUntilMs: number
-  /** Until this time, a main menu that opens with no attempt under way is the routine's own, from a toggle sent before GSX took the service, and is closed. */
+  /** Until this time, the first menu to open with no attempt under way is the routine's own, from a toggle sent before GSX took the service: closed if it is the main menu. Any menu shown ends the window, so a later one is the pilot's. */
   closeOwnMenuUntilMs: number
   lastOwnPickAtMs: number
   lastFollowUpPickAtMs: number

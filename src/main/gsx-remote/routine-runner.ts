@@ -228,6 +228,7 @@ function startNext(run: RoutineRun, input: RunnerInput, actions: RunnerAction[])
       }
       status.progress = 'asking'
       run.attempt = { service, step: 'open', sinceMs: input.nowMs, hasRetried: false, hasOpened: false }
+      run.closeOwnMenuUntilMs = 0
       if (input.guard.timedOut && (service === 'Boarding' || service === 'Refueling')) {
         run.entryTimedOutAtMs = input.nowMs
       }
@@ -259,10 +260,11 @@ function advance(run: RoutineRun, input: RunnerInput, actions: RunnerAction[]): 
   if (run.attempt) {
     if (run.attempt.step === 'sent' || !isForeignMenu) stepAttempt(run, input, actions)
     if (isForeignMenu) stepForeignMenu(run, input, actions)
-  } else if (isMainMenu(input.menu) && input.nowMs < run.closeOwnMenuUntilMs) {
-    // The routine's own toggle, sent before GSX took the service, opened this menu: it is not the pilot's.
-    actions.push({ kind: 'closeMenu' })
+  } else if (input.menu.menuShown && input.nowMs < run.closeOwnMenuUntilMs) {
+    // The first menu after the routine's own toggle is the toggle's, if it is the main menu; any menu after it is the pilot's.
     run.closeOwnMenuUntilMs = 0
+    if (isMainMenu(input.menu)) actions.push({ kind: 'closeMenu' })
+    else stepForeignMenu(run, input, actions)
   } else if (isForeignMenu) {
     stepForeignMenu(run, input, actions)
   } else if (input.nowMs >= run.settleUntilMs) {

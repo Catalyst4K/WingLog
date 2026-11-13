@@ -423,6 +423,62 @@ describe('requesting a service', () => {
       expect(session.tick(250)).toEqual([])
     })
 
+    it('counts the window from the toggle, so a menu the pilot opens five seconds after it is left alone', () => {
+      const session = catering777Waiting(custom(['Catering']))
+      session.menu = EMPTY_MENU
+      session.quiet(20, 250)
+      expect(session.tick(250)).toEqual([{ kind: 'openMenu' }]) // the retry toggle, which produces no menu
+      expect(session.quiet(17, 250)).toEqual([])
+      session.states.Catering = 'requested' // adopted 4.5 s after the toggle, with no menu up
+      expect(session.tick(100)).toEqual([])
+      session.menu = mainMenu() // the pilot's, 5.3 s after the toggle: the window has closed
+      expect(session.tick(700)).toEqual([])
+    })
+
+    it("closes only the first menu after the toggle: a main menu after the routine's own is the pilot's", () => {
+      const session = catering777Waiting(custom(['Catering']))
+      session.menu = EMPTY_MENU
+      session.quiet(20, 250)
+      session.tick(250)
+      session.states.Catering = 'requested'
+      session.tick(100)
+      session.menu = mainMenu()
+      expect(session.tick(300)).toEqual([{ kind: 'closeMenu' }])
+      session.menu = EMPTY_MENU
+      session.tick(200)
+      session.menu = mainMenu()
+      expect(session.tick(300)).toEqual([])
+    })
+
+    it("does not carry the window into the next service's attempt", () => {
+      const session = catering777Waiting(BUILT_IN_ROUTINES[0])
+      session.menu = EMPTY_MENU
+      session.quiet(20, 250)
+      session.tick(250) // the retry toggle
+      session.states.Catering = 'requested'
+      session.tick(100) // adopted, window open
+      expect(session.tick(2_000)).toEqual([{ kind: 'openMenu' }]) // Refueling's attempt starts
+      session.menu = mainMenu()
+      expect(session.tick(250)[0]).toMatchObject({ label: 'Request Refueling' })
+      session.menu = EMPTY_MENU
+      session.states.Refueling = 'requested'
+      session.tick(250)
+      session.menu = mainMenu() // the pilot's menu, still inside the first window's five seconds
+      expect(session.tick(250)).toEqual([])
+    })
+
+    it('does not open the window when the service is adopted while the attempt is on its submenu step', () => {
+      const session = new Session(custom(['GPU']))
+      expect(session.tick(250)).toEqual([{ kind: 'openMenu' }])
+      session.menu = mainMenu()
+      expect(session.tick(250)[0]).toMatchObject({ label: 'Additional Services ▶' })
+      session.menu = EMPTY_MENU
+      session.states.GPU = 'requested'
+      expect(session.tick(250)).toEqual([])
+      session.menu = mainMenu()
+      expect(session.tick(250)).toEqual([])
+    })
+
     it('adopts a service taken after a retry has reopened the menu, closing the menu it opened', () => {
       const session = catering777Waiting(custom(['Catering']))
       session.menu = EMPTY_MENU

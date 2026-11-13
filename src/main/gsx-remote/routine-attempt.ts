@@ -134,8 +134,8 @@ function chooseOnMainMenu(
  * @param gsx The service as GSX shows it.
  * @param input The step's input.
  * @param actions Where a close is added.
- * @param mayHaveOpenedMenu Whether the attempt could have opened GSX's menu itself, so that menu is closed: now if it is shown, or when it
- *   opens, within MENU_OPEN_TIMEOUT_MS, if the toggle has been sent but the menu is not up yet.
+ * @param mayHaveOpenedMenu Whether the attempt could have opened GSX's menu itself, so that menu is closed: now if it is shown, or, if the
+ *   toggle has been sent but the menu is not up yet, the first menu to open within MENU_OPEN_TIMEOUT_MS of the toggle (see closeOwnMenuUntilMs).
  */
 function adoptTaken(
   run: RoutineRun,
@@ -147,7 +147,10 @@ function adoptTaken(
 ): void {
   if (mayHaveOpenedMenu) {
     if (input.menu.menuShown) actions.push({ kind: 'closeMenu' })
-    else if (attempt.hasOpened) run.closeOwnMenuUntilMs = input.nowMs + MENU_OPEN_TIMEOUT_MS
+    else if (attempt.step === 'open' && attempt.hasOpened) {
+      // The toggle's menu is the one still to come, for as long as the attempt itself would have waited for it.
+      run.closeOwnMenuUntilMs = attempt.sinceMs + MENU_OPEN_TIMEOUT_MS
+    }
   }
   adoptService(run, attempt.service, gsx, input.nowMs)
   run.attempt = null
