@@ -67,8 +67,8 @@ export function searchAirlineList(airlines: AirlineOption[], query: string): Air
 }
 
 // Parsed on first use, not at module load (docs/decisions.md, memory-usage entry) — same
-// reasoning as airport-search.ts. Shared by both exports below, since either can be the
-// first to touch it (a Fleet airline search vs. the IATA backfill script).
+// reasoning as airport-search.ts. Shared by the exports below, since any of them can be the
+// first to touch it (a Fleet airline search, a registration look-up, the operator ICAO backfill).
 const getAllAirlines = lazy((): AirlineOption[] => [
   ...loadAirlines(airlinesRaw),
   ...loadAirlines(airlineAliasesRaw)
@@ -82,21 +82,6 @@ const getAllAirlines = lazy((): AirlineOption[] => [
  */
 export function searchAirlines(query: string): AirlineOption[] {
   return searchAirlineList(getAllAirlines(), query)
-}
-
-/**
- * Exact IATA-code lookup — used by scripts/backfill-operator-icao.ts to recover an
- * operator ICAO for an aircraft that only has an IATA code stored (docs/decisions.md,
- * SimBrief-generation entry). Not a substring search like searchAirlines above; an IATA
- * code is exact or it isn't a match at all.
- *
- * @param iata The IATA code.
- * @returns The airline, or undefined.
- */
-export function findAirlineByIata(iata: string): AirlineOption | undefined {
-  const q = iata.trim().toLowerCase()
-  if (!q) return undefined
-  return getAllAirlines().find((a) => a.iata.toLowerCase() === q)
 }
 
 /**
@@ -118,16 +103,20 @@ export function findAirlineByIcao(icao: string): AirlineOption | undefined {
   return getAllAirlines().find((a) => a.icao.toLowerCase() === q)
 }
 
+/** A real airline ICAO designator: three letters. The list also holds placeholders such as "???" and "===". */
+const AIRLINE_ICAO = /^[A-Z]{3}$/
+
 /**
  * Finds the airline an aircraft's stored operator is, to recover its ICAO code (what SimBrief's `airline` parameter and Dispatch's Airline ICAO
- * field want) when only the name and the IATA code were saved. It never guesses: the name and the IATA code agreeing is a match; an IATA code that
- * only one airline has is a match; with no IATA code, a name only one airline has is a match. Anything else, such as "SQ" (Singapore Airlines and
- * its cargo arm) with no name to settle it, is left unmatched.
+ * field want) when only the name and the IATA code were saved. It never guesses, and never turns a name alone into a code: the IATA code is
+ * required. With a name saved too, only airlines with both that code and that name count, so a name that disagrees with the code ("ITA Airways"
+ * with AZ, which the list has only as Alitalia) finds nothing. The candidates must share one ICAO, so "SQ" with no name (Singapore Airlines and
+ * its cargo arm) finds nothing, and that ICAO must be three letters.
  *
  * @param airlines The airline list.
  * @param operator The operator's name as saved, or null.
  * @param iata The operator's IATA code as saved, or null.
- * @returns The airline, or undefined when there is none or more than one candidate.
+ * @returns The airline, or undefined when there is none, more than one, or only a placeholder code.
  */
 export function matchOperatorAirline(
   airlines: AirlineOption[],
@@ -136,24 +125,20 @@ export function matchOperatorAirline(
 ): AirlineOption | undefined {
   const name = (operator ?? '').trim().toLowerCase()
   const code = (iata ?? '').trim().toLowerCase()
-  const onlyOne = (found: AirlineOption[]): AirlineOption | undefined => {
-    const icaos = new Set(found.map((a) => a.icao))
-    return icaos.size === 1 ? found[0] : undefined
-  }
-  const byName = name ? airlines.filter((a) => a.name.toLowerCase() === name) : []
-  const byCode = code ? airlines.filter((a) => a.iata.toLowerCase() === code) : []
-  if (name && code) {
-    const both = byName.filter((a) => a.iata.toLowerCase() === code)
-    if (both.length > 0) return onlyOne(both)
-  }
-  if (byCode.length > 0) return onlyOne(byCode)
-  return code ? undefined : onlyOne(byName)
+  if (!code) return undefined
+  const byCode = airlines.filter((a) => a.iata.toLowerCase() === code)
+  const found = name ? byCode.filter((a) => a.name.toLowerCase() === name) : byCode
+  const icaos = new Set(found.map((a) => a.icao))
+  if (icaos.size !== 1 || !AIRLINE_ICAO.test(found[0].icao)) return undefined
+  return found[0]
 }
 
 /**
+ * Finds the airline a stored operator is in the vendored list and its aliases.
+ *
  * @param operator The operator's name as saved, or null.
  * @param iata The operator's IATA code as saved, or null.
- * @returns The vendored airline it is (see `matchOperatorAirline`), or undefined.
+ * @returns The airline (see `matchOperatorAirline`), or undefined.
  */
 export function findAirlineForOperator(
   operator: string | null | undefined,

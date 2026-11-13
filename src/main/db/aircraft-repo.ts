@@ -3,7 +3,7 @@
  * sync helpers. Deleting is a soft delete, refused while the aircraft still has flights.
  */
 import { randomUUID } from 'node:crypto'
-import { and, eq, isNull } from 'drizzle-orm'
+import { and, eq, isNull, or } from 'drizzle-orm'
 import type { Aircraft, AircraftUpdate, NewAircraft } from '@shared/ipc'
 import { t } from '../i18n'
 import { aircraft, flight } from './schema'
@@ -172,6 +172,25 @@ export function updateAircraft(db: WingLogDb, input: AircraftUpdate): Aircraft |
     .returning()
     .all()
   return row ? toAircraft(row) : undefined
+}
+
+/**
+ * Sets an aircraft's operator ICAO, only while it has none. Writes that one column and leaves `updatedAt` alone, so it is not a change that
+ * syncs: every device works the same value out of the same bundled airline list, and stamping a possibly stale row as new would let it win
+ * last-write-wins over a newer edit made on another device.
+ *
+ * @param db The database.
+ * @param id The aircraft.
+ * @param operatorIcao The ICAO code to set.
+ * @returns Whether a row was changed (false when it already had an ICAO or doesn't exist).
+ */
+export function fillMissingOperatorIcao(db: WingLogDb, id: number, operatorIcao: string): boolean {
+  const result = db
+    .update(aircraft)
+    .set({ operatorIcao })
+    .where(and(eq(aircraft.id, id), or(isNull(aircraft.operatorIcao), eq(aircraft.operatorIcao, ''))))
+    .run()
+  return result.changes > 0
 }
 
 /**
