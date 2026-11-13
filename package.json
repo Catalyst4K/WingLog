@@ -23,7 +23,6 @@
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json && tsc --noEmit -p e2e/tsconfig.json",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "cross-env ELECTRON_RUN_AS_NODE=1 electron ./node_modules/tsx/dist/cli.mjs scripts/db-migrate.ts",
-    "db:backfill-operator-icao": "cross-env ELECTRON_RUN_AS_NODE=1 electron ./node_modules/tsx/dist/cli.mjs scripts/backfill-operator-icao.ts",
     "fixture:from-capture": "tsx scripts/fixture-from-capture.ts",
     "sim": "cross-env ELECTRON_RUN_AS_NODE=1 electron ./node_modules/vitest/vitest.mjs run --config scripts/sim/vitest.config.ts",
     "spike:simconnect": "tsx scripts/spike-simconnect.ts",

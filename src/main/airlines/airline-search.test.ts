@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
 import {
-  findAirlineByIata,
   findAirlineByIcao,
   findAirlineForOperator,
   loadAirlines,
@@ -94,24 +93,6 @@ describe('findAirlineByIcao (real vendored data)', () => {
   })
 })
 
-describe('findAirlineByIata (real vendored data)', () => {
-  it('finds an airline by its exact IATA code', () => {
-    expect(findAirlineByIata('SQ')?.name).toBe('Singapore Airlines')
-  })
-
-  it('is case-insensitive', () => {
-    expect(findAirlineByIata('sq')?.name).toBe('Singapore Airlines')
-  })
-
-  it('returns undefined for an unknown code', () => {
-    expect(findAirlineByIata('ZZ9')).toBeUndefined()
-  })
-
-  it('returns undefined for an empty string', () => {
-    expect(findAirlineByIata('')).toBeUndefined()
-  })
-})
-
 describe('matchOperatorAirline: the ICAO of an aircraft saved without one', () => {
   const airlines = loadAirlines(`name,icao,iata
 British Airways,BAW,BA
@@ -120,16 +101,23 @@ Singapore Airlines,SIA,SQ
 Singapore Airlines Cargo,SQC,SQ
 Cathay Dragon,HDA,KA
 Dragonair,HDA,KA
-Korean Air,KAL,KE`)
+Korean Air,KAL,KE
+Alitalia,AZA,AZ
+Flitestar,===,GM`)
 
   it('takes the airline whose name and IATA code both agree, whatever the case', () => {
     expect(matchOperatorAirline(airlines, 'Singapore Airlines', 'SQ')?.icao).toBe('SIA')
     expect(matchOperatorAirline(airlines, ' british AIRWAYS ', 'ba')?.icao).toBe('BAW')
   })
 
-  it('takes the only airline with the IATA code when the name is one the list does not have', () => {
-    expect(matchOperatorAirline(airlines, 'Korean Air Lines', 'KE')?.icao).toBe('KAL')
+  it('takes the only airline with the IATA code when no name was saved', () => {
     expect(matchOperatorAirline(airlines, null, 'KE')?.icao).toBe('KAL')
+    expect(matchOperatorAirline(airlines, '  ', 'KE')?.icao).toBe('KAL')
+  })
+
+  it('finds nothing when the saved name disagrees with the only airline that has the code', () => {
+    expect(matchOperatorAirline(airlines, 'ITA Airways', 'AZ')).toBeUndefined()
+    expect(matchOperatorAirline(airlines, 'Korean Air Lines', 'KE')).toBeUndefined()
   })
 
   it('takes two list entries for the same airline (a rebrand under one ICAO) as one answer', () => {
@@ -142,15 +130,39 @@ Korean Air,KAL,KE`)
     expect(matchOperatorAirline(airlines, 'Singapore', 'SQ')).toBeUndefined()
   })
 
-  it('uses the name alone only when there is no IATA code, and only when one airline has it', () => {
-    expect(matchOperatorAirline(airlines, 'Korean Air', null)?.icao).toBe('KAL')
-    expect(matchOperatorAirline(airlines, 'British Airways', '')).toBeUndefined()
-    expect(matchOperatorAirline(airlines, 'Nobody Air', null)).toBeUndefined()
+  it('never turns a name alone into a code, even one only a single airline has', () => {
+    expect(matchOperatorAirline(airlines, 'Korean Air', null)).toBeUndefined()
+    expect(matchOperatorAirline(airlines, 'Korean Air', '')).toBeUndefined()
+    expect(matchOperatorAirline(airlines, 'Alitalia', ' ')).toBeUndefined()
+  })
+
+  it('does not take a placeholder ICAO from the list', () => {
+    expect(matchOperatorAirline(airlines, null, 'GM')).toBeUndefined()
+    expect(matchOperatorAirline(airlines, 'Flitestar', 'GM')).toBeUndefined()
   })
 
   it('finds nothing when it has neither a name nor a code', () => {
     expect(matchOperatorAirline(airlines, null, null)).toBeUndefined()
     expect(matchOperatorAirline(airlines, '', '  ')).toBeUndefined()
+  })
+
+  it('finds nothing in the vendored list for a name that disagrees with its code', () => {
+    const disagreeing: [string, string][] = [
+      ['ITA Airways', 'AZ'],
+      ['Breeze Airways', 'MX'],
+      ['Discover Airlines', '4Y'],
+      ['Lufthansa City Airlines', 'VL'],
+      ['Lufthansa CityLine', 'VL']
+    ]
+    for (const [name, iata] of disagreeing) {
+      expect(findAirlineForOperator(name, iata), name).toBeUndefined()
+    }
+  })
+
+  it('finds nothing in the vendored list for a typed name with no code', () => {
+    for (const name of ['Global Airways', 'Jet Airways', 'Court Line', 'Samurai Airlines', 'Korean Air']) {
+      expect(findAirlineForOperator(name, null), name).toBeUndefined()
+    }
   })
 
   it('gives the right ICAO for the airlines this fleet actually flies, from the vendored list', () => {
