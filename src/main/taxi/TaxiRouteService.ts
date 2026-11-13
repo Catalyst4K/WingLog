@@ -55,6 +55,14 @@ function positionOf(t: SimTelemetry): Position {
 }
 
 /**
+ * @param text A part of BeyondATC's clearance, which is third-party text.
+ * @returns The text with every line break, control character and quote written out (`\n`, `\u001b`), so it cannot start a log line of its own.
+ */
+function printable(text: string): string {
+  return JSON.stringify(text).slice(1, -1)
+}
+
+/**
  * @param icao The clearance's airport, or null when it could not be told.
  * @param clearance The clearance.
  * @param segments The airport's cached taxi network.
@@ -278,7 +286,7 @@ export class TaxiRouteService {
    */
   private logTrace(icao: string, clearance: TaxiClearance, ms: number): void {
     const traced = this.traced
-    const said = `taxiways ${clearance.taxiways.join(' ')}${clearance.holdingPoint ? `, holding point ${clearance.holdingPoint}` : ''}${clearance.stand ? `, stand ${clearance.stand}` : ''}${clearance.holdShortRunway ? `, hold short ${clearance.holdShortRunway}` : ''}`
+    const said = `taxiways ${clearance.taxiways.map(printable).join(' ')}${clearance.holdingPoint ? `, holding point ${printable(clearance.holdingPoint)}` : ''}${clearance.stand ? `, stand ${printable(clearance.stand)}` : ''}${clearance.holdShortRunway ? `, hold short ${printable(clearance.holdShortRunway)}` : ''}`
     if (!traced) {
       logger.info(
         `[taxi] ${icao} taxi route not traced (${said}): nothing found, so nothing is drawn (${ms} ms)`

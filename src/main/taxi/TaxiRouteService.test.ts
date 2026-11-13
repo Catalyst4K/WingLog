@@ -529,6 +529,20 @@ describe('TaxiRouteService: stands', () => {
     expect(line).toContain('no stand called "N9\\u001b[2J"')
   })
 
+  it('writes the clearance it traced on one line, whatever BeyondATC put in its boxes', () => {
+    const w = setup({ flight: { flightId: 1, depIcao: 'VHHH', arrIcao: 'ZJSY', ofpJson: null } })
+    w.telemetry(ON_D)
+    w.clearance([
+      { title: 'Taxi to Holding Point', info: 'A\u001b[2J' },
+      { title: 'Taxi Via 1', info: 'D\nfake log line' }
+    ])
+    const lines = vi.mocked(logger.info).mock.calls.map((c) => String(c[0]))
+    const said = lines.filter((l) => l.startsWith('[taxi] ') && l.includes('taxiways'))
+    expect(said.length).toBeGreaterThan(0)
+    for (const line of said) expect(line).not.toMatch(/\p{Cc}/u)
+    expect(said[0]).toContain('taxiways D\\nFAKE LOG LINE')
+  })
+
   it('does not warn when the stand is found', async () => {
     const w = setup({
       flight: { flightId: 1, depIcao: 'VHHH', arrIcao: 'ZJSY', ofpJson: null },
