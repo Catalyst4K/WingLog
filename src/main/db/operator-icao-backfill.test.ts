@@ -47,7 +47,7 @@ describe('backfillOperatorIcao', () => {
     expect(icaoOf('9V-SGG')).toBe('SIA')
   })
 
-  it('leaves an aircraft that has an ICAO, one with no airline, one with a name but no code, and one the list cannot place', () => {
+  it('leaves an aircraft that has an ICAO, one with no airline, a name or a code on its own, and one the list cannot place', () => {
     createAircraft(db, {
       registration: 'G-HAVE',
       icaoType: 'A320',
@@ -57,6 +57,7 @@ describe('backfillOperatorIcao', () => {
     })
     createAircraft(db, { registration: 'G-NONE', icaoType: 'A320' })
     createAircraft(db, { registration: 'G-TYPED', icaoType: 'A320', operator: 'Jet Airways' })
+    createAircraft(db, { registration: 'I-CODE', icaoType: 'A320', operatorIata: 'AZ' })
     createAircraft(db, {
       registration: 'G-ODD',
       icaoType: 'A320',
@@ -75,6 +76,7 @@ describe('backfillOperatorIcao', () => {
     expect(icaoOf('G-HAVE')).toBe('XMS')
     expect(icaoOf('G-NONE')).toBeNull()
     expect(icaoOf('G-TYPED')).toBeNull()
+    expect(icaoOf('I-CODE')).toBeNull()
     expect(icaoOf('G-ODD')).toBeNull()
     expect(icaoOf('I-WRNG')).toBeNull()
   })
@@ -130,15 +132,19 @@ describe('fillMissingOperatorIcao', () => {
     db = created.db
   })
 
-  it('fills an empty ICAO, and never replaces one that is there', () => {
-    const empty = createAircraft(db, { registration: 'G-EMPT', icaoType: 'A320' })
+  it('fills a missing or blank ICAO, and never replaces one that is there', () => {
+    const missing = createAircraft(db, { registration: 'G-EMPT', icaoType: 'A320' })
+    const blank = createAircraft(db, { registration: 'G-BLNK', icaoType: 'A320' })
+    db.update(aircraft).set({ operatorIcao: '' }).where(eq(aircraft.id, blank.id)).run()
     const set = createAircraft(db, { registration: 'G-SET', icaoType: 'A320', operatorIcao: 'XMS' })
 
-    expect(fillMissingOperatorIcao(db, empty.id, 'BAW')).toBe(true)
+    expect(fillMissingOperatorIcao(db, missing.id, 'BAW')).toBe(true)
+    expect(fillMissingOperatorIcao(db, blank.id, 'BAW')).toBe(true)
     expect(fillMissingOperatorIcao(db, set.id, 'BAW')).toBe(false)
     expect(fillMissingOperatorIcao(db, 9999, 'BAW')).toBe(false)
 
     expect(getAircraftByRegistration(db, 'G-EMPT')?.operatorIcao).toBe('BAW')
+    expect(getAircraftByRegistration(db, 'G-BLNK')?.operatorIcao).toBe('BAW')
     expect(getAircraftByRegistration(db, 'G-SET')?.operatorIcao).toBe('XMS')
   })
 })

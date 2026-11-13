@@ -12,9 +12,10 @@ import { fillMissingOperatorIcao, listAircraft } from './aircraft-repo'
 export type OperatorFinder = (operator: string | null, iata: string | null) => AirlineOption | undefined
 
 /**
- * Sets `operatorIcao` on every live aircraft that has an IATA code, no ICAO, and exactly one airline that fits. Leaves the rest alone: a name
- * with no code is never turned into one, and an airline the list cannot place has nothing to recover from. The write does not count as an edit
- * for sync (see `fillMissingOperatorIcao`). Safe to run on every start: once filled, an aircraft is not touched again.
+ * Sets `operatorIcao` on every live aircraft that has an airline name and an IATA code, no ICAO, and exactly one airline that fits both. Leaves
+ * the rest alone: a name or a code on its own is never turned into an ICAO, and an airline the list cannot place has nothing to recover from.
+ * Skipping those before the look-up also keeps the airline list unloaded when nothing could match. The write does not count as an edit for sync
+ * (see `fillMissingOperatorIcao`). Safe to run on every start: once filled, an aircraft is not touched again.
  *
  * @param db The database.
  * @param find How an operator is looked up (the vendored list; a fake in tests).
@@ -23,7 +24,7 @@ export type OperatorFinder = (operator: string | null, iata: string | null) => A
 export function backfillOperatorIcao(db: WingLogDb, find: OperatorFinder): string[] {
   const filled: string[] = []
   for (const aircraft of listAircraft(db)) {
-    if (aircraft.operatorIcao || !aircraft.operatorIata) continue
+    if (aircraft.operatorIcao || !aircraft.operator || !aircraft.operatorIata) continue
     const match = find(aircraft.operator, aircraft.operatorIata)
     if (match && fillMissingOperatorIcao(db, aircraft.id, match.icao)) filled.push(aircraft.registration)
   }

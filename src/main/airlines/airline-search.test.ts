@@ -110,9 +110,11 @@ Flitestar,===,GM`)
     expect(matchOperatorAirline(airlines, ' british AIRWAYS ', 'ba')?.icao).toBe('BAW')
   })
 
-  it('takes the only airline with the IATA code when no name was saved', () => {
-    expect(matchOperatorAirline(airlines, null, 'KE')?.icao).toBe('KAL')
-    expect(matchOperatorAirline(airlines, '  ', 'KE')?.icao).toBe('KAL')
+  it('never turns a code alone into an ICAO, even one only a single airline has', () => {
+    expect(matchOperatorAirline(airlines, null, 'KE')).toBeUndefined()
+    expect(matchOperatorAirline(airlines, '  ', 'KE')).toBeUndefined()
+    expect(matchOperatorAirline(airlines, null, 'AZ')).toBeUndefined()
+    expect(matchOperatorAirline(airlines, null, 'KA')).toBeUndefined()
   })
 
   it('finds nothing when the saved name disagrees with the only airline that has the code', () => {
@@ -122,11 +124,10 @@ Flitestar,===,GM`)
 
   it('takes two list entries for the same airline (a rebrand under one ICAO) as one answer', () => {
     expect(matchOperatorAirline(airlines, 'Cathay Dragon', 'KA')?.icao).toBe('HDA')
-    expect(matchOperatorAirline(airlines, null, 'KA')?.icao).toBe('HDA')
+    expect(matchOperatorAirline(airlines, 'Dragonair', 'KA')?.icao).toBe('HDA')
   })
 
-  it('does not guess between airlines that share an IATA code and a name does not settle', () => {
-    expect(matchOperatorAirline(airlines, null, 'SQ')).toBeUndefined()
+  it('does not guess between airlines that share an IATA code when the name does not settle it', () => {
     expect(matchOperatorAirline(airlines, 'Singapore', 'SQ')).toBeUndefined()
   })
 
@@ -137,7 +138,6 @@ Flitestar,===,GM`)
   })
 
   it('does not take a placeholder ICAO from the list', () => {
-    expect(matchOperatorAirline(airlines, null, 'GM')).toBeUndefined()
     expect(matchOperatorAirline(airlines, 'Flitestar', 'GM')).toBeUndefined()
   })
 
