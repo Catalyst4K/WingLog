@@ -32,15 +32,30 @@ export function nearestStand(
   return best
 }
 
+/** The sim's TAXI_PARKING suffix code for each letter BeyondATC puts after a stand's name (VHHH: all 86 suffixed gates match; winglog-backend's flight-test-findings-2026-11-13.md). */
+const SUFFIX_CODE: Readonly<Record<string, number>> = { L: 23, R: 29, W: 34 }
+
 /**
- * The stand ATC named ("N32"). A name can have twin entries (a MARS stand's halves, carrying
- * a non-zero suffix); ATC's plain name means the one without.
+ * The stand ATC named ("N32", or "N32R" for the twin the sim gives suffix 29). A name can have twin entries (a MARS stand's halves,
+ * carrying a non-zero suffix); ATC's plain name means the one without, and a letter after the number means the twin with that suffix.
  *
  * @param stands The airport's stands.
  * @param name The name ATC gave.
  * @returns The stand, or null if the airport has none by that name.
  */
 export function findStand(stands: NavdataStand[], name: string): NavdataStand | null {
-  const matches = stands.filter((s) => s.name.toUpperCase() === name.toUpperCase())
-  return matches.find((s) => s.suffix === 0) ?? matches[0] ?? null
+  const upper = name.toUpperCase()
+  const matches = stands.filter((s) => s.name.toUpperCase() === upper)
+  if (matches.length > 0) return matches.find((s) => s.suffix === 0) ?? matches[0] ?? null
+  const lettered = /^(.*\d)([A-Z])$/.exec(upper)
+  if (!lettered) return null
+  const [, base, letter] = lettered
+  const twins = stands.filter((s) => s.name.toUpperCase() === base)
+  // A letter with no twin of its own (or one this table doesn't know) is still the stand, to within the twins' 17 m.
+  return (
+    twins.find((s) => s.suffix === SUFFIX_CODE[letter ?? '']) ??
+    twins.find((s) => s.suffix === 0) ??
+    twins[0] ??
+    null
+  )
 }

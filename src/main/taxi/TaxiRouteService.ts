@@ -218,6 +218,12 @@ export class TaxiRouteService {
       this.standsOf(icao),
       this.deps.navdata.listRunways(icao)
     )
+    // Stands not loaded yet is not a miss: the line is traced again when they arrive (standsOf).
+    if (clearance.stand && !stand && this.stands.has(icao)) {
+      logger.warn(
+        `[taxi] ${icao} has no stand called ${clearance.stand}: the line ends where the last taxiway does`
+      )
+    }
     const job: TraceJob = { clearance, segments, stand, threshold, holdShortRunway }
     const startedAt = this.deps.now()
     const seq = ++this.traceSeq

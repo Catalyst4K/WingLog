@@ -1,6 +1,15 @@
-import type { NavdataTaxiSegment } from '@shared/ipc'
+import type { NavdataStand, NavdataTaxiSegment } from '@shared/ipc'
 import { describe, expect, it } from 'vitest'
-import { boxTaxiClearance, clearanceAirport, clearanceRequest, startOf, traceClearance } from './clearance'
+import {
+  boxTaxiClearance,
+  clearanceAirport,
+  clearanceEnds,
+  clearanceRequest,
+  startOf,
+  traceClearance,
+  traceClearanceDetailed
+} from './clearance'
+import VHHH_436_RAW from './__fixtures__/vhhh-taxi-436-c8-c-f-a-b-n32r.json'
 
 describe('boxTaxiClearance', () => {
   it('reads a departure clearance to a holding point (real VHHH boxes, 2026-10-05)', () => {
@@ -287,5 +296,61 @@ describe('traceClearance', () => {
     )
     expect(route?.[0]).toEqual([106.655, 29.727])
     expect(route?.at(-1)).toEqual([106.662, 29.715])
+  })
+})
+
+describe('a stand clearance with a suffix (VHHH flight 436, 2026-11-13: "Taxi to Gate N32R")', () => {
+  // MSFS facility data trimmed to 250 m either side of the taxi; rows [startLat, startLon, endLat, endLon, name, startHoldShort, endHoldShort].
+  const segments: NavdataTaxiSegment[] = (
+    VHHH_436_RAW as [number, number, number, number, string | null, number, number][]
+  ).map(([startLat, startLon, endLat, endLon, name, startHoldShort, endHoldShort]) => ({
+    startLat,
+    startLon,
+    endLat,
+    endLon,
+    name,
+    startHoldShort: startHoldShort === 1,
+    endHoldShort: endHoldShort === 1
+  }))
+  // BeyondATC's "N32R" is the twin with the sim's suffix 29 (its saved airport lists gate N 32 suffix R at the same heading and place).
+  const N32: NavdataStand = {
+    name: 'N32',
+    number: 32,
+    suffix: 0,
+    headingDeg: 161.011,
+    lat: 22.31414534384843,
+    lon: 113.92862486374908
+  }
+  const N32_R: NavdataStand = {
+    name: 'N32',
+    number: 32,
+    suffix: 29,
+    headingDeg: 161.015,
+    lat: 22.314096641829128,
+    lon: 113.92851484995053
+  }
+  const boxes = [
+    { title: 'Taxi to Gate', info: 'Gate N32R' },
+    { title: 'Taxi Via 1', info: 'C8' },
+    { title: 'Taxi Via 2', info: 'C' },
+    { title: 'Taxi Via 3', info: 'F' },
+    { title: 'Cross Runway', info: '07C' },
+    { title: 'Taxi Via 4', info: 'A' },
+    { title: 'Taxi Via 5', info: 'B' }
+  ]
+  const distanceM = (a: { lat: number; lon: number }, b: { lat: number; lon: number }): number =>
+    Math.hypot((a.lat - b.lat) * 111_320, (a.lon - b.lon) * 111_320 * Math.cos((a.lat * Math.PI) / 180))
+
+  it('draws the line to the stand, not to the end of the last taxiway 400 m short of it', () => {
+    const clearance = {
+      ...boxTaxiClearance(boxes)!,
+      from: { lat: 22.32803, lon: 113.90531, headingDeg: 100 }
+    }
+    expect(clearance.stand).toBe('N32R')
+    const { stand, threshold, holdShortRunway, runways } = clearanceEnds(clearance, [N32, N32_R], [])
+    expect(stand).toBe(N32_R)
+    const traced = traceClearanceDetailed(clearance, segments, stand, threshold, holdShortRunway, runways)
+    const [lon, lat] = traced!.route.at(-1)!
+    expect(distanceM({ lat, lon }, N32_R)).toBeLessThan(30)
   })
 })

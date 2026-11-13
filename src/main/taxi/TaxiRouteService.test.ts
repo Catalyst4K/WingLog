@@ -486,6 +486,41 @@ describe('TaxiRouteService: stands', () => {
     expect(distanceM({ lat: end[1], lon: end[0] }, STAND)).toBeLessThan(80)
   })
 
+  it('warns, once the stands are loaded, when the clearance names a stand the airport does not have (VHHH 436: "N32R")', async () => {
+    const w = setup({
+      flight: { flightId: 1, depIcao: 'VHHH', arrIcao: 'ZJSY', ofpJson: null },
+      stands: { ZJSY: [STAND] }
+    })
+    w.telemetry(ON_D)
+    w.clearance([
+      { title: 'Taxi to Gate', info: 'N99' },
+      { title: 'Taxi Via 1', info: 'D' }
+    ])
+    const warnedAbout = (): unknown[] =>
+      vi
+        .mocked(logger.warn)
+        .mock.calls.map((c) => String(c[0]))
+        .filter((m) => m.includes('no stand called'))
+    // The first trace is made before the stands arrive: that is not a miss.
+    expect(warnedAbout()).toEqual([])
+    await vi.waitFor(() => expect(warnedAbout()).toHaveLength(1))
+    expect(warnedAbout()[0]).toContain('ZJSY has no stand called N99')
+  })
+
+  it('does not warn when the stand is found', async () => {
+    const w = setup({
+      flight: { flightId: 1, depIcao: 'VHHH', arrIcao: 'ZJSY', ofpJson: null },
+      stands: { ZJSY: [STAND] }
+    })
+    w.telemetry(ON_D)
+    w.clearance(TO_GATE)
+    const before = w.last()!
+    await vi.waitFor(() => expect(w.last()!.revision).toBeGreaterThan(before.revision))
+    expect(vi.mocked(logger.warn).mock.calls.some((c) => String(c[0]).includes('no stand called'))).toBe(
+      false
+    )
+  })
+
   it('asks for the stands again at a later trace when the first ask found none', async () => {
     const w = setup({ flight: { flightId: 1, depIcao: 'VHHH', arrIcao: 'ZJSY', ofpJson: null } })
     const asked = vi.fn((icao: string) =>

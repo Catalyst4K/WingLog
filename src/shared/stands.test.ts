@@ -48,6 +48,17 @@ describe('findStand', () => {
     expect(findStand(STANDS, 'n32')).toBe(N32)
   })
 
+  it("matches BeyondATC's suffix letter to the twin with that suffix (VHHH 2026-11-13: 'Gate N32R' is suffix 29)", () => {
+    expect(findStand(STANDS, 'N32R')).toBe(N32_TWIN)
+    expect(findStand(STANDS, 'n32r')).toBe(N32_TWIN)
+  })
+
+  it('finds the plain stand for a suffix letter it has no twin for, and nothing for an unknown stand', () => {
+    expect(findStand(STANDS, 'N32L')).toBe(N32)
+    expect(findStand(STANDS, 'N99R')).toBeNull()
+    expect(findStand(STANDS, 'N')).toBeNull()
+  })
+
   it('falls back to a twin when only twins exist, and finds nothing for an unknown stand', () => {
     expect(findStand([N32_TWIN], 'N32')).toBe(N32_TWIN)
     expect(findStand(STANDS, 'N99')).toBeNull()
