@@ -53,9 +53,10 @@ export function describeNote(note: GsxRoutineNote): string {
     case 'stalled':
     case 'ending':
     case 'ending-failed':
-      return `${note.code} (${note.services.join(', ')})`
+      return note.services.length > 0 ? `${note.code} (${note.services.join(', ')})` : note.code
     case 'waiting-for-pilot':
-      return `${note.code} (menu "${note.menu}")`
+      // GSX's menu title, quoted so that a line break or control character in it cannot start a log line of its own.
+      return `${note.code} (menu ${JSON.stringify(note.menu)})`
     case 'waiting-for-fuel-entry':
       return note.gapKg === null ? note.code : `${note.code} (gap ${Math.round(note.gapKg)} kg)`
     case 'skipped':
@@ -63,6 +64,17 @@ export function describeNote(note: GsxRoutineNote): string {
     default:
       return note.code
   }
+}
+
+/**
+ * What makes the log write a status line again. The fuel gap is left out: while the guard holds, it moves with every kilogram the
+ * APU burns, which would write a line for each one for up to fifteen minutes.
+ *
+ * @param note The status line.
+ * @returns Equal for two notes that differ only in the fuel gap.
+ */
+export function noteChangeKey(note: GsxRoutineNote): string {
+  return describeNote(note.code === 'waiting-for-fuel-entry' ? { ...note, gapKg: null } : note)
 }
 
 /** GSX Remote as the driver needs it: what it shows, the three menu actions, and a way to hear that anything changed. */
@@ -244,9 +256,11 @@ export class RoutineDriver {
     } else if (action.kind === 'closeMenu') {
       gsx.closeMenuIfOpen()
     } else if (gsx.pickMenuChecked(action.index, action.title, action.label)) {
-      logger.info(`GSX routine picked "${action.label}" in "${action.title}"`)
+      logger.info(`GSX routine picked ${JSON.stringify(action.label)} in ${JSON.stringify(action.title)}`)
     } else {
-      logger.warn(`GSX routine did not pick "${action.label}": "${action.title}" is no longer the open menu`)
+      logger.warn(
+        `GSX routine did not pick ${JSON.stringify(action.label)}: ${JSON.stringify(action.title)} is no longer the open menu`
+      )
     }
   }
 
@@ -258,10 +272,10 @@ export class RoutineDriver {
    */
   private logNoteIfChanged(run: RoutineRun): void {
     if (run.outcome) return
-    const text = describeNote(run.note)
-    if (text === this.lastNoted) return
-    this.lastNoted = text
-    this.deps.logger.info(`GSX routine "${run.routine.name}": ${text}`)
+    const key = noteChangeKey(run.note)
+    if (key === this.lastNoted) return
+    this.lastNoted = key
+    this.deps.logger.info(`GSX routine ${JSON.stringify(run.routine.name)}: ${describeNote(run.note)}`)
   }
 
   private publishIfChanged(): void {

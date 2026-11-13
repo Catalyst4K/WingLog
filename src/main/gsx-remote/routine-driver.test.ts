@@ -8,7 +8,7 @@ import type {
 import { stageRoutine, type GsxRoutine, type GsxRoutineService } from '@shared/gsx-routines'
 import type { GsxRoutineProgress } from '@shared/gsx-routine-progress'
 import { EMPTY_COMMAND_BAR, EMPTY_MENU } from './GsxRemoteService'
-import { describeNote, RoutineDriver, type RoutineGsx } from './routine-driver'
+import { describeNote, noteChangeKey, RoutineDriver, type RoutineGsx } from './routine-driver'
 
 const MAIN_MENU: GsxRemoteMenuState = {
   ...EMPTY_MENU,
@@ -109,6 +109,30 @@ describe('describeNote', () => {
     )
     expect(describeNote({ code: 'entry-timed-out' })).toBe('entry-timed-out')
   })
+
+  it('names the code alone for a status line with no services', () => {
+    expect(describeNote({ code: 'following', services: [] })).toBe('following')
+  })
+
+  it('puts a menu title on one line, so a line break in it cannot add a log line', () => {
+    const text = describeNote({ code: 'waiting-for-pilot', menu: 'Select\nfake line\r\u001b[2J' })
+    expect(text).not.toMatch(/\p{Cc}/u)
+    expect(text).toBe('waiting-for-pilot (menu "Select\\nfake line\\r\\u001b[2J")')
+  })
+})
+
+describe('noteChangeKey', () => {
+  it('is the same while only the fuel gap moves, and differs for anything else', () => {
+    const gap = (gapKg: number | null): string => noteChangeKey({ code: 'waiting-for-fuel-entry', gapKg })
+    expect(gap(85)).toBe(gap(84))
+    expect(gap(85)).toBe(gap(null))
+    expect(noteChangeKey({ code: 'waiting-for-fuel-entry', gapKg: 85 })).not.toBe(
+      noteChangeKey({ code: 'waiting-for-payload-entry' })
+    )
+    expect(noteChangeKey({ code: 'following', services: ['Catering'] })).not.toBe(
+      noteChangeKey({ code: 'following', services: ['Refueling'] })
+    )
+  })
 })
 
 function telemetry(overrides: Partial<SimTelemetry> = {}): SimTelemetry {
@@ -172,6 +196,15 @@ describe('RoutineDriver', () => {
     expect(logged).toContain(
       'info GSX routine picked "Request Catering service" in "Activate Services at EGLL/London Heathrow"'
     )
+  })
+
+  it('writes a menu title or label with a line break in it on one line (log lines cannot be forged by GSX text)', () => {
+    gsx.pickAccepted = false
+    driver.start(routine(['Catering']))
+    gsx.menu = { ...MAIN_MENU, title: 'Activate Services at EGLL\nfake log line' }
+    gsx.changed()
+    expect(logged.some((line) => line.startsWith('warn GSX routine did not pick'))).toBe(true)
+    expect(logged.every((line) => !line.includes('\n'))).toBe(true)
   })
 
   it('logs when a pick was refused because the menu had changed', () => {

@@ -40,6 +40,14 @@ function isTaken(state: string): boolean {
 }
 
 /**
+ * @param input The step's input.
+ * @returns Whether a menu other than the routine's own (the main menu, Additional Services) is open: GSX's follow-up question.
+ */
+function isFollowUpMenu(input: RunnerInput): boolean {
+  return input.menu.menuShown && !isMainMenu(input.menu) && !isAdditionalServicesMenu(input.menu)
+}
+
+/**
  * Tries the step again once, then gives up the whole routine: a menu that will not open means GSX is not answering.
  *
  * @param run The run, changed in place.
@@ -138,6 +146,10 @@ function waitForGsxToTakeIt(
     run.settleUntilMs = input.nowMs + SETTLE_MS
     return
   }
+  // GSX may hold the service back while a follow-up menu of its own (an operator to choose) runs out, and only reports it taken after
+  // that menu has closed. The wait for the pick is counted from the last moment such a menu was open, so the menu is not toggled open
+  // again over GSX's own.
+  if (isFollowUpMenu(input)) attempt.sinceMs = input.nowMs
   if (input.nowMs - attempt.sinceMs < PICK_TIMEOUT_MS) return
   if (attempt.hasRetried) skipService(run, attempt.service, 'dropped', input, actions)
   else retryOnceOrStop(run, attempt, input, actions)
@@ -177,8 +189,8 @@ function stepAttemptOnce(
   actions: RunnerAction[]
 ): void {
   if (attempt.step !== 'sent') {
-    // GSX can take the pick after the wait for it ran out (it holds a service back while its own operator menu times out), and
-    // the retry then finds the entry relabelled and would leave out a service that is running.
+    // GSX can take the pick after the wait for it ran out, and the retry would then find the entry relabelled and leave out a
+    // service that is running.
     const gsx = serviceById(input.services, attempt.service)
     if (gsx && isTaken(gsx.state)) {
       if (input.menu.menuShown) actions.push({ kind: 'closeMenu' })
