@@ -76,11 +76,19 @@ export class HostLink {
     }
   }
 
-  /** Connects to the sim PC this computer was paired with, if there was one. */
+  /** Connects to the sim PC this computer was paired with, if there was one, and if its stored address is still a home-network one. */
   async start(): Promise<void> {
     const stored = await this.deps.store.load()
     if (!stored || this.connection) return
-    this.address = stored.address
+    // The stored file is checked as pairing checked the typed address: one edited by hand must not point the link outside the home network (review of L8).
+    const address = parseHostAddress(stored.address)
+    if (!address) {
+      logger.warn(
+        '[host-link] the stored sim PC address is not a home-network host:port, so the link is not started'
+      )
+      return
+    }
+    this.address = address
     this.token = stored.token
     this.open()?.start()
   }

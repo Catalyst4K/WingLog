@@ -99,6 +99,15 @@ describe('HostLink', () => {
     expect(sockets).toHaveLength(0)
   })
 
+  it('does not connect to a stored address outside the home network, such as one edited by hand (review of L8)', async () => {
+    for (const address of ['8.8.8.8:5051', 'example.com:5051', 'not an address']) {
+      const link = make(memoryStore({ address, token: 'tok' }))
+      await link.start()
+      expect(link.getStatus().state, address).toBe('unpaired')
+    }
+    expect(sockets).toHaveLength(0)
+  })
+
   it('pairs with the code, keeps the token it is given and follows the host topics into the hub', () => {
     const store = memoryStore()
     const link = make(store)

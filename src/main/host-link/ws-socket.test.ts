@@ -32,12 +32,28 @@ describe('openHostSocket (audit L8)', () => {
     }
   })
 
-  it('does not connect to a public address typed as a number: the lookup refuses it, so the socket closes', async () => {
-    const closed = await new Promise<boolean>((resolve) => {
-      const socket = openHostSocket('ws://8.8.8.8:5051/live')
-      socket.onopen = () => resolve(false)
-      socket.onclose = () => resolve(true)
-    })
-    expect(closed).toBe(true)
+  it('never starts a connection to a public address typed as a number, however it is written (review of L8)', async () => {
+    for (const url of [
+      'ws://8.8.8.8:5051/live',
+      'ws://0x08080808:5051/live',
+      'ws://134744072:5051/live',
+      'ws://[2001:4860:4860::8888]:5051/live',
+      'ws://[::ffff:8.8.8.8]:5051/live'
+    ]) {
+      const socket = openHostSocket(url)
+      // Closed from the start: a socket that had begun connecting would still be CONNECTING (0) here.
+      expect(socket.readyState, url).toBe(3)
+      const closed = await new Promise<boolean>((resolve) => {
+        socket.onopen = () => resolve(false)
+        socket.onclose = () => resolve(true)
+      })
+      expect(closed, url).toBe(true)
+    }
+  })
+
+  it('starts a connection to a private address typed as a number', () => {
+    const socket = openHostSocket('ws://192.168.250.250:5051/live')
+    expect(socket.readyState).toBe(0)
+    socket.close()
   })
 })

@@ -1,6 +1,7 @@
 /**
  * Looks a host name up for the link to the sim PC and refuses an answer that is not on the home network (winglog-backend's
- * docs/plans/security-audit-v2.md, L8). `parseHostAddress` accepts a single-label or `.local` name by its spelling, but a name with no dots
+ * docs/plans/security-audit-v2.md, L8). Node does not call a socket's lookup for an address typed as a number, so `openHostSocket` checks those
+ * itself; this is for names. `parseHostAddress` accepts a single-label or `.local` name by its spelling, but a name with no dots
  * can resolve to a public address through a DNS search suffix. The check is made on the addresses the lookup returns, and the connection is
  * made to those same addresses, so a second lookup cannot give a different answer.
  */
@@ -40,7 +41,7 @@ export type SocketLookup = (
 
 /**
  * @param resolve How a name is looked up (the system's resolver; a fake in tests).
- * @returns A lookup that answers only with home-network addresses, and fails with a clear message when the name resolves to anything else.
+ * @returns A lookup that answers only with the home-network addresses a name has, and fails with a clear message when it has none.
  */
 export function homeNetworkLookup(resolve: Resolve = systemResolve): SocketLookup {
   return (hostname, options, callback) => {
@@ -52,19 +53,20 @@ export function homeNetworkLookup(resolve: Resolve = systemResolve): SocketLooku
     }
     resolve(hostname, { ...options, all: true }, (error, addresses) => {
       if (error) return callback(error, [])
-      const outside = addresses.filter((entry) => !isHomeNetworkAddress(entry.address))
-      // One address outside the home network is enough to refuse: the connection could be made to it.
-      if (addresses.length === 0 || outside.length > 0) {
+      // Only the home-network addresses are handed on, so the connection can go nowhere else. A name can also have one outside (the PC's
+      // public IPv6 address beside its LAN one is common), which is left out rather than a reason to refuse the name.
+      const home = addresses.filter((entry) => isHomeNetworkAddress(entry.address))
+      const first = home[0]
+      if (first === undefined) {
         return callback(
           refusal(
             hostname,
-            outside.map((entry) => entry.address)
+            addresses.map((entry) => entry.address)
           ),
           []
         )
       }
-      if (options.all) return callback(null, addresses)
-      const first = addresses[0] as LookupAddress
+      if (options.all) return callback(null, home)
       return callback(null, first.address, first.family)
     })
   }

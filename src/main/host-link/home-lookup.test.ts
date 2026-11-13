@@ -53,13 +53,31 @@ describe('homeNetworkLookup (audit L8)', () => {
     expect(result.address).toEqual([])
   })
 
-  it('refuses a name that resolves to a mix of private and public addresses', async () => {
+  it('hands on only the home-network addresses of a name that also has a public one (review of L8)', async () => {
+    const mixed = resolver([v6('2606:4700::1111'), v4('192.168.1.20'), v4('93.184.216.34'), v6('fe80::1')])
+    expect(await run(homeNetworkLookup(mixed), 'simpc', { all: true })).toEqual({
+      error: null,
+      address: [v4('192.168.1.20'), v6('fe80::1')],
+      family: undefined
+    })
+    // Asked for one address, it gives the first home one, never the public one listed before it.
+    expect(await run(homeNetworkLookup(mixed), 'simpc')).toEqual({
+      error: null,
+      address: '192.168.1.20',
+      family: 4
+    })
+  })
+
+  it('refuses a name whose every address is outside the home network, naming them', async () => {
     const result = await run(
-      homeNetworkLookup(resolver([v4('192.168.1.20'), v6('2606:4700::1111')])),
+      homeNetworkLookup(resolver([v4('93.184.216.34'), v6('2606:4700::1111')])),
       'simpc',
-      { all: true }
+      {
+        all: true
+      }
     )
-    expect(result.error?.message).toContain('2606:4700::1111')
+    expect(result.error?.message).toContain('93.184.216.34, 2606:4700::1111')
+    expect(result.address).toEqual([])
   })
 
   it('refuses a name that resolves to nothing', async () => {
