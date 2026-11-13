@@ -108,15 +108,15 @@ const AIRLINE_ICAO = /^[A-Z]{3}$/
 
 /**
  * Finds the airline an aircraft's stored operator is, to recover its ICAO code (what SimBrief's `airline` parameter and Dispatch's Airline ICAO
- * field want) when only the name and the IATA code were saved. It never guesses, and never turns a name alone into a code: the IATA code is
- * required. With a name saved too, only airlines with both that code and that name count, so a name that disagrees with the code ("ITA Airways"
- * with AZ, which the list has only as Alitalia) finds nothing. The candidates must share one ICAO, so "SQ" with no name (Singapore Airlines and
- * its cargo arm) finds nothing, and that ICAO must be three letters.
+ * field want) when the name and the IATA code were saved. It never guesses: both are required, and only airlines with that name and that code
+ * count. A name alone is never turned into a code, and neither is a code alone (the list keeps defunct airlines, so AZ on its own is Alitalia,
+ * not ITA Airways). A name that disagrees with the code ("ITA Airways" with AZ) finds nothing. The candidates must share one ICAO, and that ICAO
+ * must be three letters.
  *
  * @param airlines The airline list.
  * @param operator The operator's name as saved, or null.
  * @param iata The operator's IATA code as saved, or null.
- * @returns The airline, or undefined when there is none, more than one, or only a placeholder code.
+ * @returns The airline, or undefined when either is missing, or there is no airline, more than one, or only a placeholder code.
  */
 export function matchOperatorAirline(
   airlines: AirlineOption[],
@@ -125,9 +125,8 @@ export function matchOperatorAirline(
 ): AirlineOption | undefined {
   const name = (operator ?? '').trim().toLowerCase()
   const code = (iata ?? '').trim().toLowerCase()
-  if (!code) return undefined
-  const byCode = airlines.filter((a) => a.iata.toLowerCase() === code)
-  const found = name ? byCode.filter((a) => a.name.toLowerCase() === name) : byCode
+  if (!name || !code) return undefined
+  const found = airlines.filter((a) => a.iata.toLowerCase() === code && a.name.toLowerCase() === name)
   const icaos = new Set(found.map((a) => a.icao))
   if (icaos.size !== 1 || !AIRLINE_ICAO.test(found[0].icao)) return undefined
   return found[0]
