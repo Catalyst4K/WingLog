@@ -259,6 +259,10 @@ function advance(run: RoutineRun, input: RunnerInput, actions: RunnerAction[]): 
   if (run.attempt) {
     if (run.attempt.step === 'sent' || !isForeignMenu) stepAttempt(run, input, actions)
     if (isForeignMenu) stepForeignMenu(run, input, actions)
+  } else if (isMainMenu(input.menu) && input.nowMs < run.closeOwnMenuUntilMs) {
+    // The routine's own toggle, sent before GSX took the service, opened this menu: it is not the pilot's.
+    actions.push({ kind: 'closeMenu' })
+    run.closeOwnMenuUntilMs = 0
   } else if (isForeignMenu) {
     stepForeignMenu(run, input, actions)
   } else if (input.nowMs >= run.settleUntilMs) {

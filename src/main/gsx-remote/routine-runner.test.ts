@@ -402,6 +402,27 @@ describe('requesting a service', () => {
       expect(session.progress.services[0].progress).toBe('skipped')
     })
 
+    it('closes the main menu its own retry toggle opens when GSX takes the service just before the menu shows', () => {
+      const session = catering777Waiting(custom(['Catering']))
+      session.menu = EMPTY_MENU
+      session.quiet(20, 250)
+      expect(session.tick(250)).toEqual([{ kind: 'openMenu' }])
+      session.states.Catering = 'requested' // GSX takes it before the toggle's menu is up
+      expect(session.tick(100)).toEqual([])
+      expect(session.progress.services[0]).toEqual({ service: 'Catering', progress: 'running' })
+      session.menu = menu(
+        'Activate Services at WSSS/Changi',
+        MAIN_ENTRIES.map((e) => (e === 'Request Catering service' ? 'Catering vehicles are on their way' : e))
+      )
+      expect(session.tick(350)).toEqual([{ kind: 'closeMenu' }])
+      expect(session.run.note.code).not.toBe('waiting-for-pilot')
+      // A main menu opened by the pilot later is left alone.
+      session.menu = EMPTY_MENU
+      session.tick(250)
+      session.menu = mainMenu()
+      expect(session.tick(250)).toEqual([])
+    })
+
     it('adopts a service taken after a retry has reopened the menu, closing the menu it opened', () => {
       const session = catering777Waiting(custom(['Catering']))
       session.menu = EMPTY_MENU

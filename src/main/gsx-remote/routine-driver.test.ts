@@ -176,6 +176,14 @@ describe('RoutineDriver', () => {
     vi.useRealTimers()
   })
 
+  it('writes a routine name with a line break in it on one line in every line it logs about the routine', () => {
+    gsx.states.Catering = 'completed'
+    driver.start({ ...routine(['Catering']), name: 'My\nfake log line' })
+    expect(logged).toContain('info GSX routine "My\\nfake log line" started')
+    expect(logged).toContain('info GSX routine "My\\nfake log line" finished')
+    expect(logged.every((line) => !line.includes('\n'))).toBe(true)
+  })
+
   it('opens the menu when a routine starts, and publishes where it is', () => {
     expect(driver.start(routine(['Catering']))).toBe(true)
     expect(gsx.sent).toEqual(['open'])

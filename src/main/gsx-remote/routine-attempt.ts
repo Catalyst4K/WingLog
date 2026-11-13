@@ -3,6 +3,7 @@
  * menu, go one level down for the services that sit under `Additional Services ▶`, find the entry by its exact label, pick it,
  * and see GSX take it. Never two at once, and a pick is only built from the menu as it is right now.
  */
+import type { GsxRemoteServiceStatus } from '@shared/ipc'
 import { GSX_ADDITIONAL_SERVICES_LABEL, GSX_ROUTINE_MENU } from '@shared/gsx-routines'
 import {
   findAnyEntry,
@@ -126,6 +127,34 @@ function chooseOnMainMenu(
 }
 
 /**
+ * GSX has the service under way: follow it, end the attempt, and leave a settle window for GSX's late follow-up menus.
+ *
+ * @param run The run, changed in place.
+ * @param attempt The attempt that asked for the service.
+ * @param gsx The service as GSX shows it.
+ * @param input The step's input.
+ * @param actions Where a close is added.
+ * @param mayHaveOpenedMenu Whether the attempt could have opened GSX's menu itself, so that menu is closed: now if it is shown, or when it
+ *   opens, within MENU_OPEN_TIMEOUT_MS, if the toggle has been sent but the menu is not up yet.
+ */
+function adoptTaken(
+  run: RoutineRun,
+  attempt: Attempt,
+  gsx: GsxRemoteServiceStatus,
+  input: RunnerInput,
+  actions: RunnerAction[],
+  mayHaveOpenedMenu: boolean
+): void {
+  if (mayHaveOpenedMenu) {
+    if (input.menu.menuShown) actions.push({ kind: 'closeMenu' })
+    else if (attempt.hasOpened) run.closeOwnMenuUntilMs = input.nowMs + MENU_OPEN_TIMEOUT_MS
+  }
+  adoptService(run, attempt.service, gsx, input.nowMs)
+  run.attempt = null
+  run.settleUntilMs = input.nowMs + SETTLE_MS
+}
+
+/**
  * Waits for GSX to take the pick. A request GSX did not take in time is asked for once more, then left out.
  *
  * @param run The run, changed in place.
@@ -141,9 +170,7 @@ function waitForGsxToTakeIt(
 ): void {
   const gsx = serviceById(input.services, attempt.service)
   if (gsx && isTaken(gsx.state)) {
-    adoptService(run, attempt.service, gsx, input.nowMs)
-    run.attempt = null
-    run.settleUntilMs = input.nowMs + SETTLE_MS
+    adoptTaken(run, attempt, gsx, input, actions, false)
     return
   }
   // GSX may hold the service back while a follow-up menu of its own (an operator to choose) runs out, and only reports it taken after
@@ -193,10 +220,7 @@ function stepAttemptOnce(
     // service that is running.
     const gsx = serviceById(input.services, attempt.service)
     if (gsx && isTaken(gsx.state)) {
-      if (input.menu.menuShown) actions.push({ kind: 'closeMenu' })
-      adoptService(run, attempt.service, gsx, input.nowMs)
-      run.attempt = null
-      run.settleUntilMs = input.nowMs + SETTLE_MS
+      adoptTaken(run, attempt, gsx, input, actions, true)
       return
     }
   }

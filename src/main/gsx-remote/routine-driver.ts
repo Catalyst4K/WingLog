@@ -152,7 +152,7 @@ export class RoutineDriver {
     this.guard = NEW_GUARD
     this.lastPublished = ''
     this.lastNoted = ''
-    this.deps.logger.info(`GSX routine "${routine.name}" started`)
+    this.deps.logger.info(`GSX routine ${JSON.stringify(routine.name)} started`)
     this.unsubscribe = this.deps.gsx.subscribe(() => this.step())
     this.stepTimer = setInterval(() => this.step(), STEP_INTERVAL_MS)
     this.step()
@@ -236,7 +236,7 @@ export class RoutineDriver {
     this.logNoteIfChanged(run)
     if (run.outcome) {
       this.deps.logger.info(
-        `GSX routine "${run.routine.name}" ${run.outcome.state === 'finished' ? 'finished' : `stopped: ${run.outcome.reason}`}`
+        `GSX routine ${JSON.stringify(run.routine.name)} ${run.outcome.state === 'finished' ? 'finished' : `stopped: ${run.outcome.reason}`}`
       )
       this.stopRunning()
       const isPlainCancel =

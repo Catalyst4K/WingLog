@@ -60,6 +60,8 @@ export interface RoutineRun {
   windDown: WindDown | null
   /** No new request before this time: a late follow-up menu may still open after a pick. */
   settleUntilMs: number
+  /** Until this time, a main menu that opens with no attempt under way is the routine's own, from a toggle sent before GSX took the service, and is closed. */
+  closeOwnMenuUntilMs: number
   lastOwnPickAtMs: number
   lastFollowUpPickAtMs: number
   lastProgressAtMs: number
@@ -114,6 +116,7 @@ export function startRoutine(routine: GsxRoutine, nowMs: number): RoutineRun {
     attempt: null,
     windDown: null,
     settleUntilMs: 0,
+    closeOwnMenuUntilMs: 0,
     lastOwnPickAtMs: -Infinity,
     lastFollowUpPickAtMs: -Infinity,
     lastProgressAtMs: nowMs,
