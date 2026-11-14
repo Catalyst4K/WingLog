@@ -23,7 +23,7 @@ describe('login', () => {
 
     expect(result).toEqual({ token: 'tok', expiresAt: '2026-10-01T00:00:00Z' })
     const [url, init] = mock.mock.calls[0]
-    expect(url).toBe('https://flightdeck-backend.callum-jones5.workers.dev/auth/login')
+    expect(url).toBe('https://api.winglog.co.uk/auth/login')
     expect(JSON.parse(init?.body as string)).toEqual({
       email: 'callum@example.com',
       password: 'hunter22222222'
@@ -44,7 +44,7 @@ describe('provision', () => {
     await provision('newuser@example.com', 'hunter22222222', 'the-invite-code')
 
     const [url, init] = mock.mock.calls[0]
-    expect(url).toBe('https://flightdeck-backend.callum-jones5.workers.dev/auth/provision')
+    expect(url).toBe('https://api.winglog.co.uk/auth/provision')
     expect(JSON.parse(init?.body as string)).toEqual({
       email: 'newuser@example.com',
       password: 'hunter22222222'
@@ -68,7 +68,7 @@ describe('logout', () => {
     await logout('callum@example.com', 'tok')
 
     const [url, init] = mock.mock.calls[0]
-    expect(url).toBe('https://flightdeck-backend.callum-jones5.workers.dev/auth/logout')
+    expect(url).toBe('https://api.winglog.co.uk/auth/logout')
     expect(JSON.parse(init?.body as string)).toEqual({ email: 'callum@example.com', token: 'tok' })
   })
 })

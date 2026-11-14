@@ -2,10 +2,12 @@
  * Client for the winglog-backend Cloudflare Worker (github.com/Catalyst4K/winglog-
  * backend, private repo) — the credential broker that replaced the built-in-key
  * architecture. One constant base URL, per CLAUDE.md's
- * rule for anything that shouldn't be sprinkled through the codebase. The Worker
- * kept its old name when the repo was renamed, because that name is its URL.
+ * rule for anything that shouldn't be sprinkled through the codebase. The address is
+ * the project's own domain, so the Worker can move without an app update. Builds from
+ * before 2026-11-09 call the Worker's old workers.dev address, which stays on until
+ * they are gone (winglog-backend's docs/plans/cloud-sync-v2.md, "The custom domain").
  */
-export const BACKEND_BASE_URL = 'https://flightdeck-backend.callum-jones5.workers.dev'
+export const BACKEND_BASE_URL = 'https://api.winglog.co.uk'
 
 export interface SimbriefSignParams {
   origIcao: string
