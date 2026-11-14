@@ -128,6 +128,30 @@ describe('ProcedureSelectionStore: which flight it holds', () => {
     expect(announced).toHaveLength(1)
   })
 
+  it("takes up a choice written on the flight's row by another WingLog (a twin's sync), and announces it", () => {
+    // Flight 436, 2026-11-13: the Mac accepted BeyondATC's ILS 07L; it reached the PC's row by twin sync, but the PC's copy stayed on 07C,
+    // so the PC's procedures box and route never changed.
+    const { db, state, store, announced, flight } = setup()
+    const f = flight()
+    setSelectedProcedures(db, f.id, chosen({ starIdent: 'BETY3A', approachIdent: 'ILS 07C' }))
+    state.shownId = f.id
+    store.refresh()
+    announced.length = 0
+
+    setSelectedProcedures(
+      db,
+      f.id,
+      chosen({ starIdent: 'BETY3A', approachIdent: 'ILS 07L', approachTransition: 'LIMES' })
+    )
+    store.refresh()
+
+    expect(store.current()).toMatchObject({ approachIdent: 'ILS 07L', approachTransition: 'LIMES' })
+    expect(announced).toEqual([store.current()])
+    // Nothing more to announce while the row and the copy agree.
+    store.refresh()
+    expect(announced).toHaveLength(1)
+  })
+
   it("loads the next flight's own choice, not the finished flight's", () => {
     // After a flight completes the one planned next is shown; it must never be built from the finished flight's procedures.
     const { db, state, store, flight } = setup()

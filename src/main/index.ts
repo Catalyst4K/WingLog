@@ -536,11 +536,16 @@ function startApp(cloudSession: StoredSession | null): void {
       relay: flightRelay
     })
   else {
+    const tellWindow = dataChangedNotifier(window)
     startHostServices({
       db,
       dbPath,
       flightControl,
-      onTwinChange: dataChangedNotifier(window),
+      onTwinChange: () => {
+        tellWindow()
+        // A twin's push may have changed the shown flight's procedure choice on its row (a Mac accepting a BeyondATC runway change).
+        flightServices.selection.refresh()
+      },
       liveHub,
       devDiagnostics,
       sim,

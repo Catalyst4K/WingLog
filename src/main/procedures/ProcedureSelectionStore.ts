@@ -36,6 +36,8 @@ export type SelectionSource = 'window' | 'phone'
 interface Shown {
   flight: Flight
   selection: ProcedureSelection
+  /** The choice the flight's row held when this store last loaded or saved it, so a different one found there later was written by someone else. */
+  saved: ProcedureSelection
   /** The approach this store suggested, which a later look at the STAR may swap; one the pilot chose is never touched. */
   suggested: string | null
   /** The arrival airports whose approach the pilot cleared ("None"), so it isn't suggested again for them. */
@@ -77,8 +79,17 @@ export class ProcedureSelectionStore extends EventEmitter<{ changed: [ProcedureS
         return
       }
       if (this.shown?.flight.id !== flight.id) {
-        this.shown = { flight, selection: selectionFromFlight(flight), suggested: null, cleared: new Set() }
-        this.emit('changed', this.shown.selection)
+        const selection = selectionFromFlight(flight)
+        this.shown = { flight, selection, saved: selection, suggested: null, cleared: new Set() }
+        this.emit('changed', selection)
+      } else if (!same(selectionFromFlight(flight), this.shown.saved)) {
+        // The row was written by another WingLog (a twin's sync or the cloud's), not by this store: take its choice up, as it is
+        // when the flight is loaded (flight 436, 2026-11-13: a Mac's accepted ILS 07L never reached the PC's copy).
+        const selection = selectionFromFlight(flight)
+        this.shown.flight = flight
+        this.shown.selection = selection
+        this.shown.saved = selection
+        this.emit('changed', selection)
       }
       this.suggest()
     })
@@ -103,6 +114,7 @@ export class ProcedureSelectionStore extends EventEmitter<{ changed: [ProcedureS
         shown.cleared.add(after)
       shown.selection = selection
       this.deps.save(shown.flight.id, selection)
+      shown.saved = selection
       logger.info(`[selection] flight ${shown.flight.id}: ${describe(selection)} (from the ${source})`)
       this.emit('changed', selection)
       this.suggest()
@@ -143,6 +155,7 @@ export class ProcedureSelectionStore extends EventEmitter<{ changed: [ProcedureS
     shown.selection = selection
     shown.suggested = suggested
     this.deps.save(flight.id, selection)
+    shown.saved = selection
     logger.info(`[selection] flight ${flight.id}: ${describe(selection)} (suggested)`)
     this.emit('changed', selection)
   }
