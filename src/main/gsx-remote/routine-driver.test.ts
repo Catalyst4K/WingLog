@@ -8,7 +8,7 @@ import type {
 import { stageRoutine, type GsxRoutine, type GsxRoutineService } from '@shared/gsx-routines'
 import type { GsxRoutineProgress } from '@shared/gsx-routine-progress'
 import { EMPTY_COMMAND_BAR, EMPTY_MENU } from './GsxRemoteService'
-import { RoutineDriver, type RoutineGsx } from './routine-driver'
+import { describeNote, noteChangeKey, RoutineDriver, type RoutineGsx } from './routine-driver'
 
 const MAIN_MENU: GsxRemoteMenuState = {
   ...EMPTY_MENU,
@@ -92,6 +92,49 @@ class FakeGsx implements RoutineGsx {
   }
 }
 
+describe('describeNote', () => {
+  it('names what each status line is waiting for', () => {
+    expect(describeNote({ code: 'waiting-for-fuel-entry', gapKg: 84.6 })).toBe(
+      'waiting-for-fuel-entry (gap 85 kg)'
+    )
+    expect(describeNote({ code: 'waiting-for-fuel-entry', gapKg: null })).toBe('waiting-for-fuel-entry')
+    expect(describeNote({ code: 'waiting-for-pilot', menu: 'Select refueling level' })).toBe(
+      'waiting-for-pilot (menu "Select refueling level")'
+    )
+    expect(describeNote({ code: 'waiting-for-stage', services: ['Catering', 'Refueling'] })).toBe(
+      'waiting-for-stage (Catering, Refueling)'
+    )
+    expect(describeNote({ code: 'skipped', service: 'GPU', reason: 'not-offered' })).toBe(
+      'skipped GPU (not-offered)'
+    )
+    expect(describeNote({ code: 'entry-timed-out' })).toBe('entry-timed-out')
+  })
+
+  it('names the code alone for a status line with no services', () => {
+    expect(describeNote({ code: 'following', services: [] })).toBe('following')
+  })
+
+  it('puts a menu title on one line, so a line break in it cannot add a log line', () => {
+    const text = describeNote({ code: 'waiting-for-pilot', menu: 'Select\nfake line\r\u001b[2J' })
+    expect(text).not.toMatch(/\p{Cc}/u)
+    expect(text).toBe('waiting-for-pilot (menu "Select\\nfake line\\r\\u001b[2J")')
+  })
+})
+
+describe('noteChangeKey', () => {
+  it('is the same while only the fuel gap moves, and differs for anything else', () => {
+    const gap = (gapKg: number | null): string => noteChangeKey({ code: 'waiting-for-fuel-entry', gapKg })
+    expect(gap(85)).toBe(gap(84))
+    expect(gap(85)).toBe(gap(null))
+    expect(noteChangeKey({ code: 'waiting-for-fuel-entry', gapKg: 85 })).not.toBe(
+      noteChangeKey({ code: 'waiting-for-payload-entry' })
+    )
+    expect(noteChangeKey({ code: 'following', services: ['Catering'] })).not.toBe(
+      noteChangeKey({ code: 'following', services: ['Refueling'] })
+    )
+  })
+})
+
 function telemetry(overrides: Partial<SimTelemetry> = {}): SimTelemetry {
   return { groundSpeedMs: 0, fuelTotalKg: 9_000, totalWeightKg: 200_000, ...overrides } as SimTelemetry
 }
@@ -133,6 +176,14 @@ describe('RoutineDriver', () => {
     vi.useRealTimers()
   })
 
+  it('writes a routine name with a line break in it on one line in every line it logs about the routine', () => {
+    gsx.states.Catering = 'completed'
+    driver.start({ ...routine(['Catering']), name: 'My\nfake log line' })
+    expect(logged).toContain('info GSX routine "My\\nfake log line" started')
+    expect(logged).toContain('info GSX routine "My\\nfake log line" finished')
+    expect(logged.every((line) => !line.includes('\n'))).toBe(true)
+  })
+
   it('opens the menu when a routine starts, and publishes where it is', () => {
     expect(driver.start(routine(['Catering']))).toBe(true)
     expect(gsx.sent).toEqual(['open'])
@@ -155,6 +206,15 @@ describe('RoutineDriver', () => {
     )
   })
 
+  it('writes a menu title or label with a line break in it on one line (log lines cannot be forged by GSX text)', () => {
+    gsx.pickAccepted = false
+    driver.start(routine(['Catering']))
+    gsx.menu = { ...MAIN_MENU, title: 'Activate Services at EGLL\nfake log line' }
+    gsx.changed()
+    expect(logged.some((line) => line.startsWith('warn GSX routine did not pick'))).toBe(true)
+    expect(logged.every((line) => !line.includes('\n'))).toBe(true)
+  })
+
   it('logs when a pick was refused because the menu had changed', () => {
     gsx.pickAccepted = false
     driver.start(routine(['Catering']))
@@ -171,6 +231,25 @@ describe('RoutineDriver', () => {
     expect(gsx.sent).toEqual(['open'])
     vi.advanceTimersByTime(500)
     expect(gsx.sent).toEqual(['open', 'open'])
+  })
+
+  it("logs the status line each time it changes, once, not on every step (flight 436's wait could not be told from a stop)", () => {
+    const noteLines = (): string[] => logged.filter((line) => line.startsWith('info GSX routine "Test": '))
+    driver.start(routine(['Catering']))
+    expect(noteLines()).toEqual(['info GSX routine "Test": opening-menu Catering'])
+    vi.advanceTimersByTime(3_000)
+    expect(noteLines()).toHaveLength(1)
+    gsx.menu = MAIN_MENU
+    gsx.changed()
+    expect(noteLines().at(-1)).toBe('info GSX routine "Test": asking Catering')
+    expect(noteLines()).toHaveLength(2)
+  })
+
+  it('does not repeat the end of the routine as a status line, since it has its own', () => {
+    gsx.states.Catering = 'completed'
+    driver.start(routine(['Catering']))
+    expect(logged).toContain('info GSX routine "Test" finished')
+    expect(logged.some((line) => line.includes('"Test": finished'))).toBe(false)
   })
 
   it('does not publish the same progress twice', () => {
