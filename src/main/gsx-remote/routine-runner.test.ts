@@ -143,6 +143,28 @@ class Session {
   }
 }
 
+/**
+ * The captured start of flights 433 and 434: the routine picks Catering, GSX asks for the handling operator and then, after a pause,
+ * the catering operator, and the second menu stays open about eight seconds with nothing answered. Each change of GSX is its own step.
+ *
+ * @param routine The routine to run.
+ * @returns The session, with `Select catering operator` still showing.
+ */
+function catering777Waiting(routine: GsxRoutine): Session {
+  const session = new Session(routine)
+  expect(session.tick(250)).toEqual([{ kind: 'openMenu' }])
+  session.menu = mainMenu()
+  expect(session.tick(250)[0]).toMatchObject({ label: 'Request Catering service', index: 1 })
+  session.menu = operatorMenu()
+  session.tick(900)
+  session.menu = EMPTY_MENU
+  session.tick(300)
+  session.menu = menu('Select catering operator', ['DNATA Catering', 'SATS [GSX choice]', 'Back'])
+  session.tick(350)
+  session.quiet(32, 250)
+  return session
+}
+
 /** Asks for a service as GSX does: the menu opens, the pick lands, GSX takes it and closes the menu. */
 function request(session: Session, id: string, menuToShow: GsxRemoteMenuState = mainMenu()): RunnerAction[] {
   const actions = [...session.tick(2_000)]
@@ -340,6 +362,133 @@ describe('requesting a service', () => {
     session.tick(5_000)
     expect(session.progress.services[0].progress).toBe('skipped')
   })
+
+  // Flights 433 and 434 (PMDG 777, WSSS), from the captures: after the pick GSX shows its own `Select catering operator` menu and
+  // leaves it open about eight seconds. It closes the menu first, and reports Catering taken in a later patch (200 ms later in 433,
+  // 716 ms in 434). The routine used to toggle GSX's menu open the moment the follow-up menu closed, and then skip a running service.
+  describe('a service GSX takes after its own follow-up menu closes (flights 433, 434, 436)', () => {
+    it.each([
+      ['433', 200],
+      ['434', 716]
+    ])('follows it and opens no menu over it, in the order of flight %s', (_flight, takenAfterCloseMs) => {
+      const session = catering777Waiting(BUILT_IN_ROUTINES[0])
+      session.menu = EMPTY_MENU // /menuShown false
+      expect(session.tick(10)).toEqual([])
+      session.states.Catering = 'requested' // /services, a patch of its own
+      expect(session.tick(takenAfterCloseMs)).toEqual([])
+      expect(session.progress.services[0]).toEqual({ service: 'Catering', progress: 'running' })
+      // The routine goes on to Refueling once the settle window is over, with no stray menu of Catering's left open.
+      expect(session.tick(2_000)).toEqual([{ kind: 'openMenu' }])
+      session.menu = mainMenu()
+      expect(session.tick(250)[0]).toMatchObject({ label: 'Request Refueling', index: 2 })
+    })
+
+    it('counts the wait for the pick from the moment the follow-up menu closed, not from the pick', () => {
+      const session = catering777Waiting(custom(['Catering']))
+      session.menu = EMPTY_MENU
+      // GSX's own menu closed 5 s ago: only now does the pick count as not taken, and the routine asks again
+      expect(session.quiet(20, 250)).toEqual([])
+      expect(session.tick(250)).toEqual([{ kind: 'openMenu' }])
+    })
+
+    it('still leaves the service out when GSX never takes it, asking once more first', () => {
+      const session = catering777Waiting(custom(['Catering']))
+      session.menu = EMPTY_MENU
+      session.quiet(20, 250)
+      session.menu = mainMenu()
+      expect(session.tick(250)[0]).toMatchObject({ label: 'Request Catering service' })
+      session.menu = EMPTY_MENU
+      expect(session.tick(5_000)).toEqual([])
+      expect(session.progress.services[0].progress).toBe('skipped')
+    })
+
+    it('closes the main menu its own retry toggle opens when GSX takes the service just before the menu shows', () => {
+      const session = catering777Waiting(custom(['Catering']))
+      session.menu = EMPTY_MENU
+      session.quiet(20, 250)
+      expect(session.tick(250)).toEqual([{ kind: 'openMenu' }])
+      session.states.Catering = 'requested' // GSX takes it before the toggle's menu is up
+      expect(session.tick(100)).toEqual([])
+      expect(session.progress.services[0]).toEqual({ service: 'Catering', progress: 'running' })
+      session.menu = menu(
+        'Activate Services at WSSS/Changi',
+        MAIN_ENTRIES.map((e) => (e === 'Request Catering service' ? 'Catering vehicles are on their way' : e))
+      )
+      expect(session.tick(350)).toEqual([{ kind: 'closeMenu' }])
+      expect(session.run.note.code).not.toBe('waiting-for-pilot')
+      // A main menu opened by the pilot later is left alone.
+      session.menu = EMPTY_MENU
+      session.tick(250)
+      session.menu = mainMenu()
+      expect(session.tick(250)).toEqual([])
+    })
+
+    it('counts the window from the toggle, so a menu the pilot opens five seconds after it is left alone', () => {
+      const session = catering777Waiting(custom(['Catering']))
+      session.menu = EMPTY_MENU
+      session.quiet(20, 250)
+      expect(session.tick(250)).toEqual([{ kind: 'openMenu' }]) // the retry toggle, which produces no menu
+      expect(session.quiet(17, 250)).toEqual([])
+      session.states.Catering = 'requested' // adopted 4.5 s after the toggle, with no menu up
+      expect(session.tick(100)).toEqual([])
+      session.menu = mainMenu() // the pilot's, 5.3 s after the toggle: the window has closed
+      expect(session.tick(700)).toEqual([])
+    })
+
+    it("closes only the first menu after the toggle: a main menu after the routine's own is the pilot's", () => {
+      const session = catering777Waiting(custom(['Catering']))
+      session.menu = EMPTY_MENU
+      session.quiet(20, 250)
+      session.tick(250)
+      session.states.Catering = 'requested'
+      session.tick(100)
+      session.menu = mainMenu()
+      expect(session.tick(300)).toEqual([{ kind: 'closeMenu' }])
+      session.menu = EMPTY_MENU
+      session.tick(200)
+      session.menu = mainMenu()
+      expect(session.tick(300)).toEqual([])
+    })
+
+    it("does not carry the window into the next service's attempt", () => {
+      const session = catering777Waiting(BUILT_IN_ROUTINES[0])
+      session.menu = EMPTY_MENU
+      session.quiet(20, 250)
+      session.tick(250) // the retry toggle
+      session.states.Catering = 'requested'
+      session.tick(100) // adopted, window open
+      expect(session.tick(2_000)).toEqual([{ kind: 'openMenu' }]) // Refueling's attempt starts
+      session.menu = mainMenu()
+      expect(session.tick(250)[0]).toMatchObject({ label: 'Request Refueling' })
+      session.menu = EMPTY_MENU
+      session.states.Refueling = 'requested'
+      session.tick(250)
+      session.menu = mainMenu() // the pilot's menu, still inside the first window's five seconds
+      expect(session.tick(250)).toEqual([])
+    })
+
+    it('does not open the window when the service is adopted while the attempt is on its submenu step', () => {
+      const session = new Session(custom(['GPU']))
+      expect(session.tick(250)).toEqual([{ kind: 'openMenu' }])
+      session.menu = mainMenu()
+      expect(session.tick(250)[0]).toMatchObject({ label: 'Additional Services ▶' })
+      session.menu = EMPTY_MENU
+      session.states.GPU = 'requested'
+      expect(session.tick(250)).toEqual([])
+      session.menu = mainMenu()
+      expect(session.tick(250)).toEqual([])
+    })
+
+    it('adopts a service taken after a retry has reopened the menu, closing the menu it opened', () => {
+      const session = catering777Waiting(custom(['Catering']))
+      session.menu = EMPTY_MENU
+      session.quiet(20, 250)
+      session.menu = mainMenu()
+      session.states.Catering = 'requested'
+      expect(session.tick(250)).toEqual([{ kind: 'closeMenu' }])
+      expect(session.progress.services[0]).toEqual({ service: 'Catering', progress: 'running' })
+    })
+  })
 })
 
 describe('check before pick', () => {
@@ -530,6 +679,25 @@ describe('the Departure routine', () => {
     expect(session.tick(250)).toEqual([{ kind: 'openMenu' }])
     session.menu = mainMenu()
     expect(session.tick(250)[0]).toMatchObject({ label: 'Request Boarding', index: 3 })
+  })
+
+  // Flights 433 and 434 asked for Boarding while GSX was still performing Catering, because the skipped Catering counted as settled.
+  it('holds Boarding until a late-taken Catering is completed in GSX, not only done with by WingLog (flights 433, 434)', () => {
+    const session = catering777Waiting(BUILT_IN_ROUTINES[0])
+    session.menu = EMPTY_MENU
+    expect(session.tick(10)).toEqual([])
+    session.states.Catering = 'requested'
+    expect(session.tick(200)).toEqual([])
+    expect(session.progress.services[0]).toEqual({ service: 'Catering', progress: 'running' })
+    request(session, 'Refueling')
+    session.states.Catering = 'performing'
+    session.states.Refueling = 'performing'
+    expect(session.quiet(60, 1_000)).toEqual([])
+    expect(session.progress.services[2]).toEqual({ service: 'Boarding', progress: 'waiting' })
+    session.states.Catering = 'completed'
+    expect(session.tick(250)).toEqual([{ kind: 'openMenu' }])
+    session.menu = mainMenu()
+    expect(session.tick(250)[0]).toMatchObject({ label: 'Request Boarding' })
   })
 
   it('finishes when every service is done', () => {

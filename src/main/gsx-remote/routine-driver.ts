@@ -14,7 +14,11 @@ import type {
   SimTelemetry
 } from '@shared/ipc'
 import type { GsxRoutine } from '@shared/gsx-routines'
-import { GSX_ROUTINE_CANCEL_CHOICES, type GsxRoutineProgress } from '@shared/gsx-routine-progress'
+import {
+  GSX_ROUTINE_CANCEL_CHOICES,
+  type GsxRoutineNote,
+  type GsxRoutineProgress
+} from '@shared/gsx-routine-progress'
 import { NEW_GUARD, stepGuard, type GuardResult, type GuardState } from './data-entry-guard'
 import { cancelRoutine, stepRoutine } from './routine-runner'
 import {
@@ -32,6 +36,46 @@ const STEP_INTERVAL_MS = 500
 const MOVING_MS = 2
 /** A finished or stopped routine stays on screen this long, then the GSX page goes back to its buttons. */
 const CLEAR_AFTER_END_MS = 2 * 60_000
+
+/**
+ * The status line as one line of the log: its code, and what it names.
+ *
+ * @param note What the routine is doing or waiting for.
+ * @returns For example `waiting-for-fuel-entry (gap 85 kg)` or `skipped Catering (not-offered)`.
+ */
+export function describeNote(note: GsxRoutineNote): string {
+  switch (note.code) {
+    case 'opening-menu':
+    case 'asking':
+      return `${note.code} ${note.service}`
+    case 'waiting-for-stage':
+    case 'following':
+    case 'stalled':
+    case 'ending':
+    case 'ending-failed':
+      return note.services.length > 0 ? `${note.code} (${note.services.join(', ')})` : note.code
+    case 'waiting-for-pilot':
+      // GSX's menu title, quoted so that a line break or control character in it cannot start a log line of its own.
+      return `${note.code} (menu ${JSON.stringify(note.menu)})`
+    case 'waiting-for-fuel-entry':
+      return note.gapKg === null ? note.code : `${note.code} (gap ${Math.round(note.gapKg)} kg)`
+    case 'skipped':
+      return `skipped ${note.service} (${note.reason})`
+    default:
+      return note.code
+  }
+}
+
+/**
+ * What makes the log write a status line again. The fuel gap is left out: while the guard holds, it moves with every kilogram the
+ * APU burns, which would write a line for each one for up to fifteen minutes.
+ *
+ * @param note The status line.
+ * @returns Equal for two notes that differ only in the fuel gap.
+ */
+export function noteChangeKey(note: GsxRoutineNote): string {
+  return describeNote(note.code === 'waiting-for-fuel-entry' ? { ...note, gapKg: null } : note)
+}
 
 /** GSX Remote as the driver needs it: what it shows, the three menu actions, and a way to hear that anything changed. */
 export interface RoutineGsx {
@@ -74,6 +118,7 @@ export class RoutineDriver {
   private clearTimer: NodeJS.Timeout | undefined
   private unsubscribe: (() => void) | undefined
   private lastPublished = ''
+  private lastNoted = ''
   private readonly nowMs: () => number
 
   constructor(private readonly deps: RoutineDriverDeps) {
@@ -106,7 +151,8 @@ export class RoutineDriver {
     this.run = startRoutine(routine, this.nowMs())
     this.guard = NEW_GUARD
     this.lastPublished = ''
-    this.deps.logger.info(`GSX routine "${routine.name}" started`)
+    this.lastNoted = ''
+    this.deps.logger.info(`GSX routine ${JSON.stringify(routine.name)} started`)
     this.unsubscribe = this.deps.gsx.subscribe(() => this.step())
     this.stepTimer = setInterval(() => this.step(), STEP_INTERVAL_MS)
     this.step()
@@ -187,9 +233,10 @@ export class RoutineDriver {
     this.run = run
     for (const action of actions) this.send(action)
     this.publishIfChanged()
+    this.logNoteIfChanged(run)
     if (run.outcome) {
       this.deps.logger.info(
-        `GSX routine "${run.routine.name}" ${run.outcome.state === 'finished' ? 'finished' : `stopped: ${run.outcome.reason}`}`
+        `GSX routine ${JSON.stringify(run.routine.name)} ${run.outcome.state === 'finished' ? 'finished' : `stopped: ${run.outcome.reason}`}`
       )
       this.stopRunning()
       const isPlainCancel =
@@ -209,10 +256,26 @@ export class RoutineDriver {
     } else if (action.kind === 'closeMenu') {
       gsx.closeMenuIfOpen()
     } else if (gsx.pickMenuChecked(action.index, action.title, action.label)) {
-      logger.info(`GSX routine picked "${action.label}" in "${action.title}"`)
+      logger.info(`GSX routine picked ${JSON.stringify(action.label)} in ${JSON.stringify(action.title)}`)
     } else {
-      logger.warn(`GSX routine did not pick "${action.label}": "${action.title}" is no longer the open menu`)
+      logger.warn(
+        `GSX routine did not pick ${JSON.stringify(action.label)}: ${JSON.stringify(action.title)} is no longer the open menu`
+      )
     }
+  }
+
+  /**
+   * Writes the status line to the log each time it changes, so a routine that waits can be told from one that stopped. The end of the
+   * routine has its own line.
+   *
+   * @param run The run after this step.
+   */
+  private logNoteIfChanged(run: RoutineRun): void {
+    if (run.outcome) return
+    const key = noteChangeKey(run.note)
+    if (key === this.lastNoted) return
+    this.lastNoted = key
+    this.deps.logger.info(`GSX routine ${JSON.stringify(run.routine.name)}: ${describeNote(run.note)}`)
   }
 
   private publishIfChanged(): void {

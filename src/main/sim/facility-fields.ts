@@ -17,6 +17,7 @@
  */
 import { type RawBuffer } from 'node-simconnect'
 import { offsetBy } from '@shared/geo'
+import { letterOfNameCode } from '@shared/stands'
 
 export const enum NavdataDefId {
   RUNWAYS = 10,
@@ -620,7 +621,7 @@ export interface ParsedTaxiParking {
   /** SDK NAME enum: 0 NONE, 1 PARKING, 2-9 N..NW_PARKING, 10 GATE, 11 DOCK, 12-37 GATE_A..Z. */
   nameCode: number
   /** A separate code, often on a second entry with the same NAME+NUMBER (likely a MARS stand's
-   *  halves); its letter mapping is unconfirmed, so it's kept raw. */
+   *  halves). It uses the NAME enum's codes: R is 29, as BeyondATC's "N32R" is the twin of N32 (`findStand`). */
   suffix: number
   number: number
   headingDeg: number
@@ -667,6 +668,5 @@ export function parseTaxiParking(d: RawBuffer): ParsedTaxiParking {
  * @returns The stand as ATC says it, e.g. 'N32' or '79'.
  */
 export function standLabel(nameCode: number, number: number): string {
-  const letter = nameCode >= 12 && nameCode <= 37 ? String.fromCharCode(65 + nameCode - 12) : ''
-  return `${letter}${number}`
+  return `${letterOfNameCode(nameCode)}${number}`
 }

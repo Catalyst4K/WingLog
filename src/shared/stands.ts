@@ -32,15 +32,48 @@ export function nearestStand(
   return best
 }
 
+/** The sim's TAXI_PARKING NAME enum: 12 is GATE_A, and each letter after it is one more, up to 37 for GATE_Z. The SUFFIX field uses the same codes. */
+const GATE_A_NAME_CODE = 12
+const LETTER_COUNT = 26
+
 /**
- * The stand ATC named ("N32"). A name can have twin entries (a MARS stand's halves, carrying
- * a non-zero suffix); ATC's plain name means the one without.
+ * @param nameCode TAXI_PARKING's NAME (or SUFFIX) value.
+ * @returns The letter it stands for ('N' for GATE_N, 25), or '' for a code that is no letter (none, parking, gate, dock).
+ */
+export function letterOfNameCode(nameCode: number): string {
+  const index = nameCode - GATE_A_NAME_CODE
+  return index >= 0 && index < LETTER_COUNT ? String.fromCharCode(65 + index) : ''
+}
+
+/**
+ * @param letter A capital letter, A to Z.
+ * @returns The TAXI_PARKING NAME / SUFFIX code for it (R is 29, L is 23, B is 13).
+ */
+function nameCodeOfLetter(letter: string): number {
+  return GATE_A_NAME_CODE + letter.charCodeAt(0) - 65
+}
+
+/**
+ * The stand ATC named ("N32", or "N32R" for the twin the sim gives suffix 29). A name can have twin entries (a MARS stand's halves,
+ * carrying a non-zero suffix); ATC's plain name means the one without, and a letter after the number means the twin with that suffix.
  *
  * @param stands The airport's stands.
  * @param name The name ATC gave.
  * @returns The stand, or null if the airport has none by that name.
  */
 export function findStand(stands: NavdataStand[], name: string): NavdataStand | null {
-  const matches = stands.filter((s) => s.name.toUpperCase() === name.toUpperCase())
-  return matches.find((s) => s.suffix === 0) ?? matches[0] ?? null
+  const upper = name.toUpperCase()
+  const matches = stands.filter((s) => s.name.toUpperCase() === upper)
+  if (matches.length > 0) return matches.find((s) => s.suffix === 0) ?? matches[0] ?? null
+  const lettered = /^(.*\d)([A-Z])$/.exec(upper)
+  if (!lettered) return null
+  const [, base, letter] = lettered
+  const twins = stands.filter((s) => s.name.toUpperCase() === base)
+  // A letter with no twin of its own is still the stand, to within the twins' 17 m.
+  return (
+    twins.find((s) => s.suffix === nameCodeOfLetter(letter ?? '')) ??
+    twins.find((s) => s.suffix === 0) ??
+    twins[0] ??
+    null
+  )
 }
