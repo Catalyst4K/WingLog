@@ -6,6 +6,12 @@
 
 import type { ActiveTracking, FlightPhase, LanFlightSnapshot, TrackPoint } from '@shared/ipc'
 
+/**
+ * What a topic's mapper returns for a value that cannot be shown yet (its flight has not synced here). Not null: null is a real value
+ * several topics carry (a finished GSX routine, a cleared taxi route), and holding it back left the twin showing the last real one.
+ */
+export const HELD_BACK: unique symbol = Symbol('held back')
+
 /** The flight mirrored from the sim PC. */
 export class FlightMirror {
   private snapshot: LanFlightSnapshot | null = null
@@ -81,13 +87,13 @@ export class FlightMirror {
  * @param mirror The flight the sim PC is tracking, as this computer knows it.
  * @param topic A topic the sim PC published.
  * @param payload Its value.
- * @returns The value for this computer: a point with this computer's flight id, or null while that flight has not synced here yet. Other topics as they are.
+ * @returns The value for this computer: a point with this computer's flight id, or HELD_BACK while that flight has not synced here yet. Other topics as they are, null included.
  */
 export function mapFlightTopic(mirror: FlightMirror, topic: string, payload: unknown): unknown {
-  if (topic === 'trackingPoint') return mirror.mapPoint(payload as TrackPoint)
+  if (topic === 'trackingPoint') return mirror.mapPoint(payload as TrackPoint) ?? HELD_BACK
   if (topic === 'trackingPointsUpdated') {
     const points = (payload as TrackPoint[]).flatMap((point) => mirror.mapPoint(point) ?? [])
-    return points.length > 0 ? points : null
+    return points.length > 0 ? points : HELD_BACK
   }
   return payload
 }

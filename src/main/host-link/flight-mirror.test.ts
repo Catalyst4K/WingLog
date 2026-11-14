@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { LanFlightSnapshot, TrackPoint } from '@shared/ipc'
-import { FlightMirror, mapFlightTopic } from './flight-mirror'
+import { FlightMirror, HELD_BACK, mapFlightTopic } from './flight-mirror'
 
 const HOST_ID = 7
 const UUID = 'flight-uuid-1'
@@ -96,7 +96,7 @@ describe('mapFlightTopic', () => {
 
   it('maps a point, and drops one whose flight is not known here', () => {
     expect(mapFlightTopic(mirror, 'trackingPoint', point(1, HOST_ID))).toMatchObject({ flightId: 3 })
-    expect(mapFlightTopic(mirror, 'trackingPoint', point(1, 99))).toBeNull()
+    expect(mapFlightTopic(mirror, 'trackingPoint', point(1, 99))).toBe(HELD_BACK)
   })
 
   it('maps the points of a cleanup, keeping only the ones it can, and drops it when none', () => {
@@ -105,11 +105,24 @@ describe('mapFlightTopic', () => {
       point(2, 99)
     ]) as TrackPoint[]
     expect(mapped.map((p) => p.id)).toEqual([1])
-    expect(mapFlightTopic(mirror, 'trackingPointsUpdated', [point(2, 99)])).toBeNull()
+    expect(mapFlightTopic(mirror, 'trackingPointsUpdated', [point(2, 99)])).toBe(HELD_BACK)
   })
 
   it('passes every other topic on as it came', () => {
     const payload = { state: 'connected' }
     expect(mapFlightTopic(mirror, 'gsxRemoteStatus', payload)).toBe(payload)
+  })
+
+  it('passes a null on as a null: the host clearing a topic is not a value held back', () => {
+    for (const topic of [
+      'gsxRoutine',
+      'taxiRoute',
+      'plannedRoute',
+      'gsxRemotePrompt',
+      'gsxRemoteGate',
+      'beyondAtcArrival'
+    ]) {
+      expect(mapFlightTopic(mirror, topic, null), topic).toBeNull()
+    }
   })
 })

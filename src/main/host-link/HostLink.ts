@@ -12,6 +12,7 @@ import type { HostLinkState, HostLinkStatus, LanFlightSnapshot, TrackPoint } fro
 import { logger } from '../logging/logger'
 import { LAN_TOPICS } from '../lan/LanServer'
 import type { LiveHub } from '../live/LiveHub'
+import { HELD_BACK } from './flight-mirror'
 import type { HostLinkStore } from './host-link-store'
 import type { TwinSyncPort } from './TwinSync'
 
@@ -39,7 +40,7 @@ export interface HostLinkDeps {
   /** Called whenever the status changes. */
   onStatus: (status: HostLinkStatus) => void
   /**
-   * Re-labels a topic's value on its way into this computer's hub: the sim PC's flight ids mean nothing here. Returns null to drop it.
+   * Re-labels a topic's value on its way into this computer's hub: the sim PC's flight ids mean nothing here. Returns HELD_BACK to drop it; null is a real value and is passed on.
    * Left out, every topic is passed on as it came.
    */
   mapTopic?: (topic: LiveTopic, payload: unknown) => unknown
@@ -221,7 +222,8 @@ export class HostLink {
   private republish<T extends LiveTopic>(topic: T, payload: unknown): void {
     const mapped = this.deps.mapTopic ? this.deps.mapTopic(topic, payload) : payload
     // A value that cannot be re-labelled yet (its flight has not synced) is held back, not shown against the wrong flight.
-    if (mapped !== null) this.deps.hub.publish(topic, mapped as LiveTopics[T])
+    // A null is the host clearing the topic (a finished routine, a cleared route) and must reach the hub like any other value.
+    if (mapped !== HELD_BACK) this.deps.hub.publish(topic, mapped as LiveTopics[T])
     if (topic === 'simConnectionStatus') {
       this.hostSimChanged((payload as LiveTopics['simConnectionStatus']).state)
     }

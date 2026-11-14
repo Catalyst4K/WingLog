@@ -4,6 +4,7 @@ import type { HostLinkStatus } from '@shared/ipc'
 import { logger } from '../logging/logger'
 import { LiveHub } from '../live/LiveHub'
 import { HostLink, HOST_LINK_TOPICS } from './HostLink'
+import { HELD_BACK } from './flight-mirror'
 import type { TwinSyncStatus } from './TwinSync'
 import type { HostLinkStore, StoredHostLink } from './host-link-store'
 
@@ -143,6 +144,35 @@ describe('HostLink', () => {
     expect(hub.snapshot().storageStatus).toBeUndefined()
     expect(HOST_LINK_TOPICS).not.toContain('storageStatus')
     expect(HOST_LINK_TOPICS).toContain('beyondAtcTranscript')
+  })
+
+  it('follows a topic the host clears to null, not only the values it sets: the finished GSX routine is gone from the twin too (flight 436)', () => {
+    const link = make(memoryStore())
+    link.pair('192.168.1.20:5051', '123456')
+    sockets[0]?.open()
+    sockets[0]?.hear({ t: 'paired', token: 't' })
+    sockets[0]?.hear({ t: 'snapshot', topics: {}, flight: null })
+    const stopped = { routineId: 'r', routineName: '777 Departure', state: 'stopped' }
+    sockets[0]?.hear({ t: 'topic', name: 'gsxRoutine', payload: stopped })
+    expect(hub.snapshot().gsxRoutine).toEqual(stopped)
+    // The host's driver publishes null two minutes after a routine ends.
+    sockets[0]?.hear({ t: 'topic', name: 'gsxRoutine', payload: null })
+    expect(hub.snapshot().gsxRoutine).toBeNull()
+  })
+
+  it('takes a null from the host in its snapshot after a reconnect, replacing the value held from before the link dropped', () => {
+    const link = make(memoryStore())
+    link.pair('192.168.1.20:5051', '123456')
+    sockets[0]?.open()
+    sockets[0]?.hear({ t: 'paired', token: 't' })
+    sockets[0]?.hear({ t: 'snapshot', topics: {}, flight: null })
+    sockets[0]?.hear({ t: 'topic', name: 'taxiRoute', payload: { points: [] } })
+    sockets[0]?.hear({ t: 'topic', name: 'gsxRemotePrompt', payload: { title: 'x' } })
+    sockets[0]?.drop()
+    // While it was down the host cleared both.
+    sockets[0]?.hear({ t: 'snapshot', topics: { taxiRoute: null, gsxRemotePrompt: null }, flight: null })
+    expect(hub.snapshot().taxiRoute).toBeNull()
+    expect(hub.snapshot().gsxRemotePrompt).toBeNull()
   })
 
   it('reconnects with the stored token at start', async () => {
@@ -338,7 +368,7 @@ describe('HostLink', () => {
         topic === 'trackingPoint'
           ? (payload as { flightId: number }).flightId === 7
             ? { flightId: 3 }
-            : null
+            : HELD_BACK
           : payload
     })
     link.pair('192.168.1.20:5051', '123456')
