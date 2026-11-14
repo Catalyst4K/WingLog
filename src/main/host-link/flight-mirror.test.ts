@@ -53,6 +53,20 @@ describe('FlightMirror', () => {
     expect(mirror.active()).toBeNull()
   })
 
+  it('looks the flight up once for a whole track, not once per point (a 3,000-point track froze the app on every Track visit)', () => {
+    // The lookup by uuid scans the flight table (no index on flight.uuid): 29 ms on the sim PC's real database, which holds 16 MB of OFPs.
+    let lookups = 0
+    const mirror = new FlightMirror((uuid) => {
+      lookups++
+      return uuid === UUID ? 3 : undefined
+    })
+    const recorded = Array.from({ length: 3000 }, (_, i) => point(i + 1, HOST_ID))
+    mirror.setFlight(snapshot(), () => recorded)
+    lookups = 0
+    expect(mirror.livePoints(3)).toHaveLength(3000)
+    expect(lookups).toBe(1)
+  })
+
   it('says a flight is being tracked only when the sim PC is tracking it, with the latest phase', () => {
     const mirror = make()
     mirror.setFlight(snapshot({ tracking: false }), () => [])

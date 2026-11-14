@@ -76,10 +76,13 @@ export class FlightMirror {
   livePoints(flightId: number): TrackPoint[] | null {
     const flight = this.snapshot?.flight
     if (!flight?.tracking || this.localIdOf(flight.flightId) !== flightId) return null
-    return this.points().flatMap((point) => {
-      const mapped = this.mapPoint(point)
-      return mapped ? [mapped] : []
-    })
+    // The id was found once, above: finding it again for every point scanned the flight table once per point (a few thousand times).
+    const points = this.points()
+      .filter((point) => point.flightId === flight.flightId)
+      .map((point) => ({ ...point, flightId }))
+    const last = points.at(-1)
+    if (last) this.phase = last.phase
+    return points
   }
 }
 
