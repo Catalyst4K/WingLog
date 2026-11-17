@@ -79,7 +79,14 @@ describe('isPeerTimeAhead (security-audit-v2, step 23)', () => {
   })
 
   it('is false for what is not a real time, which is refused for good', () => {
-    for (const value of ['zzzz', '2027-02-31T00:00:00.000Z', '2027-01-01T00:00:00+01:00', 5, null, undefined]) {
+    for (const value of [
+      'zzzz',
+      '2027-02-31T00:00:00.000Z',
+      '2027-01-01T00:00:00+01:00',
+      5,
+      null,
+      undefined
+    ]) {
       expect(isPeerTimeAhead(value, NOW), String(value)).toBe(false)
     }
   })
