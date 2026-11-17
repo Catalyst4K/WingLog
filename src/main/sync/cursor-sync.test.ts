@@ -464,6 +464,49 @@ describe('runCursorSync', () => {
     ).toEqual(['G-LATE'])
   })
 
+  it('does not keep a row whose time is more than a month ahead, which is a peer with the wrong date (review of 2026-11-17, finding 4)', async () => {
+    const pc = device('pc')
+    peer.seed('aircraft', {
+      uuid: 'far-ahead',
+      updatedAt: new Date(Date.now() + 31 * 24 * 3_600_000).toISOString(),
+      data: JSON.stringify({ registration: 'G-FARR', icaoType: 'A320' })
+    })
+    peer.seed('aircraft', {
+      uuid: 'a-few-days-ahead',
+      updatedAt: new Date(Date.now() + 3 * 24 * 3_600_000).toISOString(),
+      data: JSON.stringify({ registration: 'G-NEAR', icaoType: 'A320' })
+    })
+
+    const result = await sync(pc)
+
+    expect(result.tables.aircraft.skipped).toEqual(['far-ahead', 'a-few-days-ahead'])
+    expect(countDeferredRows(pc.db, 'cloud')).toBe(1)
+    expect(readFileSync(join(dir, 'sync-conflicts.log'), 'utf8')).toContain('far-ahead')
+  })
+
+  it('drops a kept row when the clock is set so far back that its time is more than a month ahead, instead of keeping it for ever (finding 4)', async () => {
+    const pc = device('pc')
+    peer.seed('aircraft', {
+      uuid: 'edited-elsewhere',
+      updatedAt: new Date().toISOString(),
+      data: JSON.stringify({ registration: 'G-LATE', icaoType: 'A320' })
+    })
+    const realNow = Date.now()
+    const clock = vi.spyOn(Date, 'now')
+    try {
+      clock.mockReturnValue(realNow - 2 * 24 * 3_600_000)
+      await sync(pc)
+      expect(countDeferredRows(pc.db, 'cloud')).toBe(1)
+      // A dead battery puts the clock a year back: the row is no longer kept, and the log says so.
+      clock.mockReturnValue(realNow - 365 * 24 * 3_600_000)
+      await sync(pc)
+      expect(countDeferredRows(pc.db, 'cloud')).toBe(0)
+    } finally {
+      clock.mockRestore()
+    }
+    expect(readFileSync(join(dir, 'sync-conflicts.log'), 'utf8')).toContain('no longer kept')
+  })
+
   it('still passes over for good a row whose time is not a real time', async () => {
     const pc = device('pc')
     peer.seed('aircraft', {

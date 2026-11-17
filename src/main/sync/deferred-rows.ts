@@ -6,14 +6,15 @@
  */
 
 import type { WingLogDb } from '../db/client'
-import { dropDeferredRow, listDeferredRows } from '../db/sync-deferred-repo'
+import { dropDeferredRow, isTooFarAhead, listDeferredRows } from '../db/sync-deferred-repo'
 import { markOrigin } from '../db/sync-change-repo'
 import type { SyncRow, SyncTable } from '../backend/sync-client'
 import { applyPulledRow, linkPulledReplacements, logSyncEvent, type ApplyResult } from './sync-engine'
 
 /**
  * Applies the rows kept for a peer and table whose time is no longer ahead of this computer's clock, by last write wins as any pulled row, and
- * forgets each one tried. A row still ahead stays kept.
+ * forgets each one tried. A row still ahead stays kept, unless its time is now more than a month ahead (the clock was set back, or the row's
+ * time was never near it): that one is dropped.
  *
  * @param db The database.
  * @param dbPath The database file's path, which says where sync-conflicts.log goes.
@@ -24,7 +25,18 @@ import { applyPulledRow, linkPulledReplacements, logSyncEvent, type ApplyResult 
 export function retryDeferredRows(db: WingLogDb, dbPath: string, peer: string, table: SyncTable): number {
   let applied = 0
   const tried: { row: SyncRow; applied: boolean }[] = []
+  const now = Date.now()
   for (const row of listDeferredRows(db, peer, table)) {
+    if (isTooFarAhead(row.updatedAt, now)) {
+      dropDeferredRow(db, peer, table, row.uuid)
+      logSyncEvent(dbPath, {
+        direction: 'pull',
+        table,
+        uuid: row.uuid,
+        reason: "its time is more than a month ahead of this computer's clock: no longer kept"
+      })
+      continue
+    }
     const outcome: ApplyResult = applyPulledRow(db, table, row)
     if (!outcome.ok && outcome.isAheadOfClock) continue
     dropDeferredRow(db, peer, table, row.uuid)

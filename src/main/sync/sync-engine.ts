@@ -575,7 +575,7 @@ export function keepRowAhead(
     uuid: row.uuid,
     reason: isKept
       ? "its time is more than a day ahead of this computer's clock: kept, and tried again at each sync until the clock catches up"
-      : "its time is more than a day ahead of this computer's clock, and too many rows are already kept for this peer: passed over"
+      : "its time is more than a day ahead of this computer's clock, and either more than a month ahead or too much is already kept for this peer: passed over"
   })
 }
 
