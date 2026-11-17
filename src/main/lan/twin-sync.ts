@@ -13,6 +13,7 @@ import { countTrackPoints, listFlightUuidsWithTrack, listTrackPointRows } from '
 import { applyPushedRows, MAX_PUSH_ROWS, MAX_ROW_DATA_BYTES, serializeChange } from '../sync/sync-engine'
 import { localSyncVersion } from '../sync/sync-version'
 import { retryDeferredRows } from '../sync/deferred-rows'
+import { raiseCounterMark } from '../sync/counter-mark'
 
 /** The most one page of changed rows carries, in bytes and rows: a whole table in one answer could be tens of megabytes. */
 export const PULL_PAGE_BYTES = 3_000_000
@@ -235,6 +236,8 @@ export function twinSyncDeviceQueries(
     'sync.pull': (deviceId, table, cursor, known) => {
       const checkedTable = tableArg(table)
       const page = pullChanges(db, checkedTable, cursorArg(cursor), deviceId, knownArg(known))
+      // The twin now knows this counter: a later restore of this database to before it must show (review of 2026-11-17).
+      raiseCounterMark(db, dbPath)
       // A twin with nothing to push in a table still pulls it: at its last page, its rows kept for a time ahead of this computer's clock are tried too.
       if (!page.more) {
         if (retryDeferredRows(db, dbPath, twinOrigin(deviceId), checkedTable) > 0) onApplied()
@@ -250,6 +253,7 @@ export function twinSyncDeviceQueries(
       return applyPushedRows(db, checkedTable, checkedRows, dbPath, twinOrigin(deviceId)).then((result) => {
         if (result.upserted.length > 0) onApplied()
         // The counter after the push, so the twin knows what it has seen before it pulls again (review of M8).
+        raiseCounterMark(db, dbPath)
         return { ...result, head: highestChangeSeq(db) }
       })
     }

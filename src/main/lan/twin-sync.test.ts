@@ -8,7 +8,9 @@ import { createDb, type WingLogDb } from '../db/client'
 import { createAircraft } from '../db/aircraft-repo'
 import { createFlight } from '../db/flight-repo'
 import { aircraft, flight } from '../db/schema'
+import { readCounterMark } from '../sync/counter-mark'
 import { localSyncVersion } from '../sync/sync-version'
+import { highestChangeSeq } from '../db/sync-change-repo'
 import { countDeferredRows } from '../db/sync-deferred-repo'
 import {
   PULL_PAGE_BYTES,
@@ -210,6 +212,22 @@ describe('a twin’s sync lookups on the host', () => {
     expect(pull('aircraft', null, OTHER_TWIN, { seen: head + 10, epoch }).epoch).toBe(fresh)
     // An older twin sends nothing, and is taken at its cursor.
     expect(pull('aircraft', null, OTHER_TWIN).epoch).toBe(fresh)
+  })
+
+  it('notes the counter it has told a twin in the mark kept beside the database, after a pull and after a push (review of 2026-11-17, finding 2)', async () => {
+    const dbPath = join(dir, 'winglog.db')
+    expect(readCounterMark(dbPath)).toBeNull()
+    addAircraft('G-AAAA')
+    pull('aircraft')
+    expect(readCounterMark(dbPath)).toBe(highestChangeSeq(db))
+
+    const fresh = {
+      uuid: '11111111-2222-3333-4444-555555555555',
+      updatedAt: new Date().toISOString(),
+      data: JSON.stringify({ registration: 'G-TWIN', icaoType: 'B738' })
+    }
+    const pushed = await push('aircraft', [fresh])
+    expect(readCounterMark(dbPath)).toBe(pushed.head)
   })
 
   it('refuses a counter from a twin that is not one', () => {

@@ -39,6 +39,7 @@ import { createDb, type WingLogDb } from './db/client'
 import { startStorageMaintenance } from './db/storage-maintenance'
 import type { Database as SqliteDatabase } from 'better-sqlite3'
 import { migrateDb } from './db/migrate'
+import { reconcileCounterMark } from './sync/counter-mark'
 import { backfillOperatorIcao } from './db/operator-icao-backfill'
 import { findAirlineForOperator } from './airlines/airline-search'
 import { migrateLegacyUserData } from './db/legacy-userdata'
@@ -133,6 +134,8 @@ function openDatabase(userDataPath: string): {
   // isn't reliable once the app is launched from a shortcut rather than a terminal.
   migrateDb(dbPath, join(app.getAppPath(), 'drizzle'))
   const handle = createDb(dbPath)
+  // A database put back from a backup has a counter below the mark kept beside it: it gets a new epoch, so the devices it syncs with start again.
+  reconcileCounterMark(handle.db, dbPath)
   seedE2eTaxiNetwork(handle.db, app.isPackaged)
   // Aircraft saved before the operator ICAO column existed have a name and an IATA code but no ICAO, which leaves Dispatch's Airline ICAO empty.
   try {

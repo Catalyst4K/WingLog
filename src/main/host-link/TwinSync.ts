@@ -7,6 +7,7 @@
 import type { WingLogDb } from '../db/client'
 import { logger } from '../logging/logger'
 import { runLogged } from '../logging/run-logged'
+import { raiseCounterMark } from '../sync/counter-mark'
 import { resetPeer, runCursorSync, type PagedSyncClient } from '../sync/cursor-sync'
 import { compareSyncVersions, localSyncVersion, type SyncVersion } from '../sync/sync-version'
 
@@ -141,6 +142,8 @@ export class TwinSync implements TwinSyncPort {
       this.set({ state: 'error', lastSyncedAt, problem: null })
     } finally {
       this.running = false
+      // Whatever this sync sent the sim PC has numbers in this database's counter that a restore of it must not take back.
+      raiseCounterMark(this.deps.db, this.deps.dbPath)
       if (this.forgetWhenDone) {
         this.forgetWhenDone = false
         resetPeer(this.deps.db, HOST_PEER)

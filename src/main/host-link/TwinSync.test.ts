@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from 'node:fs'
+import { copyFileSync, mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -6,8 +6,9 @@ import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import { createDb, type WingLogDb } from '../db/client'
 import { createAircraft, listAircraft } from '../db/aircraft-repo'
 import type { SyncRow } from '../backend/sync-client'
-import { getPullCursor, getPushCursor } from '../db/sync-change-repo'
+import { getKnownCounter, getPullCursor, getPushCursor, highestChangeSeq } from '../db/sync-change-repo'
 import { twinSyncDeviceQueries, twinSyncQueries } from '../lan/twin-sync'
+import { readCounterMark, reconcileCounterMark } from '../sync/counter-mark'
 import { localSyncVersion } from '../sync/sync-version'
 import { chunkRows, LanSyncClient, PUSH_CHUNK_ROWS } from './lan-sync-client'
 import { TwinSync } from './TwinSync'
@@ -476,5 +477,108 @@ describe('TwinSync', () => {
     await expect(done).resolves.toBe(true)
     expect(twin.status().state).toBe('idle')
     cleanup()
+  })
+})
+
+/** A computer with its database on disk in a folder of its own, so the counter mark kept beside the database is its own. */
+class Machine {
+  readonly dir = mkdtempSync(join(tmpdir(), 'winglog-machine-'))
+  readonly path = join(this.dir, 'winglog.db')
+  private handle = createDb(this.path)
+
+  constructor() {
+    migrate(this.handle.db, { migrationsFolder: 'drizzle' })
+  }
+
+  get db(): WingLogDb {
+    return this.handle.db
+  }
+
+  async backup(name: string): Promise<void> {
+    await this.handle.sqlite.backup(join(this.dir, name))
+  }
+
+  /** Puts a backup back as the database and starts the app on it, as a launch does. */
+  restore(name: string): void {
+    this.handle.sqlite.close()
+    for (const suffix of ['-wal', '-shm']) rmSync(this.path + suffix, { force: true })
+    copyFileSync(join(this.dir, name), this.path)
+    this.handle = createDb(this.path)
+    reconcileCounterMark(this.handle.db, this.path)
+  }
+
+  close(): void {
+    this.handle.sqlite.close()
+    rmSync(this.dir, { recursive: true, force: true })
+  }
+}
+
+describe('a computer restored from a backup, over the link (review of 2026-11-17)', () => {
+  let host: Machine
+  let twin: Machine
+
+  beforeEach(() => {
+    host = new Machine()
+    twin = new Machine()
+  })
+  afterEach(() => {
+    host.close()
+    twin.close()
+  })
+
+  /** A sync of the twin with the host, which knows the twin as device 1. */
+  function sync(): TwinSync {
+    const queries = twinSyncQueries(host.db)
+    const deviceQueries = twinSyncDeviceQueries(host.db, host.path)
+    const ask = (name: string, ...args: unknown[]): Promise<unknown> => {
+      const sent = JSON.parse(JSON.stringify(args)) as unknown[]
+      const answer = deviceQueries[name] ? deviceQueries[name](1, ...sent) : queries[name](...sent)
+      return Promise.resolve(answer).then((value) => JSON.parse(JSON.stringify(value)))
+    }
+    return new TwinSync({
+      db: twin.db,
+      dbPath: twin.path,
+      client: new LanSyncClient(ask),
+      canSync: () => true
+    })
+  }
+  const add = (machine: Machine, ...registrations: string[]): void => {
+    for (const registration of registrations) createAircraft(machine.db, { registration, icaoType: 'A320' })
+  }
+  const registrations = (machine: Machine): string[] =>
+    listAircraft(machine.db)
+      .map((a) => a.registration)
+      .sort()
+
+  it('notes the twin’s own counter in its mark when a sync ends, even one that fails', async () => {
+    add(twin, 'G-MACA')
+    await sync().run()
+    expect(readCounterMark(twin.path)).toBe(highestChangeSeq(twin.db))
+
+    add(twin, 'G-MACB')
+    host.close()
+    await sync().run()
+    expect(readCounterMark(twin.path)).toBe(highestChangeSeq(twin.db))
+  })
+
+  it('ends with every row on both when the sim PC is restored, flies on its own, and the twin syncs only afterwards (finding 2)', async () => {
+    add(host, 'G-HOST')
+    await sync().run()
+    await host.backup('before.db')
+    add(twin, 'G-MACA', 'G-MACB', 'G-MACC')
+    await sync().run()
+    await sync().run()
+    expect(registrations(host)).toEqual(['G-HOST', 'G-MACA', 'G-MACB', 'G-MACC'])
+
+    // The backup is put back and the sim PC flies that evening, making more changes than the twin had seen; the Mac is opened the next day.
+    host.restore('before.db')
+    add(host, 'G-SIMA', 'G-SIMB', 'G-SIMC', 'G-SIMD')
+    expect(highestChangeSeq(host.db)).toBeGreaterThan(getKnownCounter(twin.db, 'host').seen ?? 0)
+    await sync().run()
+    await sync().run()
+
+    const all = ['G-HOST', 'G-MACA', 'G-MACB', 'G-MACC', 'G-SIMA', 'G-SIMB', 'G-SIMC', 'G-SIMD']
+    expect(registrations(host)).toEqual(all)
+    expect(registrations(twin)).toEqual(all)
   })
 })
