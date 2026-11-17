@@ -330,6 +330,13 @@
       "when": 1794571780410,
       "tag": "0046_sync_deferred_row",
       "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "6",
+      "when": 1794941648300,
+      "tag": "0047_iso_updated_at",
+      "breakpoints": true
     }
   ]
 }

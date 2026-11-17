@@ -27,7 +27,7 @@ import { getFlightIdByUuid, getFlightUuidById, upsertFlightByUuid } from '../db/
 import { hasLandingUnderOtherUuid, upsertLandingByUuid } from '../db/landing-repo'
 import { markOrigin } from '../db/sync-change-repo'
 import { deferRow } from '../db/sync-deferred-repo'
-import { checkedPeerTime, isPeerTimeAhead } from '../db/sync-rows'
+import { checkedPeerTime, isoSendTime, isPeerTimeAhead } from '../db/sync-rows'
 import { getSetting, setSetting } from '../db/settings-repo'
 import type { SyncRow, SyncTable } from '../backend/sync-client'
 import { aircraft, flight, flightInvoice, gsxRoutine, landing } from '../db/schema'
@@ -492,6 +492,18 @@ function applyGsxRoutine(db: WingLogDb, row: SyncRow): ApplyResult {
  * @returns The row, or null when it is gone or cannot be sent yet (its parent has no uuid).
  */
 export function serializeChange(db: WingLogDb, table: SyncTable, uuid: string): SyncRow | null {
+  const row = serializeStoredRow(db, table, uuid)
+  // A row from before migration 0010 may still carry SQLite's own time form; the receivers accept only the ISO one (migration 0047 rewrites them, this is the net under it).
+  return row ? { ...row, updatedAt: isoSendTime(row.updatedAt) } : null
+}
+
+/**
+ * @param db The database.
+ * @param table The table the row is in.
+ * @param uuid The row's uuid.
+ * @returns The row with its `updatedAt` as stored, or null when it is gone or cannot be sent yet.
+ */
+function serializeStoredRow(db: WingLogDb, table: SyncTable, uuid: string): SyncRow | null {
   switch (table) {
     case 'aircraft': {
       const row = db.select().from(aircraft).where(eq(aircraft.uuid, uuid)).get()
