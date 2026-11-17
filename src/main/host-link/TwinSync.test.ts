@@ -643,6 +643,40 @@ describe('a computer restored from a backup, over the link (review of 2026-11-17
     expect(registrations(host)).toEqual(['G-HOST', 'G-MACA'])
   })
 
+  it('finds a twin restored to before a push when the app died during that push, before the sync ended (review of 2026-11-17)', async () => {
+    add(twin, 'G-MACA')
+    await sync().run()
+    await twin.backup('before.db')
+    const epochBefore = ownEpoch(twin.db)
+    const markBefore = readCounterMark(twin.path)
+
+    add(twin, 'G-MACB', 'G-MACC')
+    const queries = twinSyncDeviceQueries(host.db, host.path)
+    // The sim PC takes the push, and the app dies before the answer: the sync never reaches its end.
+    const dying = new TwinSync({
+      db: twin.db,
+      dbPath: twin.path,
+      client: new LanSyncClient(
+        (name, ...args) => {
+          const answer = name === 'sync.version' ? localSyncVersion(host.db) : queries[name](1, ...args)
+          if (name === 'sync.push') return Promise.resolve(answer).then(() => new Promise<never>(() => {}))
+          return Promise.resolve(JSON.parse(JSON.stringify(answer)))
+        },
+        () => ownEpoch(twin.db)
+      ),
+      canSync: () => true
+    })
+    void dying.run()
+    await vi.waitFor(() => expect(registrations(host)).toEqual(['G-MACA', 'G-MACB', 'G-MACC']))
+    expect(readCounterMark(twin.path)).toBe(highestChangeSeq(twin.db))
+    expect(readCounterMark(twin.path)).toBeGreaterThan(markBefore ?? 0)
+
+    // The backup is put back before the next launch: the counter is below what the sim PC was sent, so the epoch is new.
+    twin.restore('before.db')
+    expect(registrations(twin)).toEqual(['G-MACA'])
+    expect(ownEpoch(twin.db)).not.toBe(epochBefore)
+  })
+
   it('sends a twin nothing of its own again when its database was not restored', async () => {
     add(twin, 'G-MACA')
     await sync().run()

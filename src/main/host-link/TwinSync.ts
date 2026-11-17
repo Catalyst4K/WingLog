@@ -146,7 +146,8 @@ export class TwinSync implements TwinSyncPort {
       this.set({ state: 'error', lastSyncedAt, problem: null })
     } finally {
       this.running = false
-      // Whatever this sync sent the sim PC has numbers in this database's counter that a restore of it must not take back.
+      // Whatever this sync sent the sim PC has numbers in this database's counter that a restore of it must not take back. A push raises the
+      // mark before it sends; this one covers the rest of the sync.
       raiseCounterMark(this.deps.db, this.deps.dbPath)
       if (this.forgetWhenDone) {
         this.forgetWhenDone = false
@@ -190,6 +191,10 @@ export class TwinSync implements TwinSyncPort {
       },
       syncPush: async (...args) => {
         stillSame()
+        // Before the rows leave: the sim PC holds them from here on, so a restore of this database to before them must show even when the app
+        // dies before this sync's end (review of 2026-11-17). The cloud's push needs no mark: it keeps no origin per device, and a restored
+        // database also has its cloud pull cursor back, so it is given its own rows again.
+        raiseCounterMark(this.deps.db, this.deps.dbPath)
         const result = await client.syncPush(...args)
         stillSame()
         return result
