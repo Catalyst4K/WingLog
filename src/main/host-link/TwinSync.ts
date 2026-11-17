@@ -14,6 +14,9 @@ import { compareSyncVersions, localSyncVersion, type SyncVersion } from '../sync
 /** The client the twin's sync needs: pages and pushes, and the sim PC's version to check before either. */
 export type TwinSyncClient = PagedSyncClient & { version(): Promise<SyncVersion> }
 
+/** Asks the sim PC a lookup (`HostLink.query`). */
+export type SimPcAsk = (name: string, ...args: unknown[]) => Promise<unknown>
+
 /** What Settings shows of the sync. */
 export interface TwinSyncStatus {
   state: 'idle' | 'syncing' | 'error'
@@ -61,7 +64,8 @@ export class TwinSync implements TwinSyncPort {
    * @param deps.dbPath The database file's path.
    * @param deps.client The sync client over the link.
    * @param deps.canSync Whether the link is up: a sync asked for while it is not waits for the next time it comes up.
-   * @param deps.afterSync Work to do once the tables are level, such as bringing the tracks of completed flights.
+   * @param deps.afterSync Work to do once the tables are level, such as bringing the tracks of completed flights. It is given a function that
+   *   makes its `ask` fail once the sim PC has been forgotten, so a pass begun with the old sim PC does not carry on with the new one.
    */
   constructor(
     private readonly deps: {
@@ -69,7 +73,7 @@ export class TwinSync implements TwinSyncPort {
       dbPath: string
       client: TwinSyncClient
       canSync: () => boolean
-      afterSync?: () => Promise<unknown>
+      afterSync?: (guard: (ask: SimPcAsk) => SimPcAsk) => Promise<unknown>
     }
   ) {}
 
@@ -172,10 +176,7 @@ export class TwinSync implements TwinSyncPort {
    */
   private clientForThisSync(): TwinSyncClient {
     const client = this.deps.client
-    const generation = this.simPcGeneration
-    const stillSame = (): void => {
-      if (this.simPcGeneration !== generation) throw new Error('The sim PC changed during the sync')
-    }
+    const stillSame = this.sameSimPcCheck()
     return {
       version: async () => {
         stillSame()
@@ -203,20 +204,40 @@ export class TwinSync implements TwinSyncPort {
   }
 
   /**
+   * @returns A check that throws once the sim PC has been forgotten since this was called.
+   */
+  private sameSimPcCheck(): () => void {
+    const generation = this.simPcGeneration
+    return () => {
+      if (this.simPcGeneration !== generation) throw new Error('The sim PC changed during the sync')
+    }
+  }
+
+  /**
    * Brings the tracks of completed flights after the tables are level, without holding anyone up: Fly, Start and Cancel wait for the sync
    * so the sim PC has the flight, and a long download of old tracks must not stand between a pilot and the button. One pass at a time; a
-   * track that could not come now is asked for again at the next sync.
+   * track that could not come now is asked for again at the next sync. A pass cut off because the sim PC was forgotten is begun again at once
+   * with the new one, when the link is up, since a pass that was running would have kept the sync that followed from starting its own.
    */
   private bringTracks(): void {
     const { afterSync } = this.deps
     if (!afterSync || this.tracksRunning) return
     this.tracksRunning = true
-    afterSync()
+    const generation = this.simPcGeneration
+    const stillSame = this.sameSimPcCheck()
+    afterSync((ask) => async (name, ...args) => {
+      // Tracks are asked for a page at a time by offset, so a pass that changed sim PC part-way through a track would store pages of two.
+      stillSame()
+      const answer = await ask(name, ...args)
+      stillSame()
+      return answer
+    })
       .catch((error: unknown) => {
         logger.warn('[twin-sync] could not bring the tracks of completed flights:', error)
       })
       .finally(() => {
         this.tracksRunning = false
+        if (this.simPcGeneration !== generation && this.deps.canSync()) this.bringTracks()
       })
   }
 

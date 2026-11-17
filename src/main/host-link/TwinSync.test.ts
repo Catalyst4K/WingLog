@@ -5,6 +5,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import { createDb, type WingLogDb } from '../db/client'
 import { createAircraft, listAircraft } from '../db/aircraft-repo'
+import { completeFlight, createFlight, getFlightUuidById } from '../db/flight-repo'
+import { createTrackPoint, listTrackPoints } from '../db/track-point-repo'
 import type { SyncRow } from '../backend/sync-client'
 import {
   getKnownCounter,
@@ -13,10 +15,11 @@ import {
   highestChangeSeq,
   ownEpoch
 } from '../db/sync-change-repo'
-import { twinSyncDeviceQueries, twinSyncQueries } from '../lan/twin-sync'
+import { TRACK_PAGE_ROWS, twinSyncDeviceQueries, twinSyncQueries } from '../lan/twin-sync'
 import { readCounterMark, reconcileCounterMark } from '../sync/counter-mark'
 import { localSyncVersion } from '../sync/sync-version'
 import { chunkRows, LanSyncClient, PUSH_CHUNK_ROWS } from './lan-sync-client'
+import { syncTrackPoints } from './track-point-sync'
 import { TwinSync } from './TwinSync'
 
 vi.mock('../logging/logger', () => ({ logger: { warn: vi.fn(), info: vi.fn(), error: vi.fn() } }))
@@ -329,6 +332,35 @@ describe('LanSyncClient refuses what is not rows', () => {
   })
 })
 
+/** A track point of a flight, for a recorded track to be sent. */
+function trackPointRow(flightId: number, i: number) {
+  return {
+    flightId,
+    tsUtc: new Date(Date.UTC(2026, 10, 8, 12, 0, i)).toISOString(),
+    latitude: 51 + i / 1000,
+    longitude: -0.4,
+    altitudeM: 100 + i,
+    pressureAltitudeM: null,
+    altitudeAglM: 0,
+    indicatedAirspeedMs: 70,
+    machSpeed: 0.2,
+    groundSpeedMs: 70,
+    verticalSpeedMs: 0,
+    headingTrueDeg: 270,
+    pitchDeg: 0,
+    bankDeg: 0,
+    phase: 'climb' as const,
+    onGround: false,
+    fuelKg: 5000,
+    gForce: 1,
+    windSpeedMs: 0,
+    windDirectionDeg: 0,
+    resumeSegment: 0,
+    simRate: 1,
+    excludedReason: null
+  }
+}
+
 describe('TwinSync', () => {
   function sync(
     overrides: {
@@ -532,6 +564,76 @@ describe('TwinSync', () => {
     await twin.run()
     expect(afterSync).toHaveBeenCalledTimes(2)
     cleanup()
+  })
+
+  it('stops bringing tracks when the sim PC is forgotten part-way through one, and begins again with the new sim PC (review of 2026-11-17)', async () => {
+    // A flight with two pages of track on the old sim PC; the new sim PC has no track for it.
+    const oldHost = freshDb()
+    const newHost = freshDb()
+    const aircraft = createAircraft(oldHost, { registration: 'G-HOST', icaoType: 'A320' }).id
+    const made = createFlight(oldHost, {
+      aircraftId: aircraft,
+      depIcao: 'EGLL',
+      arrIcao: 'EGCC',
+      status: 'active'
+    })
+    for (let i = 0; i < TRACK_PAGE_ROWS + 5; i++)
+      createTrackPoint(oldHost, trackPointRow(made.id, i) as never)
+    completeFlight(oldHost, made.id, 3000)
+    const uuid = getFlightUuidById(oldHost, made.id) as string
+
+    const db = freshDb()
+    const dir = mkdtempSync(join(tmpdir(), 'winglog-twin-'))
+    const copy = createFlight(db, {
+      aircraftId: createAircraft(db, { registration: 'G-HOST', icaoType: 'A320' }).id,
+      depIcao: 'EGLL',
+      arrIcao: 'EGCC',
+      status: 'completed'
+    })
+    db.run(`UPDATE flight SET uuid = '${uuid}' WHERE id = ${copy.id}` as never)
+
+    // The tracks are asked of whichever sim PC is current, as the link does; the first page of the old one's track is the last thing it says.
+    let current = oldHost
+    const asked: string[] = []
+    const track = new TwinSync({
+      db,
+      dbPath: join(dir, 'winglog.db'),
+      client: new LanSyncClient((name) =>
+        Promise.resolve(
+          name === 'sync.version'
+            ? localSyncVersion(db)
+            : name === 'sync.pull'
+              ? { rows: [], cursor: 0, more: false }
+              : { upserted: [], rejected: [] }
+        )
+      ),
+      canSync: () => true,
+      afterSync: (guard) =>
+        syncTrackPoints(
+          db,
+          guard(async (name, ...args) => {
+            asked.push(name)
+            const answer = JSON.parse(
+              JSON.stringify(twinSyncQueries(current)[name](...JSON.parse(JSON.stringify(args))))
+            ) as unknown
+            if (name === 'sync.trackPoints' && current === oldHost) {
+              // Pairing with the new sim PC while the old one's first page is on its way.
+              current = newHost
+              track.forgetCursors()
+            }
+            return answer
+          })
+        )
+    })
+    await track.run()
+    await vi.waitFor(() => expect(asked.filter((name) => name === 'sync.trackedFlights')).toHaveLength(2))
+    await new Promise((resolve) => setImmediate(resolve))
+
+    // The first page of the old sim PC's track was never stored: a track of one page and a half, finished, is not mended by the next sync.
+    expect(listTrackPoints(db, copy.id)).toEqual([])
+    // The new pass asked the new sim PC, which has no track for it, and nothing but that.
+    expect(asked.filter((name) => name === 'sync.trackPoints')).toHaveLength(1)
+    rmSync(dir, { recursive: true, force: true })
   })
 
   it('counts the sync as good even when bringing the tracks of completed flights fails afterwards', async () => {

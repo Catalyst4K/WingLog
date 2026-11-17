@@ -53,7 +53,11 @@ export function startClientServices(deps: {
     ),
     canSync: () => link.getStatus().state === 'connected',
     // The tracks of completed flights follow the flights, a page at a time, once.
-    afterSync: () => syncTrackPoints(db, (name, ...args) => link.query(name, ...args))
+    afterSync: (guard) =>
+      syncTrackPoints(
+        db,
+        guard((name, ...args) => link.query(name, ...args))
+      )
   })
   const link: HostLink = new HostLink({
     hub: liveHub,
