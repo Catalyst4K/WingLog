@@ -99,9 +99,29 @@ export function servedEpoch(db: WingLogDb, seen: number, peerEpoch: string | nul
   const stored = getSetting(db, SERVED_EPOCH_KEY)
   const wentBack = seen > highestChangeSeq(db) && (peerEpoch === null || peerEpoch === stored)
   if (stored !== undefined && !wentBack) return stored
+  return startNewEpoch(db)
+}
+
+/**
+ * Makes a new epoch for this database's counter: its present run of numbers is not the one any peer has seen. Done when a backup is restored
+ * (the app's launch check, src/main/sync/counter-mark.ts) or a peer has seen past the counter.
+ *
+ * @param db The database.
+ * @returns The new epoch.
+ */
+export function startNewEpoch(db: WingLogDb): string {
   const epoch = randomUUID()
   setSetting(db, SERVED_EPOCH_KEY, epoch)
   return epoch
+}
+
+/**
+ * @param db The database.
+ * @returns This database's own epoch, made when there is none. A twin sends it with every pull and push, so the sim PC can tell when the
+ *   twin's database was restored: the launch check (src/main/sync/counter-mark.ts) gives a restored database a new one.
+ */
+export function ownEpoch(db: WingLogDb): string {
+  return getSetting(db, SERVED_EPOCH_KEY) ?? startNewEpoch(db)
 }
 
 const epochKey = (peer: string): string => `peerEpoch:${peer}`

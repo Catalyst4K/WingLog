@@ -35,6 +35,11 @@ class FakePeer implements PagedSyncClient {
   /** Says this as the head instead of the real one. */
   headOverride: number | null = null
   /**
+   * When true, a page's head is the highest change number of the table asked for, not of every table, as the Worker deployed today and a sim PC
+   * from before the epoch say it.
+   */
+  headPerTable = false
+  /**
    * When true, each page also says the peer's epoch, which changes when a device has seen past the head while holding it or none, as the
    * Worker's and the sim PC's do (review of M8).
    */
@@ -68,7 +73,8 @@ class FakePeer implements PagedSyncClient {
     const page = after.slice(0, this.pageSize)
     const more = after.length > page.length
     if (this.stuck) return { rows: page.map((entry) => entry.row), cursor: cursor ?? 0, more: true }
-    const head = this.headOverride ?? this.counter
+    const tableHead = Math.max(0, ...[...(this.rows.get(table)?.values() ?? [])].map((entry) => entry.seq))
+    const head = this.headOverride ?? (this.headPerTable ? tableHead : this.counter)
     return {
       rows: page.map((entry) => entry.row),
       cursor: page.at(-1)?.seq ?? cursor ?? 0,
@@ -458,6 +464,49 @@ describe('runCursorSync', () => {
     ).toEqual(['G-LATE'])
   })
 
+  it('does not keep a row whose time is more than a month ahead, which is a peer with the wrong date (review of 2026-11-17, finding 4)', async () => {
+    const pc = device('pc')
+    peer.seed('aircraft', {
+      uuid: 'far-ahead',
+      updatedAt: new Date(Date.now() + 31 * 24 * 3_600_000).toISOString(),
+      data: JSON.stringify({ registration: 'G-FARR', icaoType: 'A320' })
+    })
+    peer.seed('aircraft', {
+      uuid: 'a-few-days-ahead',
+      updatedAt: new Date(Date.now() + 3 * 24 * 3_600_000).toISOString(),
+      data: JSON.stringify({ registration: 'G-NEAR', icaoType: 'A320' })
+    })
+
+    const result = await sync(pc)
+
+    expect(result.tables.aircraft.skipped).toEqual(['far-ahead', 'a-few-days-ahead'])
+    expect(countDeferredRows(pc.db, 'cloud')).toBe(1)
+    expect(readFileSync(join(dir, 'sync-conflicts.log'), 'utf8')).toContain('far-ahead')
+  })
+
+  it('drops a kept row when the clock is set so far back that its time is more than a month ahead, instead of keeping it for ever (finding 4)', async () => {
+    const pc = device('pc')
+    peer.seed('aircraft', {
+      uuid: 'edited-elsewhere',
+      updatedAt: new Date().toISOString(),
+      data: JSON.stringify({ registration: 'G-LATE', icaoType: 'A320' })
+    })
+    const realNow = Date.now()
+    const clock = vi.spyOn(Date, 'now')
+    try {
+      clock.mockReturnValue(realNow - 2 * 24 * 3_600_000)
+      await sync(pc)
+      expect(countDeferredRows(pc.db, 'cloud')).toBe(1)
+      // A dead battery puts the clock a year back: the row is no longer kept, and the log says so.
+      clock.mockReturnValue(realNow - 365 * 24 * 3_600_000)
+      await sync(pc)
+      expect(countDeferredRows(pc.db, 'cloud')).toBe(0)
+    } finally {
+      clock.mockRestore()
+    }
+    expect(readFileSync(join(dir, 'sync-conflicts.log'), 'utf8')).toContain('no longer kept')
+  })
+
   it('still passes over for good a row whose time is not a real time', async () => {
     const pc = device('pc')
     peer.seed('aircraft', {
@@ -573,15 +622,51 @@ describe('a peer whose counter went back (audit M8)', () => {
     expect(peer.count('aircraft')).toBe(1)
   })
 
+  it('syncs with a peer that has no epoch and says a head for each table, though one table’s head is below another’s cursor (review 2026-11-17, finding 1)', async () => {
+    peer.headPerTable = true
+    const pc = device('pc')
+    createAircraft(pc.db, { registration: 'G-AAAA', icaoType: 'A320' })
+
+    // The aircraft is at number 1 and there is no flight: the flight pull's head is 0, below what the aircraft pull showed.
+    await sync(pc)
+    const asked = peer.asked.flight?.length ?? 0
+    await sync(pc)
+    await sync(pc)
+
+    expect(peer.count('aircraft')).toBe(1)
+    // The flight table is asked from its own cursor each time, never from the start again.
+    expect(peer.asked.flight.slice(asked)).toEqual([0, 0])
+  })
+
+  it('still catches a table’s own counter going back on a peer that says a head for each table, without an epoch', async () => {
+    peer.headPerTable = true
+    const { pc } = await wipedPeer()
+
+    const result = await sync(pc)
+
+    expect(result.tables.aircraft.pulled).toBe(1)
+    expect(registrations(pc)).toEqual(['G-AAAA', 'G-BBBB', 'G-CCCC', 'G-NEWW'])
+    expect(peer.count('aircraft')).toBe(4)
+    expect(peer.asked.aircraft.slice(-2)).toEqual([3, null])
+  })
+
   it('starts again once per sync, so a peer that keeps saying a low head fails the sync instead of holding it in a loop', async () => {
     const { pc } = await wipedPeer()
+    // A second page, asked from a cursor above the head said, so the lie shows again in the restarted run.
+    for (const registration of ['G-NEWX', 'G-NEWY']) {
+      peer.seed('aircraft', {
+        uuid: `from-the-new-account-${registration}`,
+        updatedAt: '2026-11-11T10:00:00.000Z',
+        data: JSON.stringify({ registration, icaoType: 'B738' })
+      })
+    }
     peer.headOverride = 0
     const before = peer.asked.aircraft.length
 
     await expect(sync(pc)).rejects.toThrow('counter went back')
 
     // Cursor 3 once, then none; the second time it is found, in the restarted run, the sync stops.
-    expect(peer.asked.aircraft.slice(before)).toEqual([3, null])
+    expect(peer.asked.aircraft.slice(before)).toEqual([3, null, 2])
     expect(registrations(pc)).toContain('G-NEWW')
   })
 

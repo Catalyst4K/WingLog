@@ -8,11 +8,13 @@
 import type { WingLogDb } from '../db/client'
 import { SYNC_TABLES, type SyncRow, type SyncTable } from '../backend/sync-client'
 import { getFlightIdByUuid } from '../db/flight-repo'
-import { highestChangeSeq, listChangesAfter, servedEpoch } from '../db/sync-change-repo'
+import { getSetting, setSetting } from '../db/settings-repo'
+import { clearPeerOrigin, highestChangeSeq, listChangesAfter, servedEpoch } from '../db/sync-change-repo'
 import { countTrackPoints, listFlightUuidsWithTrack, listTrackPointRows } from '../db/track-point-repo'
 import { applyPushedRows, MAX_PUSH_ROWS, MAX_ROW_DATA_BYTES, serializeChange } from '../sync/sync-engine'
 import { localSyncVersion } from '../sync/sync-version'
 import { retryDeferredRows } from '../sync/deferred-rows'
+import { raiseCounterMark } from '../sync/counter-mark'
 
 /** The most one page of changed rows carries, in bytes and rows: a whole table in one answer could be tens of megabytes. */
 export const PULL_PAGE_BYTES = 3_000_000
@@ -35,6 +37,8 @@ export interface PullPage {
 interface KnownByTwin {
   seen: number | null
   epoch: string | null
+  /** The twin's own database epoch, or null from an older twin. */
+  selfEpoch: string | null
 }
 
 /** Longest text taken for a uuid or a time. */
@@ -72,18 +76,52 @@ function cursorArg(value: unknown): number | null {
 }
 
 /**
- * @param value What a twin knows of this database's counter: `{ seen, epoch }`, or nothing from an older twin.
+ * @param value An epoch from a twin, or nothing from an older one.
+ * @returns The epoch, or null for none.
+ * @throws When it is there but not a short text.
+ */
+function epochArg(value: unknown): string | null {
+  if (value === undefined || value === null) return null
+  if (typeof value !== 'string' || value.length === 0 || value.length > MAX_KEY_CHARS) {
+    throw new Error('Invalid counter')
+  }
+  return value
+}
+
+/**
+ * @param value What a twin knows of this database's counter: `{ seen, epoch, selfEpoch }`, or nothing from an older twin (which leaves
+ *   `selfEpoch` out too).
  * @returns It, checked.
  * @throws When it is there but not that shape.
  */
 function knownArg(value: unknown): KnownByTwin {
-  if (value === undefined || value === null) return { seen: null, epoch: null }
+  if (value === undefined || value === null) return { seen: null, epoch: null, selfEpoch: null }
   const record = typeof value === 'object' ? (value as Record<string, unknown>) : null
-  const epoch = record?.epoch ?? null
-  if (!record || (epoch !== null && (typeof epoch !== 'string' || epoch.length > MAX_KEY_CHARS))) {
-    throw new Error('Invalid counter')
+  if (!record) throw new Error('Invalid counter')
+  return {
+    seen: cursorArg(record.seen),
+    epoch: epochArg(record.epoch),
+    selfEpoch: epochArg(record.selfEpoch)
   }
-  return { seen: cursorArg(record.seen), epoch }
+}
+
+/**
+ * Notes the epoch a twin says its own database has. When it is not the one noted last, the twin's database was restored (a restored database
+ * gets a new epoch at launch), so the rows it made after its backup, which this database holds marked as coming from it and so never sends
+ * back, are marked as made here: its next pull is given them. The first epoch noted for a twin is only kept: nothing is known to have gone
+ * wrong, and sending a twin all its own rows again would cost for no reason. A twin that sends none (an older one) changes nothing.
+ *
+ * @param db The database.
+ * @param deviceId The twin.
+ * @param selfEpoch The epoch it sent, or null for none.
+ */
+function noteTwinSelfEpoch(db: WingLogDb, deviceId: number, selfEpoch: string | null): void {
+  if (selfEpoch === null) return
+  const key = `twinSelfEpoch:${deviceId}`
+  const noted = getSetting(db, key)
+  if (noted === selfEpoch) return
+  if (noted !== undefined) clearPeerOrigin(db, twinOrigin(deviceId))
+  setSetting(db, key, selfEpoch)
 }
 
 /**
@@ -128,7 +166,7 @@ export function pullChanges(
   table: SyncTable,
   cursor: number | null,
   deviceId: number,
-  known: KnownByTwin = { seen: null, epoch: null }
+  known: KnownByTwin = { seen: null, epoch: null, selfEpoch: null }
 ): PullPage {
   const head = highestChangeSeq(db)
   const epoch = servedEpoch(db, Math.max(cursor ?? 0, known.seen ?? 0), known.epoch)
@@ -234,22 +272,29 @@ export function twinSyncDeviceQueries(
   return {
     'sync.pull': (deviceId, table, cursor, known) => {
       const checkedTable = tableArg(table)
-      const page = pullChanges(db, checkedTable, cursorArg(cursor), deviceId, knownArg(known))
+      const checkedKnown = knownArg(known)
+      // Before the page is built, so the rows a restored twin lost are in it.
+      noteTwinSelfEpoch(db, deviceId, checkedKnown.selfEpoch)
+      const page = pullChanges(db, checkedTable, cursorArg(cursor), deviceId, checkedKnown)
+      // The twin now knows this counter: a later restore of this database to before it must show (review of 2026-11-17).
+      raiseCounterMark(db, dbPath)
       // A twin with nothing to push in a table still pulls it: at its last page, its rows kept for a time ahead of this computer's clock are tried too.
       if (!page.more) {
         if (retryDeferredRows(db, dbPath, twinOrigin(deviceId), checkedTable) > 0) onApplied()
       }
       return page
     },
-    'sync.push': (deviceId, table, rows) => {
+    'sync.push': (deviceId, table, rows, selfEpoch) => {
       // Checked now, so a bad request is refused at once; the rows are then applied a few at a time.
       const checkedTable = tableArg(table)
       const checkedRows = rowsArg(rows)
+      noteTwinSelfEpoch(db, deviceId, epochArg(selfEpoch))
       // Rows this twin sent earlier that were kept for a time ahead of this computer's clock, which may have caught up now (step 23).
       if (retryDeferredRows(db, dbPath, twinOrigin(deviceId), checkedTable) > 0) onApplied()
       return applyPushedRows(db, checkedTable, checkedRows, dbPath, twinOrigin(deviceId)).then((result) => {
         if (result.upserted.length > 0) onApplied()
         // The counter after the push, so the twin knows what it has seen before it pulls again (review of M8).
+        raiseCounterMark(db, dbPath)
         return { ...result, head: highestChangeSeq(db) }
       })
     }

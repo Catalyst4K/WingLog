@@ -34,7 +34,8 @@ import { trackCommands } from '../live/commands'
 import type { LiveCommand } from '@shared/live'
 import { fetchMetars } from '../weather/metar-client'
 import { LanController } from './LanController'
-import { twinSyncDeviceQueries, twinSyncQueries } from './twin-sync'
+import { clearDeferredRows } from '../db/sync-deferred-repo'
+import { twinOrigin, twinSyncDeviceQueries, twinSyncQueries } from './twin-sync'
 import { twinFlightQueries, type FlightControl } from './twin-flight'
 import { onLocalWrite } from '../sync/local-write-hints'
 import { lanFlightKey, lanFlightSnapshot } from './lan-flight'
@@ -274,7 +275,12 @@ export function createLan({
     routeAddress: () => (testAddress ? Promise.resolve(null) : defaultRouteAddress()),
     devices: {
       list: () => listLanDevices(db),
-      revoke: (id) => revokeLanDevice(db, id, new Date().toISOString())
+      revoke: (id) => {
+        const revoked = revokeLanDevice(db, id, new Date().toISOString())
+        // A twin that is gone does not come back to have its kept rows tried again.
+        if (revoked) clearDeferredRows(db, twinOrigin(id))
+        return revoked
+      }
     },
     now: () => Date.now()
   })

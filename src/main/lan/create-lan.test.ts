@@ -10,11 +10,13 @@ import { WebSocket } from 'ws'
 import { createDb } from '../db/client'
 import { createAircraft } from '../db/aircraft-repo'
 import { createFlight } from '../db/flight-repo'
+import { addLanDevice } from '../db/lan-device-repo'
+import { countDeferredRows, deferRow } from '../db/sync-deferred-repo'
 import { setAppLanguage, setLanSettings, setTheme } from '../db/settings-repo'
 import { LiveHub } from '../live/LiveHub'
 import type { LanController } from './LanController'
 import { LAN_QUERY_KINDS, TWIN_ONLY_QUERIES } from '@shared/lan-queries'
-import { twinSyncDeviceQueries, twinSyncQueries } from './twin-sync'
+import { twinOrigin, twinSyncDeviceQueries, twinSyncQueries } from './twin-sync'
 import { twinFlightQueries } from './twin-flight'
 import { createLan, lanQueries } from './create-lan'
 
@@ -341,6 +343,21 @@ describe('createLan', () => {
       data: { appLanguage: 'system', theme: 'dark', systemLocale: 'de-DE', mapLanguage: 'en' }
     })
     ws.terminate()
+  })
+
+  it('forgets the rows kept for a twin when the twin is revoked, and no other peer’s (review of 2026-11-17, finding 4)', () => {
+    const { db, lan } = build()
+    const gone = addLanDevice(db, 'Mac', 'hash-1', '2026-11-17T10:00:00.000Z', 'twin')
+    const staying = addLanDevice(db, 'Mac mini', 'hash-2', '2026-11-17T10:00:00.000Z', 'twin')
+    const kept = { uuid: 'row-1', updatedAt: '2026-11-17T10:00:00.000Z', data: '{}' }
+    for (const id of [gone, staying]) deferRow(db, twinOrigin(id), 'aircraft', kept)
+    deferRow(db, 'cloud', 'aircraft', kept)
+
+    lan.revokeDevice(gone)
+
+    expect(countDeferredRows(db, twinOrigin(gone))).toBe(0)
+    expect(countDeferredRows(db, twinOrigin(staying))).toBe(1)
+    expect(countDeferredRows(db, 'cloud')).toBe(1)
   })
 
   it('serves the built page and pairs a device once switched on, keeping only its token hash', async () => {

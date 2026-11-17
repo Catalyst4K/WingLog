@@ -7,11 +7,15 @@
 import type { WingLogDb } from '../db/client'
 import { logger } from '../logging/logger'
 import { runLogged } from '../logging/run-logged'
+import { raiseCounterMark } from '../sync/counter-mark'
 import { resetPeer, runCursorSync, type PagedSyncClient } from '../sync/cursor-sync'
 import { compareSyncVersions, localSyncVersion, type SyncVersion } from '../sync/sync-version'
 
 /** The client the twin's sync needs: pages and pushes, and the sim PC's version to check before either. */
 export type TwinSyncClient = PagedSyncClient & { version(): Promise<SyncVersion> }
+
+/** Asks the sim PC a lookup (`HostLink.query`). */
+export type SimPcAsk = (name: string, ...args: unknown[]) => Promise<unknown>
 
 /** What Settings shows of the sync. */
 export interface TwinSyncStatus {
@@ -46,6 +50,8 @@ export class TwinSync implements TwinSyncPort {
   private current: TwinSyncStatus = { state: 'idle', lastSyncedAt: null, problem: null }
   private running = false
   private forgetWhenDone = false
+  /** Counts the times the sim PC was forgotten, so a sync can tell that the one it started with is gone. */
+  private simPcGeneration = 0
   private again = false
   private tracksRunning = false
   private waiting: { promise: Promise<boolean> } | null = null
@@ -58,7 +64,8 @@ export class TwinSync implements TwinSyncPort {
    * @param deps.dbPath The database file's path.
    * @param deps.client The sync client over the link.
    * @param deps.canSync Whether the link is up: a sync asked for while it is not waits for the next time it comes up.
-   * @param deps.afterSync Work to do once the tables are level, such as bringing the tracks of completed flights.
+   * @param deps.afterSync Work to do once the tables are level, such as bringing the tracks of completed flights. It is given a function that
+   *   makes its `ask` fail once the sim PC has been forgotten, so a pass begun with the old sim PC does not carry on with the new one.
    */
   constructor(
     private readonly deps: {
@@ -66,7 +73,7 @@ export class TwinSync implements TwinSyncPort {
       dbPath: string
       client: TwinSyncClient
       canSync: () => boolean
-      afterSync?: () => Promise<unknown>
+      afterSync?: (guard: (ask: SimPcAsk) => SimPcAsk) => Promise<unknown>
     }
   ) {}
 
@@ -75,6 +82,7 @@ export class TwinSync implements TwinSyncPort {
   }
 
   forgetCursors(): void {
+    this.simPcGeneration++
     resetPeer(this.deps.db, HOST_PEER)
     // A sync under way with the sim PC before can still save its cursors and origin marks after this, so they are forgotten again when it
     // ends, before any sync with the new one (review of M8).
@@ -119,11 +127,12 @@ export class TwinSync implements TwinSyncPort {
     try {
       // Two computers that speak different versions of the sync, or keep different databases, do not sync: the live view still works, and
       // Settings says which one to update.
-      const verdict = compareSyncVersions(localSyncVersion(this.deps.db), await this.deps.client.version())
+      const client = this.clientForThisSync()
+      const verdict = compareSyncVersions(localSyncVersion(this.deps.db), await client.version())
       if (verdict === 'same') {
         const result = await runCursorSync(
           this.deps.db,
-          this.deps.client,
+          client,
           { email: 'twin', token: '' },
           this.deps.dbPath,
           HOST_PEER
@@ -141,6 +150,9 @@ export class TwinSync implements TwinSyncPort {
       this.set({ state: 'error', lastSyncedAt, problem: null })
     } finally {
       this.running = false
+      // Whatever this sync sent the sim PC has numbers in this database's counter that a restore of it must not take back. A push raises the
+      // mark before it sends; this one covers the rest of the sync.
+      raiseCounterMark(this.deps.db, this.deps.dbPath)
       if (this.forgetWhenDone) {
         this.forgetWhenDone = false
         resetPeer(this.deps.db, HOST_PEER)
@@ -158,20 +170,75 @@ export class TwinSync implements TwinSyncPort {
   }
 
   /**
+   * @returns The client for one sync, which refuses to ask, and refuses an answer, once the sim PC has been forgotten: the link asks whichever
+   *   connection is current, so a sync begun with the old sim PC would otherwise carry on with the new one, saying the old one's counter to it
+   *   (which gives it a new epoch for no reason).
+   */
+  private clientForThisSync(): TwinSyncClient {
+    const client = this.deps.client
+    const stillSame = this.sameSimPcCheck()
+    return {
+      version: async () => {
+        stillSame()
+        const version = await client.version()
+        stillSame()
+        return version
+      },
+      syncPullPage: async (...args) => {
+        stillSame()
+        const page = await client.syncPullPage(...args)
+        stillSame()
+        return page
+      },
+      syncPush: async (...args) => {
+        stillSame()
+        // Before the rows leave: the sim PC holds them from here on, so a restore of this database to before them must show even when the app
+        // dies before this sync's end (review of 2026-11-17). The cloud's push needs no mark: it keeps no origin per device, and a restored
+        // database also has its cloud pull cursor back, so it is given its own rows again.
+        raiseCounterMark(this.deps.db, this.deps.dbPath)
+        const result = await client.syncPush(...args)
+        stillSame()
+        return result
+      }
+    }
+  }
+
+  /**
+   * @returns A check that throws once the sim PC has been forgotten since this was called.
+   */
+  private sameSimPcCheck(): () => void {
+    const generation = this.simPcGeneration
+    return () => {
+      if (this.simPcGeneration !== generation) throw new Error('The sim PC changed during the sync')
+    }
+  }
+
+  /**
    * Brings the tracks of completed flights after the tables are level, without holding anyone up: Fly, Start and Cancel wait for the sync
    * so the sim PC has the flight, and a long download of old tracks must not stand between a pilot and the button. One pass at a time; a
-   * track that could not come now is asked for again at the next sync.
+   * track that could not come now is asked for again at the next sync. A pass cut off because the sim PC was forgotten is begun again at once
+   * by a sync of its own with the new one (version check and tables first), when the link is up, since a pass that was running would have kept
+   * the sync that followed from starting its own.
    */
   private bringTracks(): void {
     const { afterSync } = this.deps
     if (!afterSync || this.tracksRunning) return
     this.tracksRunning = true
-    afterSync()
+    const generation = this.simPcGeneration
+    const stillSame = this.sameSimPcCheck()
+    afterSync((ask) => async (name, ...args) => {
+      // Tracks are asked for a page at a time by offset, so a pass that changed sim PC part-way through a track would store pages of two.
+      stillSame()
+      const answer = await ask(name, ...args)
+      stillSame()
+      return answer
+    })
       .catch((error: unknown) => {
         logger.warn('[twin-sync] could not bring the tracks of completed flights:', error)
       })
       .finally(() => {
         this.tracksRunning = false
+        if (this.simPcGeneration !== generation && this.deps.canSync()) runLogged('twin sync', this.run())
       })
   }
 

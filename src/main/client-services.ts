@@ -7,6 +7,7 @@ import { hostname } from 'node:os'
 import { app, ipcMain, type BrowserWindow } from 'electron'
 import { IpcChannels } from '@shared/ipc'
 import type { WingLogDb } from './db/client'
+import { ownEpoch } from './db/sync-change-repo'
 import { runLogged } from './logging/run-logged'
 import type { LiveHub } from './live/LiveHub'
 import { HostLink } from './host-link/HostLink'
@@ -46,10 +47,17 @@ export function startClientServices(deps: {
   const sync = new TwinSync({
     db,
     dbPath,
-    client: new LanSyncClient((name, ...args) => link.query(name, ...args)),
+    client: new LanSyncClient(
+      (name, ...args) => link.query(name, ...args),
+      () => ownEpoch(db)
+    ),
     canSync: () => link.getStatus().state === 'connected',
     // The tracks of completed flights follow the flights, a page at a time, once.
-    afterSync: () => syncTrackPoints(db, (name, ...args) => link.query(name, ...args))
+    afterSync: (guard) =>
+      syncTrackPoints(
+        db,
+        guard((name, ...args) => link.query(name, ...args))
+      )
   })
   const link: HostLink = new HostLink({
     hub: liveHub,

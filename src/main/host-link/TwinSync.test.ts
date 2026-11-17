@@ -1,15 +1,25 @@
-import { mkdtempSync, rmSync } from 'node:fs'
+import { copyFileSync, mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import { createDb, type WingLogDb } from '../db/client'
 import { createAircraft, listAircraft } from '../db/aircraft-repo'
+import { completeFlight, createFlight, getFlightUuidById } from '../db/flight-repo'
+import { createTrackPoint, listTrackPoints } from '../db/track-point-repo'
 import type { SyncRow } from '../backend/sync-client'
-import { getPullCursor, getPushCursor } from '../db/sync-change-repo'
-import { twinSyncDeviceQueries, twinSyncQueries } from '../lan/twin-sync'
-import { localSyncVersion } from '../sync/sync-version'
+import {
+  getKnownCounter,
+  getPullCursor,
+  getPushCursor,
+  highestChangeSeq,
+  ownEpoch
+} from '../db/sync-change-repo'
+import { TRACK_PAGE_ROWS, twinSyncDeviceQueries, twinSyncQueries } from '../lan/twin-sync'
+import { readCounterMark, reconcileCounterMark } from '../sync/counter-mark'
+import { localSyncVersion, type SyncVersion } from '../sync/sync-version'
 import { chunkRows, LanSyncClient, PUSH_CHUNK_ROWS } from './lan-sync-client'
+import { syncTrackPoints } from './track-point-sync'
 import { TwinSync } from './TwinSync'
 
 vi.mock('../logging/logger', () => ({ logger: { warn: vi.fn(), info: vi.fn(), error: vi.fn() } }))
@@ -204,6 +214,36 @@ describe('chunkRows', () => {
   })
 })
 
+describe('LanSyncClient says this computer’s own epoch (review of 2026-11-17, finding 3)', () => {
+  const row = { uuid: 'a', updatedAt: 't', data: '{}' }
+
+  it('sends it with each pull inside the counter it knows, and with each push as a third argument', async () => {
+    const ask = vi.fn(() => Promise.resolve({ rows: [], cursor: 0, more: false, upserted: [], rejected: [] }))
+    const client = new LanSyncClient(ask, () => 'my-epoch')
+
+    await client.syncPullPage('', '', 'aircraft', 4, { seen: 9, epoch: 'host-epoch' })
+    await client.syncPush('', '', 'aircraft', [row])
+
+    expect(ask).toHaveBeenNthCalledWith(1, 'sync.pull', 'aircraft', 4, {
+      seen: 9,
+      epoch: 'host-epoch',
+      selfEpoch: 'my-epoch'
+    })
+    expect(ask).toHaveBeenNthCalledWith(2, 'sync.push', 'aircraft', [row], 'my-epoch')
+  })
+
+  it('sends exactly what it always did when it has none, so an older sim PC sees nothing new', async () => {
+    const ask = vi.fn(() => Promise.resolve({ rows: [], cursor: 0, more: false, upserted: [], rejected: [] }))
+    const client = new LanSyncClient(ask)
+
+    await client.syncPullPage('', '', 'aircraft', 4, { seen: 9, epoch: 'host-epoch' })
+    await client.syncPush('', '', 'aircraft', [row])
+
+    expect(ask).toHaveBeenNthCalledWith(1, 'sync.pull', 'aircraft', 4, { seen: 9, epoch: 'host-epoch' })
+    expect(ask).toHaveBeenNthCalledWith(2, 'sync.push', 'aircraft', [row])
+  })
+})
+
 describe('LanSyncClient refuses what is not rows', () => {
   const pull = (answer: unknown) =>
     new LanSyncClient(() => Promise.resolve(answer)).syncPullPage('', '', 'aircraft', null, {
@@ -292,6 +332,35 @@ describe('LanSyncClient refuses what is not rows', () => {
   })
 })
 
+/** A track point of a flight, for a recorded track to be sent. */
+function trackPointRow(flightId: number, i: number) {
+  return {
+    flightId,
+    tsUtc: new Date(Date.UTC(2026, 10, 8, 12, 0, i)).toISOString(),
+    latitude: 51 + i / 1000,
+    longitude: -0.4,
+    altitudeM: 100 + i,
+    pressureAltitudeM: null,
+    altitudeAglM: 0,
+    indicatedAirspeedMs: 70,
+    machSpeed: 0.2,
+    groundSpeedMs: 70,
+    verticalSpeedMs: 0,
+    headingTrueDeg: 270,
+    pitchDeg: 0,
+    bankDeg: 0,
+    phase: 'climb' as const,
+    onGround: false,
+    fuelKg: 5000,
+    gForce: 1,
+    windSpeedMs: 0,
+    windDirectionDeg: 0,
+    resumeSegment: 0,
+    simRate: 1,
+    excludedReason: null
+  }
+}
+
 describe('TwinSync', () => {
   function sync(
     overrides: {
@@ -355,6 +424,34 @@ describe('TwinSync', () => {
     // The old sync's pages would have left cursors behind; they are gone.
     expect(getPullCursor(db, 'host', 'aircraft')).toBeNull()
     expect(getPushCursor(db, 'host', 'aircraft')).toBe(0)
+    cleanup()
+  })
+
+  it('asks the sim PC nothing more, and takes nothing from an answer that was on its way, once the sim PC was forgotten during the sync (review of 2026-11-17)', async () => {
+    const { twin, ask, db, release, cleanup } = sync()
+    const running = twin.run()
+    // Pairing with another sim PC while the sync with the old one waits on its first answer.
+    twin.forgetCursors()
+    release()
+    await running
+
+    // Only the question that was already out: the new connection is never asked a page or given a row of the old sync.
+    expect(ask.mock.calls.map(([name]) => name)).toEqual(['sync.version'])
+    expect(twin.status().state).toBe('error')
+    expect(getKnownCounter(db, 'host')).toEqual({ seen: null, epoch: null })
+    cleanup()
+  })
+
+  it('asks the sim PC nothing more when it is forgotten between two of its answers, and syncs normally at the next sync', async () => {
+    const { twin, ask, release, cleanup } = sync()
+    const running = twin.run()
+    release()
+    await running
+    ask.mockClear()
+    // Forgotten before the next sync starts: that sync is not affected.
+    twin.forgetCursors()
+    await expect(twin.run()).resolves.toBe(true)
+    expect(ask.mock.calls.filter(([name]) => name === 'sync.pull')).toHaveLength(5)
     cleanup()
   })
 
@@ -469,6 +566,103 @@ describe('TwinSync', () => {
     cleanup()
   })
 
+  /** Sets up a sync whose first track pass is cut off by the sim PC being forgotten; the new sim PC runs `newHostVersion`. */
+  async function cutOffTrackPass(newHostVersion: (db: WingLogDb) => SyncVersion): Promise<{
+    stored: number
+    asked: string[]
+    versionAsks: number
+  }> {
+    // A flight with two pages of track on the old sim PC; the new sim PC has no track for it.
+    const oldHost = freshDb()
+    const newHost = freshDb()
+    const aircraft = createAircraft(oldHost, { registration: 'G-HOST', icaoType: 'A320' }).id
+    const made = createFlight(oldHost, {
+      aircraftId: aircraft,
+      depIcao: 'EGLL',
+      arrIcao: 'EGCC',
+      status: 'active'
+    })
+    for (let i = 0; i < TRACK_PAGE_ROWS + 5; i++)
+      createTrackPoint(oldHost, trackPointRow(made.id, i) as never)
+    completeFlight(oldHost, made.id, 3000)
+    const uuid = getFlightUuidById(oldHost, made.id) as string
+
+    const db = freshDb()
+    const dir = mkdtempSync(join(tmpdir(), 'winglog-twin-'))
+    const copy = createFlight(db, {
+      aircraftId: createAircraft(db, { registration: 'G-HOST', icaoType: 'A320' }).id,
+      depIcao: 'EGLL',
+      arrIcao: 'EGCC',
+      status: 'completed'
+    })
+    db.run(`UPDATE flight SET uuid = '${uuid}' WHERE id = ${copy.id}` as never)
+
+    // The tracks are asked of whichever sim PC is current, as the link does; the first page of the old one's track is the last thing it says.
+    let current = oldHost
+    const asked: string[] = []
+    let versionAsks = 0
+    const track = new TwinSync({
+      db,
+      dbPath: join(dir, 'winglog.db'),
+      client: new LanSyncClient((name) =>
+        Promise.resolve(
+          name === 'sync.version'
+            ? (versionAsks++, current === oldHost ? localSyncVersion(db) : newHostVersion(db))
+            : name === 'sync.pull'
+              ? { rows: [], cursor: 0, more: false }
+              : { upserted: [], rejected: [] }
+        )
+      ),
+      canSync: () => true,
+      afterSync: (guard) =>
+        syncTrackPoints(
+          db,
+          guard(async (name, ...args) => {
+            asked.push(name)
+            const answer = JSON.parse(
+              JSON.stringify(twinSyncQueries(current)[name](...JSON.parse(JSON.stringify(args))))
+            ) as unknown
+            if (name === 'sync.trackPoints' && current === oldHost) {
+              // Pairing with the new sim PC while the old one's first page is on its way.
+              current = newHost
+              track.forgetCursors()
+            }
+            return answer
+          })
+        )
+    })
+    await track.run()
+    // The cut-off pass ends and the one after it is begun, if it is to be begun, by a sync of its own.
+    await vi.waitFor(() => expect(versionAsks).toBe(2))
+    await new Promise((resolve) => setImmediate(resolve))
+    await new Promise((resolve) => setImmediate(resolve))
+    const stored = listTrackPoints(db, copy.id).length
+    rmSync(dir, { recursive: true, force: true })
+    return { stored, asked, versionAsks }
+  }
+
+  it('stops bringing tracks when the sim PC is forgotten part-way through one, and begins again with the new sim PC through a sync of its own (review of 2026-11-17)', async () => {
+    const { stored, asked, versionAsks } = await cutOffTrackPass((db) => localSyncVersion(db))
+    // The first page of the old sim PC's track was never stored: a track of one page and a half, finished, is not mended by the next sync.
+    expect(stored).toBe(0)
+    // The new pass came by the version check (it is a sync, not a bare pass), and asked the new sim PC, which has no track for it.
+    expect(versionAsks).toBe(2)
+    expect(asked.filter((name) => name === 'sync.trackedFlights')).toHaveLength(2)
+    expect(asked.filter((name) => name === 'sync.trackPoints')).toHaveLength(1)
+  })
+
+  it('asks a new sim PC on a different version for no tracks after the pass was cut off (review of 2026-11-17)', async () => {
+    const { stored, asked, versionAsks } = await cutOffTrackPass((db) => ({
+      ...localSyncVersion(db),
+      protocol: localSyncVersion(db).protocol + 1
+    }))
+    expect(stored).toBe(0)
+    // The version was asked of the new sim PC, and since it differs nothing else was.
+    expect(versionAsks).toBe(2)
+    expect(asked.filter((name) => name === 'sync.trackedFlights')).toHaveLength(1)
+    expect(asked.filter((name) => name === 'sync.trackPoints')).toHaveLength(1)
+  })
+
   it('counts the sync as good even when bringing the tracks of completed flights fails afterwards', async () => {
     const { twin, release, cleanup } = sync({ afterSync: () => Promise.reject(new Error('tracks')) })
     const done = twin.run()
@@ -476,5 +670,182 @@ describe('TwinSync', () => {
     await expect(done).resolves.toBe(true)
     expect(twin.status().state).toBe('idle')
     cleanup()
+  })
+})
+
+/** A computer with its database on disk in a folder of its own, so the counter mark kept beside the database is its own. */
+class Machine {
+  readonly dir = mkdtempSync(join(tmpdir(), 'winglog-machine-'))
+  readonly path = join(this.dir, 'winglog.db')
+  private handle = createDb(this.path)
+
+  constructor() {
+    migrate(this.handle.db, { migrationsFolder: 'drizzle' })
+  }
+
+  get db(): WingLogDb {
+    return this.handle.db
+  }
+
+  async backup(name: string): Promise<void> {
+    await this.handle.sqlite.backup(join(this.dir, name))
+  }
+
+  /** Puts a backup back as the database and starts the app on it, as a launch does. */
+  restore(name: string): void {
+    this.handle.sqlite.close()
+    for (const suffix of ['-wal', '-shm']) rmSync(this.path + suffix, { force: true })
+    copyFileSync(join(this.dir, name), this.path)
+    this.handle = createDb(this.path)
+    reconcileCounterMark(this.handle.db, this.path)
+  }
+
+  close(): void {
+    this.handle.sqlite.close()
+    rmSync(this.dir, { recursive: true, force: true })
+  }
+}
+
+describe('a computer restored from a backup, over the link (review of 2026-11-17)', () => {
+  let host: Machine
+  let twin: Machine
+
+  beforeEach(() => {
+    host = new Machine()
+    twin = new Machine()
+  })
+  afterEach(() => {
+    host.close()
+    twin.close()
+  })
+
+  /** A sync of the twin with the host, which knows the twin as device 1. */
+  function sync(): TwinSync {
+    const queries = twinSyncQueries(host.db)
+    const deviceQueries = twinSyncDeviceQueries(host.db, host.path)
+    const ask = (name: string, ...args: unknown[]): Promise<unknown> => {
+      const sent = JSON.parse(JSON.stringify(args)) as unknown[]
+      const answer = deviceQueries[name] ? deviceQueries[name](1, ...sent) : queries[name](...sent)
+      return Promise.resolve(answer).then((value) => JSON.parse(JSON.stringify(value)))
+    }
+    return new TwinSync({
+      db: twin.db,
+      dbPath: twin.path,
+      client: new LanSyncClient(ask, () => ownEpoch(twin.db)),
+      canSync: () => true
+    })
+  }
+  const add = (machine: Machine, ...registrations: string[]): void => {
+    for (const registration of registrations) createAircraft(machine.db, { registration, icaoType: 'A320' })
+  }
+  const registrations = (machine: Machine): string[] =>
+    listAircraft(machine.db)
+      .map((a) => a.registration)
+      .sort()
+
+  it('notes the twin’s own counter in its mark when a sync ends, even one that fails', async () => {
+    add(twin, 'G-MACA')
+    await sync().run()
+    expect(readCounterMark(twin.path)).toBe(highestChangeSeq(twin.db))
+
+    add(twin, 'G-MACB')
+    host.close()
+    await sync().run()
+    expect(readCounterMark(twin.path)).toBe(highestChangeSeq(twin.db))
+  })
+
+  it('gives a twin restored from its own backup the rows it made after it, which the sim PC holds as the twin’s own (finding 3)', async () => {
+    add(host, 'G-HOST')
+    await sync().run()
+    await twin.backup('before.db')
+    add(twin, 'G-MACA')
+    await sync().run()
+    await sync().run()
+    expect(registrations(host)).toEqual(['G-HOST', 'G-MACA'])
+
+    twin.restore('before.db')
+    expect(registrations(twin)).toEqual(['G-HOST'])
+    await sync().run()
+    await sync().run()
+
+    expect(registrations(twin)).toEqual(['G-HOST', 'G-MACA'])
+    expect(registrations(host)).toEqual(['G-HOST', 'G-MACA'])
+  })
+
+  it('finds a twin restored to before a push when the app died during that push, before the sync ended (review of 2026-11-17)', async () => {
+    add(twin, 'G-MACA')
+    await sync().run()
+    await twin.backup('before.db')
+    const epochBefore = ownEpoch(twin.db)
+    const markBefore = readCounterMark(twin.path)
+
+    add(twin, 'G-MACB', 'G-MACC')
+    const queries = twinSyncDeviceQueries(host.db, host.path)
+    // The sim PC takes the push, and the app dies before the answer: the sync never reaches its end.
+    const dying = new TwinSync({
+      db: twin.db,
+      dbPath: twin.path,
+      client: new LanSyncClient(
+        (name, ...args) => {
+          const answer = name === 'sync.version' ? localSyncVersion(host.db) : queries[name](1, ...args)
+          if (name === 'sync.push') return Promise.resolve(answer).then(() => new Promise<never>(() => {}))
+          return Promise.resolve(JSON.parse(JSON.stringify(answer)))
+        },
+        () => ownEpoch(twin.db)
+      ),
+      canSync: () => true
+    })
+    void dying.run()
+    await vi.waitFor(() => expect(registrations(host)).toEqual(['G-MACA', 'G-MACB', 'G-MACC']))
+    expect(readCounterMark(twin.path)).toBe(highestChangeSeq(twin.db))
+    expect(readCounterMark(twin.path)).toBeGreaterThan(markBefore ?? 0)
+
+    // The backup is put back before the next launch: the counter is below what the sim PC was sent, so the epoch is new.
+    twin.restore('before.db')
+    expect(registrations(twin)).toEqual(['G-MACA'])
+    expect(ownEpoch(twin.db)).not.toBe(epochBefore)
+  })
+
+  it('sends a twin nothing of its own again when its database was not restored', async () => {
+    add(twin, 'G-MACA')
+    await sync().run()
+    const asked: number[] = []
+    const queries = twinSyncDeviceQueries(host.db, host.path)
+    const counting = new TwinSync({
+      db: twin.db,
+      dbPath: twin.path,
+      client: new LanSyncClient(
+        (name, ...args) => {
+          const answer = name === 'sync.version' ? localSyncVersion(host.db) : queries[name](1, ...args)
+          if (name === 'sync.pull') asked.push((answer as { rows: unknown[] }).rows.length)
+          return Promise.resolve(JSON.parse(JSON.stringify(answer)))
+        },
+        () => ownEpoch(twin.db)
+      ),
+      canSync: () => true
+    })
+    await counting.run()
+    expect(asked.every((rows) => rows === 0)).toBe(true)
+  })
+
+  it('ends with every row on both when the sim PC is restored, flies on its own, and the twin syncs only afterwards (finding 2)', async () => {
+    add(host, 'G-HOST')
+    await sync().run()
+    await host.backup('before.db')
+    add(twin, 'G-MACA', 'G-MACB', 'G-MACC')
+    await sync().run()
+    await sync().run()
+    expect(registrations(host)).toEqual(['G-HOST', 'G-MACA', 'G-MACB', 'G-MACC'])
+
+    // The backup is put back and the sim PC flies that evening, making more changes than the twin had seen; the Mac is opened the next day.
+    host.restore('before.db')
+    add(host, 'G-SIMA', 'G-SIMB', 'G-SIMC', 'G-SIMD')
+    expect(highestChangeSeq(host.db)).toBeGreaterThan(getKnownCounter(twin.db, 'host').seen ?? 0)
+    await sync().run()
+    await sync().run()
+
+    const all = ['G-HOST', 'G-MACA', 'G-MACB', 'G-MACC', 'G-SIMA', 'G-SIMB', 'G-SIMC', 'G-SIMD']
+    expect(registrations(host)).toEqual(all)
+    expect(registrations(twin)).toEqual(all)
   })
 })
