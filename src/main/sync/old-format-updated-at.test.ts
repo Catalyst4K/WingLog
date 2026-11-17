@@ -90,7 +90,7 @@ describe('rows with a datetime("now")-form updated_at', () => {
     const pc = pcWithOldFormatRows()
     const hostAsPeer: PagedSyncClient = {
       async syncPullPage(_e, _t, table: SyncTable, cursor, known): Promise<PulledPage> {
-        return pullChanges(pc, table, cursor, 99, known)
+        return pullChanges(pc, table, cursor, 99, known && { ...known, selfEpoch: null })
       },
       async syncPush() {
         return { upserted: [], rejected: [] }
@@ -138,7 +138,7 @@ describe('rows with a datetime("now")-form updated_at', () => {
         : value
     const hostAsPeer: PagedSyncClient = {
       async syncPullPage(_e, _t, table: SyncTable, cursor, known): Promise<PulledPage> {
-        const page = pullChanges(pc, table, cursor, 99, known)
+        const page = pullChanges(pc, table, cursor, 99, known && { ...known, selfEpoch: null })
         return { ...page, rows: page.rows.map((row) => ({ ...row, updatedAt: toIso(row.updatedAt) })) }
       },
       async syncPush() {
