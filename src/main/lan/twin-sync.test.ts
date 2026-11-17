@@ -8,6 +8,7 @@ import { createDb, type WingLogDb } from '../db/client'
 import { createAircraft } from '../db/aircraft-repo'
 import { createFlight } from '../db/flight-repo'
 import { aircraft, flight } from '../db/schema'
+import type { SyncRow } from '../backend/sync-client'
 import { readCounterMark } from '../sync/counter-mark'
 import { localSyncVersion } from '../sync/sync-version'
 import { highestChangeSeq } from '../db/sync-change-repo'
@@ -49,8 +50,8 @@ describe('a twin’s sync lookups on the host', () => {
 
   const pull = (table: string, cursor: unknown = null, deviceId = TWIN, known?: unknown) =>
     device['sync.pull'](deviceId, table, cursor, known) as PullPage
-  const push = (table: string, rows: unknown, deviceId = TWIN) =>
-    device['sync.push'](deviceId, table, rows) as Promise<{
+  const push = (table: string, rows: unknown, deviceId = TWIN, selfEpoch?: unknown) =>
+    device['sync.push'](deviceId, table, rows, selfEpoch) as Promise<{
       upserted: string[]
       rejected: string[]
       head: number
@@ -228,6 +229,81 @@ describe('a twin’s sync lookups on the host', () => {
     }
     const pushed = await push('aircraft', [fresh])
     expect(readCounterMark(dbPath)).toBe(pushed.head)
+  })
+
+  describe('a twin that says its own database epoch (review of 2026-11-17, finding 3)', () => {
+    const registrationsOf = (rows: SyncRow[]): string[] => rows.map((r) => JSON.parse(r.data).registration)
+    const fromTwin = {
+      uuid: '11111111-2222-3333-4444-555555555555',
+      updatedAt: new Date().toISOString(),
+      data: JSON.stringify({ registration: 'G-TWIN', icaoType: 'B738' })
+    }
+    const asTwin = (selfEpoch: string) => ({ seen: null, epoch: null, selfEpoch })
+
+    it('keeps leaving out the twin’s own rows at the first epoch it says, and while it says the same one', async () => {
+      await push('aircraft', [fromTwin], TWIN, 'twin-epoch-1')
+
+      expect(registrationsOf(pull('aircraft', null, TWIN, asTwin('twin-epoch-1')).rows)).toEqual([])
+      expect(registrationsOf(pull('aircraft', null, TWIN, asTwin('twin-epoch-1')).rows)).toEqual([])
+    })
+
+    it('gives a twin its own rows back once it says a new epoch (its database was restored), on a pull', async () => {
+      addAircraft('G-HOST')
+      await push('aircraft', [fromTwin], TWIN, 'twin-epoch-1')
+      expect(registrationsOf(pull('aircraft', null, TWIN, asTwin('twin-epoch-1')).rows)).toEqual(['G-HOST'])
+
+      expect(registrationsOf(pull('aircraft', null, TWIN, asTwin('twin-epoch-2')).rows)).toEqual([
+        'G-HOST',
+        'G-TWIN'
+      ])
+    })
+
+    it('does the same when the new epoch comes with a push', async () => {
+      await push('aircraft', [fromTwin], TWIN, 'twin-epoch-1')
+      await push('aircraft', [], TWIN, 'twin-epoch-2')
+
+      expect(registrationsOf(pull('aircraft', null, TWIN).rows)).toEqual(['G-TWIN'])
+    })
+
+    it('does not send a twin all its own rows again when the first epoch is noted, and a change for one twin leaves another’s rows marked', async () => {
+      const other = {
+        ...fromTwin,
+        uuid: '99999999-2222-3333-4444-555555555555',
+        data: JSON.stringify({ registration: 'G-OTHR', icaoType: 'B738' })
+      }
+      await push('aircraft', [fromTwin], TWIN)
+      await push('aircraft', [other], OTHER_TWIN)
+
+      // No epoch noted before: the first one says nothing was restored, so neither twin is given what it made.
+      expect(registrationsOf(pull('aircraft', null, TWIN, asTwin('twin-epoch-1')).rows)).toEqual(['G-OTHR'])
+      expect(registrationsOf(pull('aircraft', null, OTHER_TWIN, asTwin('other-epoch-1')).rows)).toEqual([
+        'G-TWIN'
+      ])
+      // The first twin's database is restored: it is given its own row, and the other is still not given its own.
+      expect(registrationsOf(pull('aircraft', null, TWIN, asTwin('twin-epoch-2')).rows)).toEqual([
+        'G-TWIN',
+        'G-OTHR'
+      ])
+      expect(registrationsOf(pull('aircraft', null, OTHER_TWIN, asTwin('other-epoch-1')).rows)).toEqual([
+        'G-TWIN'
+      ])
+    })
+
+    it('changes nothing for an older twin, which says no epoch', async () => {
+      await push('aircraft', [fromTwin], TWIN, 'twin-epoch-1')
+
+      expect(registrationsOf(pull('aircraft', null, TWIN).rows)).toEqual([])
+      expect(registrationsOf(pull('aircraft', null, TWIN, { seen: null, epoch: null }).rows)).toEqual([])
+      await push('aircraft', [], TWIN)
+      expect(registrationsOf(pull('aircraft', null, TWIN, asTwin('twin-epoch-1')).rows)).toEqual([])
+    })
+
+    it('refuses an epoch that is not a short text', async () => {
+      for (const selfEpoch of [5, '', 'x'.repeat(65), {}]) {
+        expect(() => pull('aircraft', null, TWIN, { seen: null, epoch: null, selfEpoch })).toThrow()
+        expect(() => push('aircraft', [], TWIN, selfEpoch)).toThrow()
+      }
+    })
   })
 
   it('refuses a counter from a twin that is not one', () => {

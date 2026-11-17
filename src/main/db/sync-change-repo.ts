@@ -115,6 +115,15 @@ export function startNewEpoch(db: WingLogDb): string {
   return epoch
 }
 
+/**
+ * @param db The database.
+ * @returns This database's own epoch, made when there is none. A twin sends it with every pull and push, so the sim PC can tell when the
+ *   twin's database was restored: the launch check (src/main/sync/counter-mark.ts) gives a restored database a new one.
+ */
+export function ownEpoch(db: WingLogDb): string {
+  return getSetting(db, SERVED_EPOCH_KEY) ?? startNewEpoch(db)
+}
+
 const epochKey = (peer: string): string => `peerEpoch:${peer}`
 const seenKey = (peer: string): string => `peerSeen:${peer}`
 

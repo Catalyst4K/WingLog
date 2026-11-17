@@ -96,8 +96,15 @@ export function chunkRows(rows: SyncRow[]): SyncRow[][] {
 
 /** The sync client for the link to the sim PC; the account arguments of `PagedSyncClient` are not used. */
 export class LanSyncClient implements PagedSyncClient {
-  /** @param ask Asks the sim PC a lookup. */
-  constructor(private readonly ask: Ask) {}
+  /**
+   * @param ask Asks the sim PC a lookup.
+   * @param selfEpoch This computer's own database epoch, sent with each pull and push so the sim PC can tell when this database was restored;
+   *   left out, nothing is sent (an older sim PC ignores it anyway).
+   */
+  constructor(
+    private readonly ask: Ask,
+    private readonly selfEpoch?: () => string
+  ) {}
 
   /**
    * @returns The sim PC's sync protocol and database version, so a sync with a computer that speaks something else can be refused.
@@ -116,8 +123,9 @@ export class LanSyncClient implements PagedSyncClient {
     cursor: number | null,
     known: KnownCounter
   ): Promise<PulledPage> {
-    // An older sim PC takes the first two and leaves the third.
-    return pageFrom(await this.ask('sync.pull', table, cursor, known))
+    // An older sim PC takes the first two and leaves the third, and reads only the fields of it that it knows.
+    const asked = this.selfEpoch ? { ...known, selfEpoch: this.selfEpoch() } : known
+    return pageFrom(await this.ask('sync.pull', table, cursor, asked))
   }
 
   async syncPush(
@@ -130,7 +138,9 @@ export class LanSyncClient implements PagedSyncClient {
     const rejected: string[] = []
     let head: number | undefined
     for (const chunk of chunkRows(rows)) {
-      const answer = (await this.ask('sync.push', table, chunk)) as {
+      // An older sim PC takes the first two arguments and leaves the third.
+      const sent = this.selfEpoch ? [table, chunk, this.selfEpoch()] : [table, chunk]
+      const answer = (await this.ask('sync.push', ...sent)) as {
         upserted?: unknown
         rejected?: unknown
         head?: unknown

@@ -6,7 +6,13 @@ import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import { createDb, type WingLogDb } from '../db/client'
 import { createAircraft, listAircraft } from '../db/aircraft-repo'
 import type { SyncRow } from '../backend/sync-client'
-import { getKnownCounter, getPullCursor, getPushCursor, highestChangeSeq } from '../db/sync-change-repo'
+import {
+  getKnownCounter,
+  getPullCursor,
+  getPushCursor,
+  highestChangeSeq,
+  ownEpoch
+} from '../db/sync-change-repo'
 import { twinSyncDeviceQueries, twinSyncQueries } from '../lan/twin-sync'
 import { readCounterMark, reconcileCounterMark } from '../sync/counter-mark'
 import { localSyncVersion } from '../sync/sync-version'
@@ -202,6 +208,36 @@ describe('chunkRows', () => {
     const chunks = chunkRows([row(1, 1_500_000), row(2, 1_500_000), row(3, 100)])
     expect(chunks.map((chunk) => chunk.map((r) => r.uuid))).toEqual([['u1'], ['u2', 'u3']])
     expect(chunkRows([])).toEqual([])
+  })
+})
+
+describe('LanSyncClient says this computer’s own epoch (review of 2026-11-17, finding 3)', () => {
+  const row = { uuid: 'a', updatedAt: 't', data: '{}' }
+
+  it('sends it with each pull inside the counter it knows, and with each push as a third argument', async () => {
+    const ask = vi.fn(() => Promise.resolve({ rows: [], cursor: 0, more: false, upserted: [], rejected: [] }))
+    const client = new LanSyncClient(ask, () => 'my-epoch')
+
+    await client.syncPullPage('', '', 'aircraft', 4, { seen: 9, epoch: 'host-epoch' })
+    await client.syncPush('', '', 'aircraft', [row])
+
+    expect(ask).toHaveBeenNthCalledWith(1, 'sync.pull', 'aircraft', 4, {
+      seen: 9,
+      epoch: 'host-epoch',
+      selfEpoch: 'my-epoch'
+    })
+    expect(ask).toHaveBeenNthCalledWith(2, 'sync.push', 'aircraft', [row], 'my-epoch')
+  })
+
+  it('sends exactly what it always did when it has none, so an older sim PC sees nothing new', async () => {
+    const ask = vi.fn(() => Promise.resolve({ rows: [], cursor: 0, more: false, upserted: [], rejected: [] }))
+    const client = new LanSyncClient(ask)
+
+    await client.syncPullPage('', '', 'aircraft', 4, { seen: 9, epoch: 'host-epoch' })
+    await client.syncPush('', '', 'aircraft', [row])
+
+    expect(ask).toHaveBeenNthCalledWith(1, 'sync.pull', 'aircraft', 4, { seen: 9, epoch: 'host-epoch' })
+    expect(ask).toHaveBeenNthCalledWith(2, 'sync.push', 'aircraft', [row])
   })
 })
 
@@ -538,7 +574,7 @@ describe('a computer restored from a backup, over the link (review of 2026-11-17
     return new TwinSync({
       db: twin.db,
       dbPath: twin.path,
-      client: new LanSyncClient(ask),
+      client: new LanSyncClient(ask, () => ownEpoch(twin.db)),
       canSync: () => true
     })
   }
@@ -559,6 +595,46 @@ describe('a computer restored from a backup, over the link (review of 2026-11-17
     host.close()
     await sync().run()
     expect(readCounterMark(twin.path)).toBe(highestChangeSeq(twin.db))
+  })
+
+  it('gives a twin restored from its own backup the rows it made after it, which the sim PC holds as the twin’s own (finding 3)', async () => {
+    add(host, 'G-HOST')
+    await sync().run()
+    await twin.backup('before.db')
+    add(twin, 'G-MACA')
+    await sync().run()
+    await sync().run()
+    expect(registrations(host)).toEqual(['G-HOST', 'G-MACA'])
+
+    twin.restore('before.db')
+    expect(registrations(twin)).toEqual(['G-HOST'])
+    await sync().run()
+    await sync().run()
+
+    expect(registrations(twin)).toEqual(['G-HOST', 'G-MACA'])
+    expect(registrations(host)).toEqual(['G-HOST', 'G-MACA'])
+  })
+
+  it('sends a twin nothing of its own again when its database was not restored', async () => {
+    add(twin, 'G-MACA')
+    await sync().run()
+    const asked: number[] = []
+    const queries = twinSyncDeviceQueries(host.db, host.path)
+    const counting = new TwinSync({
+      db: twin.db,
+      dbPath: twin.path,
+      client: new LanSyncClient(
+        (name, ...args) => {
+          const answer = name === 'sync.version' ? localSyncVersion(host.db) : queries[name](1, ...args)
+          if (name === 'sync.pull') asked.push((answer as { rows: unknown[] }).rows.length)
+          return Promise.resolve(JSON.parse(JSON.stringify(answer)))
+        },
+        () => ownEpoch(twin.db)
+      ),
+      canSync: () => true
+    })
+    await counting.run()
+    expect(asked.every((rows) => rows === 0)).toBe(true)
   })
 
   it('ends with every row on both when the sim PC is restored, flies on its own, and the twin syncs only afterwards (finding 2)', async () => {
