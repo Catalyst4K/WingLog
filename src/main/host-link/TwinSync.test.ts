@@ -395,6 +395,34 @@ describe('TwinSync', () => {
     cleanup()
   })
 
+  it('asks the sim PC nothing more, and takes nothing from an answer that was on its way, once the sim PC was forgotten during the sync (review of 2026-11-17)', async () => {
+    const { twin, ask, db, release, cleanup } = sync()
+    const running = twin.run()
+    // Pairing with another sim PC while the sync with the old one waits on its first answer.
+    twin.forgetCursors()
+    release()
+    await running
+
+    // Only the question that was already out: the new connection is never asked a page or given a row of the old sync.
+    expect(ask.mock.calls.map(([name]) => name)).toEqual(['sync.version'])
+    expect(twin.status().state).toBe('error')
+    expect(getKnownCounter(db, 'host')).toEqual({ seen: null, epoch: null })
+    cleanup()
+  })
+
+  it('asks the sim PC nothing more when it is forgotten between two of its answers, and syncs normally at the next sync', async () => {
+    const { twin, ask, release, cleanup } = sync()
+    const running = twin.run()
+    release()
+    await running
+    ask.mockClear()
+    // Forgotten before the next sync starts: that sync is not affected.
+    twin.forgetCursors()
+    await expect(twin.run()).resolves.toBe(true)
+    expect(ask.mock.calls.filter(([name]) => name === 'sync.pull')).toHaveLength(5)
+    cleanup()
+  })
+
   it('does nothing while the link is down', async () => {
     const { twin, ask, cleanup } = sync({ canSync: () => false })
     await twin.run()

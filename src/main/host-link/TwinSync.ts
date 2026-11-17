@@ -47,6 +47,8 @@ export class TwinSync implements TwinSyncPort {
   private current: TwinSyncStatus = { state: 'idle', lastSyncedAt: null, problem: null }
   private running = false
   private forgetWhenDone = false
+  /** Counts the times the sim PC was forgotten, so a sync can tell that the one it started with is gone. */
+  private simPcGeneration = 0
   private again = false
   private tracksRunning = false
   private waiting: { promise: Promise<boolean> } | null = null
@@ -76,6 +78,7 @@ export class TwinSync implements TwinSyncPort {
   }
 
   forgetCursors(): void {
+    this.simPcGeneration++
     resetPeer(this.deps.db, HOST_PEER)
     // A sync under way with the sim PC before can still save its cursors and origin marks after this, so they are forgotten again when it
     // ends, before any sync with the new one (review of M8).
@@ -120,11 +123,12 @@ export class TwinSync implements TwinSyncPort {
     try {
       // Two computers that speak different versions of the sync, or keep different databases, do not sync: the live view still works, and
       // Settings says which one to update.
-      const verdict = compareSyncVersions(localSyncVersion(this.deps.db), await this.deps.client.version())
+      const client = this.clientForThisSync()
+      const verdict = compareSyncVersions(localSyncVersion(this.deps.db), await client.version())
       if (verdict === 'same') {
         const result = await runCursorSync(
           this.deps.db,
-          this.deps.client,
+          client,
           { email: 'twin', token: '' },
           this.deps.dbPath,
           HOST_PEER
@@ -158,6 +162,39 @@ export class TwinSync implements TwinSyncPort {
     }
     waiting.settle(result)
     return result
+  }
+
+  /**
+   * @returns The client for one sync, which refuses to ask, and refuses an answer, once the sim PC has been forgotten: the link asks whichever
+   *   connection is current, so a sync begun with the old sim PC would otherwise carry on with the new one, saying the old one's counter to it
+   *   (which gives it a new epoch for no reason).
+   */
+  private clientForThisSync(): TwinSyncClient {
+    const client = this.deps.client
+    const generation = this.simPcGeneration
+    const stillSame = (): void => {
+      if (this.simPcGeneration !== generation) throw new Error('The sim PC changed during the sync')
+    }
+    return {
+      version: async () => {
+        stillSame()
+        const version = await client.version()
+        stillSame()
+        return version
+      },
+      syncPullPage: async (...args) => {
+        stillSame()
+        const page = await client.syncPullPage(...args)
+        stillSame()
+        return page
+      },
+      syncPush: async (...args) => {
+        stillSame()
+        const result = await client.syncPush(...args)
+        stillSame()
+        return result
+      }
+    }
   }
 
   /**
