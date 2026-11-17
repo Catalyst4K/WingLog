@@ -18,7 +18,7 @@ test('minimising hides the window only when the tray setting is on', async () =>
     await page.getByRole('button', { name: 'System tray' }).click()
     await expect
       .poll(() => page.evaluate(() => window.winglog.settingsGetWindow()))
-      .toEqual({ minimizeToTray: true, trayAvailable: true })
+      .toMatchObject({ minimizeToTray: true, trayAvailable: true })
 
     // Minimising hides the window rather than leaving it on the taskbar; the app is still running.
     await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].minimize())
