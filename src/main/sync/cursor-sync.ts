@@ -80,13 +80,18 @@ class PeerCounterWentBack extends Error {}
 
 /**
  * @param known What this database knew of the peer's counter before the page.
+ * @param cursor The cursor sent for the page's table, or null for everything.
  * @param page The page.
- * @returns True when the peer's counter has gone back: it has a new epoch, or it says a head below a number it has shown before. A peer that
- *   sends neither (an older one) is never taken to have.
+ * @returns True when the peer's counter has gone back. A peer that gives an epoch says one `head` for every table, so it has when the epoch is
+ *   new, or the head is below the highest number shown from any table. A peer that gives none (the deployed Worker, a sim PC from before the
+ *   epoch) says the head of the asked table only, which can be below another table's cursor with nothing wrong, so only this table's own
+ *   cursor is compared with it. A page with no head is never taken to have, unless its epoch is new.
  */
-function peerCounterWentBack(known: KnownCounter, page: PulledPage): boolean {
+function peerCounterWentBack(known: KnownCounter, cursor: number | null, page: PulledPage): boolean {
   if (page.epoch !== undefined && known.epoch !== null && page.epoch !== known.epoch) return true
-  return known.seen !== null && page.head !== undefined && known.seen > page.head
+  if (page.head === undefined) return false
+  if (page.epoch === undefined) return cursor !== null && cursor > page.head
+  return known.seen !== null && known.seen > page.head
 }
 
 /**
@@ -112,6 +117,7 @@ function knownBeforePull(db: WingLogDb, peer: string, cursor: number | null): Kn
  * @param peer The peer.
  * @param table The table the page is for.
  * @param known What was known of the counter when the page was asked for.
+ * @param cursor The cursor the page was asked from, or null for everything.
  * @param page The page.
  * @throws PeerCounterWentBack when the counter went back, after the peer is reset, so the run starts again.
  */
@@ -121,9 +127,10 @@ function takePageCounter(
   peer: string,
   table: SyncTable,
   known: KnownCounter,
+  cursor: number | null,
   page: PulledPage
 ): void {
-  if (peerCounterWentBack(known, page)) {
+  if (peerCounterWentBack(known, cursor, page)) {
     resetPeer(db, peer)
     logSyncEvent(dbPath, {
       direction: 'pull',
@@ -219,7 +226,7 @@ async function pullTable(
   for (;;) {
     const known = knownBeforePull(db, peer, cursor)
     const page = await client.syncPullPage(session.email, session.token, table, cursor, known)
-    takePageCounter(db, dbPath, peer, table, known, page)
+    takePageCounter(db, dbPath, peer, table, known, cursor, page)
     for (const row of page.rows) {
       await slice()
       const outcome = applyPageRow(db, dbPath, peer, table, row, result)
