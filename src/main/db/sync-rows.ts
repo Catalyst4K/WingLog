@@ -22,7 +22,8 @@ export interface SyncedRow {
  */
 export function shouldApplyPulledRow(existing: SyncedRow | undefined, incomingUpdatedAt: unknown): boolean {
   if (!existing || existing.updatedAt === null || typeof incomingUpdatedAt !== 'string') return true
-  return existing.updatedAt < incomingUpdatedAt
+  // A local time still in SQLite's form (a space where the ISO one has a T) would sort before every ISO time on its date: compare it as the ISO time it means.
+  return isoSendTime(existing.updatedAt) < incomingUpdatedAt
 }
 
 /** The most a peer's row time may be ahead of this computer's clock: a clock running fast, no more. A far-future time would win every conflict. */
@@ -66,4 +67,20 @@ function realPeerTime(value: unknown): number | null {
   if (!Number.isFinite(time)) return null
   // A date that does not exist (31 February) is rolled forward by Date.parse instead of refused: the same day coming back is the check.
   return new Date(time).toISOString().slice(0, 10) === value.slice(0, 10) ? time : null
+}
+
+/** SQLite's own time form, as `current_timestamp` and `datetime('now')` write it: UTC, a space, no `T` and no `Z`. */
+const SQLITE_TIME = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/
+
+/**
+ * A row's `updatedAt` as it goes out. Rows from before migration 0010 were stamped from `created_at`, which defaults to `current_timestamp`, and the
+ * receivers (`checkedPeerTime`, the cloud) accept only `toISOString`'s shape, so such a time is sent as the same UTC time in that shape.
+ *
+ * @param value The stored `updatedAt`.
+ * @returns The ISO time when `value` is a real time in SQLite's form; anything else unchanged.
+ */
+export function isoSendTime(value: string): string {
+  if (!SQLITE_TIME.test(value)) return value
+  const time = realPeerTime(`${value.replace(' ', 'T')}Z`)
+  return time === null ? value : new Date(time).toISOString()
 }

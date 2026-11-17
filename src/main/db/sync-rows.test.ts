@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { checkedPeerTime, isPeerTimeAhead, MAX_PEER_TIME_AHEAD_MS, shouldApplyPulledRow } from './sync-rows'
+import {
+  checkedPeerTime,
+  isoSendTime,
+  isPeerTimeAhead,
+  MAX_PEER_TIME_AHEAD_MS,
+  shouldApplyPulledRow
+} from './sync-rows'
 
 const row = (
   uuid: string | null,
@@ -89,5 +95,25 @@ describe('isPeerTimeAhead (security-audit-v2, step 23)', () => {
     ]) {
       expect(isPeerTimeAhead(value, NOW), String(value)).toBe(false)
     }
+  })
+})
+
+describe('isoSendTime', () => {
+  it("sends a time in SQLite's own form as the same UTC time in ISO form", () => {
+    expect(isoSendTime('2026-09-01 16:50:31')).toBe('2026-09-01T16:50:31.000Z')
+  })
+
+  it('sends anything else exactly as it is: an ISO time, a date that does not exist, other shapes', () => {
+    expect(isoSendTime('2026-09-01T16:50:31.000Z')).toBe('2026-09-01T16:50:31.000Z')
+    expect(isoSendTime('2026-02-31 10:00:00')).toBe('2026-02-31 10:00:00')
+    expect(isoSendTime('2026-09-01 16:50:31.5')).toBe('2026-09-01 16:50:31.5')
+    expect(isoSendTime('yesterday')).toBe('yesterday')
+  })
+})
+
+describe('shouldApplyPulledRow with a local time still in SQLite form', () => {
+  it('compares it as the ISO time it means: a space sorts before T, so as text it would lose to any time on its date', () => {
+    expect(shouldApplyPulledRow(row('a', '2026-09-01 16:50:31'), '2026-09-01T10:00:00.000Z')).toBe(false)
+    expect(shouldApplyPulledRow(row('a', '2026-09-01 16:50:31'), '2026-09-01T17:00:00.000Z')).toBe(true)
   })
 })
