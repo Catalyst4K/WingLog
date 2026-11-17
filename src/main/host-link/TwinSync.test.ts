@@ -17,7 +17,7 @@ import {
 } from '../db/sync-change-repo'
 import { TRACK_PAGE_ROWS, twinSyncDeviceQueries, twinSyncQueries } from '../lan/twin-sync'
 import { readCounterMark, reconcileCounterMark } from '../sync/counter-mark'
-import { localSyncVersion } from '../sync/sync-version'
+import { localSyncVersion, type SyncVersion } from '../sync/sync-version'
 import { chunkRows, LanSyncClient, PUSH_CHUNK_ROWS } from './lan-sync-client'
 import { syncTrackPoints } from './track-point-sync'
 import { TwinSync } from './TwinSync'
@@ -566,7 +566,12 @@ describe('TwinSync', () => {
     cleanup()
   })
 
-  it('stops bringing tracks when the sim PC is forgotten part-way through one, and begins again with the new sim PC (review of 2026-11-17)', async () => {
+  /** Sets up a sync whose first track pass is cut off by the sim PC being forgotten; the new sim PC runs `newHostVersion`. */
+  async function cutOffTrackPass(newHostVersion: (db: WingLogDb) => SyncVersion): Promise<{
+    stored: number
+    asked: string[]
+    versionAsks: number
+  }> {
     // A flight with two pages of track on the old sim PC; the new sim PC has no track for it.
     const oldHost = freshDb()
     const newHost = freshDb()
@@ -595,13 +600,14 @@ describe('TwinSync', () => {
     // The tracks are asked of whichever sim PC is current, as the link does; the first page of the old one's track is the last thing it says.
     let current = oldHost
     const asked: string[] = []
+    let versionAsks = 0
     const track = new TwinSync({
       db,
       dbPath: join(dir, 'winglog.db'),
       client: new LanSyncClient((name) =>
         Promise.resolve(
           name === 'sync.version'
-            ? localSyncVersion(db)
+            ? (versionAsks++, current === oldHost ? localSyncVersion(db) : newHostVersion(db))
             : name === 'sync.pull'
               ? { rows: [], cursor: 0, more: false }
               : { upserted: [], rejected: [] }
@@ -626,14 +632,35 @@ describe('TwinSync', () => {
         )
     })
     await track.run()
-    await vi.waitFor(() => expect(asked.filter((name) => name === 'sync.trackedFlights')).toHaveLength(2))
+    // The cut-off pass ends and the one after it is begun, if it is to be begun, by a sync of its own.
+    await vi.waitFor(() => expect(versionAsks).toBe(2))
     await new Promise((resolve) => setImmediate(resolve))
-
-    // The first page of the old sim PC's track was never stored: a track of one page and a half, finished, is not mended by the next sync.
-    expect(listTrackPoints(db, copy.id)).toEqual([])
-    // The new pass asked the new sim PC, which has no track for it, and nothing but that.
-    expect(asked.filter((name) => name === 'sync.trackPoints')).toHaveLength(1)
+    await new Promise((resolve) => setImmediate(resolve))
+    const stored = listTrackPoints(db, copy.id).length
     rmSync(dir, { recursive: true, force: true })
+    return { stored, asked, versionAsks }
+  }
+
+  it('stops bringing tracks when the sim PC is forgotten part-way through one, and begins again with the new sim PC through a sync of its own (review of 2026-11-17)', async () => {
+    const { stored, asked, versionAsks } = await cutOffTrackPass((db) => localSyncVersion(db))
+    // The first page of the old sim PC's track was never stored: a track of one page and a half, finished, is not mended by the next sync.
+    expect(stored).toBe(0)
+    // The new pass came by the version check (it is a sync, not a bare pass), and asked the new sim PC, which has no track for it.
+    expect(versionAsks).toBe(2)
+    expect(asked.filter((name) => name === 'sync.trackedFlights')).toHaveLength(2)
+    expect(asked.filter((name) => name === 'sync.trackPoints')).toHaveLength(1)
+  })
+
+  it('asks a new sim PC on a different version for no tracks after the pass was cut off (review of 2026-11-17)', async () => {
+    const { stored, asked, versionAsks } = await cutOffTrackPass((db) => ({
+      ...localSyncVersion(db),
+      protocol: localSyncVersion(db).protocol + 1
+    }))
+    expect(stored).toBe(0)
+    // The version was asked of the new sim PC, and since it differs nothing else was.
+    expect(versionAsks).toBe(2)
+    expect(asked.filter((name) => name === 'sync.trackedFlights')).toHaveLength(1)
+    expect(asked.filter((name) => name === 'sync.trackPoints')).toHaveLength(1)
   })
 
   it('counts the sync as good even when bringing the tracks of completed flights fails afterwards', async () => {

@@ -217,7 +217,8 @@ export class TwinSync implements TwinSyncPort {
    * Brings the tracks of completed flights after the tables are level, without holding anyone up: Fly, Start and Cancel wait for the sync
    * so the sim PC has the flight, and a long download of old tracks must not stand between a pilot and the button. One pass at a time; a
    * track that could not come now is asked for again at the next sync. A pass cut off because the sim PC was forgotten is begun again at once
-   * with the new one, when the link is up, since a pass that was running would have kept the sync that followed from starting its own.
+   * by a sync of its own with the new one (version check and tables first), when the link is up, since a pass that was running would have kept
+   * the sync that followed from starting its own.
    */
   private bringTracks(): void {
     const { afterSync } = this.deps
@@ -237,7 +238,7 @@ export class TwinSync implements TwinSyncPort {
       })
       .finally(() => {
         this.tracksRunning = false
-        if (this.simPcGeneration !== generation && this.deps.canSync()) this.bringTracks()
+        if (this.simPcGeneration !== generation && this.deps.canSync()) runLogged('twin sync', this.run())
       })
   }
 

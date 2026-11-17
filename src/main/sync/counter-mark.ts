@@ -4,7 +4,7 @@
  * with it, so neither tells a peer that numbers it has already seen are being given out again; this file is not restored with the database, so
  * at launch a counter below it says the database went back, and the epoch is changed so every peer starts again.
  *
- * The mark is raised whenever a peer could have learned of the counter: the sim PC when it answers a twin, a twin when a sync ends. It is the
+ * The mark is raised whenever a peer could have learned of the counter: the sim PC when it answers a twin, a twin before each push to the sim PC and when a sync ends. It is the
  * app's own file but is read as untrusted: a missing or garbled one means no mark, which never changes the epoch and never throws.
  */
 
@@ -60,7 +60,7 @@ function writeCounterMark(dbPath: string, seq: number): void {
 
 /**
  * Notes the counter now, when it is higher than the mark. Called after a peer was told of numbers (the sim PC answering a twin) or could have
- * been (a twin's sync ended): any later restore of the database to before them then shows as a counter below the mark.
+ * been (a twin pushing to the sim PC, or its sync ending): any later restore of the database to before them then shows as a counter below the mark.
  *
  * @param db The database.
  * @param dbPath The database file's path.
