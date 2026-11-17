@@ -358,7 +358,9 @@ describe('LanServer', () => {
         kinds = { screen: true, twin: false }
         const later = await connect()
         later.send({ t: 'hello', token })
-        await later.message('denied')
+        await later.waitFor(() => later.closed)
+        // The token is known, so it is not told it was revoked: it keeps the token and tries again.
+        expect(later.received).toEqual([])
         kinds = { screen: true, twin: true }
         const back = await connect()
         back.send({ t: 'hello', token })
@@ -373,8 +375,22 @@ describe('LanServer', () => {
         device.send({ t: 'pair', code: twin.code, name: 'Mac', kind: 'twin' })
         await device.message('paired')
         server.disconnectKind('screen')
+        expect(device.closed).toBe(false)
         server.disconnectKind('twin')
-        await device.message('denied')
+        await device.waitFor(() => device.closed)
+        // Closed without a message: 'denied' would make the device forget its token.
+        expect(device.received.map((m) => m.t)).toEqual(['paired', 'snapshot'])
+      })
+
+      it('says denied to an unknown token even while its kind is switched off, so a stranger learns nothing', async () => {
+        const store = deviceStore()
+        const { connect } = await setup({
+          devices: store.devices,
+          enabledKinds: () => ({ screen: false, twin: false })
+        })
+        const stranger = await connect()
+        stranger.send({ t: 'hello', token: 'not-a-token' })
+        await stranger.message('denied')
       })
     })
 
