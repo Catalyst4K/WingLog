@@ -284,16 +284,13 @@ export class LanServer {
   }
 
   /**
-   * Drops every open socket of a kind of device, after its switch is turned off.
+   * Drops every open socket of a kind of device, after its switch is turned off. It closes without a message: to the device a
+   * closed link is "can't reach the PC", so it keeps its token and tries again, while `denied` would tell it the token is revoked.
    *
    * @param kind The kind.
    */
   disconnectKind(kind: LanDeviceKind): void {
-    for (const client of this.clients) {
-      if (client.kind !== kind) continue
-      this.send(client, { t: 'denied' })
-      client.socket.close()
-    }
+    for (const client of this.clients) if (client.kind === kind) client.socket.close()
   }
 
   /**
@@ -598,9 +595,14 @@ export class LanServer {
 
   private handleHello(client: Client, token: unknown): void {
     const device = typeof token === 'string' ? this.deps.devices.find(hashToken(token)) : null
-    // A token of a kind whose switch is off is refused like an unknown one.
-    if (device === null || !this.kindEnabled(device.kind)) {
+    if (device === null) {
       this.send(client, { t: 'denied' })
+      client.socket.close()
+      return
+    }
+    // A known token whose kind is switched off: close without `denied`, so the device keeps the token and tries again when the
+    // switch is back on. Only a holder of a valid token sees this, and it already knows the token is valid.
+    if (!this.kindEnabled(device.kind)) {
       client.socket.close()
       return
     }
