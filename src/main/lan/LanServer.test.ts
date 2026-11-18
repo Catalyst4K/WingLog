@@ -46,16 +46,27 @@ async function freePort(): Promise<number> {
 function deviceStore() {
   const rows = new Map<string, { id: number; kind: 'screen' | 'twin' }>()
   const seen: number[] = []
+  const revoked: number[] = []
   return {
     rows,
     seen,
+    revoked,
     devices: {
       add: (_name: string, tokenHash: string, kind: 'screen' | 'twin' = 'screen') => {
         rows.set(tokenHash, { id: rows.size + 1, kind })
         return rows.size
       },
-      find: (tokenHash: string) => rows.get(tokenHash) ?? null,
-      touch: (id: number) => void seen.push(id)
+      // A revoked device is not found, as in the real table.
+      find: (tokenHash: string) => {
+        const row = rows.get(tokenHash)
+        return row && !revoked.includes(row.id) ? row : null
+      },
+      touch: (id: number) => void seen.push(id),
+      revoke: (id: number) => {
+        if (revoked.includes(id)) return false
+        revoked.push(id)
+        return true
+      }
     }
   }
 }
@@ -821,19 +832,48 @@ describe('LanServer', () => {
       await secure.message('paired')
     })
 
-    it('denies a twin token presented over ws:// and does not log it more than once a minute', async () => {
+    it('revokes a twin token presented over ws://: it was sent in the clear, so it fails over wss:// too, and is logged once without the token', async () => {
       vi.mocked(logger.warn).mockClear()
-      const { server, connect, connectTwin } = await setup()
+      const store = deviceStore()
+      const { server, connect, connectTwin } = await setup({ devices: store.devices })
       const secure = await connectTwin()
       secure.send({ t: 'pair', code: server.openPairing('twin').code, name: 'Mac', kind: 'twin' })
       const { token } = await secure.message('paired')
-      for (let i = 0; i < 3; i++) {
-        const plain = await connect()
-        plain.send({ t: 'hello', token })
-        await plain.message('denied')
-        expect(plain.received.some((m) => m.t === 'snapshot')).toBe(false)
+      await secure.message('snapshot')
+      const plain = await connect()
+      plain.send({ t: 'hello', token })
+      await plain.message('denied')
+      expect(plain.received.some((m) => m.t === 'snapshot')).toBe(false)
+      expect(store.revoked).toEqual([1])
+      // Its open TLS socket is told it is denied and dropped.
+      await secure.message('denied')
+      await secure.waitFor(() => secure.closed)
+      // The token no longer works anywhere, and asking again does not log again.
+      for (const open of [connectTwin, connect]) {
+        const again = await open()
+        again.send({ t: 'hello', token })
+        await again.message('denied')
+        expect(again.received.some((m) => m.t === 'snapshot')).toBe(false)
       }
-      expect(warnings().filter((line) => line.includes('without encryption'))).toHaveLength(1)
+      const logged = warnings().filter((line) => line.includes('without encryption'))
+      expect(logged).toHaveLength(1)
+      expect(logged[0]).not.toContain(token)
+    })
+
+    it('does not revoke a phone for a token presented over wss://, nor a twin for one over wss://', async () => {
+      const store = deviceStore()
+      const { server, pair, connectTwin } = await setup({ devices: store.devices })
+      const { token } = await pair()
+      const wrongSide = await connectTwin()
+      wrongSide.send({ t: 'hello', token })
+      await wrongSide.message('denied')
+      const twin = await connectTwin()
+      twin.send({ t: 'pair', code: server.openPairing('twin').code, name: 'Mac', kind: 'twin' })
+      const paired = await twin.message('paired')
+      const again = await connectTwin()
+      again.send({ t: 'hello', token: paired.token })
+      await again.message('snapshot')
+      expect(store.revoked).toEqual([])
     })
 
     it('denies a phone that pairs or says hello over wss://', async () => {

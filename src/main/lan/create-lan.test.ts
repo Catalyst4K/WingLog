@@ -422,6 +422,49 @@ describe('createLan', () => {
     expect(countDeferredRows(db, 'cloud')).toBe(1)
   })
 
+  it('unpairs a twin whose token arrives over ws://, and forgets the rows kept for it, in the real device table', async () => {
+    const { db, lan } = build(storeWith(false))
+    const port = await freePort()
+    setLanSettings(db, { enabled: false, port, twinEnabled: true })
+    await lan.init()
+    const open = async (url: string) => {
+      const messages: Record<string, unknown>[] = []
+      const ws = new WebSocket(url, { rejectUnauthorized: false })
+      ws.on('message', (data) => messages.push(JSON.parse(data.toString())))
+      ws.on('error', () => undefined)
+      await new Promise<void>((resolve) => ws.once('open', () => resolve()))
+      return { ws, messages }
+    }
+    const secure = await open(`wss://127.0.0.1:${port}/live`)
+    secure.ws.send(
+      JSON.stringify({
+        t: 'pair',
+        code: lan.startPairing('twin').twinPairing!.code,
+        name: 'Mac',
+        kind: 'twin'
+      })
+    )
+    await expect.poll(() => secure.messages.some((m) => m.t === 'snapshot')).toBe(true)
+    const token = (secure.messages[0] as { token: string }).token
+    const twin = lan.getStatus().devices[0].id
+    deferRow(db, twinOrigin(twin), 'aircraft', {
+      uuid: 'row-1',
+      updatedAt: '2026-11-17T10:00:00.000Z',
+      data: '{}'
+    })
+
+    const plain = await open(`ws://127.0.0.1:${port}/live`)
+    plain.ws.send(JSON.stringify({ t: 'hello', token }))
+    await expect.poll(() => plain.messages.some((m) => m.t === 'denied')).toBe(true)
+
+    expect(lan.getStatus().devices).toEqual([])
+    expect(countDeferredRows(db, twinOrigin(twin))).toBe(0)
+    const retry = await open(`wss://127.0.0.1:${port}/live`)
+    retry.ws.send(JSON.stringify({ t: 'hello', token }))
+    await expect.poll(() => retry.messages.some((m) => m.t === 'denied')).toBe(true)
+    for (const { ws } of [secure, plain, retry]) ws.terminate()
+  })
+
   it('serves the built page and pairs a device once switched on, keeping only its token hash', async () => {
     const { db, hub, lan } = build()
     const port = await freePort()

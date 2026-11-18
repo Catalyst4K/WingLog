@@ -22,7 +22,7 @@ import { dispatchCommand } from '../live/commands'
 import type { HostIdentity } from './host-identity-store'
 import { logName, parseIncoming, type Incoming } from './lan-incoming'
 import { originMatches, pageSecurityPolicy } from './lan-http'
-import { createTlsServer, LanListener } from './lan-listener'
+import { createTlsServer, LanListener, loadHostIdentity } from './lan-listener'
 import { dueForLog } from './lan-log'
 import { LAN_TOPICS } from './lan-topics'
 import { cleanDeviceName, hashToken, newDeviceToken, PAIRING_WINDOW_MS, PairingWindow } from './pairing'
@@ -79,6 +79,8 @@ export interface LanServerDeps {
     add(name: string, tokenHash: string, kind: LanDeviceKind): number
     find(tokenHash: string): { id: number; kind: LanDeviceKind } | null
     touch(id: number): void
+    /** Revokes a device (the same as the Settings button does), so its token stops working. @returns True when it was revoked now. */
+    revoke(id: number): boolean
   }
   /** Which kinds of device may pair and connect now (each has its own switch); both when left out (tests). */
   enabledKinds?(): Record<LanDeviceKind, boolean>
@@ -184,7 +186,7 @@ export class LanServer {
    */
   async start(address: string, port: number): Promise<void> {
     if (this.listener) throw new Error('Already listening')
-    const identity = await this.loadIdentity()
+    const identity = await loadHostIdentity(this.deps.identity)
     const wss = new WebSocketServer({ noServer: true, maxPayload: TWIN_MAX_MESSAGE_BYTES })
     const plain = createServer((req, res) => this.handleHttp(req, res))
     plain.on('upgrade', (req, socket, head) => this.handleUpgrade(wss, req, socket, head, false))
@@ -209,20 +211,6 @@ export class LanServer {
     this.unsubscribe = this.deps.hub.subscribe((topic, payload) => this.broadcast(topic, payload))
     this.heartbeat = setInterval(() => this.pingClients(), this.deps.heartbeatMs ?? HEARTBEAT_MS)
     this.heartbeat.unref()
-  }
-
-  /**
-   * @returns The sim PC's identity, or null when there is none or it could not be loaded: twins then cannot connect, and phones still can.
-   */
-  private async loadIdentity(): Promise<HostIdentity | null> {
-    try {
-      return (await this.deps.identity?.()) ?? null
-    } catch (error) {
-      logger.warn(
-        `[lan] could not load the sim PC identity, so twins cannot connect: ${describeError(error)}`
-      )
-      return null
-    }
   }
 
   /**
@@ -626,6 +614,7 @@ export class LanServer {
       client.socket.close()
       return
     }
+    if (device.kind === 'twin' && !client.secure) return this.revokeTwinSeenInTheClear(client, device.id)
     if (this.deniedOnWrongSide(client, device.kind)) return
     // A known token whose kind is switched off: close without `denied`, so the device keeps the token and tries again when the
     // switch is back on. Only a holder of a valid token sees this, and it already knows the token is valid.
@@ -635,6 +624,23 @@ export class LanServer {
     }
     this.deps.devices.touch(device.id)
     this.authenticate(client, device.id, device.kind)
+  }
+
+  /**
+   * A twin's token that arrived without TLS has crossed the network in the clear, so anyone on it may have read it: the device is revoked
+   * (the pilot pairs it again), its other sockets are dropped, and it is answered `denied`. Only a holder of the token can cause this.
+   *
+   * @param client The socket it came on.
+   * @param deviceId The twin the token belongs to.
+   */
+  private revokeTwinSeenInTheClear(client: Client, deviceId: number): void {
+    this.deps.devices.revoke(deviceId)
+    logger.warn(
+      `[lan] twin device ${deviceId} sent its token without encryption, so it was unpaired: it has to pair again, after WingLog is updated on it`
+    )
+    this.disconnectDevice(deviceId)
+    this.send(client, { t: 'denied' })
+    client.socket.close()
   }
 
   /**

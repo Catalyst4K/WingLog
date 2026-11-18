@@ -176,14 +176,29 @@ export function lanQueries(
 }
 
 /**
+ * Revokes a paired device, and forgets the rows kept for it (a twin that is gone does not come back to have them tried again). The one
+ * revoke: the Settings button and the server's own refusal of a token that crossed the network in the clear both use it.
+ *
  * @param db The database.
- * @returns What the server needs to add, find and touch the paired devices.
+ * @param id The device.
+ * @returns True when a paired device was revoked now.
+ */
+function revokeDevice(db: WingLogDb, id: number): boolean {
+  const revoked = revokeLanDevice(db, id, new Date().toISOString())
+  if (revoked) clearDeferredRows(db, twinOrigin(id))
+  return revoked
+}
+
+/**
+ * @param db The database.
+ * @returns What the server needs to add, find, touch and revoke the paired devices.
  */
 function serverDevices(db: WingLogDb): LanServerDeps['devices'] {
   return {
     add: (name, tokenHash, kind) => addLanDevice(db, name, tokenHash, new Date().toISOString(), kind),
     find: (tokenHash) => findActiveLanDevice(db, tokenHash),
-    touch: (id) => touchLanDevice(db, id, new Date().toISOString())
+    touch: (id) => touchLanDevice(db, id, new Date().toISOString()),
+    revoke: (id) => revokeDevice(db, id)
   }
 }
 
@@ -312,12 +327,7 @@ export function createLan({
     routeAddress: () => (testAddress ? Promise.resolve(null) : defaultRouteAddress()),
     devices: {
       list: () => listLanDevices(db),
-      revoke: (id) => {
-        const revoked = revokeLanDevice(db, id, new Date().toISOString())
-        // A twin that is gone does not come back to have its kept rows tried again.
-        if (revoked) clearDeferredRows(db, twinOrigin(id))
-        return revoked
-      }
+      revoke: (id) => revokeDevice(db, id)
     },
     now: () => Date.now()
   })

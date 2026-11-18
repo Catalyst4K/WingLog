@@ -61,7 +61,8 @@ describe('a device linked to the PC when its switch is turned off', () => {
           return rows.size
         },
         find: (tokenHash) => rows.get(tokenHash) ?? null,
-        touch: () => undefined
+        touch: () => undefined,
+        revoke: () => false
       },
       enabledKinds: () => ({ screen: settings.enabled, twin: settings.twinEnabled }),
       flight: () => null,

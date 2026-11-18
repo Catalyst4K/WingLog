@@ -12,6 +12,7 @@ import type { IncomingMessage } from 'node:http'
 import { createServer as createHttpsServer, type Server as HttpsServer } from 'node:https'
 import { createServer, type Server, type Socket } from 'node:net'
 import type { Duplex } from 'node:stream'
+import { describeError } from '../logging/describe-error'
 import { logger } from '../logging/logger'
 import type { HostIdentity } from './host-identity-store'
 
@@ -122,6 +123,21 @@ export class LanListener {
       clearTimeout(silence)
       this.sockets.delete(socket)
     })
+  }
+}
+
+/**
+ * @param load Where the sim PC's identity comes from, or undefined when the server has none.
+ * @returns The identity, or null when there is none or it could not be loaded: twins then cannot connect, and phones still can.
+ */
+export async function loadHostIdentity(
+  load?: () => Promise<HostIdentity | null>
+): Promise<HostIdentity | null> {
+  try {
+    return (await load?.()) ?? null
+  } catch (error) {
+    logger.warn(`[lan] could not load the sim PC identity, so twins cannot connect: ${describeError(error)}`)
+    return null
   }
 }
 
