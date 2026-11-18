@@ -49,6 +49,8 @@ test('a client pairs with the sim PC’s pin, and refuses another certificate be
             timeout: 15_000
           })
           .toBe('certificate-changed')
+        // The header says it in words too (what a screen reader reads), not a raw key.
+        await expect(client.window.getByText('Sim PC: certificate changed')).toBeAttached()
         // The code was never sent: the host's window is still open, and nothing paired.
         const refused = await host.window.evaluate(() => window.winglog.lanGetStatus())
         expect(refused.devices).toEqual([])

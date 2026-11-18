@@ -354,7 +354,10 @@
         "connecting": "连接中",
         "offline": "无法访问",
         "unpaired": "未配对",
-        "wrong-code": "未配对"
+        "wrong-code": "未配对",
+        "pair-again": "需重新配对",
+        "certificate-changed": "证书已更改",
+        "not-secure": "未加密"
       },
       "simPcConnected": "已连接到模拟器电脑",
       "simPcLabel": "模拟器电脑"

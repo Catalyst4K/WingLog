@@ -362,7 +362,10 @@
         "connecting": "conectando",
         "offline": "inaccesible",
         "unpaired": "sin vincular",
-        "wrong-code": "sin vincular"
+        "wrong-code": "sin vincular",
+        "pair-again": "vincular de nuevo",
+        "certificate-changed": "certificado cambiado",
+        "not-secure": "sin cifrar"
       },
       "simPcConnected": "Conectado con el PC del simulador",
       "simPcLabel": "PC del simulador"

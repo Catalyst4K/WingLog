@@ -360,7 +360,10 @@
         "connecting": "verbindet",
         "offline": "nicht erreichbar",
         "unpaired": "nicht gekoppelt",
-        "wrong-code": "nicht gekoppelt"
+        "wrong-code": "nicht gekoppelt",
+        "pair-again": "erneut koppeln",
+        "certificate-changed": "Zertifikat geändert",
+        "not-secure": "nicht verschlüsselt"
       },
       "simPcConnected": "Mit dem Sim-PC verbunden",
       "simPcLabel": "Sim-PC"

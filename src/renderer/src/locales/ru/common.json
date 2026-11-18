@@ -380,7 +380,10 @@
         "connecting": "подключение",
         "offline": "недоступен",
         "unpaired": "не сопряжён",
-        "wrong-code": "не сопряжён"
+        "wrong-code": "не сопряжён",
+        "pair-again": "сопрячь заново",
+        "certificate-changed": "сертификат изменился",
+        "not-secure": "без шифрования"
       },
       "simPcConnected": "Подключено к ПК симулятора",
       "simPcLabel": "ПК симулятора"

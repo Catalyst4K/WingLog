@@ -362,7 +362,10 @@
         "connecting": "connexion",
         "offline": "injoignable",
         "unpaired": "non appairé",
-        "wrong-code": "non appairé"
+        "wrong-code": "non appairé",
+        "pair-again": "appairer à nouveau",
+        "certificate-changed": "certificat modifié",
+        "not-secure": "non chiffré"
       },
       "simPcConnected": "Connecté au PC du simulateur",
       "simPcLabel": "PC du simulateur"

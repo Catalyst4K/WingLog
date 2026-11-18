@@ -43,4 +43,10 @@ describe('locale catalogue completeness', () => {
   it.each(Object.entries(CATALOGUES))('%s has exactly the same keys as English, no more, no fewer', (_locale, catalogue) => {
     expect(keyPaths(catalogue as Record<string, unknown>).sort()).toEqual(englishKeys)
   })
+
+  // The header names the link to the sim PC by its state (app.connection.simPcStates.<state>): a state with no word shows its raw key.
+  it.each(Object.entries({ en, ...CATALOGUES }))('%s has a header word for every state of the link to the sim PC', (_locale, catalogue) => {
+    const { app, settingsView } = catalogue as typeof en
+    expect(Object.keys(app.connection.simPcStates).sort()).toEqual(Object.keys(settingsView.hostLink.states).sort())
+  })
 })
