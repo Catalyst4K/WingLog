@@ -218,8 +218,8 @@ export class HostLink {
       get: () => this.token,
       set: (token) => {
         this.token = token
-        // The token comes with the pairing, so the pin is the pasted one or the one the sim PC showed on it.
-        this.pin = this.pairPin ?? this.seenPin
+        // A pairing takes the pasted pin or the one the sim PC showed. Any other `paired` is not a pairing and leaves the pin as it was.
+        if (this.pairing) this.pin = this.pairPin ?? this.seenPin
         this.pairing = false
         if (this.pin === null) {
           logger.warn('[host-link] paired without a certificate pin, so nothing was stored')

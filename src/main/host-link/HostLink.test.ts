@@ -455,6 +455,14 @@ describe('HostLink', () => {
       expect(store.saved).toEqual([{ address: '192.168.1.20:5051', token: 'tok-1', pin: PIN }])
     })
 
+    it('keeps the stored pin when the host sends a paired message on a link that was not pairing', async () => {
+      const { store } = await stored()
+      sockets[0]?.open()
+      sockets[0]?.hear({ t: 'paired', token: 'unasked' })
+      expect(store.saved).toEqual([{ address: '192.168.1.20:5051', token: 'unasked', pin: PIN }])
+      expect(logger.warn).not.toHaveBeenCalledWith(expect.stringContaining('without a certificate pin'))
+    })
+
     it('checks the stored pin, never a certificate it has not been told, on every later connection', async () => {
       vi.useFakeTimers()
       const link = make(memoryStore())
