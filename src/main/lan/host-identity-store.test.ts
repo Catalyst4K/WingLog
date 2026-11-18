@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -69,6 +69,14 @@ describe('the host identity store', () => {
       expect(next?.pin).not.toBe(first?.pin)
       expect(logger.warn).toHaveBeenCalledTimes(1)
     }
+  })
+
+  it('leaves the file it had when a new identity cannot be written whole', async () => {
+    writeFileSync(file(), 'not an identity')
+    // A directory in the temporary file's place makes the write fail before anything is moved into place.
+    mkdirSync(`${file()}.tmp`)
+    await expect(fileHostIdentityStore(dir).load()).rejects.toThrow()
+    expect(readFileSync(file(), 'utf8')).toBe('not an identity')
   })
 
   it('treats a key that does not belong to the certificate as unreadable', async () => {

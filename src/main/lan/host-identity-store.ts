@@ -5,9 +5,10 @@
  * cannot encrypt, there is no identity and nothing is written: the key is never kept in the clear.
  */
 import { X509Certificate, createPrivateKey } from 'node:crypto'
-import { existsSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { safeStorage } from 'electron'
+import { writeFileAtomically } from '../files/write-file-atomically'
 import { logger } from '../logging/logger'
 import { certificatePin, certificateToPem, makeHostCertificate } from './host-certificate'
 
@@ -85,7 +86,7 @@ export function fileHostIdentityStore(userDataPath: string): HostIdentityStore {
       if (stored) return stored
       const { keyPem, certPem, certDer } = makeHostCertificate()
       const file: StoredIdentity = { keyPem, certDer: certDer.toString('base64') }
-      writeFileSync(path, await safeStorage.encryptStringAsync(JSON.stringify(file)))
+      writeFileAtomically(path, await safeStorage.encryptStringAsync(JSON.stringify(file)))
       return { keyPem, certPem, pin: certificatePin(certDer), isNew: true }
     }
   }

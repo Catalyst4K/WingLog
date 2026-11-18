@@ -3,9 +3,10 @@
  * the pair is encrypted at rest with Electron's `safeStorage` (the OS keychain) in a file of its own, outside the database, as the cloud
  * sync session is (backend/session-store.ts).
  */
-import { existsSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs'
+import { existsSync, readFileSync, unlinkSync } from 'node:fs'
 import { join } from 'node:path'
 import { safeStorage } from 'electron'
+import { writeFileAtomically } from '../files/write-file-atomically'
 import { t } from '../i18n'
 
 export interface StoredHostLink {
@@ -48,7 +49,7 @@ export function fileHostLinkStore(userDataPath: string): HostLinkStore {
       if (!(await safeStorage.isAsyncEncryptionAvailable())) {
         throw new Error(t('errors.credentialEncryptionUnavailable'))
       }
-      writeFileSync(path, await safeStorage.encryptStringAsync(JSON.stringify(link)))
+      writeFileAtomically(path, await safeStorage.encryptStringAsync(JSON.stringify(link)))
     },
     clear() {
       if (existsSync(path)) unlinkSync(path)
