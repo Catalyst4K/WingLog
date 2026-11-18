@@ -293,7 +293,15 @@
         "connecting": "Connexion…",
         "offline": "Injoignable, nouvel essai",
         "wrong-code": "Code incorrect",
+        "pair-again": "Appairer à nouveau",
+        "certificate-changed": "Certificat modifié",
+        "not-secure": "Non chiffré",
         "unpaired": "Non appairé"
+      },
+      "refused": {
+        "pair-again": "La liaison avec le PC du simulateur est désormais chiffrée. Appairez de nouveau cet ordinateur.",
+        "certificate-changed": "Le certificat de sécurité du PC du simulateur a changé depuis l’appairage de cet ordinateur. Si WingLog a été réinstallé sur le PC du simulateur ou ses données réinitialisées, appairez de nouveau. Sinon, quelque chose sur votre réseau se fait peut-être passer pour le PC du simulateur.",
+        "not-secure": "Le PC du simulateur n’a pas répondu par une connexion chiffrée. Mettez WingLog à jour sur le PC du simulateur."
       },
       "pairedWith": "Appairé avec {{address}}",
       "forget": "Oublier ce PC du simulateur",
@@ -313,6 +321,7 @@
       "paired_one": "{{count}} appairé",
       "paired_other": "{{count}} appairés",
       "notReachable": "Injoignable sur votre réseau domestique.",
+      "noCertificate": "Les autres WingLog ne peuvent pas se connecter, car ce PC ne peut pas conserver son certificat de sécurité en lieu sûr.",
       "address": "Adresse",
       "pairButton": "Appairer un autre WingLog",
       "pairingCode": "Code d’appairage",

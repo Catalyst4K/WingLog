@@ -76,6 +76,29 @@ describe('TwinCard', () => {
     expect(await screen.findByRole('button', { name: 'Copied' })).toBeInTheDocument()
   })
 
+  it('offers no pairing text, and says why, when this PC cannot keep its certificate: other WingLogs could not connect', async () => {
+    setup({ ...ON, twinCertificate: null, twinPairing: { code: '482913', expiresAt: Date.now() + 300_000 } })
+    render(<TwinCard />)
+    expect(await screen.findByRole('alert')).toHaveTextContent(/can’t connect.*security certificate/)
+    expect(screen.queryByRole('button', { name: 'Copy pairing text' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Pair another WingLog' })).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('482913')).not.toBeInTheDocument()
+  })
+
+  it('does not mention the certificate when it is there, or when the switch is off', async () => {
+    setup(ON)
+    render(<TwinCard />)
+    await screen.findByRole('button', { name: 'Pair another WingLog' })
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it('says nothing of the certificate while Other WingLogs is off, even with none', async () => {
+    setup({ ...OFF, twinCertificate: null })
+    render(<TwinCard />)
+    await screen.findByRole('button', { name: /^On$/ })
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
   it('closes the code', async () => {
     const api = setup({ ...ON, twinPairing: { code: '482913', expiresAt: Date.now() + 300_000 } })
     render(<TwinCard />)

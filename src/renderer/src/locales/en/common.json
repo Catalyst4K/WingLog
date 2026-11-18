@@ -291,7 +291,15 @@
         "connecting": "Connecting…",
         "offline": "Not reachable, trying again",
         "wrong-code": "Wrong code",
+        "pair-again": "Pair again",
+        "certificate-changed": "Certificate changed",
+        "not-secure": "Not secure",
         "unpaired": "Not paired"
+      },
+      "refused": {
+        "pair-again": "The link to the sim PC is now encrypted. Pair this computer again.",
+        "certificate-changed": "The sim PC’s security certificate has changed since this computer paired. If WingLog on the sim PC was reinstalled or its data reset, pair again. If not, something on your network may be pretending to be the sim PC.",
+        "not-secure": "The sim PC did not answer with an encrypted connection. Update WingLog on the sim PC."
       },
       "pairedWith": "Paired with {{address}}",
       "forget": "Forget this sim PC",
@@ -311,6 +319,7 @@
       "paired_one": "{{count}} paired",
       "paired_other": "{{count}} paired",
       "notReachable": "Not reachable on your home network.",
+      "noCertificate": "Other WingLogs can’t connect, because this PC can’t store its security certificate safely.",
       "address": "Address",
       "pairButton": "Pair another WingLog",
       "pairingCode": "Pairing code",

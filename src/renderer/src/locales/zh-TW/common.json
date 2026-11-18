@@ -286,7 +286,15 @@
         "connecting": "連線中…",
         "offline": "無法連線，正在重試",
         "wrong-code": "配對碼錯誤",
+        "pair-again": "需重新配對",
+        "certificate-changed": "憑證已變更",
+        "not-secure": "未加密",
         "unpaired": "未配對"
+      },
+      "refused": {
+        "pair-again": "與模擬器電腦的連線現已加密。請重新配對這台電腦。",
+        "certificate-changed": "自這台電腦配對以來，模擬器電腦的安全憑證已變更。若模擬器電腦上的 WingLog 已重新安裝或資料已重設，請重新配對。否則，您網路中的某個裝置可能正在冒充模擬器電腦。",
+        "not-secure": "模擬器電腦未以加密連線回應。請更新模擬器電腦上的 WingLog。"
       },
       "pairedWith": "已與 {{address}} 配對",
       "forget": "忘記這台模擬器電腦",
@@ -305,6 +313,7 @@
       "enable": "允許其他 WingLog",
       "paired_other": "已配對 {{count}} 個",
       "notReachable": "在您的家用網路中無法連線。",
+      "noCertificate": "其他 WingLog 無法連線，因為這台電腦無法安全保存其安全憑證。",
       "address": "位址",
       "pairButton": "配對另一個 WingLog",
       "pairingCode": "配對碼",

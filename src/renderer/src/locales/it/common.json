@@ -293,7 +293,15 @@
         "connecting": "Connessione…",
         "offline": "Non raggiungibile, riprovo",
         "wrong-code": "Codice errato",
+        "pair-again": "Associa di nuovo",
+        "certificate-changed": "Certificato cambiato",
+        "not-secure": "Non cifrato",
         "unpaired": "Non associato"
+      },
+      "refused": {
+        "pair-again": "Il collegamento al PC del simulatore ora è cifrato. Associa di nuovo questo computer.",
+        "certificate-changed": "Il certificato di sicurezza del PC del simulatore è cambiato da quando questo computer è stato associato. Se WingLog sul PC del simulatore è stato reinstallato o i suoi dati azzerati, associa di nuovo. Altrimenti qualcosa sulla tua rete potrebbe fingersi il PC del simulatore.",
+        "not-secure": "Il PC del simulatore non ha risposto con una connessione cifrata. Aggiorna WingLog sul PC del simulatore."
       },
       "pairedWith": "Associato a {{address}}",
       "forget": "Dimentica questo PC del simulatore",
@@ -313,6 +321,7 @@
       "paired_one": "{{count}} associato",
       "paired_other": "{{count}} associati",
       "notReachable": "Non raggiungibile sulla tua rete domestica.",
+      "noCertificate": "Gli altri WingLog non possono connettersi, perché questo PC non riesce a conservare in modo sicuro il proprio certificato di sicurezza.",
       "address": "Indirizzo",
       "pairButton": "Associa un altro WingLog",
       "pairingCode": "Codice di associazione",
