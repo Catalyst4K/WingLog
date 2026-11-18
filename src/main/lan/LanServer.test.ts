@@ -957,6 +957,25 @@ describe('LanServer', () => {
         })
       }
 
+      it('still serves phones and refuses twins when the TLS server cannot be made from the identity (a key that will not load)', async () => {
+        vi.mocked(logger.warn).mockClear()
+        const broken: HostIdentity = {
+          keyPem: 'not a key',
+          certPem: 'not a certificate',
+          pin: 'p',
+          isNew: false
+        }
+        const { server, port, pair, connectTwin } = await setup({ identity: () => Promise.resolve(broken) })
+        expect(server.listening).toBe(true)
+        expect(server.certificatePin).toBeNull()
+        expect(await get(port, false)).toBe(200)
+        const { client } = await pair()
+        await client.message('snapshot')
+        await expect(connectTwin()).rejects.toThrow()
+        expect(warnings().some((line) => line.includes('could not start the TLS server'))).toBe(true)
+        expect(JSON.stringify(vi.mocked(logger.warn).mock.calls)).not.toContain('not a key')
+      })
+
       it('starts a server with no identity dependency at all, as before', async () => {
         const { server } = await setup({ identity: undefined })
         expect(server.listening).toBe(true)

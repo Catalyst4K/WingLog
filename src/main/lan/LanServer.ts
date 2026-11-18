@@ -190,24 +190,22 @@ export class LanServer {
     const wss = new WebSocketServer({ noServer: true, maxPayload: TWIN_MAX_MESSAGE_BYTES })
     const plain = createServer((req, res) => this.handleHttp(req, res))
     plain.on('upgrade', (req, socket, head) => this.handleUpgrade(wss, req, socket, head, false))
-    const secure = identity
-      ? createTlsServer(
-          identity,
-          this.deps.authTimeoutMs ?? AUTH_TIMEOUT_MS,
-          (req, socket, head) => this.handleUpgrade(wss, req, socket, head, true),
-          (error) =>
-            this.logAtMostOncePerMinute(
-              'tls-client-error',
-              `[lan] a connection failed its TLS handshake (${(error as NodeJS.ErrnoException).code ?? 'no code'})`
-            )
+    const secure = createTlsServer(
+      identity,
+      this.deps.authTimeoutMs ?? AUTH_TIMEOUT_MS,
+      (req, socket, head) => this.handleUpgrade(wss, req, socket, head, true),
+      (error) =>
+        this.logAtMostOncePerMinute(
+          'tls-client-error',
+          `[lan] a connection failed its TLS handshake (${(error as NodeJS.ErrnoException).code ?? 'no code'})`
         )
-      : null
+    )
     const listener = new LanListener({ plain, secure }, this.deps.authTimeoutMs ?? AUTH_TIMEOUT_MS)
     this.hostHeader = `${address}:${port}`
     await listener.listen(address, port)
     this.listener = listener
     this.wss = wss
-    this.pin = identity?.pin ?? null
+    this.pin = secure ? (identity?.pin ?? null) : null
     this.unsubscribe = this.deps.hub.subscribe((topic, payload) => this.broadcast(topic, payload))
     this.heartbeat = setInterval(() => this.pingClients(), this.deps.heartbeatMs ?? HEARTBEAT_MS)
     this.heartbeat.unref()

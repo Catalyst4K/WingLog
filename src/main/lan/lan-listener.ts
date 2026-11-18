@@ -145,28 +145,35 @@ export async function loadHostIdentity(
  * The twins' TLS server: TLS 1.3 only, with the sim PC's identity. It answers every plain request with 404 (only twins' WebSocket upgrades
  * are served on it) and is never asked to listen: the listener hands it connections.
  *
- * @param identity The sim PC's key and certificate.
+ * @param identity The sim PC's key and certificate, or null when there is none.
  * @param handshakeTimeoutMs How long a connection may take over its handshake before it is closed, in milliseconds.
  * @param onUpgrade Called with each WebSocket upgrade request.
  * @param onClientError Called when a connection fails its handshake.
- * @returns The server.
+ * @returns The server, or null when there is no identity or the server could not be made from it (a key or certificate that will not
+ *   load): twins then cannot connect, and phones still can.
  */
 export function createTlsServer(
-  identity: HostIdentity,
+  identity: HostIdentity | null,
   handshakeTimeoutMs: number,
   onUpgrade: (req: IncomingMessage, socket: Duplex, head: Buffer) => void,
   onClientError: (error: Error) => void
-): HttpsServer {
-  const server = createHttpsServer(
-    {
-      key: identity.keyPem,
-      cert: identity.certPem,
-      minVersion: 'TLSv1.3',
-      handshakeTimeout: handshakeTimeoutMs
-    },
-    (_req, res) => res.writeHead(404).end()
-  )
-  server.on('upgrade', onUpgrade)
-  server.on('tlsClientError', onClientError)
-  return server
+): HttpsServer | null {
+  if (!identity) return null
+  try {
+    const server = createHttpsServer(
+      {
+        key: identity.keyPem,
+        cert: identity.certPem,
+        minVersion: 'TLSv1.3',
+        handshakeTimeout: handshakeTimeoutMs
+      },
+      (_req, res) => res.writeHead(404).end()
+    )
+    server.on('upgrade', onUpgrade)
+    server.on('tlsClientError', onClientError)
+    return server
+  } catch (error) {
+    logger.warn(`[lan] could not start the TLS server, so twins cannot connect: ${describeError(error)}`)
+    return null
+  }
 }
