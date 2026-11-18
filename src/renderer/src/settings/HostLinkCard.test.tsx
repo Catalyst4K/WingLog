@@ -52,7 +52,11 @@ describe('HostLinkCard', () => {
       'Certificate changed',
       /security certificate has changed since this computer paired.*pretending to be the sim PC/
     ],
-    ['not-secure', 'Not secure', /did not answer with an encrypted connection\. Update WingLog on the sim PC/]
+    [
+      'not-secure',
+      'Not encrypted',
+      /did not answer with an encrypted connection\. Update WingLog on the sim PC/
+    ]
   ] as const)(
     'says what happened and what to do when the link is %s, and offers the address and code again',
     async (state, badge, line) => {

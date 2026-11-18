@@ -294,7 +294,7 @@
       "refused": {
         "pair-again": "与模拟器电脑的连接现已加密。请重新配对这台电脑。",
         "certificate-changed": "自这台电脑配对以来，模拟器电脑的安全证书已发生变化。如果模拟器电脑上的 WingLog 已重新安装或数据已重置，请重新配对。否则，您网络中的某个设备可能在冒充模拟器电脑。",
-        "not-secure": "模拟器电脑没有以加密连接作答。请更新模拟器电脑上的 WingLog。"
+        "not-secure": "模拟器电脑未通过加密连接响应。请更新模拟器电脑上的 WingLog。"
       },
       "pairedWith": "已与 {{address}} 配对",
       "forget": "忘记这台模拟器电脑",
@@ -313,7 +313,7 @@
       "enable": "允许其他 WingLog",
       "paired_other": "已配对 {{count}} 个",
       "notReachable": "在您的家庭网络中无法访问。",
-      "noCertificate": "其他 WingLog 无法连接，因为这台电脑无法安全保存其安全证书。",
+      "noCertificate": "其他 WingLog 无法连接，因为这台电脑无法安全保存其证书。",
       "address": "地址",
       "pairButton": "配对另一个 WingLog",
       "pairingCode": "配对码",

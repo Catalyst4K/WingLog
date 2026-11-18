@@ -293,7 +293,7 @@
         "wrong-code": "Wrong code",
         "pair-again": "Pair again",
         "certificate-changed": "Certificate changed",
-        "not-secure": "Not secure",
+        "not-secure": "Not encrypted",
         "unpaired": "Not paired"
       },
       "refused": {
@@ -319,7 +319,7 @@
       "paired_one": "{{count}} paired",
       "paired_other": "{{count}} paired",
       "notReachable": "Not reachable on your home network.",
-      "noCertificate": "Other WingLogs can’t connect, because this PC can’t store its security certificate safely.",
+      "noCertificate": "Other WingLogs can’t connect because this PC can’t store its security certificate safely.",
       "address": "Address",
       "pairButton": "Pair another WingLog",
       "pairingCode": "Pairing code",

@@ -300,7 +300,7 @@
       },
       "refused": {
         "pair-again": "Il collegamento al PC del simulatore ora è cifrato. Associa di nuovo questo computer.",
-        "certificate-changed": "Il certificato di sicurezza del PC del simulatore è cambiato da quando questo computer è stato associato. Se WingLog sul PC del simulatore è stato reinstallato o i suoi dati azzerati, associa di nuovo. Altrimenti qualcosa sulla tua rete potrebbe fingersi il PC del simulatore.",
+        "certificate-changed": "Il certificato di sicurezza del PC del simulatore è cambiato da quando questo computer è stato associato. Se WingLog sul PC del simulatore è stato reinstallato o se i suoi dati sono stati azzerati, associa di nuovo. Altrimenti, qualcosa sulla tua rete potrebbe spacciarsi per il PC del simulatore.",
         "not-secure": "Il PC del simulatore non ha risposto con una connessione cifrata. Aggiorna WingLog sul PC del simulatore."
       },
       "pairedWith": "Associato a {{address}}",

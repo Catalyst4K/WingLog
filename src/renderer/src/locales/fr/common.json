@@ -300,7 +300,7 @@
       },
       "refused": {
         "pair-again": "La liaison avec le PC du simulateur est désormais chiffrée. Appairez de nouveau cet ordinateur.",
-        "certificate-changed": "Le certificat de sécurité du PC du simulateur a changé depuis l’appairage de cet ordinateur. Si WingLog a été réinstallé sur le PC du simulateur ou ses données réinitialisées, appairez de nouveau. Sinon, quelque chose sur votre réseau se fait peut-être passer pour le PC du simulateur.",
+        "certificate-changed": "Le certificat de sécurité du PC du simulateur a changé depuis l’appairage de cet ordinateur. Si WingLog a été réinstallé sur le PC du simulateur, ou si ses données ont été réinitialisées, appairez de nouveau. Sinon, quelque chose sur votre réseau se fait peut-être passer pour le PC du simulateur.",
         "not-secure": "Le PC du simulateur n’a pas répondu par une connexion chiffrée. Mettez WingLog à jour sur le PC du simulateur."
       },
       "pairedWith": "Appairé avec {{address}}",
