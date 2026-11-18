@@ -128,6 +128,33 @@ describe('LanListener', () => {
     expect(secure.sockets[0]?.destroyed).toBe(true)
   })
 
+  it('starts its targets only once it is listening, and lets both go when the port is taken', async () => {
+    const closed: string[] = []
+    const target = (name: string) =>
+      Object.assign(new EventEmitter(), { close: () => void closed.push(name) })
+    const listening: string[] = []
+    const watch = (name: string, server: EventEmitter) => server.on('listening', () => listening.push(name))
+    const { port } = await start(null)
+    const plain = target('plain')
+    const secure = target('secure')
+    watch('plain', plain)
+    watch('secure', secure)
+    const busy = new LanListener({ plain, secure }, 1000)
+    expect(listening).toEqual([])
+    await expect(busy.listen(HOST, port)).rejects.toMatchObject({ code: 'EADDRINUSE' })
+    expect(listening).toEqual([])
+    expect(closed.sort()).toEqual(['plain', 'secure'])
+    // Once it does listen, both are started.
+    const second = target('plain')
+    const other = target('secure')
+    watch('plain', second)
+    watch('secure', other)
+    const fresh = new LanListener({ plain: second, secure: other }, 1000)
+    await fresh.listen(HOST, 0)
+    expect(listening.sort()).toEqual(['plain', 'secure'])
+    await fresh.close()
+  })
+
   it('can be closed without ever listening, and rejects listen when the port is taken', async () => {
     const idle = new LanListener({ plain: new Target(), secure: null }, 1000)
     await expect(idle.close()).resolves.toBeUndefined()

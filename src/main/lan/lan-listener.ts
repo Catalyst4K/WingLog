@@ -44,22 +44,28 @@ export class LanListener {
     private readonly waitMs: number
   ) {
     this.server = createServer((socket) => this.route(socket))
-    // A server that is never asked to listen would not start the header and request timeouts a listening one has.
-    this.targets.plain.emit('listening')
-    this.targets.secure?.emit('listening')
   }
 
   /**
    * @param address The address to bind.
    * @param port The port.
-   * @returns Resolves once listening; rejects with the listen error (such as the port being in use).
+   * @returns Resolves once listening; rejects with the listen error (such as the port being in use), after closing both targets.
    */
   listen(address: string, port: number): Promise<void> {
     return new Promise((resolve, reject) => {
-      this.server.once('error', reject)
+      this.server.once('error', (error) => {
+        // Nothing was started on a listen that failed, and the targets (which hold the certificate) are let go.
+        this.targets.plain.close?.()
+        this.targets.secure?.close?.()
+        reject(error)
+      })
       this.server.listen(port, address, () => {
-        this.server.off('error', reject)
+        this.server.removeAllListeners('error')
         this.server.on('error', (error) => logger.warn('[lan] server error:', error))
+        // A server that is never asked to listen would not start the header and request timeouts a listening one has, so they are started
+        // here, once there is something listening: a failed listen is retried, and must not leave them running.
+        this.targets.plain.emit('listening')
+        this.targets.secure?.emit('listening')
         resolve()
       })
     })
