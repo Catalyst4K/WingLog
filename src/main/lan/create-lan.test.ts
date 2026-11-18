@@ -275,6 +275,25 @@ describe('createLan', () => {
       expect(store.saved).toHaveLength(1)
     })
 
+    it('keeps the twins, and saves nothing, when the store has no identity this time (its file could not be read), and still serves phones', async () => {
+      const saved: HostIdentity[] = []
+      const store: HostIdentityStore = {
+        load: () => Promise.resolve(null),
+        save: (identity) => {
+          saved.push(identity)
+          return Promise.resolve()
+        }
+      }
+      const { db, lan } = build(store)
+      const { twin, phone } = paired(db)
+      setLanSettings(db, { enabled: true, port: await freePort(), twinEnabled: true })
+      await lan.init()
+      expect(lan.getStatus()).toMatchObject({ listening: true, twinCertificate: null })
+      expect(lan.getStatus().devices.map((device) => device.id)).toEqual([twin, phone])
+      expect(countDeferredRows(db, twinOrigin(twin))).toBe(1)
+      expect(saved).toEqual([])
+    })
+
     it('keeps the twins when it loads the identity it already had', async () => {
       const { db, lan } = build(storeWith(false))
       const { twin, phone } = paired(db)

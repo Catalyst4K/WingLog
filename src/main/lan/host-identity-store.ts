@@ -5,7 +5,7 @@
  * cannot encrypt, there is no identity and nothing is written: the key is never kept in the clear.
  */
 import { X509Certificate, createPrivateKey } from 'node:crypto'
-import { existsSync, readFileSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { safeStorage } from 'electron'
 import { writeFileAtomically } from '../files/write-file-atomically'
@@ -26,7 +26,9 @@ export interface HostIdentity {
 /** The sim PC's identity, and how to get it. */
 export interface HostIdentityStore {
   /**
-   * @returns The identity kept, or a new one when there is none or it cannot be read (`isNew`), or null when this computer cannot encrypt it.
+   * @returns The identity kept, or a new one when there is none or it reads but cannot be decrypted or understood (`isNew`), or null when this
+   *   computer cannot encrypt it or the file could not be read at all (a lock, a permission): no identity this time, the file left as it was, and
+   *   the next start tries again.
    *   A new identity is not yet kept: the caller saves it once everything that depends on it being new has been done, so that a failure in
    *   between makes the next start do all of it again.
    */
@@ -60,14 +62,29 @@ function readIdentity(text: string): HostIdentity | null {
   }
 }
 
+/** What loading the identity file found: the identity, that a new one is needed, or that the file could not be read this time. */
+type StoredResult = HostIdentity | 'new' | 'unavailable'
+
 /**
  * @param path The identity file.
- * @returns The identity in it, or null when there is none or it cannot be read (one warning, which never contains the file or the reason).
+ * @returns The identity in it; 'new' when there is no file, or it reads but will not decrypt, parse or match (one warning, which never
+ *   contains the file or the reason, for the last of those); 'unavailable' when the file could not be read at all (one warning naming the
+ *   error code), so that a lock held for a moment, by antivirus for instance, does not cost the sim PC its identity and unpair every twin.
  */
-async function loadStored(path: string): Promise<HostIdentity | null> {
-  if (!existsSync(path)) return null
+async function loadStored(path: string): Promise<StoredResult> {
+  let encrypted: Buffer
   try {
-    const { result } = await safeStorage.decryptStringAsync(readFileSync(path))
+    encrypted = readFileSync(path)
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code
+    if (code === 'ENOENT') return 'new'
+    logger.warn(
+      `[lan] the sim PC identity file could not be read (${typeof code === 'string' ? code : 'unknown error'}); twins cannot connect this time, and it is tried again next start`
+    )
+    return 'unavailable'
+  }
+  try {
+    const { result } = await safeStorage.decryptStringAsync(encrypted)
     const identity = readIdentity(result)
     if (identity) return identity
   } catch {
@@ -76,7 +93,7 @@ async function loadStored(path: string): Promise<HostIdentity | null> {
   logger.warn(
     '[lan] the sim PC identity file could not be read; making a new one, which unpairs any other WingLog'
   )
-  return null
+  return 'new'
 }
 
 /**
@@ -89,7 +106,8 @@ export function fileHostIdentityStore(userDataPath: string): HostIdentityStore {
     async load() {
       if (!(await safeStorage.isAsyncEncryptionAvailable())) return null
       const stored = await loadStored(path)
-      if (stored) return stored
+      if (stored === 'unavailable') return null
+      if (stored !== 'new') return stored
       const { keyPem, certPem, certDer } = makeHostCertificate()
       return { keyPem, certPem, pin: certificatePin(certDer), isNew: true }
     },

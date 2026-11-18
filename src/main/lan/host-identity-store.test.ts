@@ -6,6 +6,12 @@ import { logger } from '../logging/logger'
 import { certificatePin, makeHostCertificate } from './host-certificate'
 import { fileHostIdentityStore, type HostIdentity } from './host-identity-store'
 
+// The real fs with readFileSync wrapped, so a test can make one read fail the way a locked file does.
+vi.mock('node:fs', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('node:fs')>()
+  return { ...actual, readFileSync: vi.fn(actual.readFileSync) }
+})
+
 const { isAsyncEncryptionAvailable, encryptStringAsync, decryptStringAsync } = vi.hoisted(() => ({
   isAsyncEncryptionAvailable: vi.fn(() => Promise.resolve(true)),
   // A fake, reversible "encryption" (base64 is not readable as a PEM): enough to prove the file is not the key in clear.
@@ -77,6 +83,36 @@ describe('the host identity store', () => {
       expect(next?.pin).not.toBe(first?.pin)
       expect(logger.warn).toHaveBeenCalledTimes(1)
     }
+  })
+
+  it('gives no identity, warns once with the error code only, and leaves the file as it was, when the file cannot be read (a lock held by antivirus, review of 2026-11-18)', async () => {
+    const store = fileHostIdentityStore(dir)
+    const first = await store.load()
+    await store.save(first as HostIdentity)
+    const before = readFileSync(file())
+    for (const code of ['EBUSY', 'EPERM']) {
+      vi.mocked(logger.warn).mockClear()
+      vi.mocked(readFileSync).mockImplementationOnce(() => {
+        throw Object.assign(new Error(`${code}: resource busy or locked, open '/secret/lan-identity.enc'`), {
+          code
+        })
+      })
+      expect(await store.load()).toBeNull()
+      expect(logger.warn).toHaveBeenCalledTimes(1)
+      const logged = JSON.stringify(vi.mocked(logger.warn).mock.calls)
+      expect(logged).toContain(code)
+      expect(logged).not.toContain('secret')
+      expect(readFileSync(file())).toEqual(before)
+    }
+    // The next start reads it again, and it is the same identity, not a new one.
+    expect(await store.load()).toEqual({ ...first, isNew: false })
+  })
+
+  it('makes a new identity, with no warning, when there is no file at all (ENOENT)', async () => {
+    const identity = await fileHostIdentityStore(dir).load()
+    expect(identity?.isNew).toBe(true)
+    expect(existsSync(file())).toBe(false)
+    expect(logger.warn).not.toHaveBeenCalled()
   })
 
   it('leaves the file it had when a new identity cannot be written whole', async () => {
