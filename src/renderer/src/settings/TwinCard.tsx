@@ -33,14 +33,16 @@ function hostPort(url: string): string {
 function TwinPairing(props: {
   address: string
   pairing: LanPairing | null
+  /** The pin of this PC's certificate, which the pairing text carries. */
+  pin: string | null
   onStatus: (status: LanStatus) => void
 }): React.JSX.Element {
   const { t } = useTranslation()
   const [copied, setCopied] = useState(false)
-  const { address, pairing } = props
+  const { address, pairing, pin } = props
   const copy = asyncHandler('TwinCard copy pairing text', async () => {
-    if (!pairing) return
-    await navigator.clipboard.writeText(formatPairingText(address, pairing.code))
+    if (!pairing || !pin) return
+    await navigator.clipboard.writeText(formatPairingText(address, pairing.code, pin))
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   })
@@ -199,7 +201,12 @@ export function TwinCard(): React.JSX.Element {
         <p className="text-sm text-muted-foreground">{t('settingsView.twin.notReachable')}</p>
       )}
       {twinEnabled && address && (
-        <TwinPairing address={address} pairing={status.twinPairing} onStatus={setStatus} />
+        <TwinPairing
+          address={address}
+          pairing={status.twinPairing}
+          pin={status.twinCertificate}
+          onStatus={setStatus}
+        />
       )}
       {twinEnabled && <TwinDevices twins={twins} onStatus={setStatus} />}
     </SettingsCard>

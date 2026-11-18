@@ -499,8 +499,12 @@ export interface WingLogApi {
   appGetVersion: () => Promise<string>
   /** A client's link to the sim PC's WingLog: where it stands (multi-device builds, client mode). */
   hostLinkGetStatus: () => Promise<HostLinkStatus>
-  /** Pairs with the sim PC at `address` (`host:port`, a home-network address) using the code its Second screen card shows. */
-  hostLinkPair: (address: string, code: string) => Promise<HostLinkStatus>
+  /**
+   * Pairs with the sim PC at `address` (`host:port`, a home-network address) using the code its Second screen card shows. `pin` is the pin
+   * of its certificate from pasted pairing text, which the connection checks; left out for a typed address and code, which take the
+   * certificate the sim PC shows on this one connection and pin it from then on. Rejects a pin that is not one.
+   */
+  hostLinkPair: (address: string, code: string, pin?: string | null) => Promise<HostLinkStatus>
   /** Forgets the sim PC: closes the link and deletes the stored token. */
   hostLinkForget: () => Promise<void>
   /** Called after a sync with the sim PC changed this computer's fleet or logbook, so a screen showing a list can read it again. */

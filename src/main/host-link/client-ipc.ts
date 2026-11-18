@@ -8,6 +8,7 @@ import type { LiveCommand, LiveTopic } from '@shared/live'
 import { IpcChannels } from '@shared/ipc'
 import { EMPTY_BEYONDATC_STATE } from '@shared/beyondatc-state'
 import type { HostLinkStatus } from '@shared/ipc'
+import { isCertificatePin } from '@shared/host-address'
 import { logger } from '../logging/logger'
 import type { LiveHub } from '../live/LiveHub'
 import type { HostLink } from './HostLink'
@@ -116,6 +117,17 @@ function shortText(value: unknown): string {
 }
 
 /**
+ * @param value A pin from the renderer.
+ * @returns The pin, or null when there is none (a typed pairing).
+ * @throws When it is there and is not a certificate pin: it is refused, never read as "no pin", which would check nothing.
+ */
+function checkedPin(value: unknown): string | null {
+  if (value === undefined || value === null) return null
+  if (!isCertificatePin(value)) throw new Error('Invalid certificate pin')
+  return value
+}
+
+/**
  * Registers the channels a client answers itself.
  *
  * @param ipcMain Electron's IPC.
@@ -129,10 +141,13 @@ export function registerHostLinkHandlers(
   { link, hub, handled }: { link: HostLink; hub: LiveHub; handled: ReadonlySet<string> }
 ): void {
   ipcMain.handle(IpcChannels.hostLinkGetStatus, (): HostLinkStatus => link.getStatus())
-  ipcMain.handle(IpcChannels.hostLinkPair, (_event, address: unknown, code: unknown): HostLinkStatus => {
-    link.pair(shortText(address), shortText(code), null)
-    return link.getStatus()
-  })
+  ipcMain.handle(
+    IpcChannels.hostLinkPair,
+    (_event, address: unknown, code: unknown, pin: unknown): HostLinkStatus => {
+      link.pair(shortText(address), shortText(code), checkedPin(pin))
+      return link.getStatus()
+    }
+  )
   ipcMain.handle(IpcChannels.hostLinkForget, () => link.forget())
   // The add-ons run on the sim PC, so whether they are on is its setting: a client asks it, and reads them as off while it cannot.
   ipcMain.handle(IpcChannels.settingsGetGsxRemote, () =>

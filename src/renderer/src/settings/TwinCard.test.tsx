@@ -16,8 +16,12 @@ const OFF: LanStatus = {
   devices: []
 }
 
+/** The pin of this PC's certificate, as the status shows it. */
+const PIN = 'Ab-_09'.repeat(7) + 'A'
+
 const ON: LanStatus = {
   ...OFF,
+  twinCertificate: PIN,
   settings: { enabled: false, port: 8765, twinEnabled: true },
   listening: true,
   url: 'http://192.168.1.136:8765/'
@@ -68,7 +72,7 @@ describe('TwinCard', () => {
     setup({ ...ON, twinPairing: { code: '482913', expiresAt: Date.now() + 300_000 } })
     render(<TwinCard />)
     await userEvent.click(await screen.findByRole('button', { name: 'Copy pairing text' }))
-    expect(writeText).toHaveBeenCalledWith('winglog-pair://192.168.1.136:8765/482913')
+    expect(writeText).toHaveBeenCalledWith(`winglog-pair://192.168.1.136:8765/482913/${PIN}`)
     expect(await screen.findByRole('button', { name: 'Copied' })).toBeInTheDocument()
   })
 
