@@ -37,7 +37,7 @@ export interface LanControllerDeps {
   addresses(): LanAddress[]
   /** The local address of the default route (`defaultRouteAddress`), or null when the PC has no route. */
   routeAddress(): Promise<string | null>
-  devices: { list(): LanDevice[]; revoke(id: number): boolean }
+  devices: { list(): LanDevice[]; revoke(id: number): boolean; forget(id: number): void }
   now(): number
 }
 
@@ -152,7 +152,8 @@ export class LanController {
   }
 
   /**
-   * Revokes a device and drops its open connections.
+   * Revokes a device and drops its open connections, and only then forgets what was kept for it: a failure in that last step must not
+   * leave the revoked device's socket open and authenticated.
    *
    * @param id The device, unchecked.
    * @returns The status.
@@ -160,6 +161,7 @@ export class LanController {
   revokeDevice(id: unknown): LanStatus {
     if (typeof id === 'number' && Number.isInteger(id) && this.deps.devices.revoke(id)) {
       this.deps.server.disconnectDevice(id)
+      this.deps.devices.forget(id)
     }
     return this.getStatus()
   }

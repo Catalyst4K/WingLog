@@ -81,6 +81,8 @@ export interface LanServerDeps {
     touch(id: number): void
     /** Revokes a device (the same as the Settings button does), so its token stops working. @returns True when it was revoked now. */
     revoke(id: number): boolean
+    /** Forgets what was kept for a device that was revoked. Called after its sockets are dropped, so a failure here cannot leave one open. */
+    forget(id: number): void
   }
   /** Which kinds of device may pair and connect now (each has its own switch); both when left out (tests). */
   enabledKinds?(): Record<LanDeviceKind, boolean>
@@ -639,6 +641,7 @@ export class LanServer {
     this.disconnectDevice(deviceId)
     this.send(client, { t: 'denied' })
     client.socket.close()
+    this.deps.devices.forget(deviceId)
   }
 
   /**

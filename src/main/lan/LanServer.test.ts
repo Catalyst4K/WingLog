@@ -66,7 +66,8 @@ function deviceStore() {
         if (revoked.includes(id)) return false
         revoked.push(id)
         return true
-      }
+      },
+      forget: () => undefined
     }
   }
 }

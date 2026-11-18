@@ -70,18 +70,20 @@ function setup(
   let clock = 1_000_000
   const devices: LanDevice[] = [{ id: 1, kind: 'screen', name: 'iPad', createdAt: 'x', lastSeenAt: null }]
   const revoke = vi.fn((id: number) => devices.some((d) => d.id === id))
+  const forget = vi.fn<(id: number) => void>()
   const controller = new LanController({
     server,
     settings: { get: () => settings, set: (s) => (settings = s) },
     addresses: () => listLanAddresses(network),
     routeAddress: () => Promise.resolve(route),
-    devices: { list: () => devices, revoke },
+    devices: { list: () => devices, revoke, forget },
     now: () => clock
   })
   return {
     server,
     controller,
     revoke,
+    forget,
     settings: () => settings,
     setNetwork: (n: Record<string, NetworkInterfaceInfo[] | undefined>) => (network = n),
     setRoute: (address: string | null) => (route = address),
@@ -242,6 +244,18 @@ describe('LanController', () => {
       controller.revokeDevice(1)
       expect(revoke).toHaveBeenCalledWith(1)
       expect(server.disconnected).toEqual([1])
+    })
+
+    it('drops the connections before it forgets what was kept, so a failure in forgetting leaves no revoked socket open', () => {
+      const { controller, server, forget } = setup({ enabled: true })
+      const order: string[] = []
+      server.disconnectDevice = (id) => void order.push(`disconnect ${id}`)
+      forget.mockImplementation((id) => {
+        order.push(`forget ${id}`)
+        throw new Error('database is locked')
+      })
+      expect(() => controller.revokeDevice(1)).toThrow('database is locked')
+      expect(order).toEqual(['disconnect 1', 'forget 1'])
     })
 
     it('ignores an id that is not a whole number or that is not paired', () => {

@@ -62,7 +62,8 @@ describe('a device linked to the PC when its switch is turned off', () => {
         },
         find: (tokenHash) => rows.get(tokenHash) ?? null,
         touch: () => undefined,
-        revoke: () => false
+        revoke: () => false,
+        forget: () => undefined
       },
       enabledKinds: () => ({ screen: settings.enabled, twin: settings.twinEnabled }),
       flight: () => null,
@@ -76,7 +77,7 @@ describe('a device linked to the PC when its switch is turned off', () => {
       settings: { get: () => settings, set: (s) => (settings = s) },
       addresses: () => [{ adapter: 'lo', address: HOST, kind: 'physical' }],
       routeAddress: () => Promise.resolve(HOST),
-      devices: { list: () => [], revoke: () => false },
+      devices: { list: () => [], revoke: () => false, forget: () => undefined },
       now: () => Date.now()
     })
     controller = lan

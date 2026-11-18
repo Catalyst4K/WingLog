@@ -453,6 +453,37 @@ describe('createLan', () => {
     expect(countDeferredRows(db, 'cloud')).toBe(1)
   })
 
+  it('still drops a revoked phone’s open socket, telling it denied, when forgetting the rows kept for it fails (review of 2026-11-18)', async () => {
+    const { db, sqlite, lan } = build()
+    const port = await freePort()
+    setLanSettings(db, { enabled: true, port, twinEnabled: false })
+    await lan.init()
+    const { code } = lan.startPairing().pairing!
+    const messages: Record<string, unknown>[] = []
+    const ws = new WebSocket(`ws://127.0.0.1:${port}/live`)
+    ws.on('message', (data) => messages.push(JSON.parse(data.toString())))
+    await new Promise<void>((resolve) => ws.once('open', () => resolve()))
+    ws.send(JSON.stringify({ t: 'pair', code, name: 'iPad (Safari)' }))
+    await expect.poll(() => messages.some((m) => m.t === 'snapshot')).toBe(true)
+    const closed = new Promise<void>((resolve) => ws.once('close', () => resolve()))
+    sqlite.exec(
+      "CREATE TRIGGER block_forget BEFORE DELETE ON sync_deferred_row BEGIN SELECT RAISE(ABORT, 'locked'); END"
+    )
+    const id = lan.getStatus().devices[0].id
+    deferRow(db, twinOrigin(id), 'aircraft', {
+      uuid: 'row-1',
+      updatedAt: '2026-11-17T10:00:00.000Z',
+      data: '{}'
+    })
+
+    expect(() => lan.revokeDevice(id)).toThrow()
+
+    await closed
+    expect(messages.some((m) => m.t === 'denied')).toBe(true)
+    // The revoke itself had been made: the token no longer works.
+    expect(lan.getStatus().devices).toEqual([])
+  })
+
   it('unpairs a twin whose token arrives over ws://, and forgets the rows kept for it, in the real device table', async () => {
     const { db, lan } = build(storeWith(false))
     const port = await freePort()
