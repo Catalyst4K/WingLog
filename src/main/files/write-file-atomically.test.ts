@@ -1,8 +1,14 @@
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { writeFileAtomically } from './write-file-atomically'
+
+// The real fs with writeFileSync wrapped, so the write still happens and the call it was given can be checked.
+vi.mock('node:fs', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('node:fs')>()
+  return { ...actual, writeFileSync: vi.fn(actual.writeFileSync) }
+})
 
 describe('writeFileAtomically', () => {
   let dir: string
@@ -18,6 +24,12 @@ describe('writeFileAtomically', () => {
     writeFileAtomically(path, Buffer.from('second'))
     expect(readFileSync(path, 'utf8')).toBe('second')
     expect(existsSync(`${path}.tmp`)).toBe(false)
+  })
+
+  it('flushes the temporary file to the disk before it is renamed over the file, so a power cut cannot leave an empty or partial one (review of 2026-11-18)', () => {
+    const path = join(dir, 'secret.enc')
+    writeFileAtomically(path, 'whole')
+    expect(vi.mocked(writeFileSync)).toHaveBeenCalledWith(`${path}.tmp`, 'whole', { flush: true })
   })
 
   it('leaves what was there, and no temporary file, when the new one cannot be moved into place', () => {
