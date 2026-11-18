@@ -110,10 +110,10 @@ function toBeSigned(publicKeyDer: Buffer, serial: Buffer): Buffer {
 }
 
 /**
- * @param certificate The certificate, DER.
- * @returns It as PEM.
+ * @param certificate A certificate, DER.
+ * @returns It as PEM (what Node's TLS server takes).
  */
-function toPem(certificate: Buffer): string {
+export function certificateToPem(certificate: Buffer): string {
   const lines = certificate.toString('base64').match(new RegExp(`.{1,${PEM_LINE_CHARS}}`, 'g')) ?? []
   return `-----BEGIN CERTIFICATE-----\n${lines.join('\n')}\n-----END CERTIFICATE-----\n`
 }
@@ -135,7 +135,7 @@ export function makeHostCertificate(): HostCertificate {
   const certDer = der(TAG_SEQUENCE, tbs, signatureAlgorithm, der(TAG_BIT_STRING, Buffer.from([0]), signature))
   return {
     keyPem: privateKey.export({ type: 'pkcs8', format: 'pem' }),
-    certPem: toPem(certDer),
+    certPem: certificateToPem(certDer),
     certDer
   }
 }
