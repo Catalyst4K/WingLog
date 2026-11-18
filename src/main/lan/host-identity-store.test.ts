@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { logger } from '../logging/logger'
 import { certificatePin, makeHostCertificate } from './host-certificate'
-import { fileHostIdentityStore } from './host-identity-store'
+import { fileHostIdentityStore, type HostIdentity } from './host-identity-store'
 
 const { isAsyncEncryptionAvailable, encryptStringAsync, decryptStringAsync } = vi.hoisted(() => ({
   isAsyncEncryptionAvailable: vi.fn(() => Promise.resolve(true)),
@@ -36,17 +36,24 @@ describe('the host identity store', () => {
   })
   afterEach(() => rmSync(dir, { recursive: true, force: true }))
 
-  it('makes an identity the first time and keeps it: the next load is the same one, no longer new', async () => {
-    const first = await fileHostIdentityStore(dir).load()
+  it('makes an identity the first time, writes nothing until it is saved, and then keeps it: the next load is the same one, no longer new', async () => {
+    const store = fileHostIdentityStore(dir)
+    const first = await store.load()
     expect(first?.isNew).toBe(true)
     expect(first?.pin).toMatch(/^[A-Za-z0-9_-]{43}$/)
     expect(first?.certPem).toContain('BEGIN CERTIFICATE')
+    expect(existsSync(file())).toBe(false)
+    // Not saved, so the next start makes another one.
+    expect((await store.load())?.pin).not.toBe(first?.pin)
+    await store.save(first as HostIdentity)
     const second = await fileHostIdentityStore(dir).load()
     expect(second).toEqual({ ...first, isNew: false })
   })
 
   it('writes the identity encrypted, never the key in the clear', async () => {
-    const identity = await fileHostIdentityStore(dir).load()
+    const store = fileHostIdentityStore(dir)
+    const identity = await store.load()
+    await store.save(identity as HostIdentity)
     expect(encryptStringAsync).toHaveBeenCalled()
     const onDisk = readFileSync(file()).toString('latin1')
     expect(onDisk).not.toContain('PRIVATE KEY')
@@ -56,6 +63,7 @@ describe('the host identity store', () => {
   it('replaces a file it cannot decrypt, or that holds the wrong thing, with a new identity and one warning', async () => {
     const store = fileHostIdentityStore(dir)
     const first = await store.load()
+    await store.save(first as HostIdentity)
     for (const bad of [
       () => writeFileSync(file(), 'not an identity'),
       () =>
@@ -72,10 +80,12 @@ describe('the host identity store', () => {
   })
 
   it('leaves the file it had when a new identity cannot be written whole', async () => {
+    const store = fileHostIdentityStore(dir)
     writeFileSync(file(), 'not an identity')
+    const identity = await store.load()
     // A directory in the temporary file's place makes the write fail before anything is moved into place.
     mkdirSync(`${file()}.tmp`)
-    await expect(fileHostIdentityStore(dir).load()).rejects.toThrow()
+    await expect(store.save(identity as HostIdentity)).rejects.toThrow()
     expect(readFileSync(file(), 'utf8')).toBe('not an identity')
   })
 

@@ -20,7 +20,7 @@ import { twinOrigin, twinSyncDeviceQueries, twinSyncQueries } from './twin-sync'
 import { twinFlightQueries } from './twin-flight'
 import { createLan, lanQueries } from './create-lan'
 import { certificatePin, makeHostCertificate } from './host-certificate'
-import type { HostIdentityStore } from './host-identity-store'
+import type { HostIdentity, HostIdentityStore } from './host-identity-store'
 
 /** A port nothing listens on. */
 async function freePort(): Promise<number> {
@@ -194,7 +194,7 @@ describe('createLan', () => {
   })
 
   function build(identityStore?: HostIdentityStore) {
-    const { db } = createDb(':memory:')
+    const { db, sqlite } = createDb(':memory:')
     migrate(db, { migrationsFolder: 'drizzle' })
     const pageFolder = mkdtempSync(join(tmpdir(), 'winglog-lan-'))
     folders.push(pageFolder)
@@ -213,13 +213,21 @@ describe('createLan', () => {
       testAddress: '127.0.0.1',
       identityStore
     })
-    return { db, hub, lan }
+    return { db, sqlite, hub, lan }
   }
 
-  /** A store that hands out one identity, saying whether it is a new one. */
-  function storeWith(isNew: boolean): HostIdentityStore {
+  /** A store that hands out one identity, saying whether it is a new one, and remembers what was saved. */
+  function storeWith(isNew: boolean): HostIdentityStore & { saved: HostIdentity[] } {
     const { keyPem, certPem, certDer } = makeHostCertificate()
-    return { load: () => Promise.resolve({ keyPem, certPem, pin: certificatePin(certDer), isNew }) }
+    const saved: HostIdentity[] = []
+    return {
+      saved,
+      load: () => Promise.resolve({ keyPem, certPem, pin: certificatePin(certDer), isNew }),
+      save: (identity) => {
+        saved.push(identity)
+        return Promise.resolve()
+      }
+    }
   }
 
   describe("the sim PC's TLS identity", () => {
@@ -236,12 +244,35 @@ describe('createLan', () => {
     }
 
     it('unpairs every twin, and forgets the rows kept for it, when it makes a new identity, but not the phones', async () => {
-      const { db, lan } = build(storeWith(true))
+      const store = storeWith(true)
+      const { db, lan } = build(store)
       const { twin, phone } = paired(db)
       setLanSettings(db, { enabled: false, port: await freePort(), twinEnabled: true })
       await lan.init()
       expect(lan.getStatus().devices.map((device) => device.id)).toEqual([phone])
       expect(countDeferredRows(db, twinOrigin(twin))).toBe(0)
+      expect(store.saved).toHaveLength(1)
+    })
+
+    it('keeps a new identity only after the twins are unpaired: when that fails nothing is saved, and the next start makes a new one and unpairs them', async () => {
+      const store = storeWith(true)
+      const { db, sqlite, lan } = build(store)
+      const { twin, phone } = paired(db)
+      setLanSettings(db, { enabled: true, port: await freePort(), twinEnabled: true })
+      sqlite.exec(
+        "CREATE TRIGGER block_revoke BEFORE UPDATE ON lan_device BEGIN SELECT RAISE(ABORT, 'locked'); END"
+      )
+      await lan.init()
+      // Phones are still served; the twins are not unpaired, no certificate is shown, and the new identity was not kept.
+      expect(lan.getStatus()).toMatchObject({ listening: true, twinCertificate: null })
+      expect(lan.getStatus().devices.map((device) => device.id)).toEqual([twin, phone])
+      expect(store.saved).toEqual([])
+
+      sqlite.exec('DROP TRIGGER block_revoke')
+      await lan.stop()
+      await lan.init()
+      expect(lan.getStatus().devices.map((device) => device.id)).toEqual([phone])
+      expect(store.saved).toHaveLength(1)
     })
 
     it('keeps the twins when it loads the identity it already had', async () => {
@@ -265,7 +296,7 @@ describe('createLan', () => {
     })
 
     it('gives twins nothing to connect to when this computer cannot keep a certificate (no pin), and still serves phones', async () => {
-      const { db, lan } = build({ load: () => Promise.resolve(null) })
+      const { db, lan } = build({ load: () => Promise.resolve(null), save: () => Promise.resolve() })
       const port = await freePort()
       setLanSettings(db, { enabled: true, port, twinEnabled: true })
       await lan.init()

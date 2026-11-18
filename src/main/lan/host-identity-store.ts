@@ -25,8 +25,14 @@ export interface HostIdentity {
 
 /** The sim PC's identity, and how to get it. */
 export interface HostIdentityStore {
-  /** @returns The identity (made and saved the first time), or null when this computer cannot encrypt it. */
+  /**
+   * @returns The identity kept, or a new one when there is none or it cannot be read (`isNew`), or null when this computer cannot encrypt it.
+   *   A new identity is not yet kept: the caller saves it once everything that depends on it being new has been done, so that a failure in
+   *   between makes the next start do all of it again.
+   */
   load: () => Promise<HostIdentity | null>
+  /** Keeps an identity (the new one `load` made), whole or not at all. */
+  save: (identity: HostIdentity) => Promise<void>
 }
 
 /** What `lan-identity.enc` holds, once decrypted. */
@@ -85,9 +91,14 @@ export function fileHostIdentityStore(userDataPath: string): HostIdentityStore {
       const stored = await loadStored(path)
       if (stored) return stored
       const { keyPem, certPem, certDer } = makeHostCertificate()
-      const file: StoredIdentity = { keyPem, certDer: certDer.toString('base64') }
-      writeFileAtomically(path, await safeStorage.encryptStringAsync(JSON.stringify(file)))
       return { keyPem, certPem, pin: certificatePin(certDer), isNew: true }
+    },
+    async save(identity) {
+      const file: StoredIdentity = {
+        keyPem: identity.keyPem,
+        certDer: new X509Certificate(identity.certPem).raw.toString('base64')
+      }
+      writeFileAtomically(path, await safeStorage.encryptStringAsync(JSON.stringify(file)))
     }
   }
 }

@@ -204,7 +204,9 @@ function serverDevices(db: WingLogDb): LanServerDeps['devices'] {
 
 /**
  * Loads the sim PC's identity for the server. A new one means every paired twin pinned another certificate, and its token travelled in the
- * clear, so each is revoked: it shows "certificate changed" and the pilot pairs it again. Phones are not affected.
+ * clear, so each is revoked: it shows "certificate changed" and the pilot pairs it again. Phones are not affected. The new identity is
+ * kept only after that, so a failure in between (the load throws, the server runs for phones only) leaves the old identity in place and the
+ * next start makes a new one and revokes again.
  *
  * @param db The database.
  * @param store Where the identity is kept.
@@ -220,6 +222,7 @@ async function loadIdentityRevokingTwins(
     const revoked = revokeLanDevicesOfKind(db, 'twin', new Date().toISOString())
     for (const twin of twins) clearDeferredRows(db, twinOrigin(twin.id))
     logger.info(`[lan] made a new identity for the sim PC; ${revoked} paired twin(s) unpaired`)
+    await store.save(identity)
   }
   return identity
 }
