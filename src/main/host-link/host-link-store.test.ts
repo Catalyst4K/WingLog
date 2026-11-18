@@ -17,7 +17,8 @@ vi.mock('electron', () => ({
   safeStorage: { isAsyncEncryptionAvailable, encryptStringAsync, decryptStringAsync }
 }))
 
-const LINK = { address: '192.168.1.20:5051', token: 'device-token' }
+const PIN = 'p'.repeat(43)
+const LINK = { address: '192.168.1.20:5051', token: 'device-token', pin: PIN }
 
 describe('the host link store', () => {
   let dir: string
@@ -38,6 +39,16 @@ describe('the host link store', () => {
     expect(existsSync(join(dir, 'host-link.enc'))).toBe(true)
     expect(encryptStringAsync).toHaveBeenCalledWith(JSON.stringify(LINK))
     expect(await fileHostLinkStore(dir).load()).toEqual(LINK)
+  })
+
+  it('reads a link stored before the link was encrypted, which has no pin, as one with no pin', async () => {
+    writeFileSync(
+      join(dir, 'host-link.enc'),
+      JSON.stringify({ address: '192.168.1.20:5051', token: 'device-token' })
+    )
+    expect(await fileHostLinkStore(dir).load()).toEqual({ ...LINK, pin: null })
+    writeFileSync(join(dir, 'host-link.enc'), JSON.stringify({ ...LINK, pin: 7 }))
+    expect((await fileHostLinkStore(dir).load())?.pin).toBeNull()
   })
 
   it('refuses to store a token it cannot encrypt, rather than writing it in the clear', async () => {

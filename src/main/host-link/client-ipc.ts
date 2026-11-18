@@ -130,7 +130,7 @@ export function registerHostLinkHandlers(
 ): void {
   ipcMain.handle(IpcChannels.hostLinkGetStatus, (): HostLinkStatus => link.getStatus())
   ipcMain.handle(IpcChannels.hostLinkPair, (_event, address: unknown, code: unknown): HostLinkStatus => {
-    link.pair(shortText(address), shortText(code))
+    link.pair(shortText(address), shortText(code), null)
     return link.getStatus()
   })
   ipcMain.handle(IpcChannels.hostLinkForget, () => link.forget())

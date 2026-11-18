@@ -16,6 +16,9 @@ const BADGE = {
   connecting: 'connecting',
   offline: 'error',
   'wrong-code': 'error',
+  'pair-again': 'error',
+  'certificate-changed': 'error',
+  'not-secure': 'error',
   unpaired: 'disconnected'
 } as const
 

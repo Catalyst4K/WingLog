@@ -1,6 +1,8 @@
 /**
  * A client's link to the sim PC's WingLog (winglog-backend's docs/plans/multi-device.md, Part 2). It pairs with the host's second-screen
- * server the way a phone does, keeps the host's address and device token, follows the host's live topics into this computer's own
+ * server the way a phone does, but over TLS with the sim PC's own certificate pinned (docs/plans/security-audit-v2.md, step 22: a typed
+ * pairing takes the certificate the sim PC shows and pins it, a pasted one checks the pin it carries, and a stored link checks the pin it
+ * keeps). It keeps the host's address, device token and pin, follows the host's live topics into this computer's own
  * `LiveHub` so the screens and `LiveClient` do not change, and sends the host the commands a phone may send. Reconnecting, lookups and
  * retries are the shared `LanConnection`'s, the same code the phone's page runs.
  */
@@ -15,6 +17,7 @@ import type { LiveHub } from '../live/LiveHub'
 import { HELD_BACK } from './flight-mirror'
 import type { HostLinkStore } from './host-link-store'
 import type { TwinSyncPort } from './TwinSync'
+import type { SocketPin, SocketRefusal } from './ws-socket'
 
 /**
  * The topics a client takes from the host. Not the host's disk space: a client warns about its own.
@@ -33,8 +36,8 @@ const STATE_OF: Record<LanLinkState, HostLinkState> = {
 export interface HostLinkDeps {
   hub: LiveHub
   store: HostLinkStore
-  /** Opens a socket to the host (the `ws` client; a test double in tests). */
-  createSocket: (url: string) => LinkSocket
+  /** Opens a socket to the host (the `ws` client; a test double in tests), checking its certificate against the pin given. */
+  createSocket: (url: string, pin: SocketPin) => LinkSocket
   /** The name the host lists this computer by. */
   deviceName: string
   /** Called whenever the status changes. */
@@ -58,6 +61,18 @@ export class HostLink {
   private connection: LanConnection | null = null
   private address: string | null = null
   private token: string | null = null
+  /** The pin of the sim PC's certificate: from the pairing, and kept with the token. Null until paired, or for a link from before it was encrypted. */
+  private pin: string | null = null
+  /** Whether the connection being made is a pairing one, which is the only kind that may take a certificate it has not been told. */
+  private pairing = false
+  /** The pin from pasted pairing text, or null when the address and code were typed (trust the certificate the sim PC shows, once). */
+  private pairPin: string | null = null
+  /** The pin of the certificate the sim PC showed on a typed pairing. */
+  private seenPin: string | null = null
+  /** Why the last connection was refused, until a connection succeeds or the pilot pairs again or forgets the sim PC. */
+  private refusal: SocketRefusal | null = null
+  /** A pairing from before the link was encrypted: it has a token but no pin, so nothing is opened until the pilot pairs again. */
+  private pairAgain = false
   private hostSim: HostLinkStatus['hostSim'] = null
   private unsubscribers: (() => void)[] = []
 
@@ -68,7 +83,7 @@ export class HostLink {
 
   /** @returns Where the link stands. */
   getStatus(): HostLinkStatus {
-    const state: HostLinkState = this.connection ? STATE_OF[this.connection.state] : 'unpaired'
+    const state: HostLinkState = this.refusal ?? this.baseState()
     return {
       state,
       address: this.address,
@@ -77,7 +92,16 @@ export class HostLink {
     }
   }
 
-  /** Connects to the sim PC this computer was paired with, if there was one, and if its stored address is still a home-network one. */
+  /** @returns The state of the connection, before a refusal is taken into account. */
+  private baseState(): HostLinkState {
+    if (this.pairAgain) return 'pair-again'
+    return this.connection ? STATE_OF[this.connection.state] : 'unpaired'
+  }
+
+  /**
+   * Connects to the sim PC this computer was paired with, if there was one, and if its stored address is still a home-network one. A link
+   * stored without a pin is not opened: the pilot pairs again.
+   */
   async start(): Promise<void> {
     const stored = await this.deps.store.load()
     if (!stored || this.connection) return
@@ -91,6 +115,12 @@ export class HostLink {
     }
     this.address = address
     this.token = stored.token
+    this.pin = stored.pin
+    if (stored.pin === null) {
+      this.pairAgain = true
+      this.emit()
+      return
+    }
     this.open()?.start()
   }
 
@@ -99,14 +129,22 @@ export class HostLink {
    *
    * @param rawAddress The host's address as typed.
    * @param code The 6-digit code the host's Second screen card shows.
+   * @param pin The pin of the host's certificate from pasted pairing text, or null for a typed address and code, which take the certificate
+   *   the sim PC shows on this one connection and pin it from then on.
    * @throws When the address is not a home-network `host:port`.
    */
-  pair(rawAddress: string, code: string): void {
+  pair(rawAddress: string, code: string, pin: string | null): void {
     const address = parseHostAddress(rawAddress)
     if (!address) throw new Error('Enter the sim PC’s address with its port, such as 192.168.1.20:5051')
     this.close()
     this.address = address
     this.token = null
+    this.pin = null
+    this.pairPin = pin
+    this.seenPin = null
+    this.pairing = true
+    this.refusal = null
+    this.pairAgain = false
     // The sim PC may have a new or restored database whose counter starts low: what was sent to and taken from the one before means nothing now.
     this.deps.sync?.forgetCursors()
     // Another WingLog pairs as a twin, with the code of the host's Pair another WingLog, not the second screen's.
@@ -119,6 +157,12 @@ export class HostLink {
     this.close()
     this.address = null
     this.token = null
+    this.pin = null
+    this.pairPin = null
+    this.seenPin = null
+    this.pairing = false
+    this.refusal = null
+    this.pairAgain = false
     this.hostSim = null
     this.deps.sync?.forgetCursors()
     this.deps.store.clear()
@@ -174,19 +218,27 @@ export class HostLink {
       get: () => this.token,
       set: (token) => {
         this.token = token
-        this.deps.store.save({ address, token }).catch((error: unknown) => {
+        // The token comes with the pairing, so the pin is the pasted one or the one the sim PC showed on it.
+        this.pin = this.pairPin ?? this.seenPin
+        this.pairing = false
+        if (this.pin === null) {
+          logger.warn('[host-link] paired without a certificate pin, so nothing was stored')
+          return
+        }
+        this.deps.store.save({ address, token, pin: this.pin }).catch((error: unknown) => {
           logger.warn('[host-link] could not store the token:', error)
         })
       },
       clear: () => {
         this.token = null
+        this.pin = null
         this.deps.store.clear()
       }
     }
     const connection = new LanConnection(
-      `ws://${address}/live`,
+      `wss://${address}/live`,
       tokens,
-      this.deps.createSocket,
+      (url) => this.deps.createSocket(url, this.socketPin()),
       this.deps.deviceName
     )
     this.connection = connection
@@ -195,7 +247,10 @@ export class HostLink {
         // A host that cannot be reached must not leave its last telemetry on screen as if it were live.
         if (state === 'offline') this.hostSimChanged('disconnected')
         // Each time the link comes up, the two databases are brought level.
-        if (state === 'connected') this.deps.sync?.syncSoon(0)
+        if (state === 'connected') {
+          this.refusal = null
+          this.deps.sync?.syncSoon(0)
+        }
         this.emit()
       }),
       connection.onSyncHint(() => this.deps.sync?.syncSoon(SYNC_AFTER_HINT_MS)),
@@ -205,6 +260,23 @@ export class HostLink {
       )
     ]
     return connection
+  }
+
+  /**
+   * @returns What the next connection checks the certificate against. Only a pairing connection has no pin to check, and takes the one
+   *   shown; any other connection with no pin to check against is given one nothing matches, so it never opens.
+   */
+  private socketPin(): SocketPin {
+    return {
+      expected: this.pairing ? this.pairPin : (this.pin ?? ''),
+      onCertificate: (seen) => {
+        this.seenPin = seen
+      },
+      onRefused: (reason) => {
+        this.refusal = reason
+        this.emit()
+      }
+    }
   }
 
   private close(): void {

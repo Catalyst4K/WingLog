@@ -27,9 +27,9 @@ describe('a client IPC handlers', () => {
     expect(invoke(IpcChannels.hostLinkPair, '192.168.1.20:5051', '123456')).toMatchObject({
       state: 'connected'
     })
-    expect(link.pair).toHaveBeenCalledWith('192.168.1.20:5051', '123456')
+    expect(link.pair).toHaveBeenCalledWith('192.168.1.20:5051', '123456', null)
     invoke(IpcChannels.hostLinkPair, { not: 'a string' }, 'x'.repeat(500))
-    expect(link.pair).toHaveBeenLastCalledWith('', '')
+    expect(link.pair).toHaveBeenLastCalledWith('', '', null)
   })
 
   it('reports the status and forgets the sim PC', () => {
