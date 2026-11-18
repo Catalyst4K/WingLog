@@ -12,6 +12,7 @@ const OFF: LanStatus = {
   connections: 0,
   pairing: null,
   twinPairing: null,
+  twinCertificate: null,
   devices: []
 }
 

@@ -46,6 +46,11 @@ export interface LanStatus {
   pairing: LanPairing | null
   /** The twin's open pairing window, if any. */
   twinPairing: LanPairing | null
+  /**
+   * The pin of the certificate this PC shows other WingLogs (SHA-256 of it, base64url): public, and what a twin pins. Null while the server is
+   * not running, or when this computer cannot keep the certificate's key safe, so no other WingLog can connect.
+   */
+  twinCertificate: string | null
   devices: LanDevice[]
 }
 

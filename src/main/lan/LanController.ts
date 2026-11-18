@@ -16,6 +16,8 @@ export const ADDRESS_CHECK_MS = 15_000
 export interface LanServerPort {
   readonly listening: boolean
   readonly connectionCount: number
+  /** The pin of the certificate shown to twins, or null while running without one. */
+  readonly certificatePin: string | null
   /** Whether a kind's pairing window is still open (a used code is not). */
   pairingOpen(kind: LanDeviceKind): boolean
   start(address: string, port: number): Promise<void>
@@ -115,6 +117,7 @@ export class LanController {
       connections: server.connectionCount,
       pairing: server.listening ? this.pairings.screen : null,
       twinPairing: server.listening ? this.pairings.twin : null,
+      twinCertificate: server.certificatePin,
       devices: this.deps.devices.list()
     }
   }

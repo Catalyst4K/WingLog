@@ -21,6 +21,7 @@ const THIS_PC = { Ethernet: [ipv4('192.168.1.136')], 'vEthernet (WSLCore)': [ipv
 class FakeServer implements LanServerPort {
   listening = false
   connectionCount = 0
+  certificatePin: string | null = null
   starts: [string, number][] = []
   stops = 0
   failWith: (Error & { code?: string }) | null = null
@@ -113,6 +114,17 @@ describe('LanController', () => {
       url: 'http://192.168.1.136:9000/',
       problem: null
     })
+  })
+
+  it('shows the certificate pin the server has, and nothing else of it', async () => {
+    const { controller, server } = setup({ twinEnabled: true })
+    server.certificatePin = 'a'.repeat(43)
+    await controller.sync()
+    const status = controller.getStatus()
+    expect(status.twinCertificate).toBe('a'.repeat(43))
+    expect(JSON.stringify(status)).not.toMatch(/PRIVATE|keyPem|certDer/)
+    server.certificatePin = null
+    expect(controller.getStatus().twinCertificate).toBeNull()
   })
 
   it('applies new settings: switch on, then off', async () => {

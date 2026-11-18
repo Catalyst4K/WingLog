@@ -1,11 +1,13 @@
 /**
  * The second-screen server (winglog-backend's docs/plans/lan-web-viewer.md, decisions.md 2026-10-02): one HTTP page and one WebSocket on a
- * single private-network address. The page carries no data; the socket carries live state only to a device that has paired, and takes
+ * single private-network address. A phone connects in the clear (a browser would warn on a self-signed certificate); a twin, another
+ * WingLog, only over TLS with the sim PC's own certificate (winglog-backend's docs/plans/security-audit-v2.md, step 22). Both arrive on
+ * the one port, and `lan-listener.ts` tells them apart. The page carries no data; the socket carries live state only to a device that has paired, and takes
  * commands only through the remote-safe command tables. Nothing here reads the database or the filesystem itself: the live hub, the
  * commands, the device store and the static files all arrive as dependencies.
  */
 
-import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http'
+import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
 import type { Duplex } from 'node:stream'
 import { WebSocketServer, type WebSocket } from 'ws'
 import { laneOf, type LanQueryLane } from '@shared/lan-queries'
@@ -17,38 +19,15 @@ import { findQuery } from './find-query'
 import { logger } from '../logging/logger'
 import type { LiveHub } from '../live/LiveHub'
 import { dispatchCommand } from '../live/commands'
+import type { HostIdentity } from './host-identity-store'
+import { logName, parseIncoming, type Incoming } from './lan-incoming'
 import { originMatches, pageSecurityPolicy } from './lan-http'
+import { createTlsServer, LanListener } from './lan-listener'
+import { dueForLog } from './lan-log'
+import { LAN_TOPICS } from './lan-topics'
 import { cleanDeviceName, hashToken, newDeviceToken, PAIRING_WINDOW_MS, PairingWindow } from './pairing'
 
-/** The topics a paired device is sent. A topic added to `LiveTopics` is not sent until it is added here on purpose. */
-export const LAN_TOPICS: readonly LiveTopic[] = [
-  'simTelemetry',
-  'simConnectionStatus',
-  'trackingPoint',
-  'trackingPointsUpdated',
-  'procedureSelection',
-  'plannedRoute',
-  'taxiRoute',
-  'networkTraffic',
-  'simTraffic',
-  'trafficLayers',
-  'onlineStatus',
-  'networkControllers',
-  'networkAtc',
-  'storageStatus',
-  'gsxRemoteStatus',
-  'gsxRemoteServices',
-  'gsxRemoteGate',
-  'gsxRemoteMenu',
-  'gsxRemotePrompt',
-  'gsxRemoteCommandBar',
-  'gsxRoutine',
-  'beyondAtcStatus',
-  'beyondAtcState',
-  'beyondAtcTranscript',
-  'beyondAtcStepClimb',
-  'beyondAtcArrival'
-]
+export { LAN_TOPICS } from './lan-topics'
 
 /** How often a silent socket is pinged; one that has not answered by the next round is dropped. */
 export const HEARTBEAT_MS = 10_000
@@ -123,21 +102,20 @@ export interface LanServerDeps {
   authTimeoutMs?: number
   /** How often sockets are pinged; `HEARTBEAT_MS` when left out (tests shorten it). */
   heartbeatMs?: number
+  /**
+   * The sim PC's TLS identity, read (or made) each time the server starts. Twins connect only over TLS with it; with none (it is left out, or
+   * returns null because this computer cannot keep a key safely) only phones can connect. A failure to load it counts as none.
+   */
+  identity?(): Promise<HostIdentity | null>
 }
-
-/** What a device may send. Anything else is dropped. */
-type Incoming =
-  | { t: 'pair'; code: unknown; name?: unknown; kind?: unknown }
-  | { t: 'hello'; token: unknown }
-  | { t: 'cmd'; name: unknown; args: unknown }
-  | { t: 'query'; id: unknown; name: unknown; args: unknown }
-  | { t: 'report'; code: unknown; detail?: unknown }
 
 /** A connected socket and what is known of it. */
 interface Client {
   socket: WebSocket
   /** The network address it connected from. */
   address: string | undefined
+  /** Whether it connected over TLS: only a twin may, and a twin may only. */
+  secure: boolean
   deviceId: number | null
   /** What the device is, once it is let in. */
   kind: LanDeviceKind | null
@@ -162,8 +140,12 @@ export { pageSecurityPolicy }
 
 /** The second-screen HTTP and WebSocket server. */
 export class LanServer {
-  private server: Server | null = null
+  private listener: LanListener | null = null
   private wss: WebSocketServer | null = null
+  /** The pin of the certificate twins are shown, while running with an identity. */
+  private pin: string | null = null
+  /** When each kind of line was last written for the log, so a device or a scan cannot fill it. */
+  private readonly loggedAt = new Map<string, number>()
   private unsubscribe: (() => void) | null = null
   private heartbeat: NodeJS.Timeout | null = null
   private hostHeader = ''
@@ -180,7 +162,12 @@ export class LanServer {
 
   /** @returns True while the server is listening. */
   get listening(): boolean {
-    return this.server !== null
+    return this.listener !== null
+  }
+
+  /** @returns The pin of the sim PC's certificate while the server runs with one, otherwise null (twins cannot connect). */
+  get certificatePin(): string | null {
+    return this.pin
   }
 
   /** @returns How many sockets are open. */
@@ -195,28 +182,64 @@ export class LanServer {
    * @param port The port.
    * @returns Resolves once listening; rejects with the listen error (such as the port being in use).
    */
-  start(address: string, port: number): Promise<void> {
-    if (this.server) return Promise.reject(new Error('Already listening'))
-    const server = createServer((req, res) => this.handleHttp(req, res))
+  async start(address: string, port: number): Promise<void> {
+    if (this.listener) throw new Error('Already listening')
+    const identity = await this.loadIdentity()
     const wss = new WebSocketServer({ noServer: true, maxPayload: TWIN_MAX_MESSAGE_BYTES })
-    server.on('upgrade', (req, socket, head) => this.handleUpgrade(wss, req, socket, head))
+    const plain = createServer((req, res) => this.handleHttp(req, res))
+    plain.on('upgrade', (req, socket, head) => this.handleUpgrade(wss, req, socket, head, false))
+    const secure = identity
+      ? createTlsServer(
+          identity,
+          this.deps.authTimeoutMs ?? AUTH_TIMEOUT_MS,
+          (req, socket, head) => this.handleUpgrade(wss, req, socket, head, true),
+          (error) =>
+            this.logAtMostOncePerMinute(
+              'tls-client-error',
+              `[lan] a connection failed its TLS handshake (${(error as NodeJS.ErrnoException).code ?? 'no code'})`
+            )
+        )
+      : null
+    const listener = new LanListener({ plain, secure }, this.deps.authTimeoutMs ?? AUTH_TIMEOUT_MS)
     this.hostHeader = `${address}:${port}`
-    return new Promise((resolve, reject) => {
-      server.once('error', reject)
-      server.listen(port, address, () => {
-        server.off('error', reject)
-        server.on('error', (error) => logger.warn('[lan] server error:', error))
-        this.server = server
-        this.wss = wss
-        this.unsubscribe = this.deps.hub.subscribe((topic, payload) => this.broadcast(topic, payload))
-        this.heartbeat = setInterval(() => this.pingClients(), this.deps.heartbeatMs ?? HEARTBEAT_MS)
-        this.heartbeat.unref()
-        resolve()
-      })
-    })
+    await listener.listen(address, port)
+    this.listener = listener
+    this.wss = wss
+    this.pin = identity?.pin ?? null
+    this.unsubscribe = this.deps.hub.subscribe((topic, payload) => this.broadcast(topic, payload))
+    this.heartbeat = setInterval(() => this.pingClients(), this.deps.heartbeatMs ?? HEARTBEAT_MS)
+    this.heartbeat.unref()
   }
 
-  /** Stops listening and closes every socket. */
+  /**
+   * @returns The sim PC's identity, or null when there is none or it could not be loaded: twins then cannot connect, and phones still can.
+   */
+  private async loadIdentity(): Promise<HostIdentity | null> {
+    try {
+      return (await this.deps.identity?.()) ?? null
+    } catch (error) {
+      logger.warn(
+        `[lan] could not load the sim PC identity, so twins cannot connect: ${describeError(error)}`
+      )
+      return null
+    }
+  }
+
+  /**
+   * Writes a line to the log unless that kind of line was written in the last minute, for things any device on the network can cause.
+   *
+   * @param key What the line is about.
+   * @param line The line.
+   */
+  private logAtMostOncePerMinute(key: string, line: string): void {
+    if (dueForLog(this.loggedAt, key, this.deps.now(), REPORT_LOG_INTERVAL_MS)) logger.warn(line)
+  }
+
+  /**
+   * Stops listening and closes every socket.
+   *
+   * @returns Resolves when nothing is open.
+   */
   stop(): Promise<void> {
     this.unsubscribe?.()
     this.unsubscribe = null
@@ -224,15 +247,12 @@ export class LanServer {
     this.heartbeat = null
     this.pairings.clear()
     for (const client of [...this.clients]) client.socket.terminate()
-    const server = this.server
-    this.server = null
+    const listener = this.listener
+    this.listener = null
+    this.pin = null
     this.wss?.close()
     this.wss = null
-    return new Promise((resolve) => {
-      if (!server) return resolve()
-      server.close(() => resolve())
-      server.closeAllConnections()
-    })
+    return listener ? listener.close() : Promise.resolve()
   }
 
   /**
@@ -357,7 +377,13 @@ export class LanServer {
     res.end(req.method === 'HEAD' ? undefined : file.body)
   }
 
-  private handleUpgrade(wss: WebSocketServer, req: IncomingMessage, socket: Duplex, head: Buffer): void {
+  private handleUpgrade(
+    wss: WebSocketServer,
+    req: IncomingMessage,
+    socket: Duplex,
+    head: Buffer,
+    secure: boolean
+  ): void {
     const refuse = (status: string): void => {
       socket.write(`HTTP/1.1 ${status}\r\nConnection: close\r\n\r\n`)
       socket.destroy()
@@ -373,13 +399,14 @@ export class LanServer {
     for (const client of this.clients)
       if (client.deviceId === null && client.address === address) waiting += 1
     if (waiting >= MAX_UNAUTHENTICATED_PER_ADDRESS) return refuse('429 Too Many Requests')
-    wss.handleUpgrade(req, socket, head, (ws) => this.accept(ws, address))
+    wss.handleUpgrade(req, socket, head, (ws) => this.accept(ws, address, secure))
   }
 
-  private accept(socket: WebSocket, address: string | undefined): void {
+  private accept(socket: WebSocket, address: string | undefined, secure: boolean): void {
     const client: Client = {
       socket,
       address,
+      secure,
       deviceId: null,
       kind: null,
       tokens: RATE_BURST,
@@ -563,10 +590,7 @@ export class LanServer {
    * @param line The line.
    */
   private logOncePerMinute(client: Client, key: string, now: number, line: string): void {
-    const last = client.reportedAt.get(key)
-    if (last !== undefined && now - last < REPORT_LOG_INTERVAL_MS) return
-    client.reportedAt.set(key, now)
-    logger.warn(line)
+    if (dueForLog(client.reportedAt, key, now, REPORT_LOG_INTERVAL_MS)) logger.warn(line)
   }
 
   private handlePair(
@@ -577,6 +601,8 @@ export class LanServer {
     if (client.deviceId !== null) return
     // A device says which kind it is; only that kind's window can take its code, so a phone's guesses never spend a twin's.
     const kind: LanDeviceKind = message.kind === 'twin' ? 'twin' : 'screen'
+    // Twins only over TLS and phones only in the clear: the code is not tried, so it is neither spent nor guessed at on the wrong side.
+    if (this.deniedOnWrongSide(client, kind)) return
     const result = this.kindEnabled(kind)
       ? (this.pairings.get(kind)?.attempt(message.code, now) ?? 'closed')
       : 'closed'
@@ -600,6 +626,7 @@ export class LanServer {
       client.socket.close()
       return
     }
+    if (this.deniedOnWrongSide(client, device.kind)) return
     // A known token whose kind is switched off: close without `denied`, so the device keeps the token and tries again when the
     // switch is back on. Only a holder of a valid token sees this, and it already knows the token is valid.
     if (!this.kindEnabled(device.kind)) {
@@ -608,6 +635,27 @@ export class LanServer {
     }
     this.deps.devices.touch(device.id)
     this.authenticate(client, device.id, device.kind)
+  }
+
+  /**
+   * Answers a device that came by the wrong side with `denied`, and closes it: a twin is let in only over TLS and a phone only in the
+   * clear. A twin without TLS is a WingLog from before the link was encrypted, so the log says so.
+   *
+   * @param client The socket.
+   * @param kind The kind of device it says it is, or its token belongs to.
+   * @returns True when it was sent away.
+   */
+  private deniedOnWrongSide(client: Client, kind: LanDeviceKind): boolean {
+    if ((kind === 'twin') === client.secure) return false
+    if (kind === 'twin') {
+      this.logAtMostOncePerMinute(
+        'twin-without-tls',
+        '[lan] a WingLog tried to connect as a twin without encryption: update it'
+      )
+    }
+    this.send(client, { t: 'denied' })
+    client.socket.close()
+    return true
   }
 
   private authenticate(client: Client, deviceId: number, kind: LanDeviceKind): void {
@@ -672,33 +720,4 @@ export class LanServer {
     }
     socket.send(JSON.stringify(message))
   }
-}
-
-/**
- * @param name A lookup's name as a device sent it.
- * @returns A short, safe version of it for the log: a device is not trusted to write what it likes there.
- */
-function logName(name: unknown): string {
-  return typeof name === 'string' ? `"${name.slice(0, 40).replace(/[^\w.:-]/g, '?')}"` : '(not a name)'
-}
-
-/**
- * @param text A message as a device sent it.
- * @returns The message when it is one of the three kinds a device may send, otherwise null. Never throws.
- */
-function parseIncoming(text: string): Incoming | null {
-  let value: unknown
-  try {
-    value = JSON.parse(text)
-  } catch {
-    return null
-  }
-  if (typeof value !== 'object' || value === null) return null
-  const record = value as Record<string, unknown>
-  if (record.t === 'pair') return { t: 'pair', code: record.code, name: record.name, kind: record.kind }
-  if (record.t === 'hello') return { t: 'hello', token: record.token }
-  if (record.t === 'cmd') return { t: 'cmd', name: record.name, args: record.args }
-  if (record.t === 'query') return { t: 'query', id: record.id, name: record.name, args: record.args }
-  if (record.t === 'report') return { t: 'report', code: record.code, detail: record.detail }
-  return null
 }

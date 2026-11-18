@@ -15,6 +15,7 @@ import { registerGsxRemoteHandlers } from './ipc/gsx-remote-handlers'
 import { registerBeyondAtcHandlers } from './ipc/beyondatc-handlers'
 import { registerLanHandlers } from './ipc/lan-handlers'
 import { createLan } from './lan/create-lan'
+import { fileHostIdentityStore } from './lan/host-identity-store'
 import { shownFlightId } from './lan/lan-flight'
 import { resolveFeedUrls } from './online/feed-urls'
 import { registerAtcAreas } from './online/atc-areas-handlers'
@@ -122,6 +123,7 @@ function startSecondScreen(
     metarUrl: resolveMetarUrl(app.isPackaged, process.env),
     systemLocale: () => app.getLocale(),
     pageFolder: join(__dirname, '../lan'),
+    identityStore: fileHostIdentityStore(app.getPath('userData')),
     testAddress: app.isPackaged ? undefined : process.env.WINGLOG_E2E_LAN_ADDRESS
   })
   registerLanHandlers(ipcMain, { lan })

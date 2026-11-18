@@ -1,10 +1,14 @@
 import { createServer, request } from 'node:http'
-import { type AddressInfo } from 'node:net'
+import { request as httpsRequest } from 'node:https'
+import { createConnection, type AddressInfo } from 'node:net'
+import type { TLSSocket } from 'node:tls'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { WebSocket } from 'ws'
 import { logger } from '../logging/logger'
 import { LiveHub } from '../live/LiveHub'
 import { hashToken } from './pairing'
+import { certificatePin, makeHostCertificate } from './host-certificate'
+import type { HostIdentity } from './host-identity-store'
 import {
   pageSecurityPolicy,
   LAN_TOPICS,
@@ -22,6 +26,12 @@ import {
 vi.mock('../logging/logger', () => ({ logger: { info: vi.fn(), warn: vi.fn() } }))
 
 const HOST = '127.0.0.1'
+
+/** The sim PC's identity for these tests: made once, as the real store makes it. */
+const IDENTITY: HostIdentity = (() => {
+  const { keyPem, certPem, certDer } = makeHostCertificate()
+  return { keyPem, certPem, pin: certificatePin(certDer), isNew: false }
+})()
 
 /** A port nothing is listening on. */
 async function freePort(): Promise<number> {
@@ -57,7 +67,9 @@ class TestClient {
   closed = false
 
   constructor(url: string, headers: Record<string, string> = {}) {
-    this.ws = new WebSocket(url, { headers })
+    // Nothing is trusted here: the tests are about what the server does with a connection, and the twin's own certificate check has its
+    // own tests (ws-socket.test.ts).
+    this.ws = new WebSocket(url, { headers, rejectUnauthorized: false })
     this.ws.on('message', (data) => this.received.push(JSON.parse(data.toString())))
     this.ws.on('close', () => (this.closed = true))
     this.ws.on('error', () => undefined)
@@ -129,18 +141,24 @@ describe('LanServer', () => {
       },
       staticFile: (path) => (path === '/' ? { type: 'text/html', body: '<h1>WingLog</h1>' } : null),
       now: () => Date.now(),
+      identity: () => Promise.resolve(IDENTITY),
       ...overrides
     }
     server = new LanServer(deps)
     const port = await freePort()
     await server.start(HOST, port)
     const url = `ws://${HOST}:${port}/live`
-    const connect = async (headers?: Record<string, string>) => {
-      const client = new TestClient(url, { host: `${HOST}:${port}`, ...headers })
+    const secureUrl = `wss://${HOST}:${port}/live`
+    const connectTo = async (to: string, headers?: Record<string, string>) => {
+      const client = new TestClient(to, { host: `${HOST}:${port}`, ...headers })
       open.push(client)
       await client.opened()
       return client
     }
+    /** A socket in the clear, as a phone's page opens one. */
+    const connect = (headers?: Record<string, string>) => connectTo(url, headers)
+    /** A socket over TLS, as another WingLog opens one. */
+    const connectTwin = (headers?: Record<string, string>) => connectTo(secureUrl, headers)
     /** Pairs a new socket with the code the PC shows; returns the socket and its token. */
     const pair = async () => {
       const { code } = server!.openPairing()
@@ -149,7 +167,7 @@ describe('LanServer', () => {
       const paired = await client.message('paired')
       return { client, token: paired.token as string }
     }
-    return { server: server!, hub, store, ran, port, url, connect, pair }
+    return { server: server!, hub, store, ran, port, url, secureUrl, connect, connectTwin, pair }
   }
 
   describe('the page', () => {
@@ -316,17 +334,17 @@ describe('LanServer', () => {
     describe('a twin and a second screen pair separately', () => {
       it('takes a twin only with the twin code, and records its kind', async () => {
         const store = deviceStore()
-        const { server, connect } = await setup({ devices: store.devices })
+        const { server, connect, connectTwin } = await setup({ devices: store.devices })
         const screen = server.openPairing('screen')
         const twin = server.openPairing('twin')
         expect(screen.code).not.toBe(twin.code)
         expect(server.pairingOpen('screen')).toBe(true)
         expect(server.pairingOpen('twin')).toBe(true)
         // The second screen's code is no good for a device that says it is a twin.
-        const wrong = await connect()
+        const wrong = await connectTwin()
         wrong.send({ t: 'pair', code: screen.code, name: 'Mac', kind: 'twin' })
         await wrong.message('denied')
-        const right = await connect()
+        const right = await connectTwin()
         right.send({ t: 'pair', code: twin.code, name: 'WingLog on MAC', kind: 'twin' })
         await right.message('paired')
         expect([...store.rows.values()].map((row) => row.kind)).toEqual(['twin'])
@@ -342,36 +360,36 @@ describe('LanServer', () => {
       it('refuses to pair a kind whose switch is off, and refuses its token when the switch is turned off later', async () => {
         const store = deviceStore()
         let kinds = { screen: true, twin: true }
-        const { server, connect } = await setup({ devices: store.devices, enabledKinds: () => kinds })
+        const { server, connectTwin } = await setup({ devices: store.devices, enabledKinds: () => kinds })
         const twin = server.openPairing('twin')
         kinds = { screen: true, twin: false }
-        const refused = await connect()
+        const refused = await connectTwin()
         refused.send({ t: 'pair', code: twin.code, name: 'Mac', kind: 'twin' })
         await refused.message('denied')
         expect(store.rows.size).toBe(0)
 
         kinds = { screen: true, twin: true }
-        const paired = await connect()
+        const paired = await connectTwin()
         const again = server.openPairing('twin')
         paired.send({ t: 'pair', code: again.code, name: 'Mac', kind: 'twin' })
         const { token } = await paired.message('paired')
         kinds = { screen: true, twin: false }
-        const later = await connect()
+        const later = await connectTwin()
         later.send({ t: 'hello', token })
         await later.waitFor(() => later.closed)
         // The token is known, so it is not told it was revoked: it keeps the token and tries again.
         expect(later.received).toEqual([])
         kinds = { screen: true, twin: true }
-        const back = await connect()
+        const back = await connectTwin()
         back.send({ t: 'hello', token })
         await back.message('snapshot')
       })
 
       it('drops the open connections of a kind when asked', async () => {
         const store = deviceStore()
-        const { server, connect } = await setup({ devices: store.devices })
+        const { server, connectTwin } = await setup({ devices: store.devices })
         const twin = server.openPairing('twin')
-        const device = await connect()
+        const device = await connectTwin()
         device.send({ t: 'pair', code: twin.code, name: 'Mac', kind: 'twin' })
         await device.message('paired')
         server.disconnectKind('screen')
@@ -534,8 +552,8 @@ describe('LanServer', () => {
     })
 
     it('tells a twin, once for a burst of changes, that the PC’s database changed, and tells a second screen nothing', async () => {
-      const { server, connect } = await setup()
-      const twin = await connect()
+      const { server, connect, connectTwin } = await setup()
+      const twin = await connectTwin()
       twin.send({ t: 'pair', code: server.openPairing('twin').code, name: 'Mac', kind: 'twin' })
       await twin.message('paired')
       const screen = await connect()
@@ -568,8 +586,8 @@ describe('LanServer', () => {
       }
 
       it('gives a twin its own device id first, and a plain lookup nothing extra', async () => {
-        const { server, connect, calls } = await withDeviceLookup()
-        const device = await connect()
+        const { server, connectTwin, calls } = await withDeviceLookup()
+        const device = await connectTwin()
         device.send({ t: 'pair', code: server.openPairing('twin').code, name: 'Mac', kind: 'twin' })
         await device.message('paired')
         device.send({ t: 'query', id: 1, name: 'sync.pull', args: ['aircraft', null] })
@@ -704,6 +722,206 @@ describe('LanServer', () => {
       const again = await connect()
       again.send({ t: 'hello', token })
       await again.message('denied')
+    })
+  })
+
+  describe('two sides of one port (a phone in the clear, a twin over TLS)', () => {
+    const warnings = (): string[] => vi.mocked(logger.warn).mock.calls.map((call) => String(call[0]))
+
+    /** A plain HTTP or HTTPS request to the port, answering its status. */
+    function get(port: number, secure: boolean): Promise<number> {
+      return new Promise((resolve, reject) => {
+        const make = secure ? httpsRequest : request
+        const req = make(
+          { host: HOST, port, path: '/', headers: { host: `${HOST}:${port}` }, rejectUnauthorized: false },
+          (res) => {
+            res.resume()
+            resolve(res.statusCode ?? 0)
+          }
+        )
+        req.on('error', reject)
+        req.end()
+      })
+    }
+
+    it('serves the page over HTTP, a phone over ws:// and a twin over wss://, all on the one port', async () => {
+      const { server, port, pair, connectTwin } = await setup()
+      expect(await get(port, false)).toBe(200)
+      const { client } = await pair()
+      await client.message('snapshot')
+      const twin = await connectTwin()
+      twin.send({ t: 'pair', code: server.openPairing('twin').code, name: 'Mac', kind: 'twin' })
+      await twin.message('paired')
+      await twin.message('snapshot')
+      expect(server.connectionCount).toBe(2)
+    })
+
+    it('lets a twin say hello with its token over wss://', async () => {
+      const { server, connectTwin } = await setup()
+      const first = await connectTwin()
+      first.send({ t: 'pair', code: server.openPairing('twin').code, name: 'Mac', kind: 'twin' })
+      const { token } = await first.message('paired')
+      const again = await connectTwin()
+      again.send({ t: 'hello', token })
+      await again.message('snapshot')
+    })
+
+    it('answers every plain request over TLS with 404: only twin sockets are served there', async () => {
+      const { port } = await setup()
+      expect(await get(port, true)).toBe(404)
+    })
+
+    it('shows the certificate it was given, and its pin through certificatePin', async () => {
+      const { server, port } = await setup()
+      expect(server.certificatePin).toBe(IDENTITY.pin)
+      const shown = await new Promise<string>((resolve, reject) => {
+        const req = httpsRequest({ host: HOST, port, path: '/', rejectUnauthorized: false }, (res) => {
+          res.resume()
+          resolve(certificatePin((res.socket as TLSSocket).getPeerCertificate().raw))
+        })
+        req.on('error', reject)
+        req.end()
+      })
+      expect(shown).toBe(IDENTITY.pin)
+      await server.stop()
+      expect(server.certificatePin).toBeNull()
+    })
+
+    it('refuses a connection that offers only TLS 1.2 or older', async () => {
+      const { secureUrl, port } = await setup()
+      const old = new WebSocket(secureUrl, {
+        headers: { host: `${HOST}:${port}` },
+        rejectUnauthorized: false,
+        maxVersion: 'TLSv1.2'
+      })
+      old.on('error', () => undefined)
+      const opened = await new Promise<boolean>((resolve) => {
+        old.once('open', () => resolve(true))
+        old.once('close', () => resolve(false))
+      })
+      expect(opened).toBe(false)
+    })
+
+    it('denies a twin that pairs over ws:// without spending the code, and says why in the log', async () => {
+      vi.mocked(logger.warn).mockClear()
+      const store = deviceStore()
+      const { server, connect, connectTwin } = await setup({ devices: store.devices })
+      const { code } = server.openPairing('twin')
+      const plain = await connect()
+      plain.send({ t: 'pair', code, name: 'Mac', kind: 'twin' })
+      await plain.message('denied')
+      await plain.waitFor(() => plain.closed)
+      expect(plain.received.map((m) => m.t)).toEqual(['denied'])
+      expect(store.rows.size).toBe(0)
+      expect(warnings().some((line) => line.includes('without encryption'))).toBe(true)
+      // The code was neither used nor counted as a wrong guess: it still works over TLS.
+      expect(server.pairingOpen('twin')).toBe(true)
+      const secure = await connectTwin()
+      secure.send({ t: 'pair', code, name: 'Mac', kind: 'twin' })
+      await secure.message('paired')
+    })
+
+    it('denies a twin token presented over ws:// and does not log it more than once a minute', async () => {
+      vi.mocked(logger.warn).mockClear()
+      const { server, connect, connectTwin } = await setup()
+      const secure = await connectTwin()
+      secure.send({ t: 'pair', code: server.openPairing('twin').code, name: 'Mac', kind: 'twin' })
+      const { token } = await secure.message('paired')
+      for (let i = 0; i < 3; i++) {
+        const plain = await connect()
+        plain.send({ t: 'hello', token })
+        await plain.message('denied')
+        expect(plain.received.some((m) => m.t === 'snapshot')).toBe(false)
+      }
+      expect(warnings().filter((line) => line.includes('without encryption'))).toHaveLength(1)
+    })
+
+    it('denies a phone that pairs or says hello over wss://', async () => {
+      const store = deviceStore()
+      const { server, pair, connectTwin } = await setup({ devices: store.devices })
+      const { code } = server.openPairing('screen')
+      const secure = await connectTwin()
+      secure.send({ t: 'pair', code, name: 'iPad' })
+      await secure.message('denied')
+      expect(store.rows.size).toBe(0)
+      expect(server.pairingOpen('screen')).toBe(true)
+      const { token } = await pair()
+      const again = await connectTwin()
+      again.send({ t: 'hello', token })
+      await again.message('denied')
+      expect(again.received.some((m) => m.t === 'snapshot')).toBe(false)
+    })
+
+    it('closes a socket that sends nothing at all, and one that starts a TLS handshake and stops', async () => {
+      const { port } = await setup({ authTimeoutMs: 40 })
+      const silent = createConnection({ host: HOST, port })
+      const halfway = createConnection({ host: HOST, port })
+      for (const socket of [silent, halfway]) socket.on('error', () => undefined)
+      halfway.write(Buffer.from([0x16, 0x03, 0x01]))
+      await Promise.all(
+        [silent, halfway].map(
+          (socket) => new Promise<void>((resolve) => socket.once('close', () => resolve()))
+        )
+      )
+    })
+
+    it('logs a failed handshake, but not more than once a minute', async () => {
+      vi.mocked(logger.warn).mockClear()
+      // A handshake that never completes ends at the handshake timeout, which is the same time as a silent socket's.
+      const { port } = await setup({ authTimeoutMs: 40 })
+      for (let i = 0; i < 3; i++) {
+        const junk = createConnection({ host: HOST, port })
+        junk.on('error', () => undefined)
+        junk.write(Buffer.from([0x16, 0x03, 0x01, 0x00, 0x05]))
+        await new Promise<void>((resolve) => junk.once('close', () => resolve()))
+      }
+      expect(warnings().filter((line) => line.includes('TLS handshake'))).toHaveLength(1)
+    })
+
+    it('leaves no socket open when it stops, whatever it was doing', async () => {
+      const { server, port, pair, connectTwin } = await setup()
+      await pair()
+      const twin = await connectTwin()
+      twin.send({ t: 'pair', code: server.openPairing('twin').code, name: 'Mac', kind: 'twin' })
+      await twin.message('paired')
+      const waiting = createConnection({ host: HOST, port })
+      const halfway = createConnection({ host: HOST, port })
+      for (const socket of [waiting, halfway]) socket.on('error', () => undefined)
+      halfway.write(Buffer.from([0x16, 0x03, 0x01]))
+      await new Promise((resolve) => setTimeout(resolve, 30))
+      const closes = [waiting, halfway].map(
+        (socket) => new Promise<void>((resolve) => socket.once('close', () => resolve()))
+      )
+      await server.stop()
+      await Promise.all(closes)
+      await twin.waitFor(() => twin.closed)
+      expect(server.connectionCount).toBe(0)
+    })
+
+    describe('without an identity (this computer cannot keep a key safely, or it could not be loaded)', () => {
+      for (const [label, identity] of [
+        ['none', () => Promise.resolve(null)],
+        ['one that fails to load', () => Promise.reject(new Error('disk says no'))]
+      ] as const) {
+        it(`still serves phones and refuses twins: ${label}`, async () => {
+          vi.mocked(logger.warn).mockClear()
+          const { server, port, pair, connectTwin } = await setup({ identity })
+          expect(server.certificatePin).toBeNull()
+          expect(await get(port, false)).toBe(200)
+          const { client } = await pair()
+          await client.message('snapshot')
+          server.openPairing('twin')
+          await expect(connectTwin()).rejects.toThrow()
+          if (label !== 'none') expect(warnings().some((line) => line.includes('identity'))).toBe(true)
+          expect(JSON.stringify(vi.mocked(logger.warn).mock.calls)).not.toContain('PRIVATE')
+        })
+      }
+
+      it('starts a server with no identity dependency at all, as before', async () => {
+        const { server } = await setup({ identity: undefined })
+        expect(server.listening).toBe(true)
+        expect(server.certificatePin).toBeNull()
+      })
     })
   })
 

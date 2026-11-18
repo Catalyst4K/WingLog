@@ -9,6 +9,7 @@ import { LiveHub } from '../live/LiveHub'
 import { LanController } from './LanController'
 import { LanServer } from './LanServer'
 import { hashToken } from './pairing'
+import { certificatePin, makeHostCertificate } from './host-certificate'
 
 vi.mock('../logging/logger', () => ({ logger: { info: vi.fn(), warn: vi.fn() } }))
 
@@ -19,6 +20,11 @@ vi.mock('../logging/logger', () => ({ logger: { info: vi.fn(), warn: vi.fn() } }
  */
 
 const HOST = '127.0.0.1'
+/** The sim PC's identity: twins connect over TLS with it. */
+const IDENTITY = (() => {
+  const { keyPem, certPem, certDer } = makeHostCertificate()
+  return { keyPem, certPem, pin: certificatePin(certDer), isNew: false }
+})()
 const LINK_TIMEOUT_MS = 3000
 const RECONNECT_TIMEOUT_MS = 15_000
 /** Long enough for the device's first retry (1 s) to reach a server that is still up. */
@@ -61,6 +67,7 @@ describe('a device linked to the PC when its switch is turned off', () => {
       flight: () => null,
       queries: {},
       staticFile: () => null,
+      identity: () => Promise.resolve(IDENTITY),
       now: () => Date.now()
     })
     const lan = new LanController({
@@ -84,9 +91,10 @@ describe('a device linked to the PC when its switch is turned off', () => {
     let token: string | null = null
     const states: LanLinkState[] = []
     const link = new LanConnection(
-      `ws://${HOST}:${harness.port}/live`,
+      `${kind === 'twin' ? 'wss' : 'ws'}://${HOST}:${harness.port}/live`,
       { get: () => token, set: (t) => (token = t), clear: () => (token = null) },
-      (url) => new WebSocket(url) as unknown as LinkSocket,
+      // A twin connects over TLS; this test is about the switches, not the certificate (ws-socket.test.ts checks that).
+      (url) => new WebSocket(url, { rejectUnauthorized: false }) as unknown as LinkSocket,
       kind === 'twin' ? 'Mac' : 'Phone'
     )
     links.push(link)

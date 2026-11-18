@@ -19,6 +19,8 @@ import { LAN_QUERY_KINDS, TWIN_ONLY_QUERIES } from '@shared/lan-queries'
 import { twinOrigin, twinSyncDeviceQueries, twinSyncQueries } from './twin-sync'
 import { twinFlightQueries } from './twin-flight'
 import { createLan, lanQueries } from './create-lan'
+import { certificatePin, makeHostCertificate } from './host-certificate'
+import type { HostIdentityStore } from './host-identity-store'
 
 /** A port nothing listens on. */
 async function freePort(): Promise<number> {
@@ -191,7 +193,7 @@ describe('createLan', () => {
     for (const folder of folders.splice(0)) rmSync(folder, { recursive: true, force: true })
   })
 
-  function build() {
+  function build(identityStore?: HostIdentityStore) {
     const { db } = createDb(':memory:')
     migrate(db, { migrationsFolder: 'drizzle' })
     const pageFolder = mkdtempSync(join(tmpdir(), 'winglog-lan-'))
@@ -202,15 +204,75 @@ describe('createLan', () => {
       db,
       dbPath: join(folders[0] as string, 'winglog.db'),
       liveHub: hub,
-      trackingController: TRACKING,
+      // Its own emitter, so many builds do not pile listeners onto one.
+      trackingController: Object.assign(new EventEmitter(), { getActive: () => undefined }) as never,
       selection: fakeSelection() as never,
       ...CREATE_DEPS,
       systemLocale: () => 'de-DE',
       pageFolder,
-      testAddress: '127.0.0.1'
+      testAddress: '127.0.0.1',
+      identityStore
     })
     return { db, hub, lan }
   }
+
+  /** A store that hands out one identity, saying whether it is a new one. */
+  function storeWith(isNew: boolean): HostIdentityStore {
+    const { keyPem, certPem, certDer } = makeHostCertificate()
+    return { load: () => Promise.resolve({ keyPem, certPem, pin: certificatePin(certDer), isNew }) }
+  }
+
+  describe("the sim PC's TLS identity", () => {
+    /** A twin with a kept row, a phone and a second twin, all paired. */
+    function paired(db: ReturnType<typeof build>['db']) {
+      const twin = addLanDevice(db, 'Mac', 'hash-1', '2026-11-17T10:00:00.000Z', 'twin')
+      const phone = addLanDevice(db, 'iPad', 'hash-2', '2026-11-17T10:00:00.000Z', 'screen')
+      deferRow(db, twinOrigin(twin), 'aircraft', {
+        uuid: 'row-1',
+        updatedAt: '2026-11-17T10:00:00.000Z',
+        data: '{}'
+      })
+      return { twin, phone }
+    }
+
+    it('unpairs every twin, and forgets the rows kept for it, when it makes a new identity, but not the phones', async () => {
+      const { db, lan } = build(storeWith(true))
+      const { twin, phone } = paired(db)
+      setLanSettings(db, { enabled: false, port: await freePort(), twinEnabled: true })
+      await lan.init()
+      expect(lan.getStatus().devices.map((device) => device.id)).toEqual([phone])
+      expect(countDeferredRows(db, twinOrigin(twin))).toBe(0)
+    })
+
+    it('keeps the twins when it loads the identity it already had', async () => {
+      const { db, lan } = build(storeWith(false))
+      const { twin, phone } = paired(db)
+      setLanSettings(db, { enabled: false, port: await freePort(), twinEnabled: true })
+      await lan.init()
+      expect(lan.getStatus().devices.map((device) => device.id)).toEqual([twin, phone])
+      expect(countDeferredRows(db, twinOrigin(twin))).toBe(1)
+    })
+
+    it('shows the pin of its certificate in the status, and nothing of the key', async () => {
+      const store = storeWith(false)
+      const identity = await store.load()
+      const { db, lan } = build(store)
+      setLanSettings(db, { enabled: false, port: await freePort(), twinEnabled: true })
+      await lan.init()
+      const status = lan.getStatus()
+      expect(status.twinCertificate).toBe(identity?.pin)
+      expect(JSON.stringify(status)).not.toContain(identity?.keyPem.slice(30, 60) ?? 'unreachable')
+    })
+
+    it('gives twins nothing to connect to when this computer cannot keep a certificate (no pin), and still serves phones', async () => {
+      const { db, lan } = build({ load: () => Promise.resolve(null) })
+      const port = await freePort()
+      setLanSettings(db, { enabled: true, port, twinEnabled: true })
+      await lan.init()
+      expect(lan.getStatus()).toMatchObject({ listening: true, twinCertificate: null })
+      expect((await fetch(`http://127.0.0.1:${port}/`)).status).toBe(200)
+    })
+  })
 
   it('builds the route of the flight shown, and builds it again when the choice, the navdata or the flight changes', async () => {
     const { db, hub } = build()
