@@ -394,7 +394,7 @@
     "whatsNew": "Novedades de WingLog 1.5: una segunda pantalla para tu móvil o tableta, actualizaciones con un clic, un aviso de poco espacio en disco y una línea de rodaje más precisa. Activa la segunda pantalla en Ajustes → Segunda pantalla."
   },
   "fleetView": {
-    "atStand": "puesto {{stand}}",
+    "atStand": "puesto {{stand}}",
     "title": "Flota",
     "newAircraft": "Nueva aeronave",
     "editAircraft": "Editar {{registration}}",
@@ -412,7 +412,7 @@
       "location": "Aeropuerto",
       "hours": "Horas",
       "flights": "Vuelos",
-      "stand": "Posición"
+      "stand": "Puesto"
     },
     "retiredTable": {
       "registration": "Matrícula",
@@ -482,7 +482,12 @@
       "unretired": "{{registration}} está activa de nuevo.",
       "replaced": "{{registration}} retirada, reemplazada por {{replacement}}."
     },
-    "standNote": "El puesto es donde la aeronave aparcó por última vez en ese aeropuerto, según el simulador; en blanco si no se registró o la aeronave se ha movido desde entonces."
+    "standNote": "El puesto es donde la aeronave aparcó por última vez en ese aeropuerto, según el simulador; en blanco si no se registró o la aeronave se ha movido desde entonces.",
+    "listRow": {
+      "hours": "{{hours}} h",
+      "flights_one": "{{figure}} vuelo",
+      "flights_other": "{{figure}} vuelos"
+    }
   },
   "aircraftForm": {
     "registration": "Matrícula",
@@ -933,7 +938,10 @@
     "flown": "Volada",
     "airportsTo": "{{dep}} a {{arr}}",
     "speedMode": "Velocidad mostrada como",
-    "fuelPercentOfPlan": "{{pct}} % del plan"
+    "fuelPercentOfPlan": "{{pct}} % del plan",
+    "listRow": {
+      "block": "bloque {{time}}"
+    }
   },
   "gsxRemoteView": {
     "title": "Servicios de tierra"

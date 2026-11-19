@@ -394,7 +394,7 @@
     "whatsNew": "Nouveau dans WingLog 1.5 : un second écran pour votre téléphone ou tablette, des mises à jour en un clic, une alerte d’espace disque faible et une ligne de roulage plus précise. Activez le second écran dans Paramètres → Deuxième écran."
   },
   "fleetView": {
-    "atStand": "poste {{stand}}",
+    "atStand": "poste {{stand}}",
     "title": "Flotte",
     "newAircraft": "Nouvel appareil",
     "editAircraft": "Modifier {{registration}}",
@@ -482,7 +482,12 @@
       "unretired": "{{registration}} est de nouveau actif.",
       "replaced": "{{registration}} retiré, remplacé par {{replacement}}."
     },
-    "standNote": "Le poste est l’endroit où l’appareil s’est garé en dernier sur cet aéroport, d’après le simulateur ; vide s’il n’a pas été enregistré ou si l’appareil a bougé depuis."
+    "standNote": "Le poste est l’endroit où l’appareil s’est garé en dernier sur cet aéroport, d’après le simulateur ; vide s’il n’a pas été enregistré ou si l’appareil a bougé depuis.",
+    "listRow": {
+      "hours": "{{hours}} h",
+      "flights_one": "{{figure}} vol",
+      "flights_other": "{{figure}} vols"
+    }
   },
   "aircraftForm": {
     "registration": "Immatriculation",
@@ -933,7 +938,10 @@
     "flown": "Volée",
     "airportsTo": "{{dep}} à {{arr}}",
     "speedMode": "Vitesse affichée en",
-    "fuelPercentOfPlan": "{{pct}} % du plan"
+    "fuelPercentOfPlan": "{{pct}} % du plan",
+    "listRow": {
+      "block": "bloc {{time}}"
+    }
   },
   "gsxRemoteView": {
     "title": "Services au sol"

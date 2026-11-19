@@ -41,6 +41,31 @@ test.afterAll(() => {
   rmSync(userDataDir, { recursive: true, force: true })
 })
 
+test('a narrow window’s list rows say what their figures are, since they have no column headings (v2-design G2)', async () => {
+  const { app, window, cleanup } = await launchApp({ userDataDir })
+  try {
+    // 760 px of page is the wrap width (v2-design.md, "Wrapping"); a 700 px window is well inside it.
+    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]!.setContentSize(700, 900))
+    await window.getByRole('tab', { name: 'Logbook' }).click()
+    const flight = window.getByRole('row', { name: /EGLL.*EGCC/ })
+    // \s: the word and its figure are joined by a no-break space.
+    await expect(flight.getByText(/\sblock$/)).toBeVisible()
+    await window.getByRole('tab', { name: 'Fleet' }).click()
+    const aircraft = window.getByRole('row', { name: /G-TEST/ })
+    await expect(aircraft.getByText(/\sflights?$/)).toBeVisible()
+    await expect(aircraft.getByText(/\sh$/)).toBeVisible()
+
+    // Wide again: the headings say what the figures are, so the words go and the bare figures show under them.
+    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]!.setContentSize(1280, 900))
+    await expect(window.getByRole('columnheader', { name: 'Flights' })).toBeVisible()
+    await expect(aircraft.getByText(/\sflights?$/)).toBeHidden()
+    await expect(aircraft.getByText(/\sh$/)).toBeHidden()
+    await expect(aircraft.locator('[data-layout="wide"]').last()).toBeVisible()
+  } finally {
+    await cleanup()
+  }
+})
+
 test('browses to a completed flight, sees its landing/track detail, and deletes it', async () => {
   const { window, cleanup } = await launchApp({ userDataDir })
   try {

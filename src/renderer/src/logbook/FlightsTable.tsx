@@ -7,6 +7,7 @@ import { AirlineLogo } from '../AirlineLogo'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { displayIcao } from '../display-icao'
 import { LandingScoreBadge } from '../LandingScoreBadge'
+import { RowFigure } from '../RowFigure'
 import { SortableHead } from '../SortableHead'
 import { formatMinutes, formatWeight } from '../units'
 import { LogbookRowsSkeleton } from './LandingsTable'
@@ -150,7 +151,10 @@ export function FlightsTable(props: {
                   {props.registrationFor(f)}
                 </TableCell>
                 <TableCell className="order-5 p-0 text-[13px] text-muted-foreground @3xl:p-2 @3xl:text-[length:inherit] before:mr-2.5 before:content-['·'] @3xl:before:content-none font-mono @3xl:text-right @3xl:text-sm">
-                  {formatMinutes(f.blockMinutes)}
+                  <RowFigure
+                    figure={formatMinutes(f.blockMinutes)}
+                    words={(time) => t('logbookView.listRow.block', { time })}
+                  />
                 </TableCell>
                 <TableCell className="order-5 p-0 text-[13px] text-muted-foreground @3xl:p-2 @3xl:text-[length:inherit] before:mr-2.5 before:content-['·'] @3xl:before:content-none font-mono @3xl:text-right @3xl:text-sm">
                   {formatWeight(f.fuelBurnKg, props.weightUnit)}

@@ -392,7 +392,7 @@
     "whatsNew": "New in WingLog 1.5: a second screen for your phone or tablet, one-click updates, a low disk space warning and a more accurate taxi line. Turn the second screen on in Settings → Second screen."
   },
   "fleetView": {
-    "atStand": "stand {{stand}}",
+    "atStand": "stand {{stand}}",
     "title": "Fleet",
     "newAircraft": "New aircraft",
     "editAircraft": "Edit {{registration}}",
@@ -480,7 +480,12 @@
       "unretired": "{{registration}} is active again.",
       "replaced": "{{registration}} retired, replaced by {{replacement}}."
     },
-    "standNote": "Stand is where the aircraft last parked at that airport, from the sim; blank when it wasn’t recorded or the aircraft has moved since."
+    "standNote": "Stand is where the aircraft last parked at that airport, from the sim; blank when it wasn’t recorded or the aircraft has moved since.",
+    "listRow": {
+      "hours": "{{hours}} h",
+      "flights_one": "{{figure}} flight",
+      "flights_other": "{{figure}} flights"
+    }
   },
   "aircraftForm": {
     "registration": "Registration",
@@ -931,7 +936,10 @@
     "flown": "Flown",
     "airportsTo": "{{dep}} to {{arr}}",
     "speedMode": "Speed shown as",
-    "fuelPercentOfPlan": "{{pct}} % of plan"
+    "fuelPercentOfPlan": "{{pct}} % of plan",
+    "listRow": {
+      "block": "{{time}} block"
+    }
   },
   "gsxRemoteView": {
     "title": "Ground services"

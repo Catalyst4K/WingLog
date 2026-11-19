@@ -386,7 +386,7 @@
     "whatsNew": "WingLog 1.5 新功能：適用於手機或平板的第二螢幕、一鍵更新、磁碟空間不足提醒，以及更準確的滑行線。在「設定 → 第二螢幕」中開啟第二螢幕。"
   },
   "fleetView": {
-    "atStand": "機位 {{stand}}",
+    "atStand": "機位 {{stand}}",
     "title": "機隊",
     "newAircraft": "新增飛機",
     "editAircraft": "編輯 {{registration}}",
@@ -473,7 +473,11 @@
       "unretired": "{{registration}} 已重新在役。",
       "replaced": "{{registration}} 已除役，由 {{replacement}} 取代。"
     },
-    "standNote": "機位是該飛機上次在該機場停放的位置，來自模擬器；未記錄或此後飛機已移動時留空。"
+    "standNote": "機位是該飛機上次在該機場停放的位置，來自模擬器；未記錄或此後飛機已移動時留空。",
+    "listRow": {
+      "hours": "{{hours}} 小時",
+      "flights_other": "{{figure}} 個航班"
+    }
   },
   "aircraftForm": {
     "registration": "註冊號",
@@ -866,7 +870,7 @@
     "fields": {
       "aircraft": "飛機",
       "date": "日期",
-      "blockTime": "輪檔時間",
+      "blockTime": "輪擋時間",
       "airTime": "空中時間",
       "fuelBurn": "燃油消耗",
       "fuelPlanned": "計畫燃油",
@@ -885,7 +889,7 @@
       "flight": "航班",
       "route": "航路",
       "aircraft": "飛機",
-      "block": "輪檔時間",
+      "block": "輪擋時間",
       "fuelBurn": "燃油消耗",
       "landingScore": "落地評分"
     },
@@ -922,7 +926,10 @@
     "flown": "實飛",
     "airportsTo": "{{dep}}至{{arr}}",
     "speedMode": "速度顯示為",
-    "fuelPercentOfPlan": "計畫的 {{pct}}%"
+    "fuelPercentOfPlan": "計畫的 {{pct}}%",
+    "listRow": {
+      "block": "輪擋 {{time}}"
+    }
   },
   "gsxRemoteView": {
     "title": "地面服務"

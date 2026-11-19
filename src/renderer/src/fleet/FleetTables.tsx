@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
 import type { Aircraft, AircraftLastParked, FleetStats } from '@shared/ipc'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { RowFigure } from '../RowFigure'
 import { SortableHead } from '../SortableHead'
 import { AirlineLabel } from './DetailCards'
 import { airportAndStand, formatDate } from './fleet-format'
@@ -65,6 +66,8 @@ export function ActiveFleetTable(props: {
               icao,
               props.lastParked.find((p) => p.aircraftId === a.id)
             )
+            const hours = s ? s.totalHours.toFixed(1) : '0.0'
+            const cycles = s?.totalCycles ?? 0
             return (
               <TableRow
                 key={a.id}
@@ -83,14 +86,31 @@ export function ActiveFleetTable(props: {
                 <TableCell className="order-5 p-0 text-[13px] text-muted-foreground @3xl:p-2 @3xl:text-[length:inherit] font-mono @3xl:text-[length:inherit] @3xl:text-foreground">
                   {where.airport ?? '—'}
                 </TableCell>
-                <TableCell className="order-5 p-0 text-[13px] text-muted-foreground @3xl:p-2 @3xl:text-[length:inherit] before:mr-2.5 before:content-['·'] @3xl:before:content-none font-mono @3xl:text-[length:inherit]">
-                  {where.stand ?? ''}
+                {/* With no stand, a narrow row leaves the stand out; the wide table keeps the empty cell under its heading.
+                    A narrow row sets "stand" and "flights" in the sans face and only their figures in mono (r7-narrow-fleet-list). */}
+                <TableCell
+                  className={`order-5 p-0 text-[13px] text-muted-foreground @3xl:p-2 @3xl:text-[length:inherit] before:mr-2.5 before:content-['·'] @3xl:before:content-none @3xl:font-mono @3xl:text-[length:inherit] ${where.stand === null ? 'hidden @3xl:table-cell' : ''}`}
+                >
+                  {where.stand !== null && (
+                    <RowFigure
+                      figure={where.stand}
+                      words={(stand) => t('fleetView.atStand', { stand })}
+                      figureClassName="font-mono"
+                    />
+                  )}
                 </TableCell>
                 <TableCell className="order-5 p-0 text-[13px] text-muted-foreground @3xl:p-2 @3xl:text-[length:inherit] before:mr-2.5 before:content-['·'] @3xl:before:content-none font-mono @3xl:text-[length:inherit] @3xl:text-right @3xl:text-foreground">
-                  {s ? s.totalHours.toFixed(1) : '0.0'}
+                  <RowFigure
+                    figure={hours}
+                    words={(figure) => t('fleetView.listRow.hours', { hours: figure })}
+                  />
                 </TableCell>
-                <TableCell className="order-5 p-0 text-[13px] text-muted-foreground @3xl:p-2 @3xl:text-[length:inherit] before:mr-2.5 before:content-['·'] @3xl:before:content-none font-mono @3xl:text-[length:inherit] @3xl:text-right @3xl:text-foreground">
-                  {s?.totalCycles ?? 0}
+                <TableCell className="order-5 p-0 text-[13px] text-muted-foreground @3xl:p-2 @3xl:text-[length:inherit] before:mr-2.5 before:content-['·'] @3xl:before:content-none @3xl:font-mono @3xl:text-[length:inherit] @3xl:text-right @3xl:text-foreground">
+                  <RowFigure
+                    figure={String(cycles)}
+                    words={(figure) => t('fleetView.listRow.flights', { count: cycles, figure })}
+                    figureClassName="font-mono"
+                  />
                 </TableCell>
               </TableRow>
             )
