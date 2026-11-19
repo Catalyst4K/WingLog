@@ -145,7 +145,8 @@ export { pageSecurityPolicy }
 /** The second-screen HTTP and WebSocket server. */
 export class LanServer {
   private listener: LanListener | null = null
-  private wss: WebSocketServer | null = null
+  /** One WebSocket server per side: the plain side carries phones only, so its frames are capped small; twins use the TLS side. */
+  private wss: { plain: WebSocketServer; secure: WebSocketServer } | null = null
   /** The pin of the certificate twins are shown, while running with an identity. */
   private pin: string | null = null
   /** When each kind of line was last written for the log, so a device or a scan cannot fill it. */
@@ -189,13 +190,16 @@ export class LanServer {
   async start(address: string, port: number): Promise<void> {
     if (this.listener) throw new Error('Already listening')
     const identity = await loadHostIdentity(this.deps.identity)
-    const wss = new WebSocketServer({ noServer: true, maxPayload: TWIN_MAX_MESSAGE_BYTES })
+    const wss = {
+      plain: new WebSocketServer({ noServer: true, maxPayload: MAX_MESSAGE_BYTES }),
+      secure: new WebSocketServer({ noServer: true, maxPayload: TWIN_MAX_MESSAGE_BYTES })
+    }
     const plain = createServer((req, res) => this.handleHttp(req, res))
-    plain.on('upgrade', (req, socket, head) => this.handleUpgrade(wss, req, socket, head, false))
+    plain.on('upgrade', (req, socket, head) => this.handleUpgrade(wss.plain, req, socket, head, false))
     const secure = createTlsServer(
       identity,
       this.deps.authTimeoutMs ?? AUTH_TIMEOUT_MS,
-      (req, socket, head) => this.handleUpgrade(wss, req, socket, head, true),
+      (req, socket, head) => this.handleUpgrade(wss.secure, req, socket, head, true),
       (error) =>
         this.logAtMostOncePerMinute(
           'tls-client-error',
@@ -238,7 +242,8 @@ export class LanServer {
     const listener = this.listener
     this.listener = null
     this.pin = null
-    this.wss?.close()
+    this.wss?.plain.close()
+    this.wss?.secure.close()
     this.wss = null
     return listener ? listener.close() : Promise.resolve()
   }
@@ -410,7 +415,8 @@ export class LanServer {
     this.clients.add(client)
     socket.on('message', (data, isBinary) => {
       if (isBinary) return
-      // Only a paired twin may send more than a phone does; anyone else over the small limit is cut off, as the socket's own limit once did.
+      // Only a paired twin may send more than a phone does. The plain side's own socket limit already stops a frame over the small limit
+      // before it is buffered; this check is for the TLS side, whose limit is the twin's, and a phone or an unpaired socket over it.
       if (client.kind !== 'twin' && (data as Buffer).length > MAX_MESSAGE_BYTES) {
         socket.close()
         return
