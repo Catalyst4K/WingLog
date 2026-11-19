@@ -502,7 +502,15 @@
       "unretired": "{{registration}} снова активен.",
       "replaced": "{{registration}} списан, заменён на {{replacement}}."
     },
-    "standNote": "Стоянка — это место, где самолёт последний раз парковался в этом аэропорту, по данным симулятора; пусто, если она не записана или самолёт с тех пор переместился."
+    "standNote": "Стоянка — это место, где самолёт последний раз парковался в этом аэропорту, по данным симулятора; пусто, если она не записана или самолёт с тех пор переместился.",
+    "listRow": {
+      "stand": "стоянка {{stand}}",
+      "hours": "{{hours}} ч",
+      "flights_one": "{{count}} рейс",
+      "flights_few": "{{count}} рейса",
+      "flights_many": "{{count}} рейсов",
+      "flights_other": "{{count}} рейса"
+    }
   },
   "aircraftForm": {
     "registration": "Регистрация",
@@ -960,7 +968,10 @@
     "flown": "Пролетено",
     "airportsTo": "{{dep}} — {{arr}}",
     "speedMode": "Скорость в виде",
-    "fuelPercentOfPlan": "{{pct}} % от плана"
+    "fuelPercentOfPlan": "{{pct}} % от плана",
+    "listRow": {
+      "block": "блок {{time}}"
+    }
   },
   "gsxRemoteView": {
     "title": "Наземное обслуживание"

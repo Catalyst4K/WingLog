@@ -473,7 +473,13 @@
       "unretired": "{{registration}} 已重新在役。",
       "replaced": "{{registration}} 已除役，由 {{replacement}} 取代。"
     },
-    "standNote": "機位是該飛機上次在該機場停放的位置，來自模擬器；未記錄或此後飛機已移動時留空。"
+    "standNote": "機位是該飛機上次在該機場停放的位置，來自模擬器；未記錄或此後飛機已移動時留空。",
+    "listRow": {
+      "stand": "停機位 {{stand}}",
+      "hours": "{{hours}} 小時",
+      "flights_one": "{{count}} 個航班",
+      "flights_other": "{{count}} 個航班"
+    }
   },
   "aircraftForm": {
     "registration": "註冊號",
@@ -922,7 +928,10 @@
     "flown": "實飛",
     "airportsTo": "{{dep}}至{{arr}}",
     "speedMode": "速度顯示為",
-    "fuelPercentOfPlan": "計畫的 {{pct}}%"
+    "fuelPercentOfPlan": "計畫的 {{pct}}%",
+    "listRow": {
+      "block": "輪檔 {{time}}"
+    }
   },
   "gsxRemoteView": {
     "title": "地面服務"

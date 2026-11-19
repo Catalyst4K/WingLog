@@ -482,7 +482,13 @@
       "unretired": "{{registration}} está activa de nuevo.",
       "replaced": "{{registration}} retirada, reemplazada por {{replacement}}."
     },
-    "standNote": "El puesto es donde la aeronave aparcó por última vez en ese aeropuerto, según el simulador; en blanco si no se registró o la aeronave se ha movido desde entonces."
+    "standNote": "El puesto es donde la aeronave aparcó por última vez en ese aeropuerto, según el simulador; en blanco si no se registró o la aeronave se ha movido desde entonces.",
+    "listRow": {
+      "stand": "posición {{stand}}",
+      "hours": "{{hours}} h",
+      "flights_one": "{{count}} vuelo",
+      "flights_other": "{{count}} vuelos"
+    }
   },
   "aircraftForm": {
     "registration": "Matrícula",
@@ -933,7 +939,10 @@
     "flown": "Volada",
     "airportsTo": "{{dep}} a {{arr}}",
     "speedMode": "Velocidad mostrada como",
-    "fuelPercentOfPlan": "{{pct}} % del plan"
+    "fuelPercentOfPlan": "{{pct}} % del plan",
+    "listRow": {
+      "block": "bloque {{time}}"
+    }
   },
   "gsxRemoteView": {
     "title": "Servicios de tierra"

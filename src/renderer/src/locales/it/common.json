@@ -482,7 +482,13 @@
       "unretired": "{{registration}} è di nuovo attivo.",
       "replaced": "{{registration}} ritirato, sostituito da {{replacement}}."
     },
-    "standNote": "Lo stand è dove l’aeromobile ha parcheggiato l’ultima volta in quell’aeroporto, dal simulatore; vuoto se non è stato registrato o se l’aeromobile si è spostato da allora."
+    "standNote": "Lo stand è dove l’aeromobile ha parcheggiato l’ultima volta in quell’aeroporto, dal simulatore; vuoto se non è stato registrato o se l’aeromobile si è spostato da allora.",
+    "listRow": {
+      "stand": "piazzola {{stand}}",
+      "hours": "{{hours}} h",
+      "flights_one": "{{count}} volo",
+      "flights_other": "{{count}} voli"
+    }
   },
   "aircraftForm": {
     "registration": "Immatricolazione",
@@ -933,7 +939,10 @@
     "flown": "Volata",
     "airportsTo": "{{dep}} per {{arr}}",
     "speedMode": "Velocità mostrata come",
-    "fuelPercentOfPlan": "{{pct}} % del piano"
+    "fuelPercentOfPlan": "{{pct}} % del piano",
+    "listRow": {
+      "block": "blocco {{time}}"
+    }
   },
   "gsxRemoteView": {
     "title": "Servizi di terra"

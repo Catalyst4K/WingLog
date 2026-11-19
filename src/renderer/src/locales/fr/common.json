@@ -482,7 +482,13 @@
       "unretired": "{{registration}} est de nouveau actif.",
       "replaced": "{{registration}} retiré, remplacé par {{replacement}}."
     },
-    "standNote": "Le poste est l’endroit où l’appareil s’est garé en dernier sur cet aéroport, d’après le simulateur ; vide s’il n’a pas été enregistré ou si l’appareil a bougé depuis."
+    "standNote": "Le poste est l’endroit où l’appareil s’est garé en dernier sur cet aéroport, d’après le simulateur ; vide s’il n’a pas été enregistré ou si l’appareil a bougé depuis.",
+    "listRow": {
+      "stand": "poste {{stand}}",
+      "hours": "{{hours}} h",
+      "flights_one": "{{count}} vol",
+      "flights_other": "{{count}} vols"
+    }
   },
   "aircraftForm": {
     "registration": "Immatriculation",
@@ -933,7 +939,10 @@
     "flown": "Volée",
     "airportsTo": "{{dep}} à {{arr}}",
     "speedMode": "Vitesse affichée en",
-    "fuelPercentOfPlan": "{{pct}} % du plan"
+    "fuelPercentOfPlan": "{{pct}} % du plan",
+    "listRow": {
+      "block": "bloc {{time}}"
+    }
   },
   "gsxRemoteView": {
     "title": "Services au sol"

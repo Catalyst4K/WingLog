@@ -1,4 +1,5 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { formatMinutes } from './units'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { toast } from 'sonner'
@@ -646,6 +647,19 @@ describe('LogbookView list', () => {
     expect(cells[4]).toHaveClass('font-mono')
     expect(cells[5]).toHaveClass('font-mono')
     expect(row.closest('table')?.parentElement?.parentElement?.className).toContain('[&_tbody_tr]:h-12')
+  })
+
+  it('says "block" after the block time on a narrow row, and leaves the wide table its bare figure (r7-narrow-logbook)', async () => {
+    setWinglog({
+      logbookListCompletedFlights: vi
+        .fn()
+        .mockResolvedValue([makeFlight({ id: 1, flightNumber: 'NARROW1', blockMinutes: 97 })])
+    })
+    render(<LogbookView weightUnit="kg" landingDistanceUnit="ft" />)
+    const row = (await screen.findByText('NARROW1')).closest('tr') as HTMLElement
+    const blockCell = within(row).getAllByRole('cell')[4]
+    expect(blockCell.querySelector('[data-layout="narrow"]')?.textContent).toBe(`${formatMinutes(97)}\u00a0block`)
+    expect(blockCell.querySelector('[data-layout="wide"]')?.textContent).toBe(formatMinutes(97))
   })
 
   it('marks a landing in the list by its tinted score alone: no light beside it, even for a firm or hard touchdown', async () => {

@@ -273,13 +273,41 @@ describe('FleetView', () => {
     })
     render(<FleetView onOpenFlightInLogbook={vi.fn()} />)
     await screen.findByText('B-LRA')
+    // What the wide table shows in each cell (a narrow row's words are in a separate span, RowFigure).
     const cells = (registration: string): string[] =>
       within(screen.getByText(registration).closest('tr')!)
         .getAllByRole('cell')
-        .map((cell) => cell.textContent ?? '')
+        .map((cell) => (cell.querySelector('[data-layout="wide"]') ?? cell).textContent ?? '')
     // Columns: registration, type, airline, airport, stand, hours, flights.
     expect(cells('B-LRA').slice(3, 5)).toEqual(['VHHH', 'N32'])
     expect(cells('B-LRB').slice(3, 5)).toEqual(['YBBN', ''])
+  })
+
+  it('says what each figure is on a narrow row, which has no column headings (r7-narrow-fleet-list)', async () => {
+    setWinglog({
+      aircraftList: vi
+        .fn()
+        .mockResolvedValue([
+          makeAircraft({ id: 1, registration: 'B-LRA', currentIcao: 'VHHH' }),
+          makeAircraft({ id: 2, registration: 'B-LRB', currentIcao: 'YBBN' })
+        ]),
+      logbookFleetStats: vi
+        .fn()
+        .mockResolvedValue([
+          makeStats({ aircraftId: 1, totalHours: 412.8, totalCycles: 29 }),
+          makeStats({ aircraftId: 2, totalHours: 1.5, totalCycles: 1 })
+        ]),
+      fleetListLastParked: vi.fn().mockResolvedValue([{ aircraftId: 1, icao: 'VHHH', stand: 'T4 A3' }])
+    })
+    render(<FleetView onOpenFlightInLogbook={vi.fn()} />)
+    await screen.findByText('B-LRA')
+    const narrow = (registration: string): string[] =>
+      Array.from(
+        screen.getByText(registration).closest('tr')!.querySelectorAll('[data-layout="narrow"]')
+      ).map((span) => span.textContent ?? '')
+    expect(narrow('B-LRA')).toEqual(['stand\u00a0T4 A3', '412.8\u00a0h', '29\u00a0flights'])
+    // No stand recorded: the narrow row says so with a dash, as the board does; one flight is singular.
+    expect(narrow('B-LRB')).toEqual(['stand\u00a0—', '1.5\u00a0h', '1\u00a0flight'])
     expect(screen.queryByText(/W122/)).not.toBeInTheDocument()
   })
 

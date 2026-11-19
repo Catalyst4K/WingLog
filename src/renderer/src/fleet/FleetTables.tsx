@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
 import type { Aircraft, AircraftLastParked, FleetStats } from '@shared/ipc'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { RowFigure } from '../RowFigure'
 import { SortableHead } from '../SortableHead'
 import { AirlineLabel } from './DetailCards'
 import { airportAndStand, formatDate } from './fleet-format'
@@ -65,6 +66,8 @@ export function ActiveFleetTable(props: {
               icao,
               props.lastParked.find((p) => p.aircraftId === a.id)
             )
+            const hours = s ? s.totalHours.toFixed(1) : '0.0'
+            const cycles = s?.totalCycles ?? 0
             return (
               <TableRow
                 key={a.id}
@@ -84,13 +87,16 @@ export function ActiveFleetTable(props: {
                   {where.airport ?? '—'}
                 </TableCell>
                 <TableCell className="order-5 p-0 text-[13px] text-muted-foreground @3xl:p-2 @3xl:text-[length:inherit] before:mr-2.5 before:content-['·'] @3xl:before:content-none font-mono @3xl:text-[length:inherit]">
-                  {where.stand ?? ''}
+                  <RowFigure
+                    worded={t('fleetView.listRow.stand', { stand: where.stand ?? '—' })}
+                    bare={where.stand ?? ''}
+                  />
                 </TableCell>
                 <TableCell className="order-5 p-0 text-[13px] text-muted-foreground @3xl:p-2 @3xl:text-[length:inherit] before:mr-2.5 before:content-['·'] @3xl:before:content-none font-mono @3xl:text-[length:inherit] @3xl:text-right @3xl:text-foreground">
-                  {s ? s.totalHours.toFixed(1) : '0.0'}
+                  <RowFigure worded={t('fleetView.listRow.hours', { hours })} bare={hours} />
                 </TableCell>
                 <TableCell className="order-5 p-0 text-[13px] text-muted-foreground @3xl:p-2 @3xl:text-[length:inherit] before:mr-2.5 before:content-['·'] @3xl:before:content-none font-mono @3xl:text-[length:inherit] @3xl:text-right @3xl:text-foreground">
-                  {s?.totalCycles ?? 0}
+                  <RowFigure worded={t('fleetView.listRow.flights', { count: cycles })} bare={cycles} />
                 </TableCell>
               </TableRow>
             )
