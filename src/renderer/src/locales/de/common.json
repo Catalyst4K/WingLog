@@ -291,7 +291,15 @@
         "connecting": "Verbinde …",
         "offline": "Nicht erreichbar, neuer Versuch",
         "wrong-code": "Falscher Code",
+        "pair-again": "Erneut koppeln",
+        "certificate-changed": "Zertifikat geändert",
+        "not-secure": "Nicht verschlüsselt",
         "unpaired": "Nicht gekoppelt"
+      },
+      "refused": {
+        "pair-again": "Die Verbindung zum Sim-PC ist jetzt verschlüsselt. Kopple diesen Computer erneut.",
+        "certificate-changed": "Das Sicherheitszertifikat des Sim-PCs hat sich geändert, seit dieser Computer gekoppelt wurde. Wurde WingLog auf dem Sim-PC neu installiert oder wurden seine Daten zurückgesetzt, kopple erneut. Andernfalls gibt sich womöglich etwas in deinem Netzwerk als Sim-PC aus.",
+        "not-secure": "Der Sim-PC hat nicht mit einer verschlüsselten Verbindung geantwortet. Aktualisiere WingLog auf dem Sim-PC."
       },
       "pairedWith": "Gekoppelt mit {{address}}",
       "forget": "Diesen Sim-PC vergessen",
@@ -311,6 +319,7 @@
       "paired_one": "{{count}} gekoppelt",
       "paired_other": "{{count}} gekoppelt",
       "notReachable": "In deinem Heimnetz nicht erreichbar.",
+      "noCertificate": "Weitere WingLogs können sich nicht verbinden, weil dieser PC sein Sicherheitszertifikat nicht sicher speichern kann.",
       "address": "Adresse",
       "pairButton": "Weiteres WingLog koppeln",
       "pairingCode": "Kopplungscode",
@@ -351,7 +360,10 @@
         "connecting": "verbindet",
         "offline": "nicht erreichbar",
         "unpaired": "nicht gekoppelt",
-        "wrong-code": "nicht gekoppelt"
+        "wrong-code": "nicht gekoppelt",
+        "pair-again": "erneut koppeln",
+        "certificate-changed": "Zertifikat geändert",
+        "not-secure": "nicht verschlüsselt"
       },
       "simPcConnected": "Mit dem Sim-PC verbunden",
       "simPcLabel": "Sim-PC"

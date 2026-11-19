@@ -293,7 +293,15 @@
         "connecting": "Conectando…",
         "offline": "Inaccesible, reintentando",
         "wrong-code": "Código incorrecto",
+        "pair-again": "Vincular de nuevo",
+        "certificate-changed": "Certificado cambiado",
+        "not-secure": "Sin cifrar",
         "unpaired": "Sin vincular"
+      },
+      "refused": {
+        "pair-again": "La conexión con el PC del simulador ahora está cifrada. Vincula este ordenador de nuevo.",
+        "certificate-changed": "El certificado de seguridad del PC del simulador ha cambiado desde que este ordenador se vinculó. Si WingLog se reinstaló en el PC del simulador o se restablecieron sus datos, vincula de nuevo. Si no, algo en tu red podría estar haciéndose pasar por el PC del simulador.",
+        "not-secure": "El PC del simulador no respondió con una conexión cifrada. Actualiza WingLog en el PC del simulador."
       },
       "pairedWith": "Vinculado con {{address}}",
       "forget": "Olvidar este PC del simulador",
@@ -313,6 +321,7 @@
       "paired_one": "{{count}} vinculado",
       "paired_other": "{{count}} vinculados",
       "notReachable": "No accesible en tu red doméstica.",
+      "noCertificate": "Otros WingLog no pueden conectarse porque este PC no puede guardar su certificado de seguridad de forma segura.",
       "address": "Dirección",
       "pairButton": "Vincular otro WingLog",
       "pairingCode": "Código de vinculación",
@@ -353,7 +362,10 @@
         "connecting": "conectando",
         "offline": "inaccesible",
         "unpaired": "sin vincular",
-        "wrong-code": "sin vincular"
+        "wrong-code": "sin vincular",
+        "pair-again": "vincular de nuevo",
+        "certificate-changed": "certificado cambiado",
+        "not-secure": "sin cifrar"
       },
       "simPcConnected": "Conectado con el PC del simulador",
       "simPcLabel": "PC del simulador"

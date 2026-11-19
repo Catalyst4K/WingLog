@@ -16,6 +16,8 @@ export const ADDRESS_CHECK_MS = 15_000
 export interface LanServerPort {
   readonly listening: boolean
   readonly connectionCount: number
+  /** The pin of the certificate shown to twins, or null while running without one. */
+  readonly certificatePin: string | null
   /** Whether a kind's pairing window is still open (a used code is not). */
   pairingOpen(kind: LanDeviceKind): boolean
   start(address: string, port: number): Promise<void>
@@ -35,7 +37,7 @@ export interface LanControllerDeps {
   addresses(): LanAddress[]
   /** The local address of the default route (`defaultRouteAddress`), or null when the PC has no route. */
   routeAddress(): Promise<string | null>
-  devices: { list(): LanDevice[]; revoke(id: number): boolean }
+  devices: { list(): LanDevice[]; revoke(id: number): boolean; forget(id: number): void }
   now(): number
 }
 
@@ -115,6 +117,7 @@ export class LanController {
       connections: server.connectionCount,
       pairing: server.listening ? this.pairings.screen : null,
       twinPairing: server.listening ? this.pairings.twin : null,
+      twinCertificate: server.certificatePin,
       devices: this.deps.devices.list()
     }
   }
@@ -149,7 +152,8 @@ export class LanController {
   }
 
   /**
-   * Revokes a device and drops its open connections.
+   * Revokes a device and drops its open connections, and only then forgets what was kept for it: a failure in that last step must not
+   * leave the revoked device's socket open and authenticated.
    *
    * @param id The device, unchecked.
    * @returns The status.
@@ -157,6 +161,7 @@ export class LanController {
   revokeDevice(id: unknown): LanStatus {
     if (typeof id === 'number' && Number.isInteger(id) && this.deps.devices.revoke(id)) {
       this.deps.server.disconnectDevice(id)
+      this.deps.devices.forget(id)
     }
     return this.getStatus()
   }

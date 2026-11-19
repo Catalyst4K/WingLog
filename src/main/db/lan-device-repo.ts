@@ -98,3 +98,19 @@ export function revokeLanDevice(db: WingLogDb, id: number, now: string): boolean
       .run().changes > 0
   )
 }
+
+/**
+ * Revokes every paired device of one kind at once: their tokens stop working. Rows already revoked are left as they were.
+ *
+ * @param db The database.
+ * @param kind The kind of device.
+ * @param now The time, ISO text.
+ * @returns How many devices were revoked.
+ */
+export function revokeLanDevicesOfKind(db: WingLogDb, kind: LanDeviceKind, now: string): number {
+  return db
+    .update(lanDevice)
+    .set({ revokedAt: now })
+    .where(and(eq(lanDevice.kind, kind), isNull(lanDevice.revokedAt)))
+    .run().changes
+}

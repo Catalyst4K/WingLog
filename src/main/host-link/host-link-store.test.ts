@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -17,7 +17,8 @@ vi.mock('electron', () => ({
   safeStorage: { isAsyncEncryptionAvailable, encryptStringAsync, decryptStringAsync }
 }))
 
-const LINK = { address: '192.168.1.20:5051', token: 'device-token' }
+const PIN = 'p'.repeat(43)
+const LINK = { address: '192.168.1.20:5051', token: 'device-token', pin: PIN }
 
 describe('the host link store', () => {
   let dir: string
@@ -40,10 +41,29 @@ describe('the host link store', () => {
     expect(await fileHostLinkStore(dir).load()).toEqual(LINK)
   })
 
+  it('reads a link stored before the link was encrypted, which has no pin, as one with no pin', async () => {
+    writeFileSync(
+      join(dir, 'host-link.enc'),
+      JSON.stringify({ address: '192.168.1.20:5051', token: 'device-token' })
+    )
+    expect(await fileHostLinkStore(dir).load()).toEqual({ ...LINK, pin: null })
+    writeFileSync(join(dir, 'host-link.enc'), JSON.stringify({ ...LINK, pin: 7 }))
+    expect((await fileHostLinkStore(dir).load())?.pin).toBeNull()
+  })
+
   it('refuses to store a token it cannot encrypt, rather than writing it in the clear', async () => {
     isAsyncEncryptionAvailable.mockResolvedValue(false)
     await expect(fileHostLinkStore(dir).save(LINK)).rejects.toThrow()
     expect(existsSync(join(dir, 'host-link.enc'))).toBe(false)
+  })
+
+  it('keeps the link it had when a new one cannot be written whole', async () => {
+    const store = fileHostLinkStore(dir)
+    await store.save(LINK)
+    // A directory in the temporary file's place makes the write fail before anything is moved into place.
+    mkdirSync(join(dir, 'host-link.enc.tmp'))
+    await expect(store.save({ ...LINK, token: 'another-token' })).rejects.toThrow()
+    expect(await store.load()).toEqual(LINK)
   })
 
   it('reads a file this computer cannot decrypt, or that holds the wrong thing, as never paired', async () => {

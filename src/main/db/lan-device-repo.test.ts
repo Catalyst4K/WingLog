@@ -6,6 +6,7 @@ import {
   findActiveLanDevice,
   listLanDevices,
   revokeLanDevice,
+  revokeLanDevicesOfKind,
   touchLanDevice
 } from './lan-device-repo'
 
@@ -67,6 +68,19 @@ describe('lan device repo', () => {
     expect(listLanDevices(db)).toEqual([])
     expect(revokeLanDevice(db, id, '2026-10-12T14:00:00.000Z')).toBe(false)
     expect(revokeLanDevice(db, 999, '2026-10-12T14:00:00.000Z')).toBe(false)
+  })
+
+  it('revokes every twin at once and leaves the phones and the twins already revoked alone', () => {
+    const db = freshDb()
+    const phone = addLanDevice(db, 'iPad', 'hash-phone', '2026-10-12T10:00:00.000Z')
+    addLanDevice(db, 'WingLog on MAC', 'hash-a', '2026-10-12T10:00:00.000Z', 'twin')
+    const twinB = addLanDevice(db, 'WingLog on LAPTOP', 'hash-b', '2026-10-12T10:00:00.000Z', 'twin')
+    revokeLanDevice(db, twinB, '2026-10-12T11:00:00.000Z')
+    expect(revokeLanDevicesOfKind(db, 'twin', '2026-10-12T12:00:00.000Z')).toBe(1)
+    expect(findActiveLanDevice(db, 'hash-a')).toBeNull()
+    expect(findActiveLanDevice(db, 'hash-phone')).toEqual({ id: phone, kind: 'screen' })
+    expect(listLanDevices(db).map((d) => d.id)).toEqual([phone])
+    expect(revokeLanDevicesOfKind(db, 'twin', '2026-10-12T13:00:00.000Z')).toBe(0)
   })
 
   it('refuses two devices with the same token hash', () => {

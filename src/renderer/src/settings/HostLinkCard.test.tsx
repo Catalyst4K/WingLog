@@ -36,7 +36,60 @@ const CONNECTED: HostLinkStatus = {
   sync: { state: 'idle', lastSyncedAt: null, problem: null }
 }
 
+/** A certificate pin, as a pasted pairing text carries it. */
+const PIN = 'Ab-_09'.repeat(7) + 'A'
+
+/** The link's status in a state, for an address already paired. */
+function inState(state: HostLinkStatus['state']): HostLinkStatus {
+  return { ...CONNECTED, state, hostSim: null }
+}
+
 describe('HostLinkCard', () => {
+  it.each([
+    ['pair-again', 'Pair again', /link to the sim PC is now encrypted\. Pair this computer again/],
+    [
+      'certificate-changed',
+      'Certificate changed',
+      /security certificate has changed since this computer paired.*pretending to be the sim PC/
+    ],
+    [
+      'not-secure',
+      'Not encrypted',
+      /did not answer with an encrypted connection\. Update WingLog on the sim PC/
+    ]
+  ] as const)(
+    'says what happened and what to do when the link is %s, and offers the address and code again',
+    async (state, badge, line) => {
+      setup(inState(state))
+      render(<HostLinkCard />)
+      expect(await screen.findByText(badge)).toBeInTheDocument()
+      expect(await screen.findByRole('alert')).toHaveTextContent(line)
+      expect(screen.getByLabelText('Address')).toBeInTheDocument()
+      expect(screen.getByLabelText('Pairing code')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Forget this sim PC' })).toBeInTheDocument()
+    }
+  )
+
+  it('pairs again from a changed certificate with what was typed', async () => {
+    const { api } = setup(inState('certificate-changed'))
+    render(<HostLinkCard />)
+    await userEvent.type(await screen.findByLabelText('Address'), '192.168.1.20:5051')
+    await userEvent.type(screen.getByLabelText('Pairing code'), '123456')
+    await userEvent.click(screen.getByRole('button', { name: 'Connect' }))
+    expect(api.hostLinkPair).toHaveBeenCalledWith('192.168.1.20:5051', '123456', null)
+  })
+
+  it('has no such line, and no pairing fields, while the link is connected or offline', async () => {
+    const { push } = setup(CONNECTED)
+    render(<HostLinkCard />)
+    await screen.findByText('Connected')
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    push(inState('offline'))
+    await screen.findByText('Not reachable, trying again')
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Address')).not.toBeInTheDocument()
+  })
+
   it('asks for the address and the code, and pairs with what was typed', async () => {
     const { api } = setup(UNPAIRED)
     render(<HostLinkCard />)
@@ -46,7 +99,8 @@ describe('HostLinkCard', () => {
     await userEvent.type(screen.getByLabelText('Address'), '192.168.1.20:5051')
     await userEvent.type(screen.getByLabelText('Pairing code'), '123456')
     await userEvent.click(connect)
-    expect(api.hostLinkPair).toHaveBeenCalledWith('192.168.1.20:5051', '123456')
+    // Typed: no pin, so the connection takes the certificate the sim PC shows and pins it.
+    expect(api.hostLinkPair).toHaveBeenCalledWith('192.168.1.20:5051', '123456', null)
     expect(screen.getByLabelText('Pairing code')).toHaveValue('')
   })
 
@@ -59,7 +113,44 @@ describe('HostLinkCard', () => {
     expect(address).toHaveValue('192.168.1.20:5051')
     expect(screen.getByLabelText('Pairing code')).toHaveValue('123456')
     await userEvent.click(screen.getByRole('button', { name: 'Connect' }))
-    expect(api.hostLinkPair).toHaveBeenCalledWith('192.168.1.20:5051', '123456')
+    expect(api.hostLinkPair).toHaveBeenCalledWith('192.168.1.20:5051', '123456', null)
+  })
+
+  it('keeps the pin in pasted pairing text, without showing it, and pairs with it', async () => {
+    const { api } = setup(UNPAIRED)
+    render(<HostLinkCard />)
+    const address = await screen.findByLabelText('Address')
+    await userEvent.click(address)
+    await userEvent.paste(`winglog-pair://192.168.1.20:5051/123456/${PIN}`)
+    expect(address).toHaveValue('192.168.1.20:5051')
+    expect(screen.getByLabelText('Pairing code')).toHaveValue('123456')
+    expect(screen.queryByDisplayValue(PIN)).not.toBeInTheDocument()
+    expect(screen.queryByText(PIN)).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Connect' }))
+    expect(api.hostLinkPair).toHaveBeenCalledWith('192.168.1.20:5051', '123456', PIN)
+  })
+
+  it('drops the pin when the address is then edited by hand: it belonged to the address that was pasted', async () => {
+    const { api } = setup(UNPAIRED)
+    render(<HostLinkCard />)
+    const address = await screen.findByLabelText('Address')
+    await userEvent.click(address)
+    await userEvent.paste(`winglog-pair://192.168.1.20:5051/123456/${PIN}`)
+    await userEvent.type(address, '9')
+    await userEvent.click(screen.getByRole('button', { name: 'Connect' }))
+    expect(api.hostLinkPair).toHaveBeenCalledWith('192.168.1.20:50519', '123456', null)
+  })
+
+  it('does not carry a pin over to the next pairing after one that worked', async () => {
+    const { api } = setup(UNPAIRED)
+    render(<HostLinkCard />)
+    const address = await screen.findByLabelText('Address')
+    await userEvent.click(address)
+    await userEvent.paste(`winglog-pair://192.168.1.20:5051/123456/${PIN}`)
+    await userEvent.click(screen.getByRole('button', { name: 'Connect' }))
+    await userEvent.type(screen.getByLabelText('Pairing code'), '654321')
+    await userEvent.click(screen.getByRole('button', { name: 'Connect' }))
+    expect(api.hostLinkPair).toHaveBeenLastCalledWith('192.168.1.20:5051', '654321', null)
   })
 
   it('says what is wrong with an address the app refuses', async () => {

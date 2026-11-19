@@ -19,6 +19,8 @@ import { LAN_QUERY_KINDS, TWIN_ONLY_QUERIES } from '@shared/lan-queries'
 import { twinOrigin, twinSyncDeviceQueries, twinSyncQueries } from './twin-sync'
 import { twinFlightQueries } from './twin-flight'
 import { createLan, lanQueries } from './create-lan'
+import { certificatePin, makeHostCertificate } from './host-certificate'
+import type { HostIdentity, HostIdentityStore } from './host-identity-store'
 
 /** A port nothing listens on. */
 async function freePort(): Promise<number> {
@@ -191,8 +193,8 @@ describe('createLan', () => {
     for (const folder of folders.splice(0)) rmSync(folder, { recursive: true, force: true })
   })
 
-  function build() {
-    const { db } = createDb(':memory:')
+  function build(identityStore?: HostIdentityStore) {
+    const { db, sqlite } = createDb(':memory:')
     migrate(db, { migrationsFolder: 'drizzle' })
     const pageFolder = mkdtempSync(join(tmpdir(), 'winglog-lan-'))
     folders.push(pageFolder)
@@ -202,15 +204,125 @@ describe('createLan', () => {
       db,
       dbPath: join(folders[0] as string, 'winglog.db'),
       liveHub: hub,
-      trackingController: TRACKING,
+      // Its own emitter, so many builds do not pile listeners onto one.
+      trackingController: Object.assign(new EventEmitter(), { getActive: () => undefined }) as never,
       selection: fakeSelection() as never,
       ...CREATE_DEPS,
       systemLocale: () => 'de-DE',
       pageFolder,
-      testAddress: '127.0.0.1'
+      testAddress: '127.0.0.1',
+      identityStore
     })
-    return { db, hub, lan }
+    return { db, sqlite, hub, lan }
   }
+
+  /** A store that hands out one identity, saying whether it is a new one, and remembers what was saved. */
+  function storeWith(isNew: boolean): HostIdentityStore & { saved: HostIdentity[] } {
+    const { keyPem, certPem, certDer } = makeHostCertificate()
+    const saved: HostIdentity[] = []
+    return {
+      saved,
+      load: () => Promise.resolve({ keyPem, certPem, pin: certificatePin(certDer), isNew }),
+      save: (identity) => {
+        saved.push(identity)
+        return Promise.resolve()
+      }
+    }
+  }
+
+  describe("the sim PC's TLS identity", () => {
+    /** A twin with a kept row, a phone and a second twin, all paired. */
+    function paired(db: ReturnType<typeof build>['db']) {
+      const twin = addLanDevice(db, 'Mac', 'hash-1', '2026-11-17T10:00:00.000Z', 'twin')
+      const phone = addLanDevice(db, 'iPad', 'hash-2', '2026-11-17T10:00:00.000Z', 'screen')
+      deferRow(db, twinOrigin(twin), 'aircraft', {
+        uuid: 'row-1',
+        updatedAt: '2026-11-17T10:00:00.000Z',
+        data: '{}'
+      })
+      return { twin, phone }
+    }
+
+    it('unpairs every twin, and forgets the rows kept for it, when it makes a new identity, but not the phones', async () => {
+      const store = storeWith(true)
+      const { db, lan } = build(store)
+      const { twin, phone } = paired(db)
+      setLanSettings(db, { enabled: false, port: await freePort(), twinEnabled: true })
+      await lan.init()
+      expect(lan.getStatus().devices.map((device) => device.id)).toEqual([phone])
+      expect(countDeferredRows(db, twinOrigin(twin))).toBe(0)
+      expect(store.saved).toHaveLength(1)
+    })
+
+    it('keeps a new identity only after the twins are unpaired: when that fails nothing is saved, and the next start makes a new one and unpairs them', async () => {
+      const store = storeWith(true)
+      const { db, sqlite, lan } = build(store)
+      const { twin, phone } = paired(db)
+      setLanSettings(db, { enabled: true, port: await freePort(), twinEnabled: true })
+      sqlite.exec(
+        "CREATE TRIGGER block_revoke BEFORE UPDATE ON lan_device BEGIN SELECT RAISE(ABORT, 'locked'); END"
+      )
+      await lan.init()
+      // Phones are still served; the twins are not unpaired, no certificate is shown, and the new identity was not kept.
+      expect(lan.getStatus()).toMatchObject({ listening: true, twinCertificate: null })
+      expect(lan.getStatus().devices.map((device) => device.id)).toEqual([twin, phone])
+      expect(store.saved).toEqual([])
+
+      sqlite.exec('DROP TRIGGER block_revoke')
+      await lan.stop()
+      await lan.init()
+      expect(lan.getStatus().devices.map((device) => device.id)).toEqual([phone])
+      expect(store.saved).toHaveLength(1)
+    })
+
+    it('keeps the twins, and saves nothing, when the store has no identity this time (its file could not be read), and still serves phones', async () => {
+      const saved: HostIdentity[] = []
+      const store: HostIdentityStore = {
+        load: () => Promise.resolve(null),
+        save: (identity) => {
+          saved.push(identity)
+          return Promise.resolve()
+        }
+      }
+      const { db, lan } = build(store)
+      const { twin, phone } = paired(db)
+      setLanSettings(db, { enabled: true, port: await freePort(), twinEnabled: true })
+      await lan.init()
+      expect(lan.getStatus()).toMatchObject({ listening: true, twinCertificate: null })
+      expect(lan.getStatus().devices.map((device) => device.id)).toEqual([twin, phone])
+      expect(countDeferredRows(db, twinOrigin(twin))).toBe(1)
+      expect(saved).toEqual([])
+    })
+
+    it('keeps the twins when it loads the identity it already had', async () => {
+      const { db, lan } = build(storeWith(false))
+      const { twin, phone } = paired(db)
+      setLanSettings(db, { enabled: false, port: await freePort(), twinEnabled: true })
+      await lan.init()
+      expect(lan.getStatus().devices.map((device) => device.id)).toEqual([twin, phone])
+      expect(countDeferredRows(db, twinOrigin(twin))).toBe(1)
+    })
+
+    it('shows the pin of its certificate in the status, and nothing of the key', async () => {
+      const store = storeWith(false)
+      const identity = await store.load()
+      const { db, lan } = build(store)
+      setLanSettings(db, { enabled: false, port: await freePort(), twinEnabled: true })
+      await lan.init()
+      const status = lan.getStatus()
+      expect(status.twinCertificate).toBe(identity?.pin)
+      expect(JSON.stringify(status)).not.toContain(identity?.keyPem.slice(30, 60) ?? 'unreachable')
+    })
+
+    it('gives twins nothing to connect to when this computer cannot keep a certificate (no pin), and still serves phones', async () => {
+      const { db, lan } = build({ load: () => Promise.resolve(null), save: () => Promise.resolve() })
+      const port = await freePort()
+      setLanSettings(db, { enabled: true, port, twinEnabled: true })
+      await lan.init()
+      expect(lan.getStatus()).toMatchObject({ listening: true, twinCertificate: null })
+      expect((await fetch(`http://127.0.0.1:${port}/`)).status).toBe(200)
+    })
+  })
 
   it('builds the route of the flight shown, and builds it again when the choice, the navdata or the flight changes', async () => {
     const { db, hub } = build()
@@ -358,6 +470,80 @@ describe('createLan', () => {
     expect(countDeferredRows(db, twinOrigin(gone))).toBe(0)
     expect(countDeferredRows(db, twinOrigin(staying))).toBe(1)
     expect(countDeferredRows(db, 'cloud')).toBe(1)
+  })
+
+  it('still drops a revoked phone’s open socket, telling it denied, when forgetting the rows kept for it fails (review of 2026-11-18)', async () => {
+    const { db, sqlite, lan } = build()
+    const port = await freePort()
+    setLanSettings(db, { enabled: true, port, twinEnabled: false })
+    await lan.init()
+    const { code } = lan.startPairing().pairing!
+    const messages: Record<string, unknown>[] = []
+    const ws = new WebSocket(`ws://127.0.0.1:${port}/live`)
+    ws.on('message', (data) => messages.push(JSON.parse(data.toString())))
+    await new Promise<void>((resolve) => ws.once('open', () => resolve()))
+    ws.send(JSON.stringify({ t: 'pair', code, name: 'iPad (Safari)' }))
+    await expect.poll(() => messages.some((m) => m.t === 'snapshot')).toBe(true)
+    const closed = new Promise<void>((resolve) => ws.once('close', () => resolve()))
+    sqlite.exec(
+      "CREATE TRIGGER block_forget BEFORE DELETE ON sync_deferred_row BEGIN SELECT RAISE(ABORT, 'locked'); END"
+    )
+    const id = lan.getStatus().devices[0].id
+    deferRow(db, twinOrigin(id), 'aircraft', {
+      uuid: 'row-1',
+      updatedAt: '2026-11-17T10:00:00.000Z',
+      data: '{}'
+    })
+
+    expect(() => lan.revokeDevice(id)).toThrow()
+
+    await closed
+    expect(messages.some((m) => m.t === 'denied')).toBe(true)
+    // The revoke itself had been made: the token no longer works.
+    expect(lan.getStatus().devices).toEqual([])
+  })
+
+  it('unpairs a twin whose token arrives over ws://, and forgets the rows kept for it, in the real device table', async () => {
+    const { db, lan } = build(storeWith(false))
+    const port = await freePort()
+    setLanSettings(db, { enabled: false, port, twinEnabled: true })
+    await lan.init()
+    const open = async (url: string) => {
+      const messages: Record<string, unknown>[] = []
+      const ws = new WebSocket(url, { rejectUnauthorized: false })
+      ws.on('message', (data) => messages.push(JSON.parse(data.toString())))
+      ws.on('error', () => undefined)
+      await new Promise<void>((resolve) => ws.once('open', () => resolve()))
+      return { ws, messages }
+    }
+    const secure = await open(`wss://127.0.0.1:${port}/live`)
+    secure.ws.send(
+      JSON.stringify({
+        t: 'pair',
+        code: lan.startPairing('twin').twinPairing!.code,
+        name: 'Mac',
+        kind: 'twin'
+      })
+    )
+    await expect.poll(() => secure.messages.some((m) => m.t === 'snapshot')).toBe(true)
+    const token = (secure.messages[0] as { token: string }).token
+    const twin = lan.getStatus().devices[0].id
+    deferRow(db, twinOrigin(twin), 'aircraft', {
+      uuid: 'row-1',
+      updatedAt: '2026-11-17T10:00:00.000Z',
+      data: '{}'
+    })
+
+    const plain = await open(`ws://127.0.0.1:${port}/live`)
+    plain.ws.send(JSON.stringify({ t: 'hello', token }))
+    await expect.poll(() => plain.messages.some((m) => m.t === 'denied')).toBe(true)
+
+    expect(lan.getStatus().devices).toEqual([])
+    expect(countDeferredRows(db, twinOrigin(twin))).toBe(0)
+    const retry = await open(`wss://127.0.0.1:${port}/live`)
+    retry.ws.send(JSON.stringify({ t: 'hello', token }))
+    await expect.poll(() => retry.messages.some((m) => m.t === 'denied')).toBe(true)
+    for (const { ws } of [secure, plain, retry]) ws.terminate()
   })
 
   it('serves the built page and pairs a device once switched on, keeping only its token hash', async () => {

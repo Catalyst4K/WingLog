@@ -46,6 +46,11 @@ export interface LanStatus {
   pairing: LanPairing | null
   /** The twin's open pairing window, if any. */
   twinPairing: LanPairing | null
+  /**
+   * The pin of the certificate this PC shows other WingLogs (SHA-256 of it, base64url): public, and what a twin pins. Null while the server is
+   * not running, or when this computer cannot keep the certificate's key safe, so no other WingLog can connect.
+   */
+  twinCertificate: string | null
   devices: LanDevice[]
 }
 
@@ -108,6 +113,12 @@ export type HostLinkState =
   | 'offline'
   /** The code was wrong, or the host's pairing window had closed. */
   | 'wrong-code'
+  /** Paired before the link was encrypted: pair again, so this computer learns which certificate is the sim PC's. */
+  | 'pair-again'
+  /** The sim PC showed another certificate than the one this computer paired with: it was reinstalled or reset, or something is pretending to be it. The token is kept and never sent. */
+  | 'certificate-changed'
+  /** The sim PC did not answer with an encrypted connection (an older WingLog there). The token is kept and never sent. */
+  | 'not-secure'
 
 /** What Settings and the header show of a client's link. */
 export interface HostLinkStatus {

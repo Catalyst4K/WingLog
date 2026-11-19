@@ -134,6 +134,36 @@ describe('AppHeader on a client', () => {
       } as const,
       'off',
       'not paired'
+    ],
+    [
+      {
+        state: 'pair-again',
+        address: '192.168.1.20:5051',
+        hostSim: null,
+        sync: { state: 'idle', lastSyncedAt: null, problem: null }
+      } as const,
+      'amber',
+      'pair again'
+    ],
+    [
+      {
+        state: 'certificate-changed',
+        address: '192.168.1.20:5051',
+        hostSim: null,
+        sync: { state: 'idle', lastSyncedAt: null, problem: null }
+      } as const,
+      'amber',
+      'certificate changed'
+    ],
+    [
+      {
+        state: 'not-secure',
+        address: '192.168.1.20:5051',
+        hostSim: null,
+        sync: { state: 'idle', lastSyncedAt: null, problem: null }
+      } as const,
+      'amber',
+      'not encrypted'
     ]
   ])(
     'shows the link to the sim PC (%j) as %s lights, and says "%s" to a screen reader',

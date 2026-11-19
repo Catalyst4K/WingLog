@@ -27,9 +27,31 @@ describe('a client IPC handlers', () => {
     expect(invoke(IpcChannels.hostLinkPair, '192.168.1.20:5051', '123456')).toMatchObject({
       state: 'connected'
     })
-    expect(link.pair).toHaveBeenCalledWith('192.168.1.20:5051', '123456')
+    expect(link.pair).toHaveBeenCalledWith('192.168.1.20:5051', '123456', null)
     invoke(IpcChannels.hostLinkPair, { not: 'a string' }, 'x'.repeat(500))
-    expect(link.pair).toHaveBeenLastCalledWith('', '')
+    expect(link.pair).toHaveBeenLastCalledWith('', '', null)
+  })
+
+  it('passes a good certificate pin on, and treats a missing one as a typed pairing', () => {
+    const { invoke, link } = setup()
+    const pin = 'Ab-_09'.repeat(7) + 'A'
+    invoke(IpcChannels.hostLinkPair, '192.168.1.20:5051', '123456', pin)
+    expect(link.pair).toHaveBeenLastCalledWith('192.168.1.20:5051', '123456', pin)
+    invoke(IpcChannels.hostLinkPair, '192.168.1.20:5051', '123456', null)
+    expect(link.pair).toHaveBeenLastCalledWith('192.168.1.20:5051', '123456', null)
+    invoke(IpcChannels.hostLinkPair, '192.168.1.20:5051', '123456', undefined)
+    expect(link.pair).toHaveBeenLastCalledWith('192.168.1.20:5051', '123456', null)
+  })
+
+  it('refuses a pin that is not a pin before it pairs, rather than reading it as no pin (which would check nothing)', () => {
+    const { invoke, link } = setup()
+    const pin = 'Ab-_09'.repeat(7) + 'A'
+    for (const bad of [pin.slice(1), `${pin}a`, `${pin.slice(1)}!`, '', 5, {}]) {
+      expect(() => invoke(IpcChannels.hostLinkPair, '192.168.1.20:5051', '123456', bad), String(bad)).toThrow(
+        'Invalid certificate pin'
+      )
+    }
+    expect(link.pair).not.toHaveBeenCalled()
   })
 
   it('reports the status and forgets the sim PC', () => {

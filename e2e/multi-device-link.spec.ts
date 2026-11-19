@@ -6,6 +6,77 @@ import { freePort } from './lan-device'
 import { FakeGsxRemoteServer, VHHH_BOOT_SNAPSHOT } from './gsx-remote-server'
 import { launchApp } from './launch-app'
 
+// A client checks the sim PC's certificate (winglog-backend's docs/plans/security-audit-v2.md, step 22): the pin in pasted pairing text
+// connects, and a different pin ends in "certificate changed" without the code ever reaching the host.
+test('a client pairs with the sim PC’s pin, and refuses another certificate before sending the code', async () => {
+  test.setTimeout(90_000)
+  const clientDir = mkdtempSync(join(tmpdir(), 'winglog-e2e-client-'))
+  const port = await freePort()
+  try {
+    const setup = await launchApp({ userDataDir: clientDir })
+    try {
+      const capabilities = await setup.window.evaluate(() => window.winglog.appGetCapabilities())
+      test.skip(!capabilities.multiDevice, 'needs a build with WINGLOG_MULTI_DEVICE=1')
+      await setup.window.evaluate(() => window.winglog.settingsSetRunMode('client'))
+    } finally {
+      await setup.cleanup()
+    }
+
+    const host = await launchApp({ env: { WINGLOG_E2E_LAN_ADDRESS: '127.0.0.1' } })
+    try {
+      const { pin, code } = await host.window.evaluate(async (lanPort) => {
+        const api = window.winglog
+        await api.lanSetSettings({ twinEnabled: true, port: lanPort })
+        const status = await api.lanStartPairing('twin')
+        return { pin: status.twinCertificate ?? '', code: status.twinPairing?.code ?? '' }
+      }, port)
+      expect(pin).toMatch(/^[A-Za-z0-9_-]{43}$/)
+      expect(code).toMatch(/^\d{6}$/)
+      // Another certificate's pin: well formed, and not the host's.
+      const otherPin = (pin.startsWith('A') ? 'B' : 'A') + pin.slice(1)
+
+      const client = await launchApp({ userDataDir: clientDir })
+      try {
+        await expect(client.window.getByText('Sim PC: not paired')).toBeAttached()
+        const address = `127.0.0.1:${port}`
+        await client.window.evaluate(([a, c, p]) => window.winglog.hostLinkPair(a, c, p), [
+          address,
+          code,
+          otherPin
+        ] as const)
+        await expect
+          .poll(() => client.window.evaluate(async () => (await window.winglog.hostLinkGetStatus()).state), {
+            timeout: 15_000
+          })
+          .toBe('certificate-changed')
+        // The header says it in words too (what a screen reader reads), not a raw key.
+        await expect(client.window.getByText('Sim PC: certificate changed')).toBeAttached()
+        // The code was never sent: the host's window is still open, and nothing paired.
+        const refused = await host.window.evaluate(() => window.winglog.lanGetStatus())
+        expect(refused.devices).toEqual([])
+        expect(refused.twinPairing?.code).toBe(code)
+
+        // The same code with the host's own pin pairs.
+        await client.window.evaluate(([a, c, p]) => window.winglog.hostLinkPair(a, c, p), [
+          address,
+          code,
+          pin
+        ] as const)
+        await expect(client.window.getByText('Sim PC: connected')).toBeAttached({ timeout: 15_000 })
+        const paired = await host.window.evaluate(() => window.winglog.lanGetStatus())
+        expect(paired.devices).toHaveLength(1)
+        expect(paired.devices[0]?.kind).toBe('twin')
+      } finally {
+        await client.cleanup()
+      }
+    } finally {
+      await host.cleanup()
+    }
+  } finally {
+    rmSync(clientDir, { recursive: true, force: true })
+  }
+})
+
 // Part 2 of winglog-backend's docs/plans/multi-device.md, through two real launched apps on loopback: a host replaying a recorded flight and
 // serving its second screen, and a client that pairs with it and follows its live data. Needs a build with the multi-device flag
 // (`npm run test:e2e:multi`); in a release-style build the run mode cannot be chosen and the test skips itself.
@@ -244,6 +315,10 @@ test('a client pairs with the host by address and code, follows its sim and keep
         expect(devices).toHaveLength(1)
         expect(devices[0]?.name).toContain('WingLog on')
         expect(devices[0]?.kind).toBe('twin')
+        // The link is encrypted, and the host shows the pin of its certificate (never anything else of it).
+        const lan = await host.window.evaluate(() => window.winglog.lanGetStatus())
+        expect(lan.twinCertificate).toMatch(/^[A-Za-z0-9_-]{43}$/)
+        expect(JSON.stringify(lan)).not.toMatch(/PRIVATE KEY/)
         expect((await host.window.evaluate(() => window.winglog.lanGetStatus())).settings.enabled).toBe(false)
       } finally {
         await client.cleanup()

@@ -8,6 +8,7 @@ import {
   findActiveLanDevice,
   listLanDevices,
   revokeLanDevice,
+  revokeLanDevicesOfKind,
   touchLanDevice
 } from '../db/lan-device-repo'
 import { listHiddenBuiltIns, listOwnRoutines } from '../db/gsx-routine-repo'
@@ -39,9 +40,11 @@ import { twinOrigin, twinSyncDeviceQueries, twinSyncQueries } from './twin-sync'
 import { twinFlightQueries, type FlightControl } from './twin-flight'
 import { onLocalWrite } from '../sync/local-write-hints'
 import { lanFlightKey, lanFlightSnapshot } from './lan-flight'
-import { LanServer, type StaticFile } from './LanServer'
+import { LanServer, type LanServerDeps, type StaticFile } from './LanServer'
 import { PlannedRoutePublisher } from './PlannedRoutePublisher'
 import { staticFilesFrom } from './static-files'
+import type { HostIdentity, HostIdentityStore } from './host-identity-store'
+import { logger } from '../logging/logger'
 
 /** What the second screen needs from the rest of the app. */
 export interface CreateLanDeps {
@@ -83,6 +86,8 @@ export interface CreateLanDeps {
   pageFolder: string
   /** An acceptance test's own address to listen on, instead of the machine's (an unpackaged build only; see index.ts). */
   testAddress?: string
+  /** Where the sim PC keeps its TLS identity. Without one (tests that do not need twins) only phones can connect. */
+  identityStore?: HostIdentityStore
 }
 
 /**
@@ -171,6 +176,57 @@ export function lanQueries(
 }
 
 /**
+ * Forgets the rows kept for a device that was revoked (a twin that is gone does not come back to have them tried again). Separate from the
+ * revoke so that the caller can drop the device's open sockets first: this write can fail, and the revoked device must not stay connected
+ * because of it.
+ *
+ * @param db The database.
+ * @param id The device.
+ */
+function forgetDevice(db: WingLogDb, id: number): void {
+  clearDeferredRows(db, twinOrigin(id))
+}
+
+/**
+ * @param db The database.
+ * @returns What the server needs to add, find, touch and revoke the paired devices.
+ */
+function serverDevices(db: WingLogDb): LanServerDeps['devices'] {
+  return {
+    add: (name, tokenHash, kind) => addLanDevice(db, name, tokenHash, new Date().toISOString(), kind),
+    find: (tokenHash) => findActiveLanDevice(db, tokenHash),
+    touch: (id) => touchLanDevice(db, id, new Date().toISOString()),
+    revoke: (id) => revokeLanDevice(db, id, new Date().toISOString()),
+    forget: (id) => forgetDevice(db, id)
+  }
+}
+
+/**
+ * Loads the sim PC's identity for the server. A new one means every paired twin pinned another certificate, and its token travelled in the
+ * clear, so each is revoked: it shows "certificate changed" and the pilot pairs it again. Phones are not affected. The new identity is
+ * kept only after that, so a failure in between (the load throws, the server runs for phones only) leaves the old identity in place and the
+ * next start makes a new one and revokes again.
+ *
+ * @param db The database.
+ * @param store Where the identity is kept.
+ * @returns The identity, or null when this computer cannot keep one safely.
+ */
+async function loadIdentityRevokingTwins(
+  db: WingLogDb,
+  store: HostIdentityStore
+): Promise<HostIdentity | null> {
+  const identity = await store.load()
+  if (identity?.isNew) {
+    const twins = listLanDevices(db).filter((device) => device.kind === 'twin')
+    const revoked = revokeLanDevicesOfKind(db, 'twin', new Date().toISOString())
+    for (const twin of twins) clearDeferredRows(db, twinOrigin(twin.id))
+    logger.info(`[lan] made a new identity for the sim PC; ${revoked} paired twin(s) unpaired`)
+    await store.save(identity)
+  }
+  return identity
+}
+
+/**
  * The second-screen controller, wired to the database, the live hub and the machine's network. A device may send only the commands in the
  * remote-safe tables (`live/commands.ts`): BeyondATC, GSX Remote and choosing procedures.
  *
@@ -192,7 +248,8 @@ export function createLan({
   metarUrl,
   systemLocale = () => 'en',
   pageFolder,
-  testAddress
+  testAddress,
+  identityStore
 }: CreateLanDeps): LanController {
   // The planned route of the flight shown, built here and pushed to the devices: built again whenever the choice, the flight or the
   // navdata it uses may have changed.
@@ -224,11 +281,7 @@ export function createLan({
         }
       })
     },
-    devices: {
-      add: (name, tokenHash, kind) => addLanDevice(db, name, tokenHash, new Date().toISOString(), kind),
-      find: (tokenHash) => findActiveLanDevice(db, tokenHash),
-      touch: (id) => touchLanDevice(db, id, new Date().toISOString())
-    },
+    devices: serverDevices(db),
     // Each kind of device has its own switch; the server runs while either is on, and refuses a token of a kind that is off.
     enabledKinds: () => {
       const settings = getLanSettings(db)
@@ -261,6 +314,7 @@ export function createLan({
     onFlightChanged: () => route.refresh(),
     flight: () => lanFlightSnapshot(db, trackingController.getActive()?.flightId, selection.current()),
     staticFile: (path) => (files ??= staticFilesFrom(pageFolder))(path),
+    identity: identityStore ? () => loadIdentityRevokingTwins(db, identityStore) : undefined,
     now: () => Date.now()
   })
   // A write to this PC's database is a hint to the twins that they can sync.
@@ -275,12 +329,8 @@ export function createLan({
     routeAddress: () => (testAddress ? Promise.resolve(null) : defaultRouteAddress()),
     devices: {
       list: () => listLanDevices(db),
-      revoke: (id) => {
-        const revoked = revokeLanDevice(db, id, new Date().toISOString())
-        // A twin that is gone does not come back to have its kept rows tried again.
-        if (revoked) clearDeferredRows(db, twinOrigin(id))
-        return revoked
-      }
+      revoke: (id) => revokeLanDevice(db, id, new Date().toISOString()),
+      forget: (id) => forgetDevice(db, id)
     },
     now: () => Date.now()
   })

@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { formatPairingText, isHomeNetworkAddress, parseHostAddress, parsePairingText } from './host-address'
+import {
+  formatPairingText,
+  isCertificatePin,
+  isHomeNetworkAddress,
+  parseHostAddress,
+  parsePairingText
+} from './host-address'
 
 describe('parseHostAddress', () => {
   it('accepts a private address with a port, however it was copied', () => {
@@ -39,33 +45,91 @@ describe('parseHostAddress', () => {
   })
 })
 
+/** A pin as the host makes them: 43 characters of base64url. */
+const PIN = 'Ab-_09'.repeat(7) + 'A'
+
+describe('isCertificatePin', () => {
+  it('accepts 43 base64url characters and nothing else', () => {
+    expect(PIN).toHaveLength(43)
+    expect(isCertificatePin(PIN)).toBe(true)
+    for (const bad of [
+      PIN.slice(1),
+      PIN + 'a',
+      `${PIN.slice(1)}=`,
+      `${PIN.slice(1)}+`,
+      `${PIN.slice(1)}/`,
+      '',
+      null,
+      5,
+      undefined
+    ]) {
+      expect(isCertificatePin(bad), String(bad)).toBe(false)
+    }
+  })
+})
+
 describe('the pairing text', () => {
-  it('is the address and the code in one line, and reads back', () => {
-    const text = formatPairingText('192.168.1.20:5051', '123456')
-    expect(text).toBe('winglog-pair://192.168.1.20:5051/123456')
-    expect(parsePairingText(text)).toEqual({ address: '192.168.1.20:5051', code: '123456' })
+  it('is the address, the code and the certificate pin in one line, and reads back', () => {
+    const text = formatPairingText('192.168.1.20:5051', '123456', PIN)
+    expect(text).toBe(`winglog-pair://192.168.1.20:5051/123456/${PIN}`)
+    expect(parsePairingText(text)).toEqual({ address: '192.168.1.20:5051', code: '123456', pin: PIN })
+  })
+
+  it('reads the text from before the pin existed, which has none', () => {
+    expect(parsePairingText('winglog-pair://192.168.1.20:5051/123456')).toEqual({
+      address: '192.168.1.20:5051',
+      code: '123456',
+      pin: null
+    })
+  })
+
+  it('reads a pin however the parts were separated', () => {
+    expect(parsePairingText(`192.168.1.20:5051 123456 ${PIN}`)).toEqual({
+      address: '192.168.1.20:5051',
+      code: '123456',
+      pin: PIN
+    })
+    expect(parsePairingText(`192.168.1.20:5051, 123456, ${PIN}`)?.pin).toBe(PIN)
+  })
+
+  it('refuses the whole text when its pin is the wrong length or has other characters, rather than pairing without one', () => {
+    for (const bad of [PIN.slice(1), `${PIN}a`, `${PIN.slice(1)}=`, `${PIN.slice(1)}!`]) {
+      expect(parsePairingText(`winglog-pair://192.168.1.20:5051/123456/${bad}`), bad).toBeNull()
+    }
+  })
+
+  it('refuses a public address even with a good pin', () => {
+    expect(parsePairingText(`winglog-pair://8.8.8.8:5051/123456/${PIN}`)).toBeNull()
   })
 
   it('reads an address with the code after it, however it was separated', () => {
     expect(parsePairingText('192.168.1.20:5051 123456')).toEqual({
       address: '192.168.1.20:5051',
-      code: '123456'
+      code: '123456',
+      pin: null
     })
     expect(parsePairingText('192.168.1.20:5051, 123456')).toEqual({
       address: '192.168.1.20:5051',
-      code: '123456'
+      code: '123456',
+      pin: null
     })
     expect(parsePairingText('http://192.168.1.20:5051/ 123456')).toEqual({
       address: '192.168.1.20:5051',
-      code: '123456'
+      code: '123456',
+      pin: null
     })
   })
 
   it('reads a plain address with no code', () => {
-    expect(parsePairingText('192.168.1.20:5051')).toEqual({ address: '192.168.1.20:5051', code: null })
+    expect(parsePairingText('192.168.1.20:5051')).toEqual({
+      address: '192.168.1.20:5051',
+      code: null,
+      pin: null
+    })
     expect(parsePairingText('  http://simpc.local:5051/  ')).toEqual({
       address: 'simpc.local:5051',
-      code: null
+      code: null,
+      pin: null
     })
   })
 

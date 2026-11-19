@@ -3,9 +3,10 @@
  * the pair is encrypted at rest with Electron's `safeStorage` (the OS keychain) in a file of its own, outside the database, as the cloud
  * sync session is (backend/session-store.ts).
  */
-import { existsSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs'
+import { existsSync, readFileSync, unlinkSync } from 'node:fs'
 import { join } from 'node:path'
 import { safeStorage } from 'electron'
+import { writeFileAtomically } from '../files/write-file-atomically'
 import { t } from '../i18n'
 
 export interface StoredHostLink {
@@ -13,6 +14,8 @@ export interface StoredHostLink {
   address: string
   /** The device token the host gave on pairing. */
   token: string
+  /** The pin of the host's certificate (see `certificatePin`), checked on every connection. Null for a link stored before the link was encrypted. */
+  pin: string | null
 }
 
 /** The host link a client has stored, and how to keep it. */
@@ -35,7 +38,7 @@ export function fileHostLinkStore(userDataPath: string): HostLinkStore {
         const { result } = await safeStorage.decryptStringAsync(readFileSync(path))
         const link = JSON.parse(result) as Partial<StoredHostLink>
         return typeof link.address === 'string' && typeof link.token === 'string'
-          ? { address: link.address, token: link.token }
+          ? { address: link.address, token: link.token, pin: typeof link.pin === 'string' ? link.pin : null }
           : null
       } catch {
         // Unreadable (moved to a machine whose keychain cannot decrypt it): the same as never paired.
@@ -46,7 +49,7 @@ export function fileHostLinkStore(userDataPath: string): HostLinkStore {
       if (!(await safeStorage.isAsyncEncryptionAvailable())) {
         throw new Error(t('errors.credentialEncryptionUnavailable'))
       }
-      writeFileSync(path, await safeStorage.encryptStringAsync(JSON.stringify(link)))
+      writeFileAtomically(path, await safeStorage.encryptStringAsync(JSON.stringify(link)))
     },
     clear() {
       if (existsSync(path)) unlinkSync(path)
