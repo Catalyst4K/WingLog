@@ -658,7 +658,9 @@ describe('LogbookView list', () => {
     render(<LogbookView weightUnit="kg" landingDistanceUnit="ft" />)
     const row = (await screen.findByText('NARROW1')).closest('tr') as HTMLElement
     const blockCell = within(row).getAllByRole('cell')[4]
-    expect(blockCell.querySelector('[data-layout="narrow"]')?.textContent).toBe(`${formatMinutes(97)}\u00a0block`)
+    expect(blockCell.querySelector('[data-layout="narrow"]')?.textContent).toBe(
+      `${formatMinutes(97)}\u00a0block`
+    )
     expect(blockCell.querySelector('[data-layout="wide"]')?.textContent).toBe(formatMinutes(97))
   })
 
