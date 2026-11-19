@@ -152,3 +152,58 @@ describe('useFlightPlan: sending a change to the main process', () => {
     expect(result.current.procedureSelection).toEqual(CHOSEN)
   })
 })
+
+describe('useFlightPlan: a flight that reaches this computer after the window opened (the Mac twin)', () => {
+  afterEach(() => vi.restoreAllMocks())
+
+  const FLIGHT = { id: 7, ofpId: 'OFP-PC', status: 'active', ofpJson: '{}' }
+  const SYNCED_OFP = { ofpId: 'OFP-PC', ofpJson: '{}' } as unknown as DispatchOfp
+
+  /**
+   * A window.winglog whose database has no flight in progress when the window opens, and one after a sync, as a twin's has when the flight is
+   * dispatched on the sim PC.
+   *
+   * @returns Calls to make the sync land, and the in-progress query.
+   */
+  function withTwin() {
+    let dataChanged: () => void = () => undefined
+    const inProgress = vi.fn().mockResolvedValue(null)
+    window.winglog = {
+      dispatchGetInProgressFlight: inProgress,
+      onTrackingPoint: vi.fn(() => () => undefined),
+      trackingGetProcedureSelection: vi.fn().mockResolvedValue(null),
+      trackingSetProcedureSelection: vi.fn().mockResolvedValue(undefined),
+      onProcedureSelection: vi.fn(() => () => undefined),
+      onDataChanged: vi.fn((listener: () => void) => {
+        dataChanged = listener
+        return () => undefined
+      })
+    } as unknown as WingLogApi
+    return {
+      inProgress,
+      syncLands: async () => {
+        inProgress.mockResolvedValue({ flight: FLIGHT, ofp: SYNCED_OFP })
+        await act(async () => dataChanged())
+      }
+    }
+  }
+
+  it('shows the flight Dispatch had nothing for when the window opened, once a sync brings it in', async () => {
+    const twin = withTwin()
+    const { result } = renderHook(() => useFlightPlan())
+    await act(async () => undefined)
+    expect(result.current.dispatchOfp).toBeNull()
+    await twin.syncLands()
+    expect(result.current.dispatchOfp?.ofpId).toBe('OFP-PC')
+    expect(result.current.dispatchedOfpId).toBe('OFP-PC')
+  })
+
+  it('leaves a plan that is being drafted here alone when a sync lands', async () => {
+    const twin = withTwin()
+    const { result } = renderHook(() => useFlightPlan())
+    await act(async () => undefined)
+    act(() => result.current.onDispatchOfpChange(OFP))
+    await twin.syncLands()
+    expect(result.current.dispatchOfp?.ofpId).toBe('OFP-1')
+  })
+})

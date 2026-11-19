@@ -23,6 +23,7 @@ import {
   selectionFromFlight
 } from '@shared/procedure-selection'
 import { runAsync } from '../report-error'
+import { useDataChanged } from './use-data-changed'
 import { ATC_CLEARANCE_POPUP_MS, useAtcClearancePrompt, useImportantGsxMenu } from './use-prompts'
 
 /** The dispatched OFP and procedure selection Dispatch and Track share, and their handlers. */
@@ -73,8 +74,10 @@ export function useFlightPlan(): FlightPlan {
   // changed by it.
   const unsaved = dispatchOfp !== null && dispatchedOfpId !== dispatchOfp.ofpId
   const unsavedRef = useRef(unsaved)
+  const shownOfpIdRef = useRef(dispatchOfp?.ofpId ?? null)
   useEffect(() => {
     unsavedRef.current = unsaved
+    shownOfpIdRef.current = dispatchOfp?.ofpId ?? null
   })
   function setProcedureSelection(action: React.SetStateAction<ProcedureSelection>): void {
     const next = typeof action === 'function' ? action(selectionRef.current) : action
@@ -136,19 +139,23 @@ export function useFlightPlan(): FlightPlan {
   // SimBrief's own choice — selectionFromFlight below already restores whatever was last
   // actually chosen (SimBrief's plan if nothing was ever touched, a live edit otherwise —
   // see handleSaveFlight, which persists props.selection at the moment Fly is pressed).
-  useEffect(() => {
+  // Read again each time a sync with the sim PC brings rows in (a client only): a flight dispatched on the sim PC reaches a twin after its
+  // window opened, and the read at launch found nothing. A plan being drafted here is left alone, and so is the flight already shown.
+  const restoreInProgress = (): void => {
     runAsync(
       'App dispatchGetInProgressFlight',
       winglogApi()
         .dispatchGetInProgressFlight()
         .then((result) => {
-          if (!result) return
+          if (!result || unsavedRef.current || result.ofp.ofpId === shownOfpIdRef.current) return
           setDispatchOfp(result.ofp)
           setDispatchedOfpId(result.ofp.ofpId)
           applySelection(selectionFromFlight(result.flight))
         })
     )
-  }, [])
+  }
+  useEffect(restoreInProgress, [])
+  useDataChanged(restoreInProgress)
 
   // The procedures can also be chosen on a second screen (a phone on the home network), and the suggested approach is chosen in the main
   // process: it announces each change, so Dispatch and Track here follow it, whichever page is open. An announcement equal to what is
