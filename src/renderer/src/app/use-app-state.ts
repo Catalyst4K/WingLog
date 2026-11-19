@@ -139,15 +139,21 @@ export function useFlightPlan(): FlightPlan {
   // SimBrief's own choice — selectionFromFlight below already restores whatever was last
   // actually chosen (SimBrief's plan if nothing was ever touched, a live edit otherwise —
   // see handleSaveFlight, which persists props.selection at the moment Fly is pressed).
-  // Read again each time a sync with the sim PC brings rows in (a client only): a flight dispatched on the sim PC reaches a twin after its
-  // window opened, and the read at launch found nothing. A plan being drafted here is left alone, and so is the flight already shown.
+  // Read again each time another WingLog changes the data behind this window: a sync on a client (a flight dispatched on the sim PC reaches
+  // a twin after its window opened) or a twin's command on the sim PC (a Mac cancelling the flight). A plan being drafted here is left alone,
+  // and so is the flight already shown; a flight shown that is no longer in progress is cleared, as this window's own Cancel would.
   const restoreInProgress = (): void => {
     runAsync(
       'App dispatchGetInProgressFlight',
       winglogApi()
         .dispatchGetInProgressFlight()
         .then((result) => {
-          if (!result || unsavedRef.current || result.ofp.ofpId === shownOfpIdRef.current) return
+          if (unsavedRef.current) return
+          if (!result) {
+            if (shownOfpIdRef.current !== null) onFlightEndedRef.current()
+            return
+          }
+          if (result.ofp.ofpId === shownOfpIdRef.current) return
           setDispatchOfp(result.ofp)
           setDispatchedOfpId(result.ofp.ofpId)
           applySelection(selectionFromFlight(result.flight))

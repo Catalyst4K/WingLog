@@ -207,3 +207,31 @@ describe('useFlightPlan: a flight that reaches this computer after the window op
     expect(result.current.dispatchOfp?.ofpId).toBe('OFP-1')
   })
 })
+
+describe('useFlightPlan: the flight shown is ended by another WingLog', () => {
+  afterEach(() => vi.restoreAllMocks())
+
+  it('clears the plan and the choice when the flight in progress is gone after a sync or a twin command (a Mac pressing Cancel)', async () => {
+    let dataChanged: () => void = () => undefined
+    const flight = { id: 7, ofpId: 'OFP-PC', status: 'active', ofpJson: '{}' }
+    const inProgress = vi.fn().mockResolvedValue({ flight, ofp: { ofpId: 'OFP-PC', ofpJson: '{}' } })
+    window.winglog = {
+      dispatchGetInProgressFlight: inProgress,
+      onTrackingPoint: vi.fn(() => () => undefined),
+      trackingGetProcedureSelection: vi.fn().mockResolvedValue(null),
+      trackingSetProcedureSelection: vi.fn().mockResolvedValue(undefined),
+      onProcedureSelection: vi.fn(() => () => undefined),
+      onDataChanged: vi.fn((listener: () => void) => {
+        dataChanged = listener
+        return () => undefined
+      })
+    } as unknown as WingLogApi
+    const { result } = renderHook(() => useFlightPlan())
+    await act(async () => undefined)
+    expect(result.current.dispatchOfp?.ofpId).toBe('OFP-PC')
+    inProgress.mockResolvedValue(null)
+    await act(async () => dataChanged())
+    expect(result.current.dispatchOfp).toBeNull()
+    expect(result.current.dispatchedOfpId).toBeNull()
+  })
+})

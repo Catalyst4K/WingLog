@@ -107,12 +107,30 @@ export function useTrackedFlights(onFlightEnded: (() => void) | undefined): Trac
   useEffect(() => {
     flightsRef.current = flights
   }, [flights])
+  const activeIdRef = useRef<number | null>(null)
+  useEffect(() => {
+    activeIdRef.current = active?.flightId ?? null
+  }, [active])
 
   useEffect(() => {
     onFlightEndedRef.current = onFlightEnded
   }, [onFlightEnded])
 
-  useDataChanged(() => runAsync('TrackView reload', reload()))
+  // The flight tracked can end behind this window's back too: another WingLog stopped or finished it (a Mac's Cancel or Finish, on the sim
+  // PC), or a sync brought one in. The window is told its data changed, so it asks again; the track is read only when the flight is another.
+  useDataChanged(() => {
+    runAsync('TrackView reload', reload())
+    runAsync(
+      'TrackView trackingGetActive',
+      winglogApi()
+        .trackingGetActive()
+        .then(async (a) => {
+          if ((a?.flightId ?? null) === activeIdRef.current) return
+          setActive(a)
+          setTrackPoints(a ? await winglogApi().trackPointList(a.flightId) : [])
+        })
+    )
+  })
 
   useEffect(() => {
     runAsync('TrackView reload', reload())
