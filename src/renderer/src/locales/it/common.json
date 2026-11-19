@@ -394,7 +394,7 @@
     "whatsNew": "Novità di WingLog 1.5: un secondo schermo per telefono o tablet, aggiornamenti con un clic, un avviso di poco spazio su disco e una linea di rullaggio più precisa. Attiva il secondo schermo in Impostazioni → Secondo schermo."
   },
   "fleetView": {
-    "atStand": "piazzola {{stand}}",
+    "atStand": "piazzola {{stand}}",
     "title": "Flotta",
     "newAircraft": "Nuovo aeromobile",
     "editAircraft": "Modifica {{registration}}",
@@ -482,9 +482,8 @@
       "unretired": "{{registration}} è di nuovo attivo.",
       "replaced": "{{registration}} ritirato, sostituito da {{replacement}}."
     },
-    "standNote": "Lo stand è dove l’aeromobile ha parcheggiato l’ultima volta in quell’aeroporto, dal simulatore; vuoto se non è stato registrato o se l’aeromobile si è spostato da allora.",
+    "standNote": "La piazzola è dove l’aeromobile ha parcheggiato l’ultima volta in quell’aeroporto, dal simulatore; vuoto se non è stato registrato o se l’aeromobile si è spostato da allora.",
     "listRow": {
-      "stand": "piazzola {{stand}}",
       "hours": "{{hours}} h",
       "flights_one": "{{count}} volo",
       "flights_other": "{{count}} voli"

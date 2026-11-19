@@ -392,7 +392,7 @@
     "whatsNew": "New in WingLog 1.5: a second screen for your phone or tablet, one-click updates, a low disk space warning and a more accurate taxi line. Turn the second screen on in Settings → Second screen."
   },
   "fleetView": {
-    "atStand": "stand {{stand}}",
+    "atStand": "stand {{stand}}",
     "title": "Fleet",
     "newAircraft": "New aircraft",
     "editAircraft": "Edit {{registration}}",
@@ -482,7 +482,6 @@
     },
     "standNote": "Stand is where the aircraft last parked at that airport, from the sim; blank when it wasn’t recorded or the aircraft has moved since.",
     "listRow": {
-      "stand": "stand {{stand}}",
       "hours": "{{hours}} h",
       "flights_one": "{{count}} flight",
       "flights_other": "{{count}} flights"

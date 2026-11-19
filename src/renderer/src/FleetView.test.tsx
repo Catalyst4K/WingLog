@@ -281,6 +281,7 @@ describe('FleetView', () => {
     // Columns: registration, type, airline, airport, stand, hours, flights.
     expect(cells('B-LRA').slice(3, 5)).toEqual(['VHHH', 'N32'])
     expect(cells('B-LRB').slice(3, 5)).toEqual(['YBBN', ''])
+    expect(screen.queryByText(/W122/)).not.toBeInTheDocument()
   })
 
   it('says what each figure is on a narrow row, which has no column headings (r7-narrow-fleet-list)', async () => {
@@ -306,9 +307,12 @@ describe('FleetView', () => {
         screen.getByText(registration).closest('tr')!.querySelectorAll('[data-layout="narrow"]')
       ).map((span) => span.textContent ?? '')
     expect(narrow('B-LRA')).toEqual(['stand\u00a0T4 A3', '412.8\u00a0h', '29\u00a0flights'])
-    // No stand recorded: the narrow row says so with a dash, as the board does; one flight is singular.
-    expect(narrow('B-LRB')).toEqual(['stand\u00a0—', '1.5\u00a0h', '1\u00a0flight'])
-    expect(screen.queryByText(/W122/)).not.toBeInTheDocument()
+    // No stand recorded: the narrow row leaves the stand out (its cell shows only in the wide table); one flight is singular.
+    expect(narrow('B-LRB')).toEqual(['1.5\u00a0h', '1\u00a0flight'])
+    expect(within(screen.getByText('B-LRB').closest('tr')!).getAllByRole('cell')[4]).toHaveClass(
+      'hidden',
+      '@3xl:table-cell'
+    )
   })
 
   it('sorts by airport then stand, or by stand then airport', async () => {

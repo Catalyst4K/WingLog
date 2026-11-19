@@ -52,7 +52,6 @@ test('a narrow window’s list rows say what their figures are, since they have 
     await expect(flight.getByText(/\sblock$/)).toBeVisible()
     await window.getByRole('tab', { name: 'Fleet' }).click()
     const aircraft = window.getByRole('row', { name: /G-TEST/ })
-    await expect(aircraft.getByText(/^stand\s/)).toBeVisible()
     await expect(aircraft.getByText(/\sflights?$/)).toBeVisible()
     await expect(aircraft.getByText(/\sh$/)).toBeVisible()
   } finally {

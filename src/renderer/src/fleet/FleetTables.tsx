@@ -86,11 +86,13 @@ export function ActiveFleetTable(props: {
                 <TableCell className="order-5 p-0 text-[13px] text-muted-foreground @3xl:p-2 @3xl:text-[length:inherit] font-mono @3xl:text-[length:inherit] @3xl:text-foreground">
                   {where.airport ?? '—'}
                 </TableCell>
-                <TableCell className="order-5 p-0 text-[13px] text-muted-foreground @3xl:p-2 @3xl:text-[length:inherit] before:mr-2.5 before:content-['·'] @3xl:before:content-none font-mono @3xl:text-[length:inherit]">
-                  <RowFigure
-                    worded={t('fleetView.listRow.stand', { stand: where.stand ?? '—' })}
-                    bare={where.stand ?? ''}
-                  />
+                {/* With no stand, a narrow row leaves the stand out; the wide table keeps the empty cell under its heading. */}
+                <TableCell
+                  className={`order-5 p-0 text-[13px] text-muted-foreground @3xl:p-2 @3xl:text-[length:inherit] before:mr-2.5 before:content-['·'] @3xl:before:content-none font-mono @3xl:text-[length:inherit] ${where.stand === null ? 'hidden @3xl:table-cell' : ''}`}
+                >
+                  {where.stand !== null && (
+                    <RowFigure worded={t('fleetView.atStand', { stand: where.stand })} bare={where.stand} />
+                  )}
                 </TableCell>
                 <TableCell className="order-5 p-0 text-[13px] text-muted-foreground @3xl:p-2 @3xl:text-[length:inherit] before:mr-2.5 before:content-['·'] @3xl:before:content-none font-mono @3xl:text-[length:inherit] @3xl:text-right @3xl:text-foreground">
                   <RowFigure worded={t('fleetView.listRow.hours', { hours })} bare={hours} />

@@ -386,7 +386,7 @@
     "whatsNew": "WingLog 1.5 新功能：适用于手机或平板的第二屏幕、一键更新、磁盘空间不足提醒，以及更准确的滑行线。在“设置 → 第二屏幕”中开启第二屏幕。"
   },
   "fleetView": {
-    "atStand": "机位 {{stand}}",
+    "atStand": "机位 {{stand}}",
     "title": "机队",
     "newAircraft": "新增飞机",
     "editAircraft": "编辑 {{registration}}",
@@ -475,9 +475,7 @@
     },
     "standNote": "机位是该飞机上次在该机场停放的位置，来自模拟器；未记录或此后飞机已移动时留空。",
     "listRow": {
-      "stand": "停机位 {{stand}}",
       "hours": "{{hours}} 小时",
-      "flights_one": "{{count}} 个航班",
       "flights_other": "{{count}} 个航班"
     }
   },
@@ -872,7 +870,7 @@
     "fields": {
       "aircraft": "飞机",
       "date": "日期",
-      "blockTime": "轮档时间",
+      "blockTime": "轮挡时间",
       "airTime": "空中时间",
       "fuelBurn": "燃油消耗",
       "fuelPlanned": "计划燃油",
@@ -891,7 +889,7 @@
       "flight": "航班",
       "route": "航路",
       "aircraft": "飞机",
-      "block": "轮档时间",
+      "block": "轮挡时间",
       "fuelBurn": "燃油消耗",
       "landingScore": "落地评分"
     },
@@ -930,7 +928,7 @@
     "speedMode": "速度显示为",
     "fuelPercentOfPlan": "计划的 {{pct}}%",
     "listRow": {
-      "block": "轮档 {{time}}"
+      "block": "轮挡 {{time}}"
     }
   },
   "gsxRemoteView": {
