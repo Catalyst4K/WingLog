@@ -66,8 +66,30 @@ function useCollapsedAttribution(): void {
 }
 
 /**
- * The flight at a glance along the top: the airline's logo and the flight number in Golos, the route, the phase as dots and its name, and the
- * online badge while the pilot is online. The aircraft's type is left to the PC (the route needs the room).
+ * The flight's route as the header writes it.
+ *
+ * @param flight The flight being tracked.
+ * @returns "EGLL → VHHH", with a dash for an end that is not a real airport.
+ */
+function routeText(flight: LanFlight): string {
+  return `${realIcao(flight.depIcao) ?? '—'} → ${realIcao(flight.arrIcao) ?? '—'}`
+}
+
+/**
+ * The route in the header's mono face, never cut short.
+ *
+ * @param props The route.
+ * @returns The element.
+ */
+function RouteText({ route }: { route: string }): React.JSX.Element {
+  return <span className="font-mono text-[13px] font-medium whitespace-nowrap text-foreground">{route}</span>
+}
+
+/**
+ * The flight at a glance along the top: the airline's logo and the flight number in Golos (or, for a flight with no number, the route),
+ * then the phase as dots and its name, and the online badge while the pilot is online. A flight number puts the route on the line below
+ * (`FlightHeader`), so a long number or the online badge never cuts it short; the aircraft's type is left to the PC. When the two groups
+ * don't fit side by side, the second wraps whole.
  *
  * @param props The flight being tracked.
  * @returns The element.
@@ -79,17 +101,17 @@ function FlightBanner({
   flight: LanFlight
   phase: FlightPhase | undefined
 }): React.JSX.Element {
-  const route = `${realIcao(flight.depIcao) ?? '—'} → ${realIcao(flight.arrIcao) ?? '—'}`
   return (
-    <div className="flex items-center justify-between gap-3">
-      <span className="flex min-w-0 items-center gap-2.5">
+    <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
+      <span className="flex items-center gap-2.5">
         <AirlineLogo iata={flight.operatorIata} size={22} />
-        {flight.flightNumber && (
-          <span className="font-display text-[22px] leading-none font-bold tracking-[-0.02em]">
+        {flight.flightNumber ? (
+          <span className="font-display text-[22px] leading-none font-bold tracking-[-0.02em] whitespace-nowrap">
             {flight.flightNumber}
           </span>
+        ) : (
+          <RouteText route={routeText(flight)} />
         )}
-        <span className="truncate font-mono text-[13px] font-medium">{route}</span>
       </span>
       <span className="flex shrink-0 items-center gap-2">
         <OnlineBadge />
@@ -376,10 +398,20 @@ function FlightHeader(props: {
       {snapshot && (
         <div className="flex flex-col gap-1.5 border-b-[3px] border-foreground bg-card px-3.5 pt-3 pb-2">
           <FlightBanner flight={snapshot.flight} phase={props.phase} />
-          <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
-            <TimesBanner times={times} />
-            <SimLink connected={props.simConnected} />
-          </div>
+          {snapshot.flight.flightNumber ? (
+            <>
+              <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
+                <RouteText route={routeText(snapshot.flight)} />
+                <SimLink connected={props.simConnected} />
+              </div>
+              <TimesBanner times={times} />
+            </>
+          ) : (
+            <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
+              <TimesBanner times={times} />
+              <SimLink connected={props.simConnected} />
+            </div>
+          )}
         </div>
       )}
       <AutoTuneOnlineWarning />

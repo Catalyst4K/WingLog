@@ -204,6 +204,43 @@ describe('the Track page while the pilot is online', () => {
     expect(screen.queryByText(/BeyondATC is hidden/)).not.toBeInTheDocument()
     expect(screen.getByRole('alert')).toHaveTextContent("BeyondATC's auto-tune is on")
   })
+
+  it('keeps the whole route on its own line, apart from a long flight number and the online badge', async () => {
+    stubWinglog()
+    const { socket } = open({ flight: { ...FLIGHT, flight: { ...FLIGHT.flight, flightNumber: 'BAW1438' } } })
+    act(() => {
+      socket.say({
+        t: 'topic',
+        name: 'onlineStatus',
+        payload: {
+          network: 'vatsim',
+          state: 'online',
+          callsign: 'TSTPIL1',
+          filedPlan: null,
+          hidesBeyondAtc: true
+        }
+      })
+    })
+    const badge = await screen.findByText('VATSIM · TSTPIL1')
+    const route = screen.getByText('EGLL → VHHH')
+    expect(route).toHaveClass('whitespace-nowrap')
+    expect(route).not.toHaveClass('truncate')
+    // The flight number's line (with the badge) and the route's are different rows of the header.
+    const flightLine = screen.getByText('BAW1438').closest('div')
+    expect(flightLine).toContainElement(badge)
+    expect(flightLine).not.toContainElement(route)
+    expect(route.closest('div')).toHaveTextContent('Sim')
+  })
+
+  it('leads with the route on a flight with no number, so the top line is never empty', async () => {
+    stubWinglog()
+    open({ flight: { ...FLIGHT, flight: { ...FLIGHT.flight, flightNumber: null } } })
+    const route = await screen.findByText('EGLL → VHHH')
+    expect(route).toHaveClass('whitespace-nowrap')
+    // The route is on the top line, apart from the line that says whether the sim is connected.
+    expect(route.closest('div')).not.toHaveTextContent('Sim')
+    expect(screen.getByText('Sim').closest('div')).not.toContainElement(route)
+  })
 })
 
 describe('the Dispatch page', () => {
