@@ -19,6 +19,8 @@ import {
   RATE_BURST,
   RATE_PER_SECOND,
   MAX_SOCKETS,
+  MAX_MESSAGE_BYTES,
+  TWIN_MAX_MESSAGE_BYTES,
   MAX_UNAUTHENTICATED_PER_ADDRESS,
   type LanServerDeps
 } from './LanServer'
@@ -77,13 +79,18 @@ class TestClient {
   readonly received: Record<string, unknown>[] = []
   readonly ws: WebSocket
   closed = false
+  /** The code the socket was closed with: 1009 is the socket's own size limit, 1005 is a plain `close()` with none. */
+  closeCode: number | null = null
 
   constructor(url: string, headers: Record<string, string> = {}) {
     // Nothing is trusted here: the tests are about what the server does with a connection, and the twin's own certificate check has its
     // own tests (ws-socket.test.ts).
     this.ws = new WebSocket(url, { headers, rejectUnauthorized: false })
     this.ws.on('message', (data) => this.received.push(JSON.parse(data.toString())))
-    this.ws.on('close', () => (this.closed = true))
+    this.ws.on('close', (code) => {
+      this.closed = true
+      this.closeCode = code
+    })
     this.ws.on('error', () => undefined)
   }
 
@@ -286,6 +293,65 @@ describe('LanServer', () => {
       const client = await connect()
       client.send('x'.repeat(20 * 1024))
       await client.waitFor(() => client.closed)
+    })
+  })
+
+  describe('the size of one frame (docs/plans/security-audit-v2.md, L12)', () => {
+    const OVER = MAX_MESSAGE_BYTES + 1024
+
+    it('cuts off an unpaired socket in the clear that sends a frame over 16 KB, before anything in it is read', async () => {
+      const { server, connect } = await setup()
+      const { code } = server.openPairing()
+      const client = await connect()
+      client.send({ t: 'pair', code, name: 'x'.repeat(OVER) })
+      await client.waitFor(() => client.closed)
+      // The socket's own limit closed it (1009, message too big), so the frame was never buffered whole, let alone handled.
+      expect(client.closeCode).toBe(1009)
+      expect(client.received).toEqual([])
+      expect(server.pairingOpen()).toBe(true)
+    })
+
+    it('cuts off a paired phone in the clear that sends a frame over 16 KB', async () => {
+      const { pair } = await setup()
+      const { client } = await pair()
+      await client.message('snapshot')
+      client.send({ t: 'query', id: 1, name: 'echo', args: ['x'.repeat(OVER)] })
+      await client.waitFor(() => client.closed)
+      expect(client.closeCode).toBe(1009)
+      expect(client.received.some((m) => m.t === 'result')).toBe(false)
+    })
+
+    it('still closes a phone that sends over 16 KB over TLS, where the larger limit applies', async () => {
+      const { connectTwin } = await setup()
+      const client = await connectTwin()
+      client.send('x'.repeat(OVER))
+      await client.waitFor(() => client.closed)
+      expect(client.closeCode).toBe(1005)
+    })
+
+    it('accepts a frame of 3 MB from a paired twin over wss://', async () => {
+      const { server, connectTwin } = await setup()
+      const twin = await connectTwin()
+      twin.send({ t: 'pair', code: server.openPairing('twin').code, name: 'Mac', kind: 'twin' })
+      await twin.message('paired')
+      const big = 'x'.repeat(3 * 1024 * 1024)
+      twin.send({ t: 'query', id: 7, name: 'echo', args: [big] })
+      const result = await twin.message('result')
+      expect(result.data).toEqual([big])
+      expect(twin.closed).toBe(false)
+    })
+
+    it('still buffers up to 4 MB from an unpaired socket over TLS before refusing it (accepted in L12), and no more', async () => {
+      const { connectTwin } = await setup()
+      const under = await connectTwin()
+      under.send('x'.repeat(TWIN_MAX_MESSAGE_BYTES - 16))
+      await under.waitFor(() => under.closed)
+      // Taken whole and then refused by the size check (a plain close), not cut off by the socket's own limit.
+      expect(under.closeCode).toBe(1005)
+      const over = await connectTwin()
+      over.send('x'.repeat(TWIN_MAX_MESSAGE_BYTES + 1))
+      await over.waitFor(() => over.closed)
+      expect(over.closeCode).toBe(1009)
     })
   })
 
