@@ -485,8 +485,8 @@
     "standNote": "El puesto es donde la aeronave aparcó por última vez en ese aeropuerto, según el simulador; en blanco si no se registró o la aeronave se ha movido desde entonces.",
     "listRow": {
       "hours": "{{hours}} h",
-      "flights_one": "{{count}} vuelo",
-      "flights_other": "{{count}} vuelos"
+      "flights_one": "{{figure}} vuelo",
+      "flights_other": "{{figure}} vuelos"
     }
   },
   "aircraftForm": {

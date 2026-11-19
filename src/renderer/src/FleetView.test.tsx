@@ -179,6 +179,13 @@ function buildWinglog(overrides: Partial<WingLogApi> = {}): WingLogApi {
   } as WingLogApi
 }
 
+/** The wide table's copy of a list row's figure (the narrow row has its own, with words; RowFigure). */
+function wideFigure(text: string): HTMLElement {
+  const found = screen.getAllByText(text).find((el) => el.dataset.layout === 'wide')
+  if (!found) throw new Error(`No wide figure "${text}"`)
+  return found
+}
+
 function setWinglog(overrides: Partial<WingLogApi> = {}): WingLogApi {
   const api = buildWinglog(overrides)
   window.winglog = api
@@ -242,8 +249,8 @@ describe('FleetView', () => {
     })
     render(<FleetView onOpenFlightInLogbook={vi.fn()} />)
     expect(await screen.findByText('G-ONE')).toBeInTheDocument()
-    expect(screen.getByText('0.0')).toBeInTheDocument()
-    expect(screen.getByText('0')).toBeInTheDocument()
+    expect(wideFigure('0.0')).toBeInTheDocument()
+    expect(wideFigure('0')).toBeInTheDocument()
   })
 
   it('shows real stats when a fleet-stats row exists, falling back to lastArrIcao when currentIcao is unset', async () => {
@@ -252,8 +259,8 @@ describe('FleetView', () => {
       logbookFleetStats: vi.fn().mockResolvedValue([makeStats({ lastArrIcao: 'LFPG' })])
     })
     render(<FleetView onOpenFlightInLogbook={vi.fn()} />)
-    expect(await screen.findByText('12.5')).toBeInTheDocument()
-    expect(screen.getByText('4')).toBeInTheDocument()
+    expect(await waitFor(() => wideFigure('12.5'))).toBeInTheDocument()
+    expect(wideFigure('4')).toBeInTheDocument()
     expect(screen.getByText('LFPG')).toBeInTheDocument()
   })
 

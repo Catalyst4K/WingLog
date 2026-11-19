@@ -476,7 +476,7 @@
     "standNote": "機位是該飛機上次在該機場停放的位置，來自模擬器；未記錄或此後飛機已移動時留空。",
     "listRow": {
       "hours": "{{hours}} 小時",
-      "flights_other": "{{count}} 個航班"
+      "flights_other": "{{figure}} 個航班"
     }
   },
   "aircraftForm": {

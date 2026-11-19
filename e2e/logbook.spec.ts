@@ -54,6 +54,13 @@ test('a narrow window’s list rows say what their figures are, since they have 
     const aircraft = window.getByRole('row', { name: /G-TEST/ })
     await expect(aircraft.getByText(/\sflights?$/)).toBeVisible()
     await expect(aircraft.getByText(/\sh$/)).toBeVisible()
+
+    // Wide again: the headings say what the figures are, so the words go and the bare figures show under them.
+    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]!.setContentSize(1280, 900))
+    await expect(window.getByRole('columnheader', { name: 'Flights' })).toBeVisible()
+    await expect(aircraft.getByText(/\sflights?$/)).toBeHidden()
+    await expect(aircraft.getByText(/\sh$/)).toBeHidden()
+    await expect(aircraft.locator('[data-layout="wide"]').last()).toBeVisible()
   } finally {
     await cleanup()
   }

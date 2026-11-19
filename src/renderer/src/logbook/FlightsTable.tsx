@@ -152,8 +152,8 @@ export function FlightsTable(props: {
                 </TableCell>
                 <TableCell className="order-5 p-0 text-[13px] text-muted-foreground @3xl:p-2 @3xl:text-[length:inherit] before:mr-2.5 before:content-['·'] @3xl:before:content-none font-mono @3xl:text-right @3xl:text-sm">
                   <RowFigure
-                    worded={t('logbookView.listRow.block', { time: formatMinutes(f.blockMinutes) })}
-                    bare={formatMinutes(f.blockMinutes)}
+                    figure={formatMinutes(f.blockMinutes)}
+                    words={(time) => t('logbookView.listRow.block', { time })}
                   />
                 </TableCell>
                 <TableCell className="order-5 p-0 text-[13px] text-muted-foreground @3xl:p-2 @3xl:text-[length:inherit] before:mr-2.5 before:content-['·'] @3xl:before:content-none font-mono @3xl:text-right @3xl:text-sm">

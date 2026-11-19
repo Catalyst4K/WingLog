@@ -91,23 +91,25 @@ function RouteText({ route }: { route: string }): React.JSX.Element {
  * (`FlightHeader`), so a long number or the online badge never cuts it short; the aircraft's type is left to the PC. When the two groups
  * don't fit side by side, the second wraps whole.
  *
- * @param props The flight being tracked.
+ * @param props The flight being tracked, its phase, and its number (null when it has none, and then the route leads).
  * @returns The element.
  */
 function FlightBanner({
   flight,
-  phase
+  phase,
+  flightNumber
 }: {
   flight: LanFlight
   phase: FlightPhase | undefined
+  flightNumber: string | null
 }): React.JSX.Element {
   return (
     <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
       <span className="flex items-center gap-2.5">
         <AirlineLogo iata={flight.operatorIata} size={22} />
-        {flight.flightNumber ? (
+        {flightNumber !== null ? (
           <span className="font-display text-[22px] leading-none font-bold tracking-[-0.02em] whitespace-nowrap">
-            {flight.flightNumber}
+            {flightNumber}
           </span>
         ) : (
           <RouteText route={routeText(flight)} />
@@ -388,6 +390,8 @@ function FlightHeader(props: {
 }): React.JSX.Element {
   const { snapshot, times } = props
   const { t } = useTranslation()
+  // A flight number leads the header and sends the route to the line below; with none, the route leads.
+  const flightNumber = snapshot?.flight.flightNumber || null
   return (
     <>
       {!snapshot && (
@@ -397,8 +401,8 @@ function FlightHeader(props: {
       )}
       {snapshot && (
         <div className="flex flex-col gap-1.5 border-b-[3px] border-foreground bg-card px-3.5 pt-3 pb-2">
-          <FlightBanner flight={snapshot.flight} phase={props.phase} />
-          {snapshot.flight.flightNumber ? (
+          <FlightBanner flight={snapshot.flight} phase={props.phase} flightNumber={flightNumber} />
+          {flightNumber !== null ? (
             <>
               <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
                 <RouteText route={routeText(snapshot.flight)} />

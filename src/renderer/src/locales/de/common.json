@@ -483,8 +483,8 @@
     "standNote": "Stand ist, wo das Flugzeug an diesem Flughafen zuletzt geparkt hat, aus dem Sim; leer, wenn es nicht erfasst wurde oder das Flugzeug seitdem weitergeflogen ist.",
     "listRow": {
       "hours": "{{hours}} Std.",
-      "flights_one": "{{count}} Flug",
-      "flights_other": "{{count}} Flüge"
+      "flights_one": "{{figure}} Flug",
+      "flights_other": "{{figure}} Flüge"
     }
   },
   "aircraftForm": {

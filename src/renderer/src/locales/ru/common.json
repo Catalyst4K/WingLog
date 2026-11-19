@@ -505,10 +505,10 @@
     "standNote": "Стоянка — это место, где самолёт последний раз парковался в этом аэропорту, по данным симулятора; пусто, если она не записана или самолёт с тех пор переместился.",
     "listRow": {
       "hours": "{{hours}} ч",
-      "flights_one": "{{count}} рейс",
-      "flights_few": "{{count}} рейса",
-      "flights_many": "{{count}} рейсов",
-      "flights_other": "{{count}} рейса"
+      "flights_one": "{{figure}} рейс",
+      "flights_few": "{{figure}} рейса",
+      "flights_many": "{{figure}} рейсов",
+      "flights_other": "{{figure}} рейса"
     }
   },
   "aircraftForm": {
