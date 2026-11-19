@@ -61,4 +61,11 @@ describe('installWindowShim', () => {
     expect(api.onBeyondAtcTranscript(() => undefined)()).toBeUndefined()
     await expect(api.appLogRendererError('x', 'y')).resolves.toEqual([])
   })
+
+  it('gives a function to stop with when a page listens for a sync, which a phone never hears', () => {
+    installWindowShim({ latest: () => undefined, query: vi.fn() })
+    const stop = window.winglog.onDataChanged(() => undefined)
+    expect(stop).toBeTypeOf('function')
+    expect(() => stop()).not.toThrow()
+  })
 })

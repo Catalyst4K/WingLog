@@ -68,7 +68,9 @@ export function installWindowShim(link: Pick<LanConnection, 'query' | 'latest'>)
     beyondAtcGetState: () => Promise.resolve(link.latest('beyondAtcState')),
     weatherGetMetars: (codes: string[]) => link.query('weather.metars', codes),
     onlineAtisGet: (requests: unknown) => link.query('online.atis', requests),
-    onBeyondAtcTranscript: () => () => undefined
+    onBeyondAtcTranscript: () => () => undefined,
+    // A phone never hears of a sync (that is a twin's), but the GSX page's routines list subscribes: it needs a function to stop, not a promise.
+    onDataChanged: () => () => undefined
   }
   const shim = new Proxy(known, {
     get: (target, name) => {
