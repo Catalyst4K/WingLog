@@ -3,6 +3,7 @@ import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import { createAircraft } from './aircraft-repo'
 import { createDb, type WingLogDb } from './client'
 import { dbFlightStore } from './flight-store'
+import { listInvoicesForFlight } from './flight-invoice-repo'
 import { completeFlight, createFlight, startFlight } from './flight-repo'
 import { setGsxSettings } from './settings-repo'
 import { logger } from '../logging/logger'
@@ -31,6 +32,34 @@ describe('dbFlightStore.saveGsxInvoices', () => {
   it('does nothing while GSX is off', () => {
     dbFlightStore(db).saveGsxInvoices(flightId)
     expect(scanGsxFolder).not.toHaveBeenCalled()
+  })
+
+  it('tells onWrite once the matched receipts are stored, so a twin gets them, and not when none matched', async () => {
+    setGsxSettings(db, { enabled: true, folderPath: 'C:/GSX', displayCurrency: 'USD' })
+    const onWrite = vi.fn()
+    const receipt = {
+      serviceGroup: 'fuel',
+      receiptId: 'R-1',
+      issuedUtc: '2026-09-06T12:30:00Z',
+      icao: 'EGLL',
+      tail: 'G-ABCD',
+      operator: null,
+      totalUsd: 120,
+      totalText: '$120.00',
+      sourceHtmlPath: 'C:/GSX/r1.html',
+      receiptJson: '{}'
+    }
+
+    scanGsxFolder.mockResolvedValue({ matched: [], notailCandidates: [] })
+    dbFlightStore(db, onWrite).saveGsxInvoices(flightId)
+    await vi.waitFor(() => expect(scanGsxFolder).toHaveBeenCalledOnce())
+    await Promise.resolve()
+    expect(onWrite).not.toHaveBeenCalled()
+
+    scanGsxFolder.mockResolvedValue({ matched: [receipt], notailCandidates: [] })
+    dbFlightStore(db, onWrite).saveGsxInvoices(flightId)
+    await vi.waitFor(() => expect(onWrite).toHaveBeenCalledOnce())
+    expect(listInvoicesForFlight(db, flightId)).toHaveLength(1)
   })
 
   it('logs a failed scan and lets the flight stand', async () => {

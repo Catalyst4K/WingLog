@@ -73,7 +73,12 @@ export function dbFlightStore(db: WingLogDb, onWrite: () => void = () => {}): Fl
       const window = buildFlightMatchWindow(db, flightId)
       if (!window) return
       scanGsxFolder(settings.folderPath, window)
-        .then((result) => addInvoicesForFlight(db, flightId, result.matched))
+        .then((result) => {
+          if (result.matched.length === 0) return
+          addInvoicesForFlight(db, flightId, result.matched)
+          // After the flight completed and was hinted: these rows arrive later, so a twin is told again.
+          onWrite()
+        })
         // Best effort after completion: a missing or renamed folder, or a malformed receipt, must
         // never affect the flight; the Logbook's rescan covers anything missed.
         .catch((error: unknown) =>
