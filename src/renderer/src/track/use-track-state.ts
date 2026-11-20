@@ -107,10 +107,15 @@ export function useTrackedFlights(onFlightEnded: (() => void) | undefined): Trac
   useEffect(() => {
     flightsRef.current = flights
   }, [flights])
+  // The flight shown as tracked, held at once (not only after a render) so a track read for one flight can tell the flight has since ended.
   const activeIdRef = useRef<number | null>(null)
   useEffect(() => {
     activeIdRef.current = active?.flightId ?? null
   }, [active])
+  function showActive(next: ActiveTracking | null): void {
+    activeIdRef.current = next?.flightId ?? null
+    setActive(next)
+  }
 
   useEffect(() => {
     onFlightEndedRef.current = onFlightEnded
@@ -126,8 +131,9 @@ export function useTrackedFlights(onFlightEnded: (() => void) | undefined): Trac
         .trackingGetActive()
         .then(async (a) => {
           if ((a?.flightId ?? null) === activeIdRef.current) return
-          setActive(a)
-          setTrackPoints(a ? await winglogApi().trackPointList(a.flightId) : [])
+          showActive(a)
+          const points = a ? await winglogApi().trackPointList(a.flightId) : []
+          if (activeIdRef.current === (a?.flightId ?? null)) setTrackPoints(points)
         })
     )
   })
@@ -139,8 +145,9 @@ export function useTrackedFlights(onFlightEnded: (() => void) | undefined): Trac
       winglogApi()
         .trackingGetActive()
         .then(async (a) => {
-          setActive(a)
-          if (a) setTrackPoints(await winglogApi().trackPointList(a.flightId))
+          showActive(a)
+          const points = a ? await winglogApi().trackPointList(a.flightId) : []
+          if (a && activeIdRef.current === a.flightId) setTrackPoints(points)
         })
         .finally(() => setTrackLoading(false))
     )
@@ -152,7 +159,7 @@ export function useTrackedFlights(onFlightEnded: (() => void) | undefined): Trac
         // between legs means there's no page remount to accidentally paper over it.
         const completed = flightsRef.current.find((f) => f.id === point.flightId)
         setCompletedLabel(flightLabel(completed))
-        setActive(null)
+        showActive(null)
         setTrackPoints([])
         runAsync('TrackView reload', reload())
         onFlightEndedRef.current?.()
@@ -161,7 +168,7 @@ export function useTrackedFlights(onFlightEnded: (() => void) | undefined): Trac
       setTrackPoints((current) =>
         current.length && current[0].flightId !== point.flightId ? [point] : [...current, point]
       )
-      setActive({ flightId: point.flightId, phase: point.phase })
+      showActive({ flightId: point.flightId, phase: point.phase })
     })
     // A resume-cleanup pass (winglog-backend's docs/plans/done/resume-track-cleanup.md) can
     // flag a point as junk or retag its resumeSegment after it's already been pushed above
