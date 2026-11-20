@@ -43,3 +43,49 @@ describe('dbFlightStore.saveGsxInvoices', () => {
     warn.mockRestore()
   })
 })
+
+describe('dbFlightStore writes', () => {
+  let db: WingLogDb
+  let flightId: number
+  let onWrite: ReturnType<typeof vi.fn<() => void>>
+
+  beforeEach(() => {
+    db = createDb(':memory:').db
+    migrate(db, { migrationsFolder: 'drizzle' })
+    const aircraft = createAircraft(db, { registration: 'G-ABCD', icaoType: 'A320' })
+    flightId = createFlight(db, { aircraftId: aircraft.id, depIcao: 'EGLL', arrIcao: 'EGCC' }).id
+    onWrite = vi.fn()
+  })
+
+  it('tell onWrite once for each write to a flight, after it is made', () => {
+    const store = dbFlightStore(db, onWrite)
+    const seen: (string | undefined)[] = []
+    onWrite.mockImplementation(() => seen.push(store.getFlight(flightId)?.status))
+
+    store.startFlight(flightId, 6000)
+    expect(onWrite).toHaveBeenCalledTimes(1)
+    store.recordOff(flightId)
+    store.setArrIcao(flightId, 'EGKK')
+    store.completeFlight(flightId, 3000, [])
+
+    expect(onWrite).toHaveBeenCalledTimes(4)
+    expect(seen[0]).toBe('active')
+    expect(seen[3]).toBe('completed')
+  })
+
+  it('tell onWrite when a flight is abandoned', () => {
+    dbFlightStore(db, onWrite).abandonFlight(flightId)
+    expect(onWrite).toHaveBeenCalledOnce()
+  })
+
+  it('do not tell onWrite for a track point, which is not synced as it is written', () => {
+    const store = dbFlightStore(db, onWrite)
+    store.listTrackPoints(flightId)
+    store.getFlight(flightId)
+    expect(onWrite).not.toHaveBeenCalled()
+  })
+
+  it('need no onWrite', () => {
+    expect(() => dbFlightStore(db).startFlight(flightId, 6000)).not.toThrow()
+  })
+})

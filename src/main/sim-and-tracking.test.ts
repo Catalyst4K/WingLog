@@ -365,16 +365,65 @@ describe('startTracking', () => {
     expect(hub.snapshot().trackingPointsUpdated).toBe(changed)
   })
 
-  it('schedules a background sync each time a flight completes, and not for anything else', () => {
+  it('schedules a background sync each time a flight completes', () => {
     const { trackingController } = startTracking(db, asLiveSim(sim), hub, scheduleBackgroundSync)
-
-    trackingController.emit('started', 3)
-    trackingController.emit('stopped', 3)
-    expect(scheduleBackgroundSync).not.toHaveBeenCalled()
 
     trackingController.emit('completed', 3)
     trackingController.emit('completed', 4)
     expect(scheduleBackgroundSync).toHaveBeenCalledTimes(2)
+  })
+
+  // A twin hears of a write on this PC only through the same call (local-write-hints.ts): a write that does not make it is
+  // not seen there until the twin syncs for another reason.
+  describe('a change tracking makes to the logbook', () => {
+    it('is followed by a background sync when the flight is stopped', () => {
+      const { trackingController } = startTracking(db, asLiveSim(sim), hub, scheduleBackgroundSync)
+      const flightId = plannedFlight(db)
+      trackingController.start(flightId)
+      scheduleBackgroundSync.mockClear()
+
+      trackingController.stop()
+
+      expect(trackingController.getActive()).toBeUndefined()
+      expect(scheduleBackgroundSync).toHaveBeenCalled()
+    })
+
+    it('is followed by a background sync when the flight is finished', () => {
+      const { trackingController } = startTracking(db, asLiveSim(sim), hub, scheduleBackgroundSync)
+      const flightId = plannedFlight(db)
+      trackingController.start(flightId)
+      scheduleBackgroundSync.mockClear()
+
+      trackingController.finish()
+
+      expect(getFlight(db, flightId)?.status).toBe('completed')
+      expect(scheduleBackgroundSync).toHaveBeenCalled()
+    })
+
+    it('is followed by a background sync when the flight goes active', () => {
+      const { trackingController } = startTracking(db, asLiveSim(sim), hub, scheduleBackgroundSync)
+
+      trackingController.start(plannedFlight(db))
+
+      expect(scheduleBackgroundSync).toHaveBeenCalled()
+    })
+
+    it('is followed by a background sync when the destination is changed during the flight', () => {
+      const { trackingController } = startTracking(db, asLiveSim(sim), hub, scheduleBackgroundSync)
+      const aircraft = createAircraft(db, { registration: 'G-FREE', icaoType: 'A320' })
+      const flightId = trackingController.startFree({
+        aircraftId: aircraft.id,
+        depIcao: 'EGLL',
+        arrIcao: 'ZZZZ',
+        flightNumber: null
+      })
+      scheduleBackgroundSync.mockClear()
+
+      trackingController.setDestination('EGKK')
+
+      expect(getFlight(db, flightId)?.arrIcao).toBe('EGKK')
+      expect(scheduleBackgroundSync).toHaveBeenCalled()
+    })
   })
 
   describe('auto-start', () => {
@@ -522,6 +571,7 @@ describe('startTracking', () => {
         expect.stringContaining(`[diag:capture] started for flight ${flightId}`)
       ])
 
+      events.length = 0
       trackingController.emit('completed', flightId)
 
       // Diagnostics listen first: the capture is closed and logged before the sync is scheduled.
