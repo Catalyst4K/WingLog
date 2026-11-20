@@ -68,4 +68,16 @@ describe('installWindowShim', () => {
     expect(stop).toBeTypeOf('function')
     expect(() => stop()).not.toThrow()
   })
+
+  it('gives a function to stop with for any subscription the stand-in does not implement, so a page that listens can leave without throwing', async () => {
+    installWindowShim({ latest: () => undefined, query: vi.fn() })
+    const api = window.winglog as unknown as Record<string, (...args: unknown[]) => unknown>
+    const stop = api.onSomethingNew(() => undefined)
+    expect(stop).toBeTypeOf('function')
+    expect((stop as () => unknown)()).toBeUndefined()
+    // A name that merely starts with the letters, not a subscription, keeps the "nothing here" answer.
+    await expect(api.once()).resolves.toEqual([])
+    await expect(api.onlineSomething()).resolves.toEqual([])
+    await expect(api.flightsList()).resolves.toEqual([])
+  })
 })

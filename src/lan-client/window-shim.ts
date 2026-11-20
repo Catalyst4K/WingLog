@@ -75,6 +75,9 @@ export function installWindowShim(link: Pick<LanConnection, 'query' | 'latest'>)
   const shim = new Proxy(known, {
     get: (target, name) => {
       if (typeof name === 'string' && name in target) return target[name]
+      // Any subscription (onSomething) the stand-in does not implement gets a function to stop with, not a promise: a page that listens
+      // calls it when it unmounts, and a promise there throws and breaks the next page.
+      if (typeof name === 'string' && /^on[A-Z]/.test(name)) return () => () => undefined
       return () => Promise.resolve([])
     }
   })
