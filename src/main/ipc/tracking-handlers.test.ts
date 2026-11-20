@@ -104,7 +104,6 @@ describe('tracking and flight IPC handlers', () => {
       flightNumber: 'BA1'
     })
     expect(releaseReplay).toHaveBeenCalled()
-    expect(sync).toHaveBeenCalled()
   })
 
   it('starts a free flight in a fleet aircraft, but not a retired or missing one', () => {

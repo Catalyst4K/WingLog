@@ -275,6 +275,46 @@ describe('CloudSyncController', () => {
     await first
   })
 
+  it('runs one more sync straight after the running one when a sync was asked for meanwhile, since a change may have come after its push read what to send', async () => {
+    loaded = SESSION
+    const results: ((result: SyncResult) => void)[] = []
+    runCursorSync.mockImplementation(
+      () =>
+        new Promise<SyncResult>((resolve) => {
+          results.push(resolve)
+        })
+    )
+    const done: SyncResult = { syncedAt: '2026-09-11T12:00:00.000Z', tables: {} as SyncResult['tables'] }
+    const controller = new CloudSyncController(db, '/fake/db/path', '/fake/userdata', loaded)
+
+    const first = controller.syncNow()
+    await controller.syncNow() // the background sync's timer, firing while the first is still running
+    await controller.syncNow() // and again: still one more sync, not two
+    results[0](done)
+    await vi.waitFor(() => expect(runCursorSync).toHaveBeenCalledTimes(2))
+    results[1](done)
+    const status = await first
+
+    expect(runCursorSync).toHaveBeenCalledTimes(2)
+    expect(status.syncing).toBe(false)
+  })
+
+  it('does not repeat a sync that failed', async () => {
+    loaded = SESSION
+    const failing = vi.fn(async () => {
+      throw new Error('server unreachable')
+    })
+    runCursorSync.mockImplementation(failing)
+    const controller = new CloudSyncController(db, '/fake/db/path', '/fake/userdata', loaded)
+
+    const first = controller.syncNow()
+    await controller.syncNow()
+    const status = await first
+
+    expect(failing).toHaveBeenCalledTimes(1)
+    expect(status.lastError).toBe('server unreachable')
+  })
+
   it('records a sync failure and surfaces it in status without clearing the session', async () => {
     loaded = SESSION
     runCursorSync.mockRejectedValue(new Error('server unreachable'))

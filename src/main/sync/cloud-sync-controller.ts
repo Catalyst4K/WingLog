@@ -49,6 +49,8 @@ function firstSyncBackupKey(email: string): string {
 export class CloudSyncController {
   private session: StoredSession | null
   private syncing = false
+  /** A sync was asked for while one was running: its push may have read what to send before the change that asked. */
+  private again = false
   private lastSyncedAt: string | null
   private lastError: string | null = null
 
@@ -164,14 +166,33 @@ export class CloudSyncController {
   }
 
   /**
-   * Runs a sync cycle, pull then push. Does nothing extra when a sync is already running.
+   * Runs a sync cycle, pull then push. When a sync is already running it does not overlap it: it asks for one more straight after, since a
+   * change made after the running one's push read what to send would otherwise wait for the periodic sync.
    *
    * @returns The sync status afterwards.
    */
   async syncNow(): Promise<SyncStatus> {
     if (!this.session) throw new Error(t('errors.notLoggedIn'))
-    if (this.syncing) return this.getStatus() // already running — don't overlap two syncs
+    if (this.syncing) {
+      this.again = true
+      return this.getStatus()
+    }
     this.syncing = true
+    try {
+      do {
+        this.again = false
+        await this.syncCycle()
+        // A failed cycle is not repeated at once: the next change or the periodic sync tries again.
+      } while (this.again && this.session && this.lastError === null)
+    } finally {
+      this.syncing = false
+    }
+    return this.getStatus()
+  }
+
+  /** One pull-then-push cycle; a failure is the status's error, never thrown. */
+  private async syncCycle(): Promise<void> {
+    if (!this.session) return
     try {
       // A device's first sync with an account can overwrite local rows with newer ones from another
       // device, so snapshot the database first. If the snapshot fails, no sync runs.
@@ -206,9 +227,6 @@ export class CloudSyncController {
         this.session = null
         clearSession(this.userDataPath)
       }
-    } finally {
-      this.syncing = false
     }
-    return this.getStatus()
   }
 }

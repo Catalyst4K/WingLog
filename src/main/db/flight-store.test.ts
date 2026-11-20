@@ -3,6 +3,7 @@ import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import { createAircraft } from './aircraft-repo'
 import { createDb, type WingLogDb } from './client'
 import { dbFlightStore } from './flight-store'
+import { listInvoicesForFlight } from './flight-invoice-repo'
 import { completeFlight, createFlight, startFlight } from './flight-repo'
 import { setGsxSettings } from './settings-repo'
 import { logger } from '../logging/logger'
@@ -33,6 +34,35 @@ describe('dbFlightStore.saveGsxInvoices', () => {
     expect(scanGsxFolder).not.toHaveBeenCalled()
   })
 
+  it('tells onWrite once the matched receipts are stored, so a twin gets them, and not when none matched', async () => {
+    setGsxSettings(db, { enabled: true, folderPath: 'C:/GSX', displayCurrency: 'USD' })
+    const onWrite = vi.fn()
+    const receipt = {
+      serviceGroup: 'fuel',
+      receiptId: 'R-1',
+      issuedUtc: '2026-09-06T12:30:00Z',
+      icao: 'EGLL',
+      tail: 'G-ABCD',
+      operator: null,
+      totalUsd: 120,
+      totalText: '$120.00',
+      sourceHtmlPath: 'C:/GSX/r1.html',
+      receiptJson: '{}'
+    }
+
+    scanGsxFolder.mockResolvedValue({ matched: [], notailCandidates: [] })
+    dbFlightStore(db, onWrite).saveGsxInvoices(flightId)
+    await vi.waitFor(() => expect(scanGsxFolder).toHaveBeenCalledOnce())
+    // The scan's answer is handled on a later turn: let it be, then see nothing was told.
+    await new Promise((resolve) => setImmediate(resolve))
+    expect(onWrite).not.toHaveBeenCalled()
+
+    scanGsxFolder.mockResolvedValue({ matched: [receipt], notailCandidates: [] })
+    dbFlightStore(db, onWrite).saveGsxInvoices(flightId)
+    await vi.waitFor(() => expect(onWrite).toHaveBeenCalledOnce())
+    expect(listInvoicesForFlight(db, flightId)).toHaveLength(1)
+  })
+
   it('logs a failed scan and lets the flight stand', async () => {
     const warn = vi.spyOn(logger, 'warn').mockImplementation(() => {})
     setGsxSettings(db, { enabled: true, folderPath: 'C:/GSX', displayCurrency: 'USD' })
@@ -41,5 +71,77 @@ describe('dbFlightStore.saveGsxInvoices', () => {
     await vi.waitFor(() => expect(warn).toHaveBeenCalledOnce())
     expect(warn.mock.calls[0]?.[0]).toContain('folder renamed')
     warn.mockRestore()
+  })
+})
+
+describe('dbFlightStore writes', () => {
+  let db: WingLogDb
+  let flightId: number
+  let onWrite: ReturnType<typeof vi.fn<() => void>>
+
+  beforeEach(() => {
+    db = createDb(':memory:').db
+    migrate(db, { migrationsFolder: 'drizzle' })
+    const aircraft = createAircraft(db, { registration: 'G-ABCD', icaoType: 'A320' })
+    flightId = createFlight(db, { aircraftId: aircraft.id, depIcao: 'EGLL', arrIcao: 'EGCC' }).id
+    onWrite = vi.fn()
+  })
+
+  it('tell onWrite once for each write to a flight, after it is made', () => {
+    const store = dbFlightStore(db, onWrite)
+    const seen: (string | undefined)[] = []
+    onWrite.mockImplementation(() => seen.push(store.getFlight(flightId)?.status))
+
+    store.startFlight(flightId, 6000)
+    expect(onWrite).toHaveBeenCalledTimes(1)
+    store.recordOff(flightId)
+    store.setArrIcao(flightId, 'EGKK')
+    store.completeFlight(flightId, 3000, [])
+
+    expect(onWrite).toHaveBeenCalledTimes(4)
+    expect(seen[0]).toBe('active')
+    expect(seen[3]).toBe('completed')
+  })
+
+  it('tell onWrite when a flight is abandoned', () => {
+    dbFlightStore(db, onWrite).abandonFlight(flightId)
+    expect(onWrite).toHaveBeenCalledOnce()
+  })
+
+  it('do not tell onWrite for a track point, which is not synced as it is written (one a second would flood the twins)', () => {
+    const store = dbFlightStore(db, onWrite)
+    const point = store.addTrackPoint({
+      flightId,
+      tsUtc: '2026-09-06T12:00:00.000Z',
+      latitude: 51.47,
+      longitude: -0.46,
+      altitudeM: 25,
+      pressureAltitudeM: null,
+      altitudeAglM: 0,
+      indicatedAirspeedMs: 0,
+      machSpeed: 0,
+      groundSpeedMs: 0,
+      verticalSpeedMs: 0,
+      headingTrueDeg: 270,
+      pitchDeg: 0,
+      bankDeg: 0,
+      phase: 'preflight',
+      onGround: true,
+      fuelKg: 6000,
+      gForce: 1,
+      windSpeedMs: 0,
+      windDirectionDeg: 0,
+      resumeSegment: 0,
+      simRate: 1,
+      excludedReason: null
+    })
+    store.listTrackPoints(flightId)
+    store.getFlight(flightId)
+    expect(point.id).toBeGreaterThan(0)
+    expect(onWrite).not.toHaveBeenCalled()
+  })
+
+  it('need no onWrite', () => {
+    expect(() => dbFlightStore(db).startFlight(flightId, 6000)).not.toThrow()
   })
 })

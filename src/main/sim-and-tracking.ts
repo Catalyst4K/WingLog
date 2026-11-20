@@ -68,13 +68,18 @@ export function connectSim(): {
  *
  * @param db The database.
  * @param sim The sim connection.
+ * @param scheduleBackgroundSync Run after each change tracking makes to a flight or a landing.
  * @returns The controller, before anything listens to it.
  */
-function createTracking(db: WingLogDb, sim: SimConnectService | ReplaySimConnectService): TrackingController {
+function createTracking(
+  db: WingLogDb,
+  sim: SimConnectService | ReplaySimConnectService,
+  scheduleBackgroundSync: () => void
+): TrackingController {
   // Replay mode has no live sim to ask for a touchdown's airfield.
   const simAirfieldResolver = sim instanceof ReplaySimConnectService ? undefined : new SimAirfieldResolver()
   return new TrackingController(
-    dbFlightStore(db),
+    dbFlightStore(db, scheduleBackgroundSync),
     sim,
     simAirfieldResolver && ((lat, lon, heading) => simAirfieldResolver.resolve(lat, lon, heading))
   )
@@ -87,7 +92,7 @@ function createTracking(db: WingLogDb, sim: SimConnectService | ReplaySimConnect
  * @param sim The sim connection.
  * @param trackingController The tracking controller.
  * @param liveHub Where points go live.
- * @param scheduleBackgroundSync Run when a flight completes.
+ * @param scheduleBackgroundSync Run when a flight completes, after the dev diagnostics have closed its capture.
  * @returns The auto-start detector.
  */
 function wireTracking(
@@ -99,9 +104,8 @@ function wireTracking(
 ): AutoStartDetector {
   trackingController.on('point', (point) => liveHub.publish('trackingPoint', point))
   trackingController.on('pointsUpdated', (points) => liveHub.publish('trackingPointsUpdated', points))
-  // Push-on-mutation's real-time case: a flight reaching 'completed' (auto shutdown
-  // detection or a manual finish()) is the highest-value moment to sync promptly, whether
-  // or not the user touches any other IPC channel afterward.
+  // Each write tracking makes to the logbook already schedules a sync (createTracking), completing the flight included. This one is the
+  // last for the flight: it follows the dev diagnostics closing the capture, which listen first.
   trackingController.on('completed', () => scheduleBackgroundSync())
 
   // Auto-starts tracking once the sim has genuinely settled into a freshly-planned flight
@@ -128,7 +132,7 @@ function wireTracking(
  * @param db The database.
  * @param sim The sim connection.
  * @param liveHub Where points go live.
- * @param scheduleBackgroundSync Run when a flight completes.
+ * @param scheduleBackgroundSync Run after each change tracking makes to a flight or a landing, so a twin and the cloud hear of it.
  * @returns The tracking controller, the dev diagnostics (dev builds only), and the auto-start detector.
  */
 export function startTracking(
@@ -141,7 +145,7 @@ export function startTracking(
   devDiagnostics?: DevDiagnostics
   autoStartDetector: AutoStartDetector
 } {
-  const trackingController = createTracking(db, sim)
+  const trackingController = createTracking(db, sim, scheduleBackgroundSync)
   const diag = createDiag(__WINGLOG_DEV_BUILD__ ? openDiagLog() : null)
   const flightCapture = __WINGLOG_DEV_BUILD__
     ? new FlightCapture(join(app.getPath('userData'), 'captures'))
@@ -160,12 +164,14 @@ export function startTracking(
  * @param sim The sim connection, for where the aircraft is.
  * @param trackingController Tracking, which says when a flight completes.
  * @param navdataProvider The stands of the airport.
+ * @param scheduleBackgroundSync Run after the stand is written to the flight, so a twin hears of it.
  */
 export function recordParkedStandOnCompletion(
   db: WingLogDb,
   sim: SimConnectService | ReplaySimConnectService,
   trackingController: TrackingController,
-  navdataProvider: SimFacilitiesProvider
+  navdataProvider: SimFacilitiesProvider,
+  scheduleBackgroundSync: () => void
 ): void {
   trackingController.on('completed', (flightId: number) => {
     const telemetry = sim.getLastTelemetry()
@@ -173,7 +179,11 @@ export function recordParkedStandOnCompletion(
       {
         getArrivalIcao: (id) => getFlight(db, id)?.arrIcao ?? null,
         getStands: (icao) => navdataProvider.getStands(icao),
-        setParkedStand: (id, icao, stand) => setParkedStand(db, id, icao, stand)
+        // Written after the completion was synced, when the stand lookup was slow: a twin is told again.
+        setParkedStand: (id, icao, stand) => {
+          setParkedStand(db, id, icao, stand)
+          scheduleBackgroundSync()
+        }
       },
       flightId,
       telemetry ? { lat: telemetry.latitude, lon: telemetry.longitude } : null
