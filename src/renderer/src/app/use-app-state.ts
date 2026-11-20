@@ -75,9 +75,12 @@ export function useFlightPlan(): FlightPlan {
   const unsaved = dispatchOfp !== null && dispatchedOfpId !== dispatchOfp.ofpId
   const unsavedRef = useRef(unsaved)
   const shownOfpIdRef = useRef(dispatchOfp?.ofpId ?? null)
+  // The flight this window already knows was dispatched, shown or not: Discard plan clears the plan shown but not this.
+  const dispatchedOfpIdRef = useRef(dispatchedOfpId)
   useEffect(() => {
     unsavedRef.current = unsaved
     shownOfpIdRef.current = dispatchOfp?.ofpId ?? null
+    dispatchedOfpIdRef.current = dispatchedOfpId
   })
   function setProcedureSelection(action: React.SetStateAction<ProcedureSelection>): void {
     const next = typeof action === 'function' ? action(selectionRef.current) : action
@@ -141,7 +144,7 @@ export function useFlightPlan(): FlightPlan {
   // see handleSaveFlight, which persists props.selection at the moment Fly is pressed).
   // Read again each time another WingLog changes the data behind this window: a sync on a client (a flight dispatched on the sim PC reaches
   // a twin after its window opened) or a twin's command on the sim PC (a Mac cancelling the flight). A plan being drafted here is left alone,
-  // and so is the flight already shown; a flight shown that is no longer in progress is cleared, as this window's own Cancel would.
+  // and so is the flight this window already dispatched (even if its plan was discarded from view); a flight shown that is no longer in progress is cleared, as this window's own Cancel would.
   const restoreInProgress = (): void => {
     runAsync(
       'App dispatchGetInProgressFlight',
@@ -153,7 +156,8 @@ export function useFlightPlan(): FlightPlan {
             if (shownOfpIdRef.current !== null) onFlightEndedRef.current()
             return
           }
-          if (result.ofp.ofpId === shownOfpIdRef.current) return
+          if (result.ofp.ofpId === dispatchedOfpIdRef.current) return
+          dispatchedOfpIdRef.current = result.ofp.ofpId
           setDispatchOfp(result.ofp)
           setDispatchedOfpId(result.ofp.ofpId)
           applySelection(selectionFromFlight(result.flight))
