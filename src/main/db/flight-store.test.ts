@@ -53,7 +53,8 @@ describe('dbFlightStore.saveGsxInvoices', () => {
     scanGsxFolder.mockResolvedValue({ matched: [], notailCandidates: [] })
     dbFlightStore(db, onWrite).saveGsxInvoices(flightId)
     await vi.waitFor(() => expect(scanGsxFolder).toHaveBeenCalledOnce())
-    await Promise.resolve()
+    // The scan's answer is handled on a later turn: let it be, then see nothing was told.
+    await new Promise((resolve) => setImmediate(resolve))
     expect(onWrite).not.toHaveBeenCalled()
 
     scanGsxFolder.mockResolvedValue({ matched: [receipt], notailCandidates: [] })
@@ -107,10 +108,36 @@ describe('dbFlightStore writes', () => {
     expect(onWrite).toHaveBeenCalledOnce()
   })
 
-  it('do not tell onWrite for a track point, which is not synced as it is written', () => {
+  it('do not tell onWrite for a track point, which is not synced as it is written (one a second would flood the twins)', () => {
     const store = dbFlightStore(db, onWrite)
+    const point = store.addTrackPoint({
+      flightId,
+      tsUtc: '2026-09-06T12:00:00.000Z',
+      latitude: 51.47,
+      longitude: -0.46,
+      altitudeM: 25,
+      pressureAltitudeM: null,
+      altitudeAglM: 0,
+      indicatedAirspeedMs: 0,
+      machSpeed: 0,
+      groundSpeedMs: 0,
+      verticalSpeedMs: 0,
+      headingTrueDeg: 270,
+      pitchDeg: 0,
+      bankDeg: 0,
+      phase: 'preflight',
+      onGround: true,
+      fuelKg: 6000,
+      gForce: 1,
+      windSpeedMs: 0,
+      windDirectionDeg: 0,
+      resumeSegment: 0,
+      simRate: 1,
+      excludedReason: null
+    })
     store.listTrackPoints(flightId)
     store.getFlight(flightId)
+    expect(point.id).toBeGreaterThan(0)
     expect(onWrite).not.toHaveBeenCalled()
   })
 

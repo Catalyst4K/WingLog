@@ -124,7 +124,6 @@ export function registerTrackingHandlers(ipcMain: IpcMain, deps: TrackingHandler
       flightNumber: input.flightNumber?.trim() || null
     })
     releaseReplay()
-    scheduleBackgroundSync()
     return flightId
   })
   ipcMain.handle(

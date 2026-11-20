@@ -239,6 +239,7 @@ describe('recordParkedStandOnCompletion', () => {
   let tracking: TrackingController
   let getStands: ReturnType<typeof vi.fn<(icao: string) => Promise<NavdataStand[]>>>
   let flightId: number
+  let scheduleBackgroundSync: ReturnType<typeof vi.fn<() => void>>
 
   beforeEach(() => {
     db = newDb()
@@ -246,9 +247,14 @@ describe('recordParkedStandOnCompletion', () => {
     sim.lastTelemetry = undefined
     getStands = vi.fn(async () => [GATE_14, GATE_15])
     tracking = startTracking(db, asLiveSim(sim), new LiveHub(), vi.fn()).trackingController
-    recordParkedStandOnCompletion(db, asLiveSim(sim), tracking, {
-      getStands
-    } as unknown as SimFacilitiesProvider)
+    scheduleBackgroundSync = vi.fn()
+    recordParkedStandOnCompletion(
+      db,
+      asLiveSim(sim),
+      tracking,
+      { getStands } as unknown as SimFacilitiesProvider,
+      scheduleBackgroundSync
+    )
     flightId = plannedFlight(db, 'EGCC')
     startFlight(db, flightId, 6000)
     completeFlight(db, flightId, 3000)
@@ -266,6 +272,8 @@ describe('recordParkedStandOnCompletion', () => {
       ])
     )
     expect(getStands).toHaveBeenCalledWith('EGCC')
+    // The stand is written to the flight after the completion sync was scheduled: a twin is told again.
+    expect(scheduleBackgroundSync).toHaveBeenCalledOnce()
   })
 
   it('records nothing when the aircraft stopped further than a stand reach from any stand', async () => {
@@ -276,6 +284,7 @@ describe('recordParkedStandOnCompletion', () => {
     await vi.waitFor(() => expect(getStands).toHaveBeenCalledWith('EGCC'))
     await Promise.resolve()
     expect(listLastParkedByAircraft(db)).toEqual([])
+    expect(scheduleBackgroundSync).not.toHaveBeenCalled()
   })
 
   it('records nothing, and asks for no stands, when the sim has gone and there is no final position', async () => {
@@ -388,22 +397,43 @@ describe('startTracking', () => {
       expect(scheduleBackgroundSync).toHaveBeenCalled()
     })
 
-    it('is followed by a background sync when the flight is finished', () => {
+    it('is followed by a background sync when the flight is finished, already before it is announced as completed', () => {
       const { trackingController } = startTracking(db, asLiveSim(sim), hub, scheduleBackgroundSync)
       const flightId = plannedFlight(db)
       trackingController.start(flightId)
       scheduleBackgroundSync.mockClear()
+      // First in line for 'completed', ahead of startTracking's own listener: it sees what had been scheduled by the time that fires.
+      let scheduledBeforeCompleted = -1
+      trackingController.prependListener('completed', () => {
+        scheduledBeforeCompleted = scheduleBackgroundSync.mock.calls.length
+      })
 
       trackingController.finish()
 
       expect(getFlight(db, flightId)?.status).toBe('completed')
-      expect(scheduleBackgroundSync).toHaveBeenCalled()
+      // Completing the flight is itself a write that was told; the completed event adds the last one.
+      expect(scheduledBeforeCompleted).toBeGreaterThanOrEqual(1)
+      expect(scheduleBackgroundSync).toHaveBeenCalledTimes(scheduledBeforeCompleted + 1)
     })
 
     it('is followed by a background sync when the flight goes active', () => {
       const { trackingController } = startTracking(db, asLiveSim(sim), hub, scheduleBackgroundSync)
 
       trackingController.start(plannedFlight(db))
+
+      expect(scheduleBackgroundSync).toHaveBeenCalled()
+    })
+
+    it('is followed by a background sync when a free flight is started', () => {
+      const { trackingController } = startTracking(db, asLiveSim(sim), hub, scheduleBackgroundSync)
+      const aircraft = createAircraft(db, { registration: 'G-FREE', icaoType: 'A320' })
+
+      trackingController.startFree({
+        aircraftId: aircraft.id,
+        depIcao: 'EGLL',
+        arrIcao: 'ZZZZ',
+        flightNumber: null
+      })
 
       expect(scheduleBackgroundSync).toHaveBeenCalled()
     })
@@ -550,7 +580,7 @@ describe('startTracking', () => {
       vi.stubGlobal('__WINGLOG_DEV_BUILD__', true)
     })
 
-    it('records the tracked flight to the captures folder and logs it, before the completion sync is scheduled', async () => {
+    it('records the tracked flight to the captures folder and logs it, and the last sync scheduled for the flight follows the capture closing', async () => {
       const events: string[] = []
       scheduleBackgroundSync.mockImplementation(() =>
         events.push(`sync after ${diagLines.written.length} diag lines`)
@@ -571,12 +601,14 @@ describe('startTracking', () => {
         expect.stringContaining(`[diag:capture] started for flight ${flightId}`)
       ])
 
-      events.length = 0
+      // Starting the flight scheduled a sync of its own, before the capture opened and anything was logged.
+      expect(events).toEqual(['sync after 0 diag lines'])
+
       trackingController.emit('completed', flightId)
 
-      // Diagnostics listen first: the capture is closed and logged before the sync is scheduled.
+      // Diagnostics listen first: the capture is closed and logged before the sync the completion schedules.
       expect(diagLines.written.at(-1)).toContain(`completed: flight ${flightId}`)
-      expect(events).toEqual(['sync after 2 diag lines'])
+      expect(events.at(-1)).toBe('sync after 2 diag lines')
     })
 
     it('lets the renderer write diag.log lines and ask about a capture, through the registered channels', async () => {

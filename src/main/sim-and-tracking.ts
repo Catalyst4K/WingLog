@@ -104,8 +104,8 @@ function wireTracking(
 ): AutoStartDetector {
   trackingController.on('point', (point) => liveHub.publish('trackingPoint', point))
   trackingController.on('pointsUpdated', (points) => liveHub.publish('trackingPointsUpdated', points))
-  // Each write tracking makes to the logbook already schedules a sync (createTracking); this one comes last, once the flight is
-  // complete and the dev diagnostics have closed its capture (the track cleanup and flown route are written just before).
+  // Each write tracking makes to the logbook already schedules a sync (createTracking), completing the flight included. This one is the
+  // last for the flight: it follows the dev diagnostics closing the capture, which listen first.
   trackingController.on('completed', () => scheduleBackgroundSync())
 
   // Auto-starts tracking once the sim has genuinely settled into a freshly-planned flight
@@ -164,12 +164,14 @@ export function startTracking(
  * @param sim The sim connection, for where the aircraft is.
  * @param trackingController Tracking, which says when a flight completes.
  * @param navdataProvider The stands of the airport.
+ * @param scheduleBackgroundSync Run after the stand is written to the flight, so a twin hears of it.
  */
 export function recordParkedStandOnCompletion(
   db: WingLogDb,
   sim: SimConnectService | ReplaySimConnectService,
   trackingController: TrackingController,
-  navdataProvider: SimFacilitiesProvider
+  navdataProvider: SimFacilitiesProvider,
+  scheduleBackgroundSync: () => void
 ): void {
   trackingController.on('completed', (flightId: number) => {
     const telemetry = sim.getLastTelemetry()
@@ -177,7 +179,11 @@ export function recordParkedStandOnCompletion(
       {
         getArrivalIcao: (id) => getFlight(db, id)?.arrIcao ?? null,
         getStands: (icao) => navdataProvider.getStands(icao),
-        setParkedStand: (id, icao, stand) => setParkedStand(db, id, icao, stand)
+        // Written after the completion was synced, when the stand lookup was slow: a twin is told again.
+        setParkedStand: (id, icao, stand) => {
+          setParkedStand(db, id, icao, stand)
+          scheduleBackgroundSync()
+        }
       },
       flightId,
       telemetry ? { lat: telemetry.latitude, lon: telemetry.longitude } : null

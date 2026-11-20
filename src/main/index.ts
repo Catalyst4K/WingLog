@@ -434,7 +434,7 @@ function startApp(cloudSession: StoredSession | null): void {
   startDiskSpaceWarning(liveHub, trackingController)
   registerAppAreas({ db, window, trackingController, capabilities })
 
-  recordParkedStandOnCompletion(db, sim, trackingController, navdataProvider)
+  recordParkedStandOnCompletion(db, sim, trackingController, navdataProvider, scheduleBackgroundSync)
 
   // CI packaging check (see .github/workflows/package.yml): proves the built
   // binary launches, migrates the DB and renders a first frame, then exits
