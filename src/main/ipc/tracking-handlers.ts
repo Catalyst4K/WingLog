@@ -158,7 +158,11 @@ export function registerTrackingHandlers(ipcMain: IpcMain, deps: TrackingHandler
   // moment the renderer answers the prompt this drives. trackingController.resume()
   // itself already no-ops for a merely-'planned' flight (nothing was ever tracking it),
   // so "resume" is safe to call unconditionally regardless of which status this is.
-  let orphanedFlight = getInProgressFlight(db)
+  //
+  // A client has no orphan: tracking belongs to the sim PC, and the flight left in progress
+  // in a client's database is usually the one the sim PC is flying right now, synced in. A
+  // discard here would sync back and delete it there, so a client is never offered the prompt.
+  let orphanedFlight = deps.relay ? undefined : getInProgressFlight(db)
   ipcMain.handle(IpcChannels.trackingGetOrphanedFlight, () => orphanedFlight ?? null)
   ipcMain.handle(IpcChannels.trackingResumeOrphaned, (_event, flightId: number) => {
     if (orphanedFlight?.id !== flightId) return
