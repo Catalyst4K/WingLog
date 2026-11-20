@@ -1,6 +1,7 @@
 /**
  * The page has no Electron preload, but the shared map code reads a few lookups through `window.winglog` (airfield list, taxi charts,
- * stands). Each is asked of the PC over the link; anything else the page never uses answers "nothing here".
+ * stands). Each is asked of the PC over the link; anything else the page never uses answers "nothing here", except an unimplemented
+ * `on*` subscription (a page that listens calls its result when it leaves), which gets a function that does nothing.
  */
 
 import type { LanConnection } from '@shared/lan-connection'
@@ -67,12 +68,14 @@ export function installWindowShim(link: Pick<LanConnection, 'query' | 'latest'>)
     // What BeyondATC shows now: the clearance prompt reads the route's arrival airport from it.
     beyondAtcGetState: () => Promise.resolve(link.latest('beyondAtcState')),
     weatherGetMetars: (codes: string[]) => link.query('weather.metars', codes),
-    onlineAtisGet: (requests: unknown) => link.query('online.atis', requests),
-    onBeyondAtcTranscript: () => () => undefined
+    onlineAtisGet: (requests: unknown) => link.query('online.atis', requests)
   }
   const shim = new Proxy(known, {
     get: (target, name) => {
       if (typeof name === 'string' && name in target) return target[name]
+      // Any subscription (onSomething) the stand-in does not implement gets a function to stop with, not a promise: a page that listens
+      // calls it when it unmounts, and a promise there throws and breaks the next page.
+      if (typeof name === 'string' && /^on[A-Z]/.test(name)) return () => () => undefined
       return () => Promise.resolve([])
     }
   })
