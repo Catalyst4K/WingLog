@@ -209,6 +209,26 @@ describe('tracking and flight IPC handlers', () => {
       expect(getLiveFlight(db, flight.id)).toBeDefined()
     })
 
+    it('offers no orphaned-flight prompt for the flight the sim PC is flying, and resume and discard leave it alone', () => {
+      const aircraft = createAircraft(db, { registration: 'G-FLWN', icaoType: 'A320' })
+      // The sim PC's active flight, synced into this client's database before it launched.
+      const flown = createFlight(db, {
+        aircraftId: aircraft.id,
+        depIcao: 'EGLL',
+        arrIcao: 'EGCC',
+        status: 'active'
+      })
+      expect(getInProgressFlight(db)?.id).toBe(flown.id)
+      const invoke = registerWithRelay()
+
+      expect(invoke(IpcChannels.trackingGetOrphanedFlight)).toBeNull()
+      invoke(IpcChannels.trackingResumeOrphaned, flown.id)
+      invoke(IpcChannels.trackingDiscardOrphaned, flown.id)
+      expect(tracking.resume).not.toHaveBeenCalled()
+      expect(getLiveFlight(db, flown.id)?.status).toBe('active')
+      expect(sync).not.toHaveBeenCalled()
+    })
+
     it('refuses a free flight, which is the sim aircraft as it is, on the other computer', () => {
       const invoke = registerWithRelay()
       expect(() =>

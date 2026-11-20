@@ -23,6 +23,7 @@ import {
   selectionFromFlight
 } from '@shared/procedure-selection'
 import { runAsync } from '../report-error'
+import { useDataChanged } from './use-data-changed'
 import { ATC_CLEARANCE_POPUP_MS, useAtcClearancePrompt, useImportantGsxMenu } from './use-prompts'
 
 /** The dispatched OFP and procedure selection Dispatch and Track share, and their handlers. */
@@ -73,8 +74,13 @@ export function useFlightPlan(): FlightPlan {
   // changed by it.
   const unsaved = dispatchOfp !== null && dispatchedOfpId !== dispatchOfp.ofpId
   const unsavedRef = useRef(unsaved)
+  const shownOfpIdRef = useRef(dispatchOfp?.ofpId ?? null)
+  // The flight this window already knows was dispatched, shown or not: Discard plan clears the plan shown but not this.
+  const dispatchedOfpIdRef = useRef(dispatchedOfpId)
   useEffect(() => {
     unsavedRef.current = unsaved
+    shownOfpIdRef.current = dispatchOfp?.ofpId ?? null
+    dispatchedOfpIdRef.current = dispatchedOfpId
   })
   function setProcedureSelection(action: React.SetStateAction<ProcedureSelection>): void {
     const next = typeof action === 'function' ? action(selectionRef.current) : action
@@ -136,19 +142,30 @@ export function useFlightPlan(): FlightPlan {
   // SimBrief's own choice — selectionFromFlight below already restores whatever was last
   // actually chosen (SimBrief's plan if nothing was ever touched, a live edit otherwise —
   // see handleSaveFlight, which persists props.selection at the moment Fly is pressed).
-  useEffect(() => {
+  // Read again each time another WingLog changes the data behind this window: a sync on a client (a flight dispatched on the sim PC reaches
+  // a twin after its window opened) or a twin's command on the sim PC (a Mac cancelling the flight). A plan being drafted here is left alone,
+  // and so is the flight this window already dispatched (even if its plan was discarded from view); a flight shown that is no longer in progress is cleared, as this window's own Cancel would.
+  const restoreInProgress = (): void => {
     runAsync(
       'App dispatchGetInProgressFlight',
       winglogApi()
         .dispatchGetInProgressFlight()
         .then((result) => {
-          if (!result) return
+          if (unsavedRef.current) return
+          if (!result) {
+            if (shownOfpIdRef.current !== null) onFlightEndedRef.current()
+            return
+          }
+          if (result.ofp.ofpId === dispatchedOfpIdRef.current) return
+          dispatchedOfpIdRef.current = result.ofp.ofpId
           setDispatchOfp(result.ofp)
           setDispatchedOfpId(result.ofp.ofpId)
           applySelection(selectionFromFlight(result.flight))
         })
     )
-  }, [])
+  }
+  useEffect(restoreInProgress, [])
+  useDataChanged(restoreInProgress)
 
   // The procedures can also be chosen on a second screen (a phone on the home network), and the suggested approach is chosen in the main
   // process: it announces each change, so Dispatch and Track here follow it, whichever page is open. An announcement equal to what is

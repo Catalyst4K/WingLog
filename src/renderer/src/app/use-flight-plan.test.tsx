@@ -152,3 +152,150 @@ describe('useFlightPlan: sending a change to the main process', () => {
     expect(result.current.procedureSelection).toEqual(CHOSEN)
   })
 })
+
+describe('useFlightPlan: a flight that reaches this computer after the window opened (the Mac twin)', () => {
+  afterEach(() => vi.restoreAllMocks())
+
+  const FLIGHT = { id: 7, ofpId: 'OFP-PC', status: 'active', ofpJson: '{}' }
+  const SYNCED_OFP = { ofpId: 'OFP-PC', ofpJson: '{}' } as unknown as DispatchOfp
+
+  /**
+   * A window.winglog whose database has no flight in progress when the window opens, and one after a sync, as a twin's has when the flight is
+   * dispatched on the sim PC.
+   *
+   * @returns Calls to make the sync land, and the in-progress query.
+   */
+  function withTwin() {
+    let dataChanged: () => void = () => undefined
+    const inProgress = vi.fn().mockResolvedValue(null)
+    window.winglog = {
+      dispatchGetInProgressFlight: inProgress,
+      onTrackingPoint: vi.fn(() => () => undefined),
+      trackingGetProcedureSelection: vi.fn().mockResolvedValue(null),
+      trackingSetProcedureSelection: vi.fn().mockResolvedValue(undefined),
+      onProcedureSelection: vi.fn(() => () => undefined),
+      onDataChanged: vi.fn((listener: () => void) => {
+        dataChanged = listener
+        return () => undefined
+      })
+    } as unknown as WingLogApi
+    return {
+      inProgress,
+      syncLands: async () => {
+        inProgress.mockResolvedValue({ flight: FLIGHT, ofp: SYNCED_OFP })
+        await act(async () => dataChanged())
+      }
+    }
+  }
+
+  it('shows the flight Dispatch had nothing for when the window opened, once a sync brings it in', async () => {
+    const twin = withTwin()
+    const { result } = renderHook(() => useFlightPlan())
+    await act(async () => undefined)
+    expect(result.current.dispatchOfp).toBeNull()
+    await twin.syncLands()
+    expect(result.current.dispatchOfp?.ofpId).toBe('OFP-PC')
+    expect(result.current.dispatchedOfpId).toBe('OFP-PC')
+  })
+
+  it('leaves a plan that is being drafted here alone when a sync lands', async () => {
+    const twin = withTwin()
+    const { result } = renderHook(() => useFlightPlan())
+    await act(async () => undefined)
+    act(() => result.current.onDispatchOfpChange(OFP))
+    await twin.syncLands()
+    expect(result.current.dispatchOfp?.ofpId).toBe('OFP-1')
+  })
+})
+
+describe('useFlightPlan: the flight shown is ended by another WingLog', () => {
+  afterEach(() => vi.restoreAllMocks())
+
+  it('clears the plan and the choice when the flight in progress is gone after a sync or a twin command (a Mac pressing Cancel)', async () => {
+    let dataChanged: () => void = () => undefined
+    const flight = { id: 7, ofpId: 'OFP-PC', status: 'active', ofpJson: '{}' }
+    const inProgress = vi.fn().mockResolvedValue({ flight, ofp: { ofpId: 'OFP-PC', ofpJson: '{}' } })
+    window.winglog = {
+      dispatchGetInProgressFlight: inProgress,
+      onTrackingPoint: vi.fn(() => () => undefined),
+      trackingGetProcedureSelection: vi.fn().mockResolvedValue(null),
+      trackingSetProcedureSelection: vi.fn().mockResolvedValue(undefined),
+      onProcedureSelection: vi.fn(() => () => undefined),
+      onDataChanged: vi.fn((listener: () => void) => {
+        dataChanged = listener
+        return () => undefined
+      })
+    } as unknown as WingLogApi
+    const { result } = renderHook(() => useFlightPlan())
+    await act(async () => undefined)
+    expect(result.current.dispatchOfp?.ofpId).toBe('OFP-PC')
+    inProgress.mockResolvedValue(null)
+    await act(async () => dataChanged())
+    expect(result.current.dispatchOfp).toBeNull()
+    expect(result.current.dispatchedOfpId).toBeNull()
+  })
+})
+
+describe('useFlightPlan: a sync or twin command while a flight is already shown', () => {
+  afterEach(() => vi.restoreAllMocks())
+
+  const FLIGHT = { id: 7, ofpId: 'OFP-PC', status: 'active', ofpJson: '{}' }
+  const OTHER_FLIGHT = { id: 8, ofpId: 'OFP-NEW', status: 'planned', ofpJson: '{}' }
+
+  /**
+   * A window.winglog with a flight in progress when the window opens, and the means to say what the database holds after the next sync.
+   *
+   * @returns The in-progress query, the selection query, and a call that makes a sync land.
+   */
+  function withFlightShown() {
+    let dataChanged: () => void = () => undefined
+    const inProgress = vi.fn().mockResolvedValue({ flight: FLIGHT, ofp: { ofpId: 'OFP-PC', ofpJson: '{}' } })
+    window.winglog = {
+      dispatchGetInProgressFlight: inProgress,
+      onTrackingPoint: vi.fn(() => () => undefined),
+      trackingGetProcedureSelection: vi.fn().mockResolvedValue(null),
+      trackingSetProcedureSelection: vi.fn().mockResolvedValue(undefined),
+      onProcedureSelection: vi.fn(() => () => undefined),
+      onDataChanged: vi.fn((listener: () => void) => {
+        dataChanged = listener
+        return () => undefined
+      })
+    } as unknown as WingLogApi
+    return { inProgress, syncLands: () => act(async () => dataChanged()) }
+  }
+
+  it('keeps a plan discarded from a flight in progress discarded when the next sync still finds that flight', async () => {
+    const world = withFlightShown()
+    const { result } = renderHook(() => useFlightPlan())
+    await act(async () => undefined)
+    expect(result.current.dispatchOfp?.ofpId).toBe('OFP-PC')
+    // Discard plan on a flight already flown: the shown plan goes, the flight stays dispatched.
+    act(() => result.current.onDispatchOfpChange(null))
+    expect(result.current.dispatchOfp).toBeNull()
+    await world.syncLands()
+    expect(result.current.dispatchOfp).toBeNull()
+  })
+
+  it('leaves the shown flight and its choice alone when a sync finds the same flight in progress', async () => {
+    const world = withFlightShown()
+    const { result } = renderHook(() => useFlightPlan())
+    await act(async () => undefined)
+    act(() => result.current.setProcedureSelection(CHOSEN))
+    const shown = result.current.dispatchOfp
+    world.inProgress.mockClear()
+    await world.syncLands()
+    expect(world.inProgress).toHaveBeenCalled()
+    expect(result.current.dispatchOfp).toBe(shown)
+    expect(result.current.procedureSelection).toEqual(CHOSEN)
+  })
+
+  it("replaces the flight shown with a different one a sync brings in (a twin's Fly, seen on the sim PC)", async () => {
+    const world = withFlightShown()
+    const { result } = renderHook(() => useFlightPlan())
+    await act(async () => undefined)
+    world.inProgress.mockResolvedValue({ flight: OTHER_FLIGHT, ofp: { ofpId: 'OFP-NEW', ofpJson: '{}' } })
+    await world.syncLands()
+    expect(result.current.dispatchOfp?.ofpId).toBe('OFP-NEW')
+    expect(result.current.dispatchedOfpId).toBe('OFP-NEW')
+  })
+})

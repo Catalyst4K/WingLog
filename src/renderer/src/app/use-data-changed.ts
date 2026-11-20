@@ -4,7 +4,7 @@ import { useEffect, useRef } from 'react'
 import { winglogApi } from '../data/winglog-api'
 
 /**
- * Calls a function each time a sync with the sim PC has brought in rows (a client only; a host never hears it).
+ * Calls a function each time a sync with the sim PC has brought in rows (a client after a sync with the sim PC, a host after a twin's push or command).
  *
  * @param reload Reads the screen's list again. The latest one is called, so it may close over current state.
  */
