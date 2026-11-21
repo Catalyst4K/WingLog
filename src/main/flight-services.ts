@@ -39,6 +39,8 @@ export function startFlightServices(
     liveHub,
     trackingController,
     navdata,
+    onWrite,
+    hostFlying,
     traceWorker
   }: {
     db: WingLogDb
@@ -46,6 +48,10 @@ export function startFlightServices(
     liveHub: LiveHub
     trackingController: TrackingController
     navdata: SimFacilitiesProvider
+    /** Called after the procedure choice is saved on the flight's row, so a twin and the cloud hear of it (`scheduleBackgroundSync`). */
+    onWrite: () => void
+    /** On a client: whether the sim PC is flying a flight, whose procedure choice the sim PC owns. */
+    hostFlying?: () => boolean
     /** Runs the taxi line's traces and re-routes on a worker thread; they run on this one when absent. */
     traceWorker?: WorkerTraceRunner
   }
@@ -59,7 +65,14 @@ export function startFlightServices(
     trace: traceWorker && ((job) => traceWorker.run(job)),
     rejoin: traceWorker && ((request) => traceWorker.rejoin(request))
   })
-  const selection = startProcedureSelection(ipcMain, { db, liveHub, trackingController, navdata })
+  const selection = startProcedureSelection(ipcMain, {
+    db,
+    onWrite,
+    hostFlying,
+    liveHub,
+    trackingController,
+    navdata
+  })
   return {
     selection,
     onFlightsChanged: () => {

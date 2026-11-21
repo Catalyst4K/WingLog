@@ -1,13 +1,13 @@
 import { describe, expect, it, vi } from 'vitest'
 
 vi.mock('../logging/logger', () => ({ logger: { warn: vi.fn(), info: vi.fn(), error: vi.fn() } }))
-import { IpcChannels } from '@shared/ipc'
+import { IpcChannels, type ProcedureSelection } from '@shared/ipc'
 import { fakeIpc } from '../ipc/fake-ipc'
 import { LiveHub } from '../live/LiveHub'
 import type { HostLink } from './HostLink'
 import { FORWARDED_COMMANDS, NAVDATA_LOOKUPS, registerHostLinkHandlers, TOPIC_GETTERS } from './client-ipc'
 
-function setup() {
+function setup(own?: { hostFlying: boolean }) {
   const hub = new LiveHub()
   const link = {
     getStatus: vi.fn(() => ({ state: 'connected', address: '192.168.1.20:5051', hostSim: 'connected' })),
@@ -17,8 +17,14 @@ function setup() {
     query: vi.fn()
   }
   const ipc = fakeIpc()
-  registerHostLinkHandlers(ipc.ipcMain, { link: link as unknown as HostLink, hub, handled: new Set() })
-  return { hub, link, ...ipc }
+  const store = { set: vi.fn(), current: vi.fn((): ProcedureSelection | undefined => undefined) }
+  registerHostLinkHandlers(ipc.ipcMain, {
+    link: link as unknown as HostLink,
+    hub,
+    handled: new Set(),
+    ...(own && { ownSelection: { store, hostFlying: () => own.hostFlying } })
+  })
+  return { hub, link, store, ...ipc }
 }
 
 describe('a client IPC handlers', () => {
@@ -80,6 +86,43 @@ describe('a client IPC handlers', () => {
 
   it('never forwards the command that acts on this computer own flight', () => {
     expect(FORWARDED_COMMANDS['track.setProcedureSelection']).toBeUndefined()
+  })
+
+  describe("the window's procedure choice", () => {
+    const choice = {
+      departureRunway: '07R',
+      sidIdent: 'PECA3A',
+      sidTransition: null,
+      starIdent: 'UPRS3D',
+      starTransition: null,
+      approachIdent: 'ILS X 08',
+      approachTransition: null,
+      arrivalIcao: null
+    }
+
+    it('goes to the sim PC, as a phone sends it, while the sim PC is flying: this computer holds no copy of that flight to set', () => {
+      const { invoke, link, store } = setup({ hostFlying: true })
+      invoke(IpcChannels.trackingSetProcedureSelection, choice)
+      expect(link.command).toHaveBeenCalledWith('track.setProcedureSelection', [choice])
+      expect(store.set).not.toHaveBeenCalled()
+    })
+
+    it("stays on this computer's own flight while the sim PC is not flying, and is checked first", () => {
+      const { invoke, link, store } = setup({ hostFlying: false })
+      invoke(IpcChannels.trackingSetProcedureSelection, choice)
+      expect(store.set).toHaveBeenCalledWith(choice, 'window')
+      expect(link.command).not.toHaveBeenCalled()
+      expect(() => invoke(IpcChannels.trackingSetProcedureSelection, { sidIdent: 7 })).toThrow()
+    })
+
+    it("is read from the sim PC's last word when this computer holds none of its own", () => {
+      const { invoke, hub, store } = setup({ hostFlying: true })
+      expect(invoke(IpcChannels.trackingGetProcedureSelection)).toBeNull()
+      hub.publish('procedureSelection', choice)
+      expect(invoke(IpcChannels.trackingGetProcedureSelection)).toEqual(choice)
+      store.current.mockReturnValue({ ...choice, sidIdent: 'OWN1A' })
+      expect(invoke(IpcChannels.trackingGetProcedureSelection)).toMatchObject({ sidIdent: 'OWN1A' })
+    })
   })
 
   it('answers each topic current-value query from what the host last said', () => {

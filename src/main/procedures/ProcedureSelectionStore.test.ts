@@ -5,7 +5,7 @@ import { emptyProcedureSelection } from '@shared/procedure-selection'
 import { VECTORS_TRANSITION } from '@shared/route'
 import { createAircraft } from '../db/aircraft-repo'
 import { createDb, type WingLogDb } from '../db/client'
-import { createFlight, getFlight, getLiveFlight, setSelectedProcedures } from '../db/flight-repo'
+import { createFlight, getFlight, getLiveFlight, setArrIcao, setSelectedProcedures } from '../db/flight-repo'
 import { logger } from '../logging/logger'
 import { ProcedureSelectionStore } from './ProcedureSelectionStore'
 
@@ -129,8 +129,7 @@ describe('ProcedureSelectionStore: which flight it holds', () => {
   })
 
   it("takes up a choice written on the flight's row by another WingLog (a twin's sync), and announces it", () => {
-    // Flight 436, 2026-11-13: the Mac accepted BeyondATC's ILS 07L; it reached the PC's row by twin sync, but the PC's copy stayed on 07C,
-    // so the PC's procedures box and route never changed.
+    // The row changes, not the flight shown: the store's own copy must follow it, or the box and the route keep the old choice.
     const { db, state, store, announced, flight } = setup()
     const f = flight()
     setSelectedProcedures(db, f.id, chosen({ starIdent: 'BETY3A', approachIdent: 'ILS 07C' }))
@@ -341,6 +340,46 @@ describe('ProcedureSelectionStore: the suggested approach', () => {
     expect(store.current()?.approachIdent).toBeNull()
   })
 
+  it("keeps an approach set to None on the row by another WingLog (a twin's sync) cleared, and does not suggest one again", () => {
+    // Taking a choice up from the row follows the same rule as a screen's: an approach going to None is the pilot clearing it, so the
+    // suggestion does not pick one again.
+    const { db, state, store, flight } = setup()
+    state.approaches.ZJSY = ZJSY
+    const f = flight()
+    state.shownId = f.id
+    store.refresh()
+    expect(store.current()?.approachIdent).toBeTruthy()
+
+    setSelectedProcedures(
+      db,
+      f.id,
+      chosen({ ...store.current(), approachIdent: null, approachTransition: null })
+    )
+    store.refresh()
+
+    expect(store.current()?.approachIdent).toBeNull()
+    expect(getLiveFlight(db, f.id)?.selectedApproachIdent).toBeNull()
+    state.refreshed.forEach((listener) => listener('ZJSY'))
+    expect(store.current()?.approachIdent).toBeNull()
+  })
+
+  it('announces nothing on a refresh after it saved a choice from a screen or a suggestion: the row it wrote is its own', () => {
+    // The row the store wrote is its own: a later refresh finds nothing new on it.
+    const { state, store, announced, flight } = setup()
+    state.approaches.ZJSY = ZJSY
+    state.shownId = flight().id
+    store.refresh()
+    expect(store.current()?.approachIdent).toBeTruthy()
+    announced.length = 0
+    store.refresh()
+    expect(announced).toEqual([])
+
+    store.set(chosen({ ...store.current(), sidIdent: 'NEWSID' }), 'window')
+    announced.length = 0
+    store.refresh()
+    expect(announced).toEqual([])
+  })
+
   it("treats a switch to the alternate as a new airport, not a cleared approach, and suggests the alternate's", () => {
     const { state, store, flight } = setup()
     state.approaches.ZJSY = ZJSY
@@ -353,6 +392,27 @@ describe('ProcedureSelectionStore: the suggested approach', () => {
       'phone'
     )
     expect(store.current()).toMatchObject({ arrivalIcao: 'ZGSZ', approachIdent: 'ILS 33' })
+  })
+
+  it('treats a row that changes the arrival airport and clears the approach in one sync as a new airport, not a cleared approach', () => {
+    // Two writes made on the other computer before a sync arrive as one row.
+    const { db, state, store, flight } = setup()
+    state.approaches.ZJSY = ZJSY
+    state.approaches.ZGSZ = [proc('ILS 33')]
+    const f = flight()
+    state.shownId = f.id
+    store.refresh()
+    expect(store.current()?.approachIdent).toBe('ILS X 08')
+
+    setArrIcao(db, f.id, 'ZGSZ')
+    setSelectedProcedures(
+      db,
+      f.id,
+      chosen({ ...store.current(), approachIdent: null, approachTransition: null })
+    )
+    store.refresh()
+
+    expect(store.current()?.approachIdent).toBe('ILS 33')
   })
 
   it('leaves an approach alone that is already chosen, and a flight with no arrival airport', () => {

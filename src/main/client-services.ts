@@ -11,6 +11,7 @@ import { ownEpoch } from './db/sync-change-repo'
 import { runLogged } from './logging/run-logged'
 import type { LiveHub } from './live/LiveHub'
 import { HostLink } from './host-link/HostLink'
+import { followHostFlight, onSyncLanded } from './host-link/client-follow'
 import { mapFlightTopic, type FlightMirror } from './host-link/flight-mirror'
 import type { FlightRelay } from './host-link/flight-relay'
 import { registerHostLinkHandlers } from './host-link/client-ipc'
@@ -20,6 +21,7 @@ import { LanSyncClient } from './host-link/lan-sync-client'
 import { SYNC_AFTER_WRITE_MS, TwinSync } from './host-link/TwinSync'
 import { syncTrackPoints } from './host-link/track-point-sync'
 import { openHostSocket } from './host-link/ws-socket'
+import type { ProcedureSelectionStore } from './procedures/ProcedureSelectionStore'
 import { onLocalWrite } from './sync/local-write-hints'
 
 /**
@@ -33,6 +35,7 @@ import { onLocalWrite } from './sync/local-write-hints'
  * @param deps.dbPath The database file's path, where conflicts are logged next to it.
  * @param deps.mirror The flight the sim PC is tracking, as this computer's own screens read it.
  * @param deps.relay Where Fly, Start, Finish and Cancel go: to the sim PC.
+ * @param deps.selection This computer's procedure store: it holds a choice only for a flight the sim PC is not flying.
  */
 export function startClientServices(deps: {
   liveHub: LiveHub
@@ -42,8 +45,9 @@ export function startClientServices(deps: {
   dbPath: string
   mirror: FlightMirror
   relay: FlightRelay
+  selection: ProcedureSelectionStore
 }): void {
-  const { liveHub, window, handled, db, dbPath, mirror, relay } = deps
+  const { liveHub, window, handled, db, dbPath, mirror, relay, selection } = deps
   const sync = new TwinSync({
     db,
     dbPath,
@@ -70,18 +74,20 @@ export function startClientServices(deps: {
     sync,
     // The sim PC's flight ids mean nothing here: its points are re-labelled with this computer's id for the same flight (by uuid).
     mapTopic: (topic, payload) => mapFlightTopic(mirror, topic, payload),
-    onFlight: (flight, track) => (flight ? mirror.setFlight(flight, track) : mirror.clear())
+    onFlight: followHostFlight(mirror, selection)
   })
-  registerHostLinkHandlers(ipcMain, { link, hub: liveHub, handled })
+  registerHostLinkHandlers(ipcMain, {
+    link,
+    hub: liveHub,
+    handled,
+    ownSelection: { store: selection, hostFlying: () => mirror.hostTracking() }
+  })
   // The GSX routines are rows in this computer's own database, synced with the sim PC's: listed, saved and deleted here.
   registerRoutineQueries(ipcMain, db)
   relay.bind(sync, (name, ...args) => link.query(name, ...args))
-  // Each time a sync ends well the lists on screen can be read again: rows may have come in.
-  let lastSeen: string | null = null
-  sync.onChange(() => {
-    const { state, lastSyncedAt } = sync.status()
-    if (state !== 'idle' || lastSyncedAt === lastSeen) return
-    lastSeen = lastSyncedAt
+  // Each time a sync ends well the lists on screen can be read again, and the procedure store looks at its flight's row: rows may have come in.
+  onSyncLanded(sync, () => {
+    selection.refresh()
     if (!window.isDestroyed()) window.webContents.send(IpcChannels.dataChanged)
   })
   // A change made here reaches the sim PC soon after.

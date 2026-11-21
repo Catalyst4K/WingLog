@@ -18,7 +18,7 @@ import { describeError } from '../logging/describe-error'
 import { findQuery } from './find-query'
 import { logger } from '../logging/logger'
 import type { LiveHub } from '../live/LiveHub'
-import { dispatchCommand } from '../live/commands'
+import { commandsFor, dispatchCommand } from '../live/commands'
 import type { HostIdentity } from './host-identity-store'
 import { logName, parseIncoming, type Incoming } from './lan-incoming'
 import { originMatches, pageSecurityPolicy } from './lan-http'
@@ -75,6 +75,7 @@ export interface LanServerDeps {
   hub: Pick<LiveHub, 'subscribe' | 'snapshot'>
   /** The commands a device may send (BeyondATC and GSX only). */
   commands: Partial<Record<LiveCommand, (...args: unknown[]) => void>>
+  /** A twin's own versions of commands (same names and checks, its own source in the log). */ twinCommands?: LanServerDeps['commands']
   devices: {
     add(name: string, tokenHash: string, kind: LanDeviceKind): number
     find(tokenHash: string): { id: number; kind: LanDeviceKind } | null
@@ -442,7 +443,7 @@ export class LanServer {
     if (message.t === 'query') return this.handleQuery(client, message)
     if (message.t === 'report') return this.handleReport(client, message.code, message.detail, now)
     try {
-      dispatchCommand(this.deps.commands, message.name, message.args)
+      dispatchCommand(commandsFor(this.deps, client.kind), message.name, message.args)
     } catch (error) {
       // Answered the same whatever went wrong, so a device learns nothing from it; but the PC's log says which command failed and why, or a
       // real bug in a command would leave no trace at all.
@@ -702,9 +703,8 @@ export class LanServer {
     this.deps.onFlightChanged?.()
     const flight = this.deps.flight() as { flight?: { flightId?: number } } | null
     this.sentFlightId = flight?.flight?.flightId ?? null
-    for (const client of this.clients) {
+    for (const client of this.clients)
       if (client.deviceId !== null) this.send(client, { t: 'flight', flight })
-    }
   }
 
   /**

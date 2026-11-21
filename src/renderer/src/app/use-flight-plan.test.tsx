@@ -142,14 +142,30 @@ describe('useFlightPlan: sending a change to the main process', () => {
     expect(result.current.procedureSelection).toEqual(CHOSEN)
   })
 
-  it('swallows a failure to send, rather than crashing', async () => {
+  it('reports a failure to send and shows the choice that is really held again, rather than one nobody heard (a Mac whose link to the sim PC is down)', async () => {
     const pc = withWinglog()
-    pc.set.mockRejectedValue(new Error('offline'))
+    const logged = vi.fn().mockResolvedValue(undefined)
+    window.winglog.appLogRendererError = logged
+    pc.set.mockRejectedValue(new Error('Not connected'))
+    const { result } = renderHook(() => useFlightPlan())
+    await act(async () => undefined)
+    const before = result.current.procedureSelection
+    act(() => result.current.setProcedureSelection(CHOSEN))
+    expect(result.current.procedureSelection).toEqual(CHOSEN)
+    await act(async () => undefined)
+    expect(result.current.procedureSelection).toEqual(before)
+    expect(logged).toHaveBeenCalledWith('App trackingSetProcedureSelection', 'Not connected')
+  })
+
+  it('keeps a newer choice when an older one fails to send', async () => {
+    const pc = withWinglog()
+    pc.set.mockRejectedValueOnce(new Error('Not connected'))
     const { result } = renderHook(() => useFlightPlan())
     await act(async () => undefined)
     act(() => result.current.setProcedureSelection(CHOSEN))
+    act(() => result.current.setProcedureSelection({ ...CHOSEN, sidIdent: 'NEWER1A' }))
     await act(async () => undefined)
-    expect(result.current.procedureSelection).toEqual(CHOSEN)
+    expect(result.current.procedureSelection.sidIdent).toBe('NEWER1A')
   })
 })
 

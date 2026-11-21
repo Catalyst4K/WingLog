@@ -22,7 +22,7 @@ import {
   seedProcedureSelectionFromOfp,
   selectionFromFlight
 } from '@shared/procedure-selection'
-import { runAsync } from '../report-error'
+import { reportError, runAsync } from '../report-error'
 import { useDataChanged } from './use-data-changed'
 import { ATC_CLEARANCE_POPUP_MS, useAtcClearancePrompt, useImportantGsxMenu } from './use-prompts'
 
@@ -85,9 +85,16 @@ export function useFlightPlan(): FlightPlan {
   function setProcedureSelection(action: React.SetStateAction<ProcedureSelection>): void {
     const next = typeof action === 'function' ? action(selectionRef.current) : action
     if (JSON.stringify(next) === JSON.stringify(selectionRef.current)) return
+    const previous = selectionRef.current
     applySelection(next)
-    if (!unsaved)
-      runAsync('App trackingSetProcedureSelection', winglogApi().trackingSetProcedureSelection(next))
+    if (unsaved) return
+    winglogApi()
+      .trackingSetProcedureSelection(next)
+      .catch((error: unknown) => {
+        reportError('App trackingSetProcedureSelection', error)
+        // Nobody heard it (a client whose link to the sim PC is down): show the choice that is really held, unless a newer one was made since.
+        if (JSON.stringify(selectionRef.current) === JSON.stringify(next)) applySelection(previous)
+      })
   }
 
   // Wraps setDispatchOfp so a *new* OFP (a different ofpId, including "cleared to null")

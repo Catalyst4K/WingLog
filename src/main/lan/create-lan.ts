@@ -25,6 +25,7 @@ import {
   setLanSettings
 } from '../db/settings-repo'
 import type { LiveHub } from '../live/LiveHub'
+import type { ProcedureSelection } from '@shared/ipc'
 import type { ProcedureSelectionStore } from '../procedures/ProcedureSelectionStore'
 import type { TrackingController } from '../tracking/TrackingController'
 import { listAirfields } from '../airports/airfields'
@@ -227,6 +228,28 @@ async function loadIdentityRevokingTwins(
 }
 
 /**
+ * @param route The planned route publisher.
+ * @param selection The procedure choice.
+ * @param source Which kind of device sent the choice, for the log.
+ * @returns What a device's choice does.
+ */
+export function chooseProcedures(
+  route: Pick<PlannedRoutePublisher, 'publishedCount' | 'resend'>,
+  selection: Pick<ProcedureSelectionStore, 'set'>,
+  source: 'phone' | 'twin'
+): { setProcedureSelection(chosen: ProcedureSelection): void } {
+  return {
+    setProcedureSelection: (chosen) => {
+      const before = route.publishedCount
+      selection.set(chosen, source)
+      // A choice the PC already had changes nothing and so builds no new route: answer it with the current one, which is how the
+      // device learns it was heard.
+      if (route.publishedCount === before) route.resend()
+    }
+  }
+}
+
+/**
  * The second-screen controller, wired to the database, the live hub and the machine's network. A device may send only the commands in the
  * remote-safe tables (`live/commands.ts`): BeyondATC, GSX Remote and choosing procedures.
  *
@@ -271,16 +294,10 @@ export function createLan({
     hub: liveHub,
     commands: {
       ...addOnCommands,
-      ...trackCommands({
-        setProcedureSelection: (chosen) => {
-          const before = route.publishedCount
-          selection.set(chosen, 'phone')
-          // A choice the PC already had changes nothing and so builds no new route: answer it with the current one, which is how the
-          // device learns it was heard.
-          if (route.publishedCount === before) route.resend()
-        }
-      })
+      ...trackCommands(chooseProcedures(route, selection, 'phone'))
     },
+    // The same command from a Mac or other twin: the same checks, logged as the twin's.
+    twinCommands: trackCommands(chooseProcedures(route, selection, 'twin')),
     devices: serverDevices(db),
     // Each kind of device has its own switch; the server runs while either is on, and refuses a token of a kind that is off.
     enabledKinds: () => {

@@ -61,6 +61,11 @@ export class FlightMirror {
     return { ...point, flightId }
   }
 
+  /** @returns True while the sim PC is tracking a flight, whether or not that flight has synced to this computer yet. */
+  hostTracking(): boolean {
+    return Boolean(this.snapshot?.flight.tracking)
+  }
+
   /** @returns The flight being tracked on the sim PC as this computer's own Track screen reads it, or null when none is or it has not synced yet. */
   active(): ActiveTracking | null {
     const flight = this.snapshot?.flight

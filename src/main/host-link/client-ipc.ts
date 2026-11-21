@@ -11,6 +11,8 @@ import type { HostLinkStatus } from '@shared/ipc'
 import { isCertificatePin } from '@shared/host-address'
 import { logger } from '../logging/logger'
 import type { LiveHub } from '../live/LiveHub'
+import { parseProcedureSelection } from '../live/commands'
+import type { ProcedureSelectionStore } from '../procedures/ProcedureSelectionStore'
 import type { HostLink } from './HostLink'
 
 /** The IPC channel each live command goes out on from the renderer, which a client sends to the host instead of acting on. */
@@ -135,10 +137,25 @@ function checkedPin(value: unknown): string | null {
  * @param deps.link The link to the sim PC's WingLog.
  * @param deps.hub The hub the link republishes into.
  * @param deps.handled The channels something else already answers: a client takes them over (a second handler for a channel throws).
+ * @param deps.ownSelection This computer's own procedure store, and whether the sim PC is flying a flight: the window's choice for that flight
+ *   goes to the sim PC (the phone's command), which owns it. Left out, the choice channels stay as they were.
  */
 export function registerHostLinkHandlers(
   ipcMain: IpcMain,
-  { link, hub, handled }: { link: HostLink; hub: LiveHub; handled: ReadonlySet<string> }
+  {
+    link,
+    hub,
+    handled,
+    ownSelection
+  }: {
+    link: HostLink
+    hub: LiveHub
+    handled: ReadonlySet<string>
+    ownSelection?: {
+      store: Pick<ProcedureSelectionStore, 'set' | 'current'>
+      hostFlying: () => boolean
+    }
+  }
 ): void {
   ipcMain.handle(IpcChannels.hostLinkGetStatus, (): HostLinkStatus => link.getStatus())
   ipcMain.handle(
@@ -171,6 +188,18 @@ export function registerHostLinkHandlers(
   }
   // The routines are rows that sync, so a routine made or edited here a moment ago may not have reached the sim PC: start it after a sync.
   answer(IpcChannels.gsxRoutineStart, (...args) => link.commandAfterSync('gsx.startRoutine', args))
+  if (ownSelection) {
+    // Not in FORWARDED_COMMANDS: a flight planned here and not yet flying keeps its choice on this computer's own row.
+    answer(IpcChannels.trackingSetProcedureSelection, (selection) => {
+      const chosen = parseProcedureSelection(selection)
+      if (ownSelection.hostFlying()) link.command('track.setProcedureSelection', [chosen])
+      else ownSelection.store.set(chosen, 'window')
+    })
+    answer(
+      IpcChannels.trackingGetProcedureSelection,
+      () => ownSelection.store.current() ?? hub.snapshot().procedureSelection ?? null
+    )
+  }
   for (const [topic, channel] of Object.entries(TOPIC_GETTERS)) {
     answer(channel, () => hub.snapshot()[topic as LiveTopic] ?? TOPIC_DEFAULTS[topic as LiveTopic])
   }

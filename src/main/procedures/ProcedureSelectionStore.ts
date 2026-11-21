@@ -4,8 +4,9 @@
  * only while Track was on screen, was written to the flight only when it ended, and was never cleared between flights; a phone saw whatever
  * the window last pushed.
  *
- * Now there is one copy here: loaded from the flight's saved choice whenever the flight shown changes, replaced by whatever the PC window or
- * a phone sets (last one received wins), saved on the flight at every change (so a restart keeps it), and announced to every screen. The
+ * Now there is one copy here: loaded from the flight's saved choice whenever the flight shown changes, and again whenever another WingLog
+ * writes a different one on the flight's row (on the sim PC a twin's push, on a client a sync from the sim PC); replaced by whatever the PC window or a phone sets (last one
+ * received wins), saved on the flight at every change (so a restart keeps it), and announced to every screen. The
  * suggested approach is decided here too, from the cached navdata, so it appears whichever screen is open and as soon as the airport's data
  * arrives, not when somebody opens a dialog.
  *
@@ -31,7 +32,7 @@ export interface ProcedureSelectionStoreDeps {
 }
 
 /** Where a change came from, for the log. */
-export type SelectionSource = 'window' | 'phone'
+export type SelectionSource = 'window' | 'phone' | 'twin' | 'sync'
 
 interface Shown {
   flight: Flight
@@ -66,7 +67,8 @@ export class ProcedureSelectionStore extends EventEmitter<{ changed: [ProcedureS
 
   /**
    * Looks at which flight is shown. Call it whenever that may have changed: a flight planned, cancelled or deleted, tracking started,
-   * stopped or finished, and at start-up. A different flight is loaded with its own saved choice; then the suggestion runs.
+   * stopped or finished, a twin's push was applied on the sim PC, a sync landed on a client, and at start-up. A different flight is loaded with its own saved
+   * choice; the same flight takes up a choice another WingLog wrote on its row; then the suggestion runs.
    */
   refresh(): void {
     this.guarded('refresh', () => {
@@ -83,13 +85,8 @@ export class ProcedureSelectionStore extends EventEmitter<{ changed: [ProcedureS
         this.shown = { flight, selection, saved: selection, suggested: null, cleared: new Set() }
         this.emit('changed', selection)
       } else if (!same(selectionFromFlight(flight), this.shown.saved)) {
-        // The row was written by another WingLog (a twin's sync or the cloud's), not by this store: take its choice up, as it is
-        // when the flight is loaded (flight 436, 2026-11-13: a Mac's accepted ILS 07L never reached the PC's copy).
-        const selection = selectionFromFlight(flight)
-        this.shown.flight = flight
-        this.shown.selection = selection
-        this.shown.saved = selection
-        this.emit('changed', selection)
+        // The row was written by another WingLog (a twin's push or a sync from the sim PC), not by this store: take its choice up.
+        this.adopt(selectionFromFlight(flight), 'sync', flight)
       }
       this.suggest()
     })
@@ -107,18 +104,32 @@ export class ProcedureSelectionStore extends EventEmitter<{ changed: [ProcedureS
     this.guarded('set', () => {
       const shown = this.shown
       if (!shown || same(shown.selection, selection)) return
-      const before = arrivalAirport(shown.flight, shown.selection)
-      const after = arrivalAirport(shown.flight, selection)
-      // An approach that goes to "None" for the same airport was cleared by the pilot, so it isn't suggested again.
-      if (shown.selection.approachIdent && !selection.approachIdent && before === after)
-        shown.cleared.add(after)
-      shown.selection = selection
-      this.deps.save(shown.flight.id, selection)
-      shown.saved = selection
-      logger.info(`[selection] flight ${shown.flight.id}: ${describe(selection)} (from the ${source})`)
-      this.emit('changed', selection)
+      this.adopt(selection, source)
       this.suggest()
     })
+  }
+
+  /**
+   * Makes a choice the one held, from a screen or from the flight's row, and announces it.
+   *
+   * @param selection The new choice.
+   * @param source Where it came from; one from the flight's row ('sync') is already saved.
+   * @param flight The flight as it is now, when its row was read again: its airports may have changed with the choice.
+   */
+  private adopt(selection: ProcedureSelection, source: SelectionSource, flight?: Flight): void {
+    const shown = this.shown
+    if (!shown) return
+    const before = arrivalAirport(shown.flight, shown.selection)
+    const after = arrivalAirport(flight ?? shown.flight, selection)
+    if (flight) shown.flight = flight
+    // An approach that goes to "None" for the same airport was cleared by the pilot, so it isn't suggested again.
+    if (shown.selection.approachIdent && !selection.approachIdent && before === after)
+      shown.cleared.add(after)
+    shown.selection = selection
+    if (source !== 'sync') this.deps.save(shown.flight.id, selection)
+    shown.saved = selection
+    logger.info(`[selection] flight ${shown.flight.id}: ${describe(selection)} (from the ${source})`)
+    this.emit('changed', selection)
   }
 
   /** @param icao An airport whose navdata has just been refreshed. */

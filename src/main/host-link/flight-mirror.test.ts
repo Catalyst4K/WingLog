@@ -37,6 +37,17 @@ describe('FlightMirror', () => {
     expect(mirror.livePoints(3)).toBeNull()
   })
 
+  it('says the sim PC is tracking a flight whether or not that flight has synced here yet', () => {
+    const mirror = make(false)
+    expect(mirror.hostTracking()).toBe(false)
+    mirror.setFlight(snapshot({ tracking: false }), () => [])
+    expect(mirror.hostTracking()).toBe(false)
+    mirror.setFlight(snapshot(), () => [])
+    expect(mirror.hostTracking()).toBe(true)
+    mirror.clear()
+    expect(mirror.hostTracking()).toBe(false)
+  })
+
   it('re-labels the sim PC’s points with this computer’s id for the same flight, found by uuid', () => {
     const mirror = make()
     mirror.setFlight(snapshot(), () => [])
