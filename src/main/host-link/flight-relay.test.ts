@@ -10,7 +10,8 @@ const NOT_CONNECTED =
   "The sim PC isn't connected right now (the link may be reconnecting). Try again in a moment."
 
 /** The refusal when the link is up but the two WingLogs could not be brought level. */
-const SYNC_FAILED = "Couldn't bring this computer up to date with the sim PC. See Settings → Sim PC."
+const SYNC_FAILED =
+  "Couldn't bring this computer up to date with the sim PC. Try again, or check Settings → Sim PC."
 
 describe('FlightRelay', () => {
   let db: WingLogDb
@@ -28,7 +29,12 @@ describe('FlightRelay', () => {
   })
 
   /** @param syncOk Whether the sync ends well. @param connected Whether the link is up before the sync; `linkAfterSync` is whether it is after. */
-  function bound(syncOk = true, connected = true, linkAfterSync = connected): FlightRelay {
+  function bound(
+    syncOk = true,
+    connected = true,
+    linkAfterSync = connected,
+    refusal = NOT_CONNECTED
+  ): FlightRelay {
     let up = connected
     const relay = new FlightRelay(db)
     relay.bind(
@@ -38,7 +44,8 @@ describe('FlightRelay', () => {
           up = linkAfterSync
           return Promise.resolve(syncOk)
         },
-        connected: () => up
+        connected: () => up,
+        refusal: () => (up ? '' : refusal)
       },
       (name, ...args) => {
         calls.push(`${name}:${args.join(',')}`)
@@ -81,7 +88,13 @@ describe('FlightRelay', () => {
     expect(calls).toEqual(['sync'])
   })
 
-  it('says the sync failed, not that the link is reconnecting, when the link is up and the sync did not end well', async () => {
+  it('tells the pilot what the link says, so after Forget every button says to pair', async () => {
+    const NOT_PAIRED = "This computer isn't paired with a sim PC. Pair it in Settings → Sim PC."
+    await expect(bound(false, false, false, NOT_PAIRED).cancel(flightId)).rejects.toThrow(NOT_PAIRED)
+    await expect(bound(false, true, false, NOT_PAIRED).start(flightId)).rejects.toThrow(NOT_PAIRED)
+  })
+
+  it('says the sync failed, not that the link is reconnecting, when the link is up when the sync ends badly (also if it dropped and came back during it)', async () => {
     await expect(bound(false, true, true).cancel(flightId)).rejects.toThrow(SYNC_FAILED)
     expect(calls).toEqual(['sync'])
   })

@@ -43,7 +43,7 @@
     "noFlightBeingTracked": "No flight is being tracked",
     "simPcNotConnected": "The sim PC isn't connected right now (the link may be reconnecting). Try again in a moment.",
     "simPcNotPaired": "This computer isn't paired with a sim PC. Pair it in Settings → Sim PC.",
-    "simPcSyncFailed": "Couldn't bring this computer up to date with the sim PC. See Settings → Sim PC.",
+    "simPcSyncFailed": "Couldn't bring this computer up to date with the sim PC. Try again, or check Settings → Sim PC.",
     "freeFlightOnSimPc": "Free flights are started on the sim PC.",
     "credentialEncryptionUnavailable": "OS-level credential encryption is not available on this machine",
     "notLoggedIn": "Not logged in",

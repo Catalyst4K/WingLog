@@ -16,6 +16,8 @@ interface SyncNow {
   run(): Promise<boolean>
   /** Whether the link to the sim PC is up. */
   connected(): boolean
+  /** What to tell the pilot when the link is not up, from where it stands. */
+  refusal(): string
 }
 
 /** The calls the tracking handlers make instead of acting on a flight themselves, when this computer is a client. */
@@ -80,10 +82,11 @@ export class FlightRelay implements FlightRelayPort {
     const { sync, ask } = this.connected()
     const uuid = getFlightUuidById(this.db, flightId)
     if (!uuid) throw new Error('Unknown flight')
-    if (!sync.connected()) throw new Error(t('errors.simPcNotConnected'))
-    // A failed sync with the link still up (the two WingLogs are different versions, say) is not a reconnect to wait for.
+    if (!sync.connected()) throw new Error(sync.refusal())
+    // A failed sync with the link up when it ended (the two WingLogs are different versions, say) is not a reconnect to wait for. A link
+    // that dropped and came back during the sync reads the same, which is fair: the sync did fail, and trying again is right.
     if (!(await sync.run())) {
-      throw new Error(t(sync.connected() ? 'errors.simPcSyncFailed' : 'errors.simPcNotConnected'))
+      throw new Error(sync.connected() ? t('errors.simPcSyncFailed') : sync.refusal())
     }
     await ask(name, uuid)
   }

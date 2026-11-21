@@ -85,7 +85,11 @@ export function startClientServices(deps: {
   // The GSX routines are rows in this computer's own database, synced with the sim PC's: listed, saved and deleted here.
   registerRoutineQueries(ipcMain, db)
   relay.bind(
-    { run: () => sync.run(), connected: () => link.getStatus().state === 'connected' },
+    {
+      run: () => sync.run(),
+      connected: () => link.getStatus().state === 'connected',
+      refusal: () => link.refusalText()
+    },
     (name, ...args) => link.query(name, ...args)
   )
   // Each time a sync ends well the lists on screen can be read again, and the procedure store looks at its flight's row: rows may have come in.

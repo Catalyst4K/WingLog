@@ -180,7 +180,13 @@ export class HostLink {
    * @throws When the link is not up.
    */
   command(name: string, args: unknown[]): void {
-    this.requireUp().command(name, ...args)
+    const connection = this.connection
+    if (!connection) throw new Error(this.refusalText())
+    try {
+      connection.command(name, ...args)
+    } catch (error) {
+      throw this.translated(error)
+    }
   }
 
   /**
@@ -191,7 +197,7 @@ export class HostLink {
    * @throws When the link is not up.
    */
   async commandAfterSync(name: string, args: unknown[]): Promise<void> {
-    this.requireUp()
+    if (!this.connection) throw new Error(this.refusalText())
     await this.deps.sync?.run()
     this.command(name, args)
   }
@@ -204,23 +210,32 @@ export class HostLink {
    * @returns The host's answer.
    */
   query(name: string, ...args: unknown[]): Promise<unknown> {
-    try {
-      return this.requireUp().query(name, ...args)
-    } catch (error) {
-      return Promise.reject(error)
-    }
+    // Only a computer with no sim PC refuses up front: the connection itself answers from what it kept while the link is down, which the
+    // procedure picker and the taxi chart rely on through a short drop.
+    if (!this.connection) return Promise.reject(new Error(this.refusalText()))
+    return this.connection.query(name, ...args).catch((error: unknown) => {
+      throw this.translated(error)
+    })
   }
 
   /**
-   * @returns The connection, when it is up.
-   * @throws When there is no sim PC to reach (this computer is not paired, was made to forget it, or must pair again), saying to pair; or when
-   *   the link is not up (connecting, offline, refused), saying it may be reconnecting. Both read in the user's language, unlike the
-   *   connection's own refusal.
+   * @returns What to tell the pilot when the link cannot do what was asked, in their language, from where the link stands: waiting to
+   *   reconnect (connecting, offline) reads "may be reconnecting, try again"; no sim PC, a pairing to redo, a wrong code or a refused
+   *   certificate all read "pair this computer with the sim PC in Settings", since only pairing again fixes them.
    */
-  private requireUp(): LanConnection {
-    if (!this.connection || this.pairAgain) throw new Error(t('errors.simPcNotPaired'))
-    if (this.connection.state !== 'connected') throw new Error(t('errors.simPcNotConnected'))
-    return this.connection
+  refusalText(): string {
+    const state = this.getStatus().state
+    const waiting = state === 'connecting' || state === 'offline' || state === 'connected'
+    return t(waiting ? 'errors.simPcNotConnected' : 'errors.simPcNotPaired')
+  }
+
+  /**
+   * @param error What a connection threw or rejected with.
+   * @returns The same error, or, for the connection's own English "Not connected" (a command sent while it is down, a lookup it gave up on
+   *   after being down too long), the refusal in the pilot's language.
+   */
+  private translated(error: unknown): unknown {
+    return error instanceof Error && error.message === 'Not connected' ? new Error(this.refusalText()) : error
   }
 
   /** Closes the link for good (the app is quitting). */
@@ -329,8 +344,7 @@ export class HostLink {
   /** Says in main.log when the link's state changes (connected, offline, a refusal), once per change, so a quiet log can be told from a dropped link. */
   private logState(): void {
     const state = this.getStatus().state
-    // Each retry of a link that is down flips offline and connecting; only the first drop is news.
-    if (state === this.loggedState || (state === 'connecting' && this.loggedState === 'offline')) return
+    if (state === this.loggedState) return
     this.loggedState = state
     logger.info(`[host-link] link to the sim PC: ${state}`)
   }
