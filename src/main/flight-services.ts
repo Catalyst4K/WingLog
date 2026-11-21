@@ -40,6 +40,7 @@ export function startFlightServices(
     trackingController,
     navdata,
     onWrite,
+    isClient,
     hostFlying,
     traceWorker
   }: {
@@ -50,6 +51,8 @@ export function startFlightServices(
     navdata: SimFacilitiesProvider
     /** Called after the procedure choice is saved on the flight's row, so a twin and the cloud hear of it (`scheduleBackgroundSync`). */
     onWrite: () => void
+    /** True on a client: the sim PC's taxi line is the only one, so none is traced here. */
+    isClient?: boolean
     /** On a client: whether the sim PC is flying a flight, whose procedure choice the sim PC owns. */
     hostFlying?: () => boolean
     /** Runs the taxi line's traces and re-routes on a worker thread; they run on this one when absent. */
@@ -57,14 +60,18 @@ export function startFlightServices(
   }
 ): FlightServices {
   const flightNavdata = wireFlightNavdata({ db, sim, trackingController, provider: navdata })
-  const stopTaxiRoute = startTaxiRoute(ipcMain, {
-    db,
-    liveHub,
-    trackingController,
-    navdata,
-    trace: traceWorker && ((job) => traceWorker.run(job)),
-    rejoin: traceWorker && ((request) => traceWorker.rejoin(request))
-  })
+  // A client has no clearance of its own to trace: its hub holds the sim PC's taxi line, and a service of its own would publish a "no line"
+  // over it. (The navdata fetcher above is idle there too: it fetches only while this computer's own sim is connected, which it never is.)
+  const stopTaxiRoute = isClient
+    ? () => undefined
+    : startTaxiRoute(ipcMain, {
+        db,
+        liveHub,
+        trackingController,
+        navdata,
+        trace: traceWorker && ((job) => traceWorker.run(job)),
+        rejoin: traceWorker && ((request) => traceWorker.rejoin(request))
+      })
   const selection = startProcedureSelection(ipcMain, {
     db,
     onWrite,

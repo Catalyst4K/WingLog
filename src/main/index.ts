@@ -388,8 +388,9 @@ function startApp(cloudSession: StoredSession | null): void {
     trackingController,
     navdata: navdataProvider,
     onWrite: scheduleBackgroundSync,
+    isClient,
     hostFlying: isClient ? () => flightMirror.hostTracking() : undefined,
-    traceWorker: createTraceWorkerRunner()
+    traceWorker: isClient ? undefined : createTraceWorkerRunner()
   })
   app.on('before-quit', flightServices.stop)
 
