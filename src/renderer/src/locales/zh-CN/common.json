@@ -740,6 +740,17 @@
   },
   "trackView": {
     "title": "追踪",
+    "phases": {
+      "pushback": "推出",
+      "taxiOut": "滑出",
+      "takeoff": "起飞",
+      "climb": "爬升",
+      "cruise": "巡航",
+      "descent": "下降",
+      "landing": "着陆",
+      "taxiIn": "滑入",
+      "shutdown": "关车"
+    },
     "times": {
       "et": "已飞",
       "remaining": "剩余",

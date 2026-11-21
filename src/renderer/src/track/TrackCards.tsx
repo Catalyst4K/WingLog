@@ -7,6 +7,7 @@ import type {
   LogbookFlight,
   ProcedureSelection,
   SimTelemetry,
+  TrackPoint,
   WindSpeedUnit
 } from '@shared/ipc'
 import {
@@ -37,6 +38,7 @@ import { asyncHandler } from '../report-error'
 import { formatDuration, formatElapsed, formatUtcTime, type TrackTimes } from '../track-times'
 import type { FreeFlightBanner } from './use-track-state'
 import { PhaseLights } from './PhaseLights'
+import { isPastLanding } from '@shared/phase-strip'
 
 /**
  * The flight's identity as on the canvas (r3-track): its number large, the aircraft's type and registration quiet beside it and, for a
@@ -139,6 +141,7 @@ function FlownReadout(props: { times: TrackTimes }): React.JSX.Element {
  */
 export function ActiveFlightCard(props: {
   active: ActiveTracking
+  trackPoints: TrackPoint[]
   flight: LogbookFlight | undefined
   label: string
   aircraft: Aircraft | undefined
@@ -165,7 +168,7 @@ export function ActiveFlightCard(props: {
               flight?.hasOfp ? `${displayIcao(flight.depIcao)} → ${displayIcao(flight.arrIcao)}` : undefined
             }
           />
-          <PhaseLights phase={props.active.phase} />
+          <PhaseLights phase={props.active.phase} pastLanding={isPastLanding(props.trackPoints)} />
         </div>
         <div className="flex flex-wrap items-center gap-x-6 gap-y-3.5">
           <EtaReadout times={props.times} />

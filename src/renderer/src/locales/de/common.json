@@ -749,6 +749,17 @@
   },
   "trackView": {
     "title": "Flugverfolgung",
+    "phases": {
+      "pushback": "Pushback",
+      "taxiOut": "Rollen zum Start",
+      "takeoff": "Start",
+      "climb": "Steigflug",
+      "cruise": "Reiseflug",
+      "descent": "Sinkflug",
+      "landing": "Landung",
+      "taxiIn": "Rollen zum Gate",
+      "shutdown": "Abstellen"
+    },
     "times": {
       "et": "ET",
       "remaining": "Verbleibend",

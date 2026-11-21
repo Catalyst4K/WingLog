@@ -502,6 +502,48 @@ describe('LanApp', () => {
     expect(mapProps.current?.trackPoints.map((p) => p.id)).toEqual([1, 2, 3])
   })
 
+  it('names the phone’s phase strip light "Taxi out" before takeoff and "Taxi in" after a landing', () => {
+    const { link, sockets } = setup('tok')
+    render(<LanApp link={link} />)
+    const point = (id: number, phase: string) => ({
+      id,
+      flightId: 7,
+      latitude: 10 + id,
+      longitude: 20,
+      phase
+    })
+    act(() => {
+      sockets[0].onopen?.()
+      sockets[0].say({
+        t: 'snapshot',
+        topics: {},
+        flight: {
+          flight: {
+            flightId: 7,
+            depIcao: 'WSSS',
+            arrIcao: 'EGLL',
+            flightNumber: 'SIA321',
+            schedInUtc: null,
+            registration: '9V-SKA',
+            icaoType: 'A388',
+            ofpJson: OFP
+          },
+          trackPoints: [point(1, 'taxi')]
+        }
+      })
+    })
+    expect(screen.getByText('Taxi out')).not.toHaveClass('sr-only')
+    expect(screen.getByText('Taxi in')).toHaveClass('sr-only')
+
+    act(() => {
+      sockets[0].say({ t: 'topic', name: 'trackingPoint', payload: point(2, 'takeoff') })
+      sockets[0].say({ t: 'topic', name: 'trackingPoint', payload: point(3, 'landing') })
+      sockets[0].say({ t: 'topic', name: 'trackingPoint', payload: point(4, 'taxi') })
+    })
+    expect(screen.getByText('Taxi in')).not.toHaveClass('sr-only')
+    expect(screen.getByText('Taxi out')).toHaveClass('sr-only')
+  })
+
   it('says the sim is not connected, and gives the map no readings, while the PC has no sim: a phone that joins late is sent the last reading of one that has gone', () => {
     const { link, sockets } = setup('tok')
     render(<LanApp link={link} />)

@@ -245,6 +245,7 @@ export function TrackView(props: {
       {active ? (
         <ActiveFlightCard
           active={active}
+          trackPoints={trackPoints}
           flight={activeFlight}
           label={activeLabel}
           aircraft={aircraft.find((a) => a.id === activeFlight?.aircraftId)}

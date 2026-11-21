@@ -776,7 +776,7 @@ describe('TrackView', () => {
         trackingGetActive: vi.fn().mockResolvedValue({ flightId: 1, phase: 'cruise' })
       })
       renderTrack({ telemetry: makeTelemetry({ onGround: false }) })
-      await screen.findByText('cruise') // wait for the active-flight card to settle
+      await screen.findByText('Cruise') // wait for the active-flight card to settle
       expect(screen.queryByText(/start tracking\?/)).not.toBeInTheDocument()
     })
 
@@ -1060,7 +1060,7 @@ describe('TrackView', () => {
       trackingGetActive: vi.fn().mockResolvedValue({ flightId: 1, phase: 'cruise' })
     })
     renderTrack()
-    expect(await screen.findByText('cruise')).toBeInTheDocument()
+    expect(await screen.findByText('Cruise')).toBeInTheDocument()
     expect(screen.getByText('Cancel flight')).toBeInTheDocument()
     expect(screen.getByText('Finish & save')).toBeInTheDocument()
   })
@@ -1268,7 +1268,7 @@ describe('TrackView', () => {
       trackingGetActive: vi.fn().mockResolvedValue({ flightId: 1, phase: 'cruise' })
     })
     renderTrack({ selection: { ...emptyProcedureSelection(), sidIdent: 'DET2G' } })
-    await screen.findByText('cruise')
+    await screen.findByText('Cruise')
     expect(winglog.trackingSetProcedureSelection).not.toHaveBeenCalled()
   })
 
@@ -1293,7 +1293,7 @@ describe('TrackView', () => {
         onSelectionChange={onSelectionChange}
       />
     )
-    await screen.findByText('cruise')
+    await screen.findByText('Cruise')
     expect(screen.getByText('Nothing selected yet')).toBeInTheDocument()
 
     isSimUp = true
@@ -1335,7 +1335,7 @@ describe('TrackView', () => {
       })
     })
     renderTrack({ onFlightEnded })
-    await screen.findByText('landing')
+    await screen.findByText('Landing')
 
     pointListener?.(makeTrackPoint({ phase: 'shutdown', flightId: 1 }))
 
@@ -1376,15 +1376,15 @@ describe('TrackView', () => {
       })
     })
     renderTrack()
-    await screen.findByText('taxi')
+    await screen.findByText('Taxi out')
 
     pointListener?.(makeTrackPoint({ phase: 'takeoff', flightId: 1 }))
-    expect(await screen.findByText('takeoff')).toBeInTheDocument()
+    expect(await screen.findByText('Takeoff')).toBeInTheDocument()
 
     // A point for a different flight id replaces the accumulated trail rather than
     // appending to it.
     pointListener?.(makeTrackPoint({ phase: 'climb', flightId: 2, id: 2 }))
-    expect(await screen.findByText('climb')).toBeInTheDocument()
+    expect(await screen.findByText('Climb')).toBeInTheDocument()
   })
 
   it('unsubscribes the tracking-point listener on unmount', async () => {
@@ -1479,7 +1479,7 @@ describe('TrackView', () => {
       trackingGetActive: vi.fn().mockResolvedValue({ flightId: 1, phase: 'taxi' })
     })
     renderTrack({ telemetry: OVERLAY_TELEMETRY })
-    await screen.findByText('taxi')
+    await screen.findByText('Taxi out')
     expect(screen.getByText(/Heading: 270°/)).toBeInTheDocument()
     expect(screen.getByText(/Speed: 233 kt/)).toBeInTheDocument()
   })
@@ -1492,7 +1492,26 @@ describe('TrackView', () => {
       trackPointList: vi.fn().mockResolvedValue([makeTrackPoint()])
     })
     renderTrack()
-    await screen.findByText('cruise')
+    await screen.findByText('Cruise')
     expect(winglog.trackPointList).toHaveBeenCalledWith(1)
+  })
+
+  it('shows the second taxi light, "Taxi in", once the track has a landing after its takeoff', async () => {
+    setWinglog({
+      aircraftList: vi.fn().mockResolvedValue([AIRCRAFT]),
+      flightList: vi.fn().mockResolvedValue([makeFlight({ status: 'active' })]),
+      trackingGetActive: vi.fn().mockResolvedValue({ flightId: 1, phase: 'taxi' }),
+      trackPointList: vi
+        .fn()
+        .mockResolvedValue([
+          makeTrackPoint({ id: 1, phase: 'taxi' }),
+          makeTrackPoint({ id: 2, phase: 'takeoff' }),
+          makeTrackPoint({ id: 3, phase: 'landing' }),
+          makeTrackPoint({ id: 4, phase: 'taxi' })
+        ])
+    })
+    renderTrack()
+    expect(await screen.findByText('Taxi in')).not.toHaveClass('sr-only')
+    expect(screen.getByText('Taxi out')).toHaveClass('sr-only')
   })
 })
