@@ -21,26 +21,34 @@ export function startProcedureSelection(
   {
     db,
     onWrite,
+    hostFlying,
     liveHub,
     trackingController,
     navdata
   }: {
     db: WingLogDb
     onWrite: () => void
+    /** On a client: whether the sim PC is flying a flight. The sim PC owns that flight's choice, so none is held, suggested or saved here. */
+    hostFlying?: () => boolean
     liveHub: Pick<LiveHub, 'publish' | 'snapshot'>
     trackingController: Pick<TrackingController, 'getActive' | 'on'>
     navdata: ProcedureSelectionStoreDeps['navdata']
   }
 ): ProcedureSelectionStore {
   const store = new ProcedureSelectionStore({
-    shownFlight: () => shownFlight(db, trackingController.getActive()?.flightId),
+    shownFlight: () =>
+      hostFlying?.() ? undefined : shownFlight(db, trackingController.getActive()?.flightId),
     save: (flightId, selection) => {
       setSelectedProcedures(db, flightId, selection)
       onWrite()
     },
     navdata
   })
-  store.on('changed', (selection) => liveHub.publish('procedureSelection', selection))
+  store.on('changed', (selection) => {
+    // Not the empty announcement while the sim PC owns the choice: it would replace what the sim PC last said in this computer's hub.
+    if (selection === null && hostFlying?.()) return
+    liveHub.publish('procedureSelection', selection)
+  })
   for (const event of ['started', 'stopped', 'completed'] as const)
     trackingController.on(event, () => store.refresh())
   // A window checks every field, like a phone does: the renderer is not a security boundary.

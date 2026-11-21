@@ -306,6 +306,15 @@ function registerTrackingAreas(
 }
 
 /**
+ * @param window The main window.
+ * @param channel The channel to send on.
+ * @param payload What to send.
+ */
+function sendToWindow(window: BrowserWindow, channel: string, payload: unknown): void {
+  if (!window.isDestroyed()) window.webContents.send(channel, payload)
+}
+
+/**
  * Opens the database and the window, starts the services, and registers every IPC area.
  *
  * @param cloudSession The saved cloud-sync session, read before startup; null when signed out.
@@ -333,9 +342,7 @@ function startApp(cloudSession: StoredSession | null): void {
   // Live state (sim, tracking, GSX Remote, BeyondATC) goes through one hub, and the window
   // is its first subscriber (winglog-backend's docs/plans/live-data-seam.md, part A).
   const liveHub = new LiveHub()
-  liveHub.subscribe((topic, payload) => {
-    if (!window.isDestroyed()) window.webContents.send(IpcChannels[topic], payload)
-  })
+  liveHub.subscribe((topic, payload) => sendToWindow(window, IpcChannels[topic], payload))
 
   const { cloudSync, scheduleBackgroundSync } = startCloudSync(db, dbPath, cloudSession)
   // The flight the sim PC is tracking, as a client sees it (idle on a host).
@@ -381,6 +388,7 @@ function startApp(cloudSession: StoredSession | null): void {
     trackingController,
     navdata: navdataProvider,
     onWrite: scheduleBackgroundSync,
+    hostFlying: isClient ? () => flightMirror.hostTracking() : undefined,
     traceWorker: createTraceWorkerRunner()
   })
   app.on('before-quit', flightServices.stop)
@@ -407,7 +415,8 @@ function startApp(cloudSession: StoredSession | null): void {
       db,
       dbPath,
       mirror: flightMirror,
-      relay: flightRelay
+      relay: flightRelay,
+      selection: flightServices.selection
     })
   else {
     const tellWindow = dataChangedNotifier(window)

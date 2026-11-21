@@ -4,7 +4,7 @@ import { type AddressInfo } from 'node:net'
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import { WebSocket } from 'ws'
 import { createDb } from '../db/client'
@@ -18,7 +18,7 @@ import type { LanController } from './LanController'
 import { LAN_QUERY_KINDS, TWIN_ONLY_QUERIES } from '@shared/lan-queries'
 import { twinOrigin, twinSyncDeviceQueries, twinSyncQueries } from './twin-sync'
 import { twinFlightQueries } from './twin-flight'
-import { createLan, lanQueries } from './create-lan'
+import { chooseProcedures, createLan, lanQueries } from './create-lan'
 import { certificatePin, makeHostCertificate } from './host-certificate'
 import type { HostIdentity, HostIdentityStore } from './host-identity-store'
 
@@ -586,5 +586,30 @@ describe('createLan', () => {
     expect(lan.getStatus().devices).toEqual([])
     ws.terminate()
     second.terminate()
+  })
+})
+
+describe('chooseProcedures', () => {
+  it("sets a device's choice with the kind of device it came from, and answers the device with the route when nothing changed", () => {
+    const route = { publishedCount: 3, resend: vi.fn() }
+    const selection = { set: vi.fn() }
+    const chosen = {
+      departureRunway: '07R',
+      sidIdent: 'PECA3A',
+      sidTransition: null,
+      starIdent: null,
+      starTransition: null,
+      approachIdent: null,
+      approachTransition: null,
+      arrivalIcao: null
+    }
+    chooseProcedures(route, selection, 'twin').setProcedureSelection(chosen)
+    expect(selection.set).toHaveBeenLastCalledWith(chosen, 'twin')
+    expect(route.resend).toHaveBeenCalledTimes(1)
+    // A choice that builds a new route is answered by that route, not a second copy.
+    selection.set.mockImplementationOnce(() => (route.publishedCount += 1))
+    chooseProcedures(route, selection, 'phone').setProcedureSelection(chosen)
+    expect(selection.set).toHaveBeenLastCalledWith(chosen, 'phone')
+    expect(route.resend).toHaveBeenCalledTimes(1)
   })
 })

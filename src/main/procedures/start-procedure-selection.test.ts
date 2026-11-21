@@ -12,7 +12,7 @@ import { startProcedureSelection } from './start-procedure-selection'
 
 vi.mock('../logging/logger', () => ({ logger: { info: vi.fn(), warn: vi.fn() } }))
 
-function setup() {
+function setup(hostFlying?: () => boolean) {
   const { db } = createDb(':memory:')
   migrate(db, { migrationsFolder: 'drizzle' })
   const aircraftId = createAircraft(db, { registration: '9V-SKA', icaoType: 'A388' }).id
@@ -35,6 +35,7 @@ function setup() {
   const store = startProcedureSelection(ipc.ipcMain, {
     db,
     onWrite,
+    hostFlying,
     liveHub: hub,
     trackingController: tracking as never,
     navdata: {
@@ -79,6 +80,24 @@ describe('startProcedureSelection', () => {
     const { ipc, store, onWrite } = setup()
     await ipc.invoke(IpcChannels.trackingSetProcedureSelection, store.current())
     expect(onWrite).not.toHaveBeenCalled()
+  })
+
+  it('holds and announces no flight while the sim PC is flying one (a client): the sim PC owns its choice, nothing is suggested or saved here', () => {
+    let flying = false
+    const { db, flight, published, store, tracking, onWrite } = setup(() => flying)
+    expect(store.current()).toMatchObject({ sidIdent: 'SAVED1A' })
+    published.length = 0
+    flying = true
+    tracking.emit('started', flight.id)
+    expect(store.current()).toBeUndefined()
+    // Not the empty announcement either: it would replace what the sim PC last said in this computer's hub.
+    expect(published).toEqual([])
+    store.set({ ...emptyProcedureSelection(), sidIdent: 'IGNORED' }, 'window')
+    expect(getFlight(db, flight.id)).toMatchObject({ selectedSidIdent: 'SAVED1A' })
+    expect(onWrite).not.toHaveBeenCalled()
+    flying = false
+    tracking.emit('stopped', flight.id)
+    expect(store.current()).toMatchObject({ sidIdent: 'SAVED1A' })
   })
 
   it('refuses a choice that is not a short-text selection, as it would from a phone', () => {

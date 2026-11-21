@@ -729,6 +729,23 @@ describe('LanServer', () => {
       expect(ran).toEqual([])
     })
 
+    it("runs a twin's own version of a command where there is one, and a phone's the shared one", async () => {
+      const calls: string[] = []
+      const { server, pair, connectTwin } = await setup({
+        commands: { 'track.setProcedureSelection': () => void calls.push('shared') },
+        twinCommands: { 'track.setProcedureSelection': () => void calls.push('twin') }
+      })
+      const { client: phone } = await pair()
+      phone.send({ t: 'cmd', name: 'track.setProcedureSelection', args: [{}] })
+      await phone.waitFor(() => calls.length === 1)
+      const twin = await connectTwin()
+      twin.send({ t: 'pair', code: server.openPairing('twin').code, name: 'Mac', kind: 'twin' })
+      await twin.message('paired')
+      twin.send({ t: 'cmd', name: 'track.setProcedureSelection', args: [{}] })
+      await twin.waitFor(() => calls.length === 2)
+      expect(calls).toEqual(['shared', 'twin'])
+    })
+
     it('drops garbage without closing or throwing', async () => {
       const { pair } = await setup()
       const { client } = await pair()

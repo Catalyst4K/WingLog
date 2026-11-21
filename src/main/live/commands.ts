@@ -149,6 +149,24 @@ export function trackCommands(selection: {
 }
 
 /**
+ * @param tables What every device may send, and what a twin runs its own way instead, when there is anything.
+ * @param tables.commands What every device may send.
+ * @param tables.twinCommands What a twin runs its own way instead.
+ * @param kind The kind of device that sent the command.
+ * @returns The table to look the command up in.
+ */
+export function commandsFor(
+  tables: {
+    commands: Partial<Record<LiveCommand, CommandFn>>
+    twinCommands?: Partial<Record<LiveCommand, CommandFn>>
+  },
+  kind: string | null
+): Partial<Record<LiveCommand, CommandFn>> {
+  const { commands, twinCommands } = tables
+  return kind === 'twin' && twinCommands ? { ...commands, ...twinCommands } : commands
+}
+
+/**
  * The traffic-layer commands: the three shared switches, for the network's traffic, the sim's own and the ATC areas, on every screen.
  *
  * @param feed Where a switch is sent.

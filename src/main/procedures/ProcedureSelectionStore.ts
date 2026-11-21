@@ -32,7 +32,7 @@ export interface ProcedureSelectionStoreDeps {
 }
 
 /** Where a change came from, for the log. */
-export type SelectionSource = 'window' | 'phone' | 'sync'
+export type SelectionSource = 'window' | 'phone' | 'twin' | 'sync'
 
 interface Shown {
   flight: Flight
