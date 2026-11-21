@@ -74,7 +74,7 @@
       "off": "Disattivo",
       "setOnSimPc": "Si imposta sul PC del simulatore",
       "simPcUnavailable": "Non disponibile al momento",
-      "clientDescription": "Sono le impostazioni del PC del simulatore, mostrate qui solo in lettura. Modificale in WingLog sul PC del simulatore."
+      "clientDescription": "Sono le impostazioni del PC del simulatore, mostrate qui in sola lettura. Modificale in WingLog sul PC del simulatore."
     },
     "theme": {
       "cardTitle": "Tema",

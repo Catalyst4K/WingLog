@@ -429,6 +429,41 @@ describe('ProcedureSelectionStore: the suggested approach', () => {
     expect(store.current()?.approachIdent).toBe('ILS 33')
   })
 
+  it('drops the approach it suggested for the old airport when the arrival changes, and suggests for the new one', () => {
+    // A free flight's destination changed from the Mac: the row carries the same choice and another airport.
+    const { db, state, store, announced, flight } = setup()
+    state.approaches.ZJSY = ZJSY
+    state.approaches.ZGSZ = [proc('ILS 33')]
+    const f = flight()
+    state.shownId = f.id
+    store.refresh()
+    expect(store.current()?.approachIdent).toBe('ILS X 08')
+    announced.length = 0
+
+    setArrIcao(db, f.id, 'ZGSZ')
+    store.refresh()
+
+    expect(store.current()?.approachIdent).toBe('ILS 33')
+    expect(getFlight(db, f.id)?.selectedApproachIdent).toBe('ILS 33')
+    expect(announced.at(-1)?.approachIdent).toBe('ILS 33')
+  })
+
+  it('leaves an approach the pilot chose when the arrival changes, and is not confused by an airport with no approach', () => {
+    const { db, state, store, flight } = setup()
+    state.approaches.ZJSY = ZJSY
+    const f = flight()
+    state.shownId = f.id
+    store.refresh()
+    store.set(chosen({ ...store.current(), approachIdent: 'ILS Z 08' }), 'window')
+    setArrIcao(db, f.id, 'ZGSZ')
+    store.refresh()
+    expect(store.current()?.approachIdent).toBe('ILS Z 08')
+    // The old airport's suggestion is forgotten, and an airport with nothing to suggest leaves the choice as it is.
+    setArrIcao(db, f.id, 'ZUUU')
+    store.refresh()
+    expect(store.current()?.approachIdent).toBe('ILS Z 08')
+  })
+
   it('leaves an approach alone that is already chosen, and a flight with no arrival airport', () => {
     const { db, state, store, flight } = setup()
     state.approaches.ZJSY = ZJSY

@@ -79,7 +79,7 @@ export interface CreateLanDeps {
   addOnCommands: Partial<Record<LiveCommand, (...args: unknown[]) => void>>
   /** The live ATIS for the weather panel's airports, as the PC's own window asks for it (it checks the request). */
   atis: (requests: unknown) => Promise<unknown>
-  /** BeyondATC's ATIS read fresh, for the BeyondATC page's ATIS button on a twin (the PC's own button reads it the same way). */
+  /** BeyondATC's ATIS read fresh, for the BeyondATC page's ATIS button on a twin. */
   beyondAtcAtis: () => Promise<unknown>
   /** The User-Agent METAR lookups send. */
   userAgent: string
@@ -122,12 +122,14 @@ const PROCEDURE_KINDS = ['sid', 'star', 'approach'] as const
 /** The most airports one weather lookup may ask about. */
 const MAX_METAR_CODES = 6
 
-/** The PC's own settings only a twin reads (`twinSettingsQueries`). */
-export interface TwinSettings {
+/** What of the PC's own only a twin reads (`twinReadQueries`): two settings and BeyondATC's ATIS. */
+export interface TwinReads {
   /** Whether tracking starts and finishes a flight by itself on this PC. A twin shows both read only; only this PC changes them. */
   tracking(): TrackingSettings
   /** The online network chosen on this PC, or null for none. A twin reads it to offer filing on that network; it never changes it. */
   onlineNetwork(): OnlineNetwork | null
+  /** BeyondATC's ATIS, read fresh, for the BeyondATC page's ATIS button on a twin (the PC's own button reads it the same way). */
+  beyondAtcAtis(): Promise<unknown>
 }
 
 /** The PC's own settings and weather a device's pages read, as lookups. */
@@ -142,8 +144,6 @@ export interface LanLocalData {
   metars(codes: unknown): Promise<unknown>
   /** The live ATIS for the weather panel's airports. Checks the request. */
   atis(requests: unknown): Promise<unknown>
-  /** BeyondATC's ATIS, read fresh. */
-  beyondAtcAtis(): Promise<unknown>
 }
 
 /**
@@ -153,11 +153,13 @@ export interface LanLocalData {
  * @param local The PC's settings.
  * @returns The queries table.
  */
-export function twinSettingsQueries(local: TwinSettings): Record<string, (...args: unknown[]) => unknown> {
+export function twinReadQueries(local: TwinReads): Record<string, (...args: unknown[]) => unknown> {
   return {
     'settings.tracking': () => local.tracking(),
     // Only the network's name: the member numbers stay on the PC.
-    'settings.onlineNetwork': () => ({ network: local.onlineNetwork() })
+    'settings.onlineNetwork': () => ({ network: local.onlineNetwork() }),
+    // Read fresh each time, and held back by nothing: a phone must not read it while the pilot is online and BeyondATC is hidden.
+    'beyondatc.atis': () => local.beyondAtcAtis()
   }
 }
 
@@ -185,7 +187,6 @@ export function lanQueries(
       return local.metars(codes)
     },
     'online.atis': (requests) => local.atis(requests),
-    'beyondatc.atis': () => local.beyondAtcAtis(),
     'taxi.has': (icao) => navdata.hasTaxiNetwork(icaoArg(icao)),
     // The PC fetches the shown flight's navdata itself (FlightNavdataFetcher); a device never makes it open a sim connection. The
     // lookups stay, answering at once, for pages that still ask.
@@ -339,9 +340,10 @@ export function createLan({
     queries: {
       ...twinSyncQueries(db),
       ...twinFlightQueries(flightControl, onTwinChange),
-      ...twinSettingsQueries({
+      ...twinReadQueries({
         tracking: () => getTrackingSettings(db),
-        onlineNetwork: () => getOnlineNetworkSettings(db).network
+        onlineNetwork: () => getOnlineNetworkSettings(db).network,
+        beyondAtcAtis: () => beyondAtcAtis()
       }),
       ...lanQueries(navdata, {
         display: () => ({
@@ -359,8 +361,7 @@ export function createLan({
         }),
         routines: () => allRoutines(listOwnRoutines(db).routines, listHiddenBuiltIns(db)),
         metars: (codes) => fetchMetars(codes, userAgent, metarUrl),
-        atis: (requests) => atis(requests),
-        beyondAtcAtis: () => beyondAtcAtis()
+        atis: (requests) => atis(requests)
       })
     },
     flightKey: () => lanFlightKey(db, trackingController.getActive()?.flightId),

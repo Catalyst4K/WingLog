@@ -18,7 +18,7 @@ import type { LanController } from './LanController'
 import { LAN_QUERY_KINDS, TWIN_ONLY_QUERIES } from '@shared/lan-queries'
 import { twinOrigin, twinSyncDeviceQueries, twinSyncQueries } from './twin-sync'
 import { twinFlightQueries } from './twin-flight'
-import { chooseProcedures, createLan, lanQueries, twinSettingsQueries } from './create-lan'
+import { chooseProcedures, createLan, lanQueries, twinReadQueries } from './create-lan'
 import { findQuery } from './find-query'
 import { certificatePin, makeHostCertificate } from './host-certificate'
 import type { HostIdentity, HostIdentityStore } from './host-identity-store'
@@ -66,9 +66,10 @@ function fakeSelection(): EventEmitter & { current: () => unknown; set: (selecti
   })
 }
 
-const TWIN_SETTINGS = {
+const TWIN_READS = {
   tracking: () => ({ autoStart: true, autoFinish: false }),
-  onlineNetwork: () => 'vatsim' as const
+  onlineNetwork: () => 'vatsim' as const,
+  beyondAtcAtis: () => Promise.resolve({ state: 'shown', airports: [] })
 }
 
 const LOCAL = {
@@ -76,8 +77,7 @@ const LOCAL = {
   addOns: () => ({ gsxRemote: true, beyondAtc: false }),
   routines: () => [{ id: 'builtin-arrival', name: 'Arrival' }],
   metars: (codes: unknown) => Promise.resolve([{ asked: codes }]),
-  atis: (requests: unknown) => Promise.resolve({ network: 'vatsim', asked: requests }),
-  beyondAtcAtis: () => Promise.resolve({ state: 'shown', airports: [] })
+  atis: (requests: unknown) => Promise.resolve({ network: 'vatsim', asked: requests })
 }
 
 const FLIGHT_CONTROL = {
@@ -94,12 +94,12 @@ const CREATE_DEPS = {
   addOnCommands: {},
   userAgent: 'WingLog/test',
   atis: LOCAL.atis,
-  beyondAtcAtis: LOCAL.beyondAtcAtis,
+  beyondAtcAtis: TWIN_READS.beyondAtcAtis,
   flightControl: FLIGHT_CONTROL
 }
 
-describe('twinSettingsQueries', () => {
-  const settings = twinSettingsQueries(TWIN_SETTINGS)
+describe('twinReadQueries', () => {
+  const settings = twinReadQueries(TWIN_READS)
 
   it('answers the PC’s automatic start and finish, which a twin shows read only', () => {
     expect(settings['settings.tracking']()).toEqual({ autoStart: true, autoFinish: false })
@@ -107,6 +107,10 @@ describe('twinSettingsQueries', () => {
 
   it('says which online network the PC has chosen, and nothing else of its network settings', () => {
     expect(settings['settings.onlineNetwork']()).toEqual({ network: 'vatsim' })
+  })
+
+  it('reads BeyondATC’s ATIS fresh for a twin’s BeyondATC page', async () => {
+    await expect(settings['beyondatc.atis']()).resolves.toEqual({ state: 'shown', airports: [] })
   })
 
   it('is for a twin only: a phone is refused both as if they did not exist', () => {
@@ -146,7 +150,7 @@ describe('lanQueries', () => {
         ...twinSyncQueries({} as never),
         ...twinSyncDeviceQueries({} as never, ''),
         ...twinFlightQueries(FLIGHT_CONTROL),
-        ...twinSettingsQueries(TWIN_SETTINGS)
+        ...twinReadQueries(TWIN_READS)
       }).sort()
     ).toEqual([...TWIN_ONLY_QUERIES].sort())
   })
@@ -160,10 +164,6 @@ describe('lanQueries', () => {
   it('hands the weather panel’s ATIS request to the PC’s own lookup, which does the checking', async () => {
     const asked = [{ icao: 'EGLL', slot: 'departure' }]
     await expect(queries['online.atis'](asked)).resolves.toEqual({ network: 'vatsim', asked })
-  })
-
-  it('reads BeyondATC’s ATIS fresh for a twin’s BeyondATC page', async () => {
-    await expect(queries['beyondatc.atis']()).resolves.toEqual({ state: 'shown', airports: [] })
   })
 
   it('answers the taxi chart, stands and refresh for an airport code', async () => {

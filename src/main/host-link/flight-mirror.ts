@@ -6,6 +6,8 @@
 
 import type { ActiveTracking, FlightPhase, LanFlightSnapshot, TrackPoint } from '@shared/ipc'
 import type { PlannedRoute } from '@shared/live'
+import type { WingLogDb } from '../db/client'
+import { getLiveFlightIdByUuid } from '../db/flight-repo'
 
 /**
  * What a topic's mapper returns for a value that cannot be shown yet (its flight has not synced here). Not null: null is a real value
@@ -48,7 +50,9 @@ export class FlightMirror {
    */
   localIdOf(hostFlightId: number): number | null {
     const flight = this.snapshot?.flight
-    if (!flight || flight.flightId !== hostFlightId || !flight.uuid) return null
+    // The snapshot is the sim PC's word and is not parsed: only a text uuid is looked up.
+    if (!flight || flight.flightId !== hostFlightId || typeof flight.uuid !== 'string' || !flight.uuid)
+      return null
     return this.localFlightId(flight.uuid) ?? null
   }
 
@@ -119,6 +123,15 @@ export class FlightMirror {
     if (last) this.phase = last.phase
     return points
   }
+}
+
+/**
+ * @param db This computer's database.
+ * @returns A mirror that finds this computer's id for a flight by uuid among its live flights: a flight deleted here is not the sim PC's
+ *   flight for a point, the tracked flight or a route.
+ */
+export function flightMirrorFor(db: WingLogDb): FlightMirror {
+  return new FlightMirror((uuid) => getLiveFlightIdByUuid(db, uuid))
 }
 
 /**

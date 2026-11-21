@@ -2,7 +2,11 @@ import { describe, expect, it } from 'vitest'
 import type { LanFlightSnapshot, TrackPoint } from '@shared/ipc'
 import type { PlannedRoute } from '@shared/live'
 import { emptyProcedureSelection } from '@shared/procedure-selection'
-import { FlightMirror, HELD_BACK, mapFlightTopic } from './flight-mirror'
+import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
+import { createAircraft } from '../db/aircraft-repo'
+import { createDb } from '../db/client'
+import { createFlight, deleteFlight, getFlightUuidById } from '../db/flight-repo'
+import { FlightMirror, HELD_BACK, flightMirrorFor, mapFlightTopic } from './flight-mirror'
 
 const HOST_ID = 7
 const UUID = 'flight-uuid-1'
@@ -226,5 +230,59 @@ describe('the planned route re-labelled for this computer', () => {
     mirror.clear()
     synced = true
     expect(mirror.releaseHeldRoute()).toBeNull()
+  })
+})
+
+describe('a snapshot whose uuid is not a text', () => {
+  it('names no flight, and is never looked up, rather than throwing inside the link', () => {
+    const lookups: unknown[] = []
+    const mirror = new FlightMirror((uuid) => {
+      lookups.push(uuid)
+      return 3
+    })
+    for (const odd of [7, {}, ['u'], true]) {
+      mirror.setFlight(snapshot({ uuid: odd as never }), () => [])
+      expect(mirror.localIdOf(HOST_ID), String(odd)).toBeNull()
+      expect(mirror.mapPoint(point(1, HOST_ID))).toBeNull()
+      expect(mirror.active()).toBeNull()
+      expect(mirror.livePoints(3)).toBeNull()
+    }
+    expect(lookups).toEqual([])
+  })
+})
+
+describe('flightMirrorFor', () => {
+  it('finds a live flight of this computer by uuid and not a deleted one, for points, the tracked flight and a route alike', () => {
+    const { db } = createDb(':memory:')
+    migrate(db, { migrationsFolder: 'drizzle' })
+    const aircraftId = createAircraft(db, { registration: 'G-MIRR', icaoType: 'A320' }).id
+    const flight = createFlight(db, { aircraftId, depIcao: 'EGLL', arrIcao: 'EGCC' })
+    const uuid = getFlightUuidById(db, flight.id) as string
+    const mirror = flightMirrorFor(db)
+    mirror.setFlight(snapshot({ uuid }), () => [])
+    expect(mirror.active()).toMatchObject({ flightId: flight.id })
+    expect(mirror.mapPoint(point(1, HOST_ID))).toMatchObject({ flightId: flight.id })
+    expect(
+      mirror.mapRoute({
+        flightId: 9,
+        flightUuid: uuid,
+        revision: 1,
+        selection: emptyProcedureSelection(),
+        waypoints: []
+      })
+    ).toMatchObject({ flightId: flight.id })
+
+    deleteFlight(db, flight.id)
+    expect(mirror.active()).toBeNull()
+    expect(mirror.mapPoint(point(2, HOST_ID))).toBeNull()
+    expect(
+      mirror.mapRoute({
+        flightId: 9,
+        flightUuid: uuid,
+        revision: 2,
+        selection: emptyProcedureSelection(),
+        waypoints: []
+      })
+    ).toBeNull()
   })
 })

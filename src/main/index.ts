@@ -14,10 +14,9 @@ import { registerInertHandlers, trackHandledChannels } from './client-mode'
 import { registerRunModeHandlers } from './ipc/run-mode-handlers'
 import { startHostServices } from './host-services'
 import { startClientServices } from './client-services'
-import { FlightMirror } from './host-link/flight-mirror'
+import { flightMirrorFor } from './host-link/flight-mirror'
 import { FlightRelay } from './host-link/flight-relay'
 import { flightControl as makeFlightControl, type FlightControl } from './lan/twin-flight'
-import { getLiveFlightIdByUuid } from './db/flight-repo'
 import { CloseGuard } from './window/CloseGuard'
 import { dataChangedNotifier } from './window/data-changed'
 import { keepWindowWhenClosed } from './window/WindowKeeper'
@@ -369,7 +368,7 @@ function startApp(cloudSession: StoredSession | null): void {
 
   const { cloudSync, scheduleBackgroundSync } = startCloudSync(db, dbPath, cloudSession)
   // The flight the sim PC is tracking, as a client sees it (idle on a host).
-  const flightMirror = new FlightMirror((uuid) => getLiveFlightIdByUuid(db, uuid))
+  const flightMirror = flightMirrorFor(db)
   const flightRelay = new FlightRelay(db)
 
   registerLogbookHandlers(ipcMain, {

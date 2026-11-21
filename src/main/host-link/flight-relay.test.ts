@@ -72,12 +72,12 @@ describe('FlightRelay', () => {
   })
 
   it('does not sync after an airport the sim PC refused, and passes the refusal on', async () => {
+    const run = vi.fn(() => Promise.resolve(true))
     const relay = new FlightRelay(db)
-    relay.bind({ run: () => Promise.resolve(true) }, () =>
-      Promise.reject(new Error('Not a valid airport code'))
-    )
+    relay.bind({ run }, () => Promise.reject(new Error('Not a valid airport code')))
     await expect(relay.setDestination(flightId, 'x!')).rejects.toThrow('Not a valid airport code')
     await expect(relay.setDeparture(9999, 'EGLL')).rejects.toThrow('Unknown flight')
+    expect(run).not.toHaveBeenCalled()
   })
 
   it('says so when the sim PC could not be brought level, and sends nothing', async () => {

@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { OnlineNetworkSettings } from '@shared/ipc'
+import { CapabilitiesContext } from '../app/capabilities-context'
 import { PrefileButtons } from './PrefileButtons'
 
 const { toastError } = vi.hoisted(() => ({ toastError: vi.fn() }))
@@ -63,5 +64,37 @@ describe('PrefileButtons', () => {
     render(<PrefileButtons file={() => Promise.resolve(false)} />)
     await userEvent.click(await screen.findByRole('button', { name: 'File on VATSIM' }))
     expect(toastError).toHaveBeenCalledWith('This plan has no VATSIM filing link.')
+  })
+
+  it('on a client, asks again for the sim PC’s network when the link comes up, having asked while it was down', async () => {
+    const listeners: ((status: unknown) => void)[] = []
+    const linkChanged = (status: unknown): void => listeners.forEach((listener) => listener(status))
+    const settingsGetOnlineNetwork = vi
+      .fn()
+      .mockResolvedValueOnce(NONE)
+      .mockResolvedValueOnce(NONE)
+      .mockResolvedValue({ ...NONE, network: 'vatsim' })
+    window.winglog = {
+      settingsGetOnlineNetwork,
+      hostLinkGetStatus: vi.fn().mockResolvedValue({ state: 'offline', address: null }),
+      onHostLinkStatus: vi.fn((listener: (status: unknown) => void) => {
+        listeners.push(listener)
+        return () => undefined
+      }),
+      appLogRendererError: vi.fn(() => Promise.resolve())
+    } as unknown as typeof window.winglog
+    render(
+      <CapabilitiesContext.Provider value={{ runMode: 'client', canHostSim: false, multiDevice: true }}>
+        <PrefileButtons file={() => Promise.resolve(true)} />
+      </CapabilitiesContext.Provider>
+    )
+    // The link's own first status ("offline") has been read: still no network, and the button is not there.
+    await act(() => Promise.resolve())
+    await act(() => Promise.resolve())
+    expect(screen.queryByRole('button', { name: 'File on VATSIM' })).not.toBeInTheDocument()
+    const askedBefore = settingsGetOnlineNetwork.mock.calls.length
+    act(() => linkChanged({ state: 'connected', address: '192.168.1.20:5051', hostSim: 'connected' }))
+    expect(await screen.findByRole('button', { name: 'File on VATSIM' })).toBeInTheDocument()
+    expect(settingsGetOnlineNetwork.mock.calls.length).toBeGreaterThan(askedBefore)
   })
 })

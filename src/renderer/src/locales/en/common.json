@@ -74,7 +74,7 @@
       "off": "Off",
       "setOnSimPc": "Set on the sim PC",
       "simPcUnavailable": "Not available right now",
-      "clientDescription": "These are the sim PC’s settings, shown here to read. Change them in WingLog on the sim PC."
+      "clientDescription": "These are the sim PC’s settings, shown here read only. Change them in WingLog on the sim PC."
     },
     "theme": {
       "cardTitle": "Theme",
