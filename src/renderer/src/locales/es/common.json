@@ -287,7 +287,7 @@
     },
     "hostLink": {
       "cardTitle": "PC del simulador",
-      "description": "Conecta este ordenador con WingLog en el PC donde se ejecuta el simulador. Allí activa Segunda pantalla (Ajustes → Segunda pantalla) e introduce la dirección y el código de vinculación que muestra.",
+      "description": "Conecta este ordenador con WingLog en el PC donde se ejecuta el simulador. Allí abre Ajustes → PC del simulador, activa «Permitir otros WingLog», elige «Vincular otro WingLog» y pega el texto de vinculación o introduce la dirección y el código de vinculación que muestra.",
       "states": {
         "connected": "Conectado",
         "connecting": "Conectando…",

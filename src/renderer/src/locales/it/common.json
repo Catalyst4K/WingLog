@@ -287,7 +287,7 @@
     },
     "hostLink": {
       "cardTitle": "PC del simulatore",
-      "description": "Collega questo computer a WingLog sul PC dove gira il simulatore. Lì attiva Secondo schermo (Impostazioni → Secondo schermo) e inserisci l’indirizzo e il codice di associazione mostrati.",
+      "description": "Collega questo computer a WingLog sul PC dove gira il simulatore. Lì apri Impostazioni → PC del simulatore, attiva «Consenti altri WingLog», scegli «Associa un altro WingLog» e incolla il testo di associazione, oppure inserisci l’indirizzo e il codice di associazione mostrati.",
       "states": {
         "connected": "Connesso",
         "connecting": "Connessione…",

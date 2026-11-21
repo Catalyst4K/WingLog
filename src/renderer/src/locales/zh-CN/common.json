@@ -280,7 +280,7 @@
     },
     "hostLink": {
       "cardTitle": "模拟器电脑",
-      "description": "将这台电脑连接到运行模拟器的电脑上的 WingLog。在那台电脑上打开“第二屏幕”（设置 → 第二屏幕），输入它显示的地址和配对码。",
+      "description": "将这台电脑连接到运行模拟器的电脑上的 WingLog。在那台电脑上打开 设置 → 模拟器电脑，打开“允许其他 WingLog”，选择“配对另一个 WingLog”，然后粘贴配对文本，或输入它显示的地址和配对码。",
       "states": {
         "connected": "已连接",
         "connecting": "连接中…",

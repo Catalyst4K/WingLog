@@ -280,7 +280,7 @@
     },
     "hostLink": {
       "cardTitle": "模擬器電腦",
-      "description": "將這台電腦連線到執行模擬器的電腦上的 WingLog。在那台電腦上開啟「第二螢幕」（設定 → 第二螢幕），輸入它顯示的位址與配對碼。",
+      "description": "將這台電腦連線到執行模擬器的電腦上的 WingLog。在那台電腦上開啟 設定 → 模擬器電腦，開啟「允許其他 WingLog」，選擇「配對另一個 WingLog」，然後貼上配對文字，或輸入它顯示的位址與配對碼。",
       "states": {
         "connected": "已連線",
         "connecting": "連線中…",

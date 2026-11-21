@@ -61,9 +61,13 @@ const IDLE = { state: 'idle', lastSyncedAt: null, problem: null } as const
 /** The pin of the sim PC's certificate in these tests. */
 const PIN = 'p'.repeat(43)
 
-/** The refusal's English wording, as a user sees it: the link is down or reconnecting, so try again. */
+/** The refusal's English wording when there is no sim PC to reach: pair this computer with one. */
 const NOT_PAIRED = "This computer isn't paired with a sim PC. Pair it in Settings → Sim PC."
 
+/** The refusal's English wording when the sim PC's connection was refused (its certificate changed, or it is not secure). */
+const REFUSED = "The sim PC's connection was refused. See Settings → Sim PC."
+
+/** The refusal's English wording when the link is down or reconnecting: try again. */
 const NOT_CONNECTED =
   "The sim PC isn't connected right now (the link may be reconnecting). Try again in a moment."
 
@@ -292,7 +296,7 @@ describe('HostLink', () => {
     }
   })
 
-  it('says to pair, not that it is reconnecting, when the sim PC no longer knows this computer, the code was wrong, or its certificate changed', async () => {
+  it('says to pair when the sim PC no longer knows this computer or the code was wrong, and that the connection was refused when its certificate changed or it is not secure', async () => {
     const denied = pairedAndUp()
     sockets[0]?.hear({ t: 'denied' })
     sockets[0]?.drop()
@@ -311,8 +315,15 @@ describe('HostLink', () => {
     changed.pair('192.168.1.20:5051', '123456', null)
     pins.at(-1)?.onRefused?.('certificate-changed')
     expect(changed.getStatus().state).toBe('certificate-changed')
-    expect(() => changed.command('atc.setAction', ['x'])).toThrow(NOT_PAIRED)
-    await expect(changed.commandAfterSync('gsx.startRoutine', ['r'])).rejects.toThrow(NOT_PAIRED)
+    expect(() => changed.command('atc.setAction', ['x'])).toThrow(REFUSED)
+    await expect(changed.commandAfterSync('gsx.startRoutine', ['r'])).rejects.toThrow(REFUSED)
+
+    const insecure = make(memoryStore())
+    insecure.pair('192.168.1.20:5051', '123456', null)
+    pins.at(-1)?.onRefused?.('not-secure')
+    expect(insecure.getStatus().state).toBe('not-secure')
+    expect(() => insecure.command('atc.setAction', ['x'])).toThrow(REFUSED)
+    await expect(insecure.query('stands', 'EGLL')).rejects.toThrow(REFUSED)
   })
 
   it('says to pair after Forget, from the same text the relay uses', async () => {

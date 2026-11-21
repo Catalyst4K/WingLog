@@ -285,7 +285,7 @@
     },
     "hostLink": {
       "cardTitle": "Sim-PC",
-      "description": "Verbinde diesen Computer mit WingLog auf dem PC, auf dem der Simulator läuft. Dort Zweiten Bildschirm einschalten (Einstellungen → Zweiter Bildschirm) und die angezeigte Adresse samt Kopplungscode eingeben.",
+      "description": "Verbinde diesen Computer mit WingLog auf dem PC, auf dem der Simulator läuft. Öffne dort Einstellungen → Sim-PC, schalte „Weitere WingLogs zulassen“ ein, wähle „Weiteres WingLog koppeln“ und füge den Kopplungstext ein oder gib die angezeigte Adresse samt Kopplungscode ein.",
       "states": {
         "connected": "Verbunden",
         "connecting": "Verbinde …",

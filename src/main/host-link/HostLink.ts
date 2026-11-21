@@ -219,12 +219,14 @@ export class HostLink {
   }
 
   /**
-   * @returns What to tell the pilot when the link cannot do what was asked, in their language, from where the link stands: waiting to
-   *   reconnect (connecting, offline) reads "may be reconnecting, try again"; no sim PC, a pairing to redo, a wrong code or a refused
-   *   certificate all read "pair this computer with the sim PC in Settings", since only pairing again fixes them.
+   * @returns What to tell the pilot when the link cannot do what was asked, in their language, from where the link stands: connecting,
+   *   offline (and connected, for a lookup that failed anyway) read "may be reconnecting, try again"; a refused certificate or a sim PC
+   *   that is not secure read "the connection was refused, see Settings", since this computer is paired and pairing again does not help
+   *   the second; no sim PC, a pairing to redo, a wrong code or a denied token read "pair this computer with the sim PC in Settings".
    */
   refusalText(): string {
     const state = this.getStatus().state
+    if (state === 'certificate-changed' || state === 'not-secure') return t('errors.simPcRefused')
     const waiting = state === 'connecting' || state === 'offline' || state === 'connected'
     return t(waiting ? 'errors.simPcNotConnected' : 'errors.simPcNotPaired')
   }

@@ -43,6 +43,7 @@
     "noFlightBeingTracked": "当前没有正在追踪的航班",
     "simPcNotConnected": "模拟器电脑当前未连接（可能正在重新连接）。请稍后再试。",
     "simPcNotPaired": "这台电脑尚未与模拟器电脑配对。请在“设置 → 模拟器电脑”中配对。",
+    "simPcRefused": "与模拟器电脑的连接被拒绝。请查看“设置 → 模拟器电脑”。",
     "simPcSyncFailed": "无法将这台电脑与模拟器电脑同步。请重试，或查看“设置 → 模拟器电脑”。",
     "freeFlightOnSimPc": "自由飞行需在模拟器电脑上开始。",
     "credentialEncryptionUnavailable": "此设备上无法使用操作系统级别的凭据加密",
