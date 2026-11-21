@@ -61,7 +61,8 @@ const IDLE = { state: 'idle', lastSyncedAt: null, problem: null } as const
 const PIN = 'p'.repeat(43)
 
 /** The refusal's English wording, as a user sees it: the link is down or reconnecting, so try again. */
-const NOT_CONNECTED = "The sim PC isn't connected right now (the link may be reconnecting). Try again in a moment."
+const NOT_CONNECTED =
+  "The sim PC isn't connected right now (the link may be reconnecting). Try again in a moment."
 
 describe('HostLink', () => {
   let hub: LiveHub

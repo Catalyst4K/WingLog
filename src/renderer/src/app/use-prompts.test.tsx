@@ -227,3 +227,136 @@ describe('useAtcClearancePrompt on a LiveClient', () => {
     expect(apply(flown)).toMatchObject({ starIdent: 'LOGA2H', starTransition: null })
   })
 })
+
+describe('useAtcClearancePrompt writes what it did to main.log', () => {
+  const selection: ProcedureSelection = { ...emptyProcedureSelection(), starIdent: 'SIER7B' }
+  const boxes = (title: string, info: string): BeyondAtcState =>
+    ({ infoBoxes: [{ title, info }], infoBoxesAt: 1_000 }) as BeyondAtcState
+  const online = {
+    network: 'vatsim',
+    state: 'online',
+    callsign: 'BAW1',
+    filedPlan: null,
+    hidesBeyondAtc: true
+  }
+
+  afterEach(() => vi.useRealTimers())
+
+  function setup(popupMs: number | null = null, sel: ProcedureSelection = selection) {
+    const lines: string[] = []
+    window.winglog = {
+      appLogRendererError: vi.fn().mockResolvedValue(undefined),
+      appLogRendererInfo: vi.fn((tag: string, message: string) => {
+        lines.push(`[${tag}] ${message}`)
+        return Promise.resolve()
+      })
+    } as unknown as WingLogApi
+    const { client, push } = fakeClient()
+    const hook = renderHook(({ s }) => useAtcClearancePrompt(s, vi.fn(), popupMs), {
+      wrapper: wrapper(client),
+      initialProps: { s: sel }
+    })
+    const hear = async (state: BeyondAtcState): Promise<void> => {
+      await act(async () => {
+        push('beyondAtcState', state)
+        await Promise.resolve()
+      })
+    }
+    return { ...hook, lines, hear, push }
+  }
+
+  it('says what was read, what the selection was, and that the clearance was offered, then accepted', async () => {
+    const { result, lines, hear } = setup()
+    await hear(boxes('STAR', 'LOGA2H'))
+    expect(lines).toEqual([
+      '[atc-prompt] read "STAR LOGA2H" (starIdent=LOGA2H) from boxes at 1970-01-01T00:00:01.000Z; selection: starIdent=SIER7B',
+      '[atc-prompt] offered "STAR LOGA2H" (starIdent=LOGA2H) from boxes at 1970-01-01T00:00:01.000Z'
+    ])
+    act(() => result.current.onAccept())
+    expect(lines.at(-1)).toBe('[atc-prompt] accepted "STAR LOGA2H"')
+  })
+
+  it('says a clearance was dismissed', async () => {
+    const { result, lines, hear } = setup()
+    await hear(boxes('STAR', 'LOGA2H'))
+    act(() => result.current.onDismiss())
+    expect(lines.at(-1)).toBe('[atc-prompt] dismissed "STAR LOGA2H"')
+  })
+
+  it('says why a clearance that matches the selection got no prompt', async () => {
+    const { lines, hear } = setup()
+    await hear(boxes('STAR', 'SIER7B'))
+    expect(lines.at(-1)).toBe(
+      '[atc-prompt] no prompt for "STAR SIER7B": it matches the selection (starIdent=SIER7B)'
+    )
+  })
+
+  it('says nothing for a set of boxes that carries no clearance', async () => {
+    const { lines, hear } = setup()
+    await hear(boxes('QNH', '1014'))
+    expect(lines).toEqual([])
+  })
+
+  it('says once that a repeated set was already read, however often BeyondATC repeats it', async () => {
+    const { lines, hear } = setup()
+    await hear(boxes('STAR', 'LOGA2H'))
+    await hear(boxes('STAR', 'LOGA2H'))
+    await hear(boxes('STAR', 'LOGA2H'))
+    expect(lines.filter((line) => line.includes('already read'))).toEqual([
+      '[atc-prompt] no prompt for "STAR LOGA2H": this set of boxes was already read'
+    ])
+  })
+
+  it('says once that a clearance was not offered because the pilot is online, and that an offered one was withdrawn', async () => {
+    const { lines, hear, push, result } = setup()
+    act(() => push('onlineStatus', online))
+    await hear(boxes('STAR', 'LOGA2H'))
+    await hear(boxes('STAR', 'LOGA2H'))
+    expect(lines).toEqual(['[atc-prompt] no prompt for "STAR LOGA2H": online, BeyondATC is hidden'])
+    expect(result.current.pending).toBeNull()
+  })
+
+  it('says an offered clearance was withdrawn when it goes online, or the other screen already applied it', async () => {
+    const first = setup()
+    await first.hear(boxes('STAR', 'LOGA2H'))
+    act(() => first.push('onlineStatus', online))
+    expect(first.lines.at(-1)).toBe('[atc-prompt] "STAR LOGA2H" withdrawn: online')
+
+    const second = setup()
+    await second.hear(boxes('STAR', 'LOGA2H'))
+    second.rerender({ s: { ...selection, starIdent: 'LOGA2H' } })
+    expect(second.lines.at(-1)).toBe(
+      '[atc-prompt] "STAR LOGA2H" withdrawn: the selection already holds it (answered on another screen)'
+    )
+  })
+
+  it('says a newer clearance replaced one still waiting', async () => {
+    const { lines, hear } = setup()
+    await hear(boxes('STAR', 'LOGA2H'))
+    await hear(boxes('STAR', 'BNN1A'))
+    expect(lines.filter((line) => line.includes('replaced'))).toEqual([
+      '[atc-prompt] "STAR LOGA2H" replaced by a newer clearance'
+    ])
+  })
+
+  it('says when the pop-up timed out and the question moved to the BeyondATC page', async () => {
+    vi.useFakeTimers()
+    const { lines, hear } = setup(60_000)
+    await hear(boxes('STAR', 'LOGA2H'))
+    act(() => vi.advanceTimersByTime(60_000))
+    expect(lines.at(-1)).toBe('[atc-prompt] no answer in 60 s: "STAR LOGA2H" moved to the BeyondATC page')
+  })
+
+  it('works where nothing can log (the phone page, or a test with no log call)', async () => {
+    window.winglog = { appLogRendererError: vi.fn().mockResolvedValue(undefined) } as unknown as WingLogApi
+    const { client, push } = fakeClient()
+    const { result } = renderHook(() => useAtcClearancePrompt(selection, vi.fn()), {
+      wrapper: wrapper(client)
+    })
+    await act(async () => {
+      push('beyondAtcState', boxes('STAR', 'LOGA2H'))
+      await Promise.resolve()
+    })
+    expect(result.current.pending?.fields).toEqual({ starIdent: 'LOGA2H' })
+  })
+})

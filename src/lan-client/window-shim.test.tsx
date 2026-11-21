@@ -60,6 +60,8 @@ describe('installWindowShim', () => {
     await expect(api.beyondAtcGetTranscript()).resolves.toEqual([])
     expect(api.onBeyondAtcTranscript(() => undefined)()).toBeUndefined()
     await expect(api.appLogRendererError('x', 'y')).resolves.toEqual([])
+    // The clearance prompt's log lines go nowhere on the phone: it has no way to write to the PC's log.
+    await expect(api.appLogRendererInfo('atc-prompt', 'y')).resolves.toEqual([])
   })
 
   it('gives a function to stop with when a page listens for a sync, which a phone never hears', () => {

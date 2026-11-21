@@ -145,6 +145,7 @@ export const IpcChannels = {
   appOpenGithub: 'app:open-github',
   appOpenManual: 'app:open-manual',
   appLogRendererError: 'app:log-renderer-error',
+  appLogRendererInfo: 'app:log-renderer-info',
   navdataRefreshAirport: 'navdata:refresh-airport',
   navdataGetStatus: 'navdata:get-status',
   navdataHasAirport: 'navdata:has-airport',

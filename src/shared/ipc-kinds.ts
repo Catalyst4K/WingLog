@@ -99,7 +99,8 @@ const NOT_QUERIES = {
     'beyondAtcSetStepClimb',
     'diagLog',
     'captureKeep',
-    'appLogRendererError'
+    'appLogRendererError',
+    'appLogRendererInfo'
   ],
   local: [
     'appOpenGithub',

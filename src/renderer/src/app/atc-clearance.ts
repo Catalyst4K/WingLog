@@ -56,6 +56,30 @@ async function withSimApproach(
   }
 }
 
+/** What came of reading a clearance: the one to offer, or why there is none. */
+export type AtcClearanceOutcome =
+  { offer: PendingAtcClearance; reason: null } | { offer: null; reason: string }
+
+/**
+ * The clearance to offer the user, if any, and when there is none, why.
+ *
+ * @param candidate The clearance read from a new set of InfoBoxes.
+ * @param selection The current procedure selection.
+ * @returns The clearance to offer, or the reason there is nothing to offer.
+ */
+export async function explainAtcClearance(
+  candidate: PendingAtcClearance,
+  selection: ProcedureSelection
+): Promise<AtcClearanceOutcome> {
+  const needsApproach = Boolean(candidate.fields.approachIdent || candidate.arrivalRunway)
+  const update = needsApproach ? await withSimApproach(candidate, selection) : candidate
+  if (!update) return { offer: null, reason: "no approach in the arrival airport's list matches it" }
+  if (!clearanceDiffers(update, selection)) {
+    return { offer: null, reason: `it matches the selection (${describeFields(update.fields)})` }
+  }
+  return { offer: { ...update, sourceTs: candidate.sourceTs }, reason: null }
+}
+
 /**
  * The clearance to offer the user, if any.
  *
@@ -67,10 +91,43 @@ export async function resolveAtcClearance(
   candidate: PendingAtcClearance,
   selection: ProcedureSelection
 ): Promise<PendingAtcClearance | null> {
-  const needsApproach = Boolean(candidate.fields.approachIdent || candidate.arrivalRunway)
-  const update = needsApproach ? await withSimApproach(candidate, selection) : candidate
-  if (!update || !clearanceDiffers(update, selection)) return null
-  return { ...update, sourceTs: candidate.sourceTs }
+  return (await explainAtcClearance(candidate, selection)).offer
+}
+
+/**
+ * @param fields A clearance's fields, or a selection's.
+ * @returns Them as `key=value` pairs on one line, for the log; "none" when it has no field set.
+ */
+export function describeFields(fields: Partial<ProcedureSelection>): string {
+  const pairs = Object.entries(fields)
+    .filter(([, value]) => value !== null && value !== undefined && value !== '')
+    .map(([key, value]) => `${key}=${String(value)}`)
+  return pairs.length > 0 ? pairs.join(' ') : 'none'
+}
+
+/**
+ * @param selection The current procedure selection.
+ * @returns The fields a clearance can change, plus the arrival airport, as `key=value` pairs for the log.
+ */
+export function describeSelection(selection: ProcedureSelection): string {
+  const { arrivalIcao, departureRunway, sidIdent, starIdent, approachIdent, approachTransition } = selection
+  return describeFields({
+    arrivalIcao,
+    departureRunway,
+    sidIdent,
+    starIdent,
+    approachIdent,
+    approachTransition
+  })
+}
+
+/**
+ * @param clearance A clearance read or offered.
+ * @returns Its summary, fields, arrival runway and the BeyondATC time it came with, on one line, for the log.
+ */
+export function describeClearance(clearance: PendingAtcClearance): string {
+  const runway = clearance.arrivalRunway ? ` arrivalRunway=${clearance.arrivalRunway}` : ''
+  return `"${clearance.summary}" (${describeFields(clearance.fields)}${runway}) from boxes at ${new Date(clearance.sourceTs).toISOString()}`
 }
 
 /**
