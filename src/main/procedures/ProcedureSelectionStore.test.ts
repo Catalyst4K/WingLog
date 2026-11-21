@@ -415,6 +415,20 @@ describe('ProcedureSelectionStore: the suggested approach', () => {
     expect(store.current()?.approachIdent).toBe('ILS 33')
   })
 
+  it('suggests for the new arrival airport when a sync changes the airport and leaves the choice as it was', () => {
+    const { db, state, store, flight } = setup()
+    const f = flight()
+    state.shownId = f.id
+    store.refresh()
+    expect(store.current()?.approachIdent).toBeNull()
+
+    state.approaches.ZGSZ = [proc('ILS 33')]
+    setArrIcao(db, f.id, 'ZGSZ')
+    store.refresh()
+
+    expect(store.current()?.approachIdent).toBe('ILS 33')
+  })
+
   it('leaves an approach alone that is already chosen, and a flight with no arrival airport', () => {
     const { db, state, store, flight } = setup()
     state.approaches.ZJSY = ZJSY

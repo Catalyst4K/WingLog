@@ -87,6 +87,9 @@ export class ProcedureSelectionStore extends EventEmitter<{ changed: [ProcedureS
       } else if (!same(selectionFromFlight(flight), this.shown.saved)) {
         // The row was written by another WingLog (a twin's push or a sync from the sim PC), not by this store: take its choice up.
         this.adopt(selectionFromFlight(flight), 'sync', flight)
+      } else {
+        // The same choice, but the row may carry other airports now (a changed arrival): the suggestion below must look at those.
+        this.shown.flight = flight
       }
       this.suggest()
     })
