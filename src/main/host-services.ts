@@ -115,6 +115,7 @@ function startSecondScreen(
     | 'navdata'
     | 'addOnCommands'
     | 'atis'
+    | 'beyondAtcAtis'
   >
 ): void {
   const lan = createLan({
@@ -176,6 +177,7 @@ export function startHostServices(deps: {
     selection: deps.selection,
     navdata: navdataProvider,
     addOnCommands: { ...beyondAtc.commands, ...gsxRemote.commands, ...onlineNetwork.commands },
-    atis: onlineNetwork.atisAt
+    atis: onlineNetwork.atisAt,
+    beyondAtcAtis: beyondAtc.readAtisNow
   })
 }

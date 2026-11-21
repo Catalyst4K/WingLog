@@ -111,6 +111,15 @@ export const NAVDATA_LOOKUPS: readonly (readonly [channel: string, lookup: strin
   [IpcChannels.navdataGetStands, 'stands', []]
 ]
 
+/**
+ * The ATIS a client shows (the weather panel's network ATIS and the BeyondATC page's), asked of the sim PC, which fetches them: the
+ * channel, the lookup, and what it reads as while the sim PC cannot be asked (nothing to show).
+ */
+export const ATIS_LOOKUPS: readonly (readonly [channel: string, lookup: string, fallback: unknown])[] = [
+  [IpcChannels.onlineAtisGet, 'online.atis', { network: null, airports: [] }],
+  [IpcChannels.beyondAtcGetAtis, 'beyondatc.atis', { state: 'unavailable', airports: [] }]
+]
+
 /** Refreshing airport data needs the sim, so on a client it does nothing: the sim PC fetches the shown flight's airports itself. */
 const NAVDATA_REFRESHES: readonly string[] = [
   IpcChannels.navdataRefreshAirport,
@@ -225,6 +234,9 @@ export function registerHostLinkHandlers(
         return fallback
       })
     )
+  }
+  for (const [channel, lookup, fallback] of ATIS_LOOKUPS) {
+    answer(channel, (...args) => link.query(lookup, ...args).catch(() => fallback))
   }
   for (const channel of NAVDATA_REFRESHES) answer(channel, () => undefined)
   answer(IpcChannels.navdataHasAirport, (icao) =>

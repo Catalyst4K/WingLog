@@ -71,7 +71,8 @@ const LOCAL = {
   tracking: () => ({ autoStart: true, autoFinish: false }),
   routines: () => [{ id: 'builtin-arrival', name: 'Arrival' }],
   metars: (codes: unknown) => Promise.resolve([{ asked: codes }]),
-  atis: (requests: unknown) => Promise.resolve({ network: 'vatsim', asked: requests })
+  atis: (requests: unknown) => Promise.resolve({ network: 'vatsim', asked: requests }),
+  beyondAtcAtis: () => Promise.resolve({ state: 'shown', airports: [] })
 }
 
 const FLIGHT_CONTROL = {
@@ -88,6 +89,7 @@ const CREATE_DEPS = {
   addOnCommands: {},
   userAgent: 'WingLog/test',
   atis: LOCAL.atis,
+  beyondAtcAtis: LOCAL.beyondAtcAtis,
   flightControl: FLIGHT_CONTROL
 }
 
@@ -135,6 +137,10 @@ describe('lanQueries', () => {
   it('hands the weather panel’s ATIS request to the PC’s own lookup, which does the checking', async () => {
     const asked = [{ icao: 'EGLL', slot: 'departure' }]
     await expect(queries['online.atis'](asked)).resolves.toEqual({ network: 'vatsim', asked })
+  })
+
+  it('reads BeyondATC’s ATIS fresh for a twin’s BeyondATC page', async () => {
+    await expect(queries['beyondatc.atis']()).resolves.toEqual({ state: 'shown', airports: [] })
   })
 
   it('answers the taxi chart, stands and refresh for an airport code', async () => {

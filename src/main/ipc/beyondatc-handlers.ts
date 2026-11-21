@@ -66,6 +66,8 @@ export function registerBeyondAtcHandlers(
   commands: CommandTable<AtcCommand>
   /** BeyondATC's ATIS read fresh, for the weather panel: 'off' while BeyondATC is not connected, or hidden because the pilot is online. */
   readAtis: () => Promise<BeyondAtcAtisList>
+  /** BeyondATC's ATIS read fresh for the BeyondATC page's own button, which is not held back by the pilot being online. */
+  readAtisNow: () => Promise<BeyondAtcAtisList>
 } {
   const { db, liveHub, trackingController, devDiagnostics, socketCtor, port } = deps
   let beyondAtcService: BeyondAtcService | undefined
@@ -115,6 +117,7 @@ export function registerBeyondAtcHandlers(
   return {
     stop: () => beyondAtcService?.stop(),
     commands,
+    readAtisNow: () => readBeyondAtcAtis(beyondAtcService, false),
     readAtis: () =>
       readBeyondAtcAtis(beyondAtcService, liveHub.snapshot().onlineStatus?.hidesBeyondAtc === true)
   }

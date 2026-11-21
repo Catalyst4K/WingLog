@@ -5,7 +5,13 @@ import { IpcChannels, type ProcedureSelection } from '@shared/ipc'
 import { fakeIpc } from '../ipc/fake-ipc'
 import { LiveHub } from '../live/LiveHub'
 import type { HostLink } from './HostLink'
-import { FORWARDED_COMMANDS, NAVDATA_LOOKUPS, registerHostLinkHandlers, TOPIC_GETTERS } from './client-ipc'
+import {
+  ATIS_LOOKUPS,
+  FORWARDED_COMMANDS,
+  NAVDATA_LOOKUPS,
+  registerHostLinkHandlers,
+  TOPIC_GETTERS
+} from './client-ipc'
 
 function setup(own?: { hostFlying: boolean }) {
   const hub = new LiveHub()
@@ -256,6 +262,21 @@ describe('a client IPC handlers', () => {
     await invoke(IpcChannels.navdataGetStands, 'VHHH')
     expect(link.query).toHaveBeenLastCalledWith('stands', 'VHHH')
     expect(NAVDATA_LOOKUPS).toHaveLength(8)
+  })
+
+  it('asks the sim PC for the weather panel’s ATIS and BeyondATC’s, and reads them as nothing to show while it cannot be asked', async () => {
+    const { invoke, link } = setup()
+    const requests = [{ icao: 'EGLL', slot: 'departure' }]
+    link.query.mockResolvedValueOnce({ network: 'vatsim', airports: [] })
+    expect(await invoke(IpcChannels.onlineAtisGet, requests)).toEqual({ network: 'vatsim', airports: [] })
+    expect(link.query).toHaveBeenLastCalledWith('online.atis', requests)
+    link.query.mockResolvedValueOnce({ state: 'shown', airports: [] })
+    expect(await invoke(IpcChannels.beyondAtcGetAtis)).toEqual({ state: 'shown', airports: [] })
+    expect(link.query).toHaveBeenLastCalledWith('beyondatc.atis')
+    link.query.mockRejectedValue(new Error('Not connected'))
+    expect(await invoke(IpcChannels.onlineAtisGet, requests)).toEqual({ network: null, airports: [] })
+    expect(await invoke(IpcChannels.beyondAtcGetAtis)).toEqual({ state: 'unavailable', airports: [] })
+    expect(ATIS_LOOKUPS).toHaveLength(2)
   })
 
   it('reads the lists as empty while the sim PC cannot be asked, but lets the taxi chart fail so it is not remembered as empty', async () => {
