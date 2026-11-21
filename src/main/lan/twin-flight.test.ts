@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
+import type { ActiveTracking } from '@shared/ipc'
 import { createDb, type WingLogDb } from '../db/client'
 import { createAircraft } from '../db/aircraft-repo'
 import { createFlight, getFlightUuidById, getLiveFlight } from '../db/flight-repo'
@@ -55,7 +56,7 @@ describe('what a twin may make the sim PC do with a flight', () => {
     start: vi.fn(),
     stop: vi.fn(),
     finish: vi.fn(),
-    getActive: vi.fn((): { flightId: number } | undefined => undefined),
+    getActive: vi.fn((): ActiveTracking | undefined => undefined),
     setDestination: vi.fn(),
     setDeparture: vi.fn()
   }
@@ -152,7 +153,7 @@ describe('what a twin may make the sim PC do with a flight', () => {
   describe('the airports of a free flight', () => {
     const free = (): { id: number; uuid: string } => {
       const flight = createFlight(db, { aircraftId, depIcao: 'ZZZZ', arrIcao: 'ZZZZ', status: 'active' })
-      tracking.getActive.mockReturnValue({ flightId: flight.id })
+      tracking.getActive.mockReturnValue({ flightId: flight.id, phase: 'cruise' })
       return { id: flight.id, uuid: getFlightUuidById(db, flight.id) as string }
     }
 
