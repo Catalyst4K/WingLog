@@ -280,7 +280,7 @@
     },
     "hostLink": {
       "cardTitle": "模擬器電腦",
-      "description": "將這台電腦連線到執行模擬器的電腦上的 WingLog。在那台電腦上開啟 設定 → 模擬器電腦，開啟「允許其他 WingLog」，選擇「配對另一個 WingLog」，然後貼上配對文字，或輸入它顯示的位址與配對碼。",
+      "description": "將這台電腦連線到執行模擬器的電腦上的 WingLog。在那台電腦上開啟「設定 → 模擬器電腦」，啟用「允許其他 WingLog」，選擇「配對另一個 WingLog」。然後在這裡貼上它顯示的配對文字，或輸入它的位址與配對碼。",
       "states": {
         "connected": "已連線",
         "connecting": "連線中…",
@@ -317,7 +317,7 @@
       "address": "位址",
       "pairButton": "配對另一個 WingLog",
       "pairingCode": "配對碼",
-      "pairingNote": "在另一個 WingLog 中開啟 設定 → 模擬器電腦，貼上配對文字，或輸入位址與此配對碼。",
+      "pairingNote": "在另一個 WingLog 中開啟「設定 → 模擬器電腦」，貼上配對文字，或輸入位址與此配對碼。",
       "copy": "複製配對文字",
       "copied": "已複製",
       "close": "關閉",

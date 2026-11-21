@@ -65,7 +65,7 @@ const PIN = 'p'.repeat(43)
 const NOT_PAIRED = "This computer isn't paired with a sim PC. Pair it in Settings → Sim PC."
 
 /** The refusal's English wording when the sim PC's connection was refused (its certificate changed, or it is not secure). */
-const REFUSED = "The sim PC's connection was refused. See Settings → Sim PC."
+const REFUSED = "This computer refused the sim PC's connection. See Settings → Sim PC."
 
 /** The refusal's English wording when the link is down or reconnecting: try again. */
 const NOT_CONNECTED =
