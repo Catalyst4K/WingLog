@@ -367,7 +367,7 @@
         "certificate-changed": "certificado cambiado",
         "not-secure": "sin cifrar"
       },
-      "simPcUnpaired": "Ningún PC del simulador emparejado",
+      "simPcUnpaired": "Ningún PC del simulador vinculado",
       "simPcNoSim": "Conectado con el PC del simulador; su simulador no está en marcha",
       "simPcReady": "Conectado con el PC del simulador y su simulador",
       "simPcLabel": "PC del simulador"

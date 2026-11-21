@@ -36,7 +36,7 @@ import { OnlineBadge } from '@/online/OnlineBadge'
 import type { ProcedureAirports } from '@shared/procedure-selection'
 import { parseTransitionAltitudes } from '@shared/route'
 import type { LanConnection, LanLinkState } from '@shared/lan-connection'
-import { simReach, simReachLight } from '@/components/sim-reach'
+import { SIM_REACH_TEXT, simReach, simReachLight } from '@/components/sim-reach'
 import { useLinkState, useTopic } from './use-link'
 import { usePlannedWaypoints } from './use-planned-route'
 import { useProcedureChoice } from './use-procedure-choice'
@@ -140,12 +140,7 @@ function SimLink({
 }): React.JSX.Element {
   const { t } = useTranslation()
   const reach = simReach(linkState, simState)
-  const sentence = {
-    unpaired: t('app.connection.simPcUnpaired'),
-    'no-pc': t('app.connection.simPcNotConnected'),
-    'no-sim': t('app.connection.simPcNoSim'),
-    ready: t('app.connection.simPcReady')
-  }[reach]
+  const sentence = t(SIM_REACH_TEXT[reach])
   return (
     <span className="inline-flex shrink-0 items-center gap-1.5" data-state={reach} title={sentence}>
       <StatusLight state={simReachLight(linkState, simState)} count={3} />

@@ -95,7 +95,7 @@ async function main(): Promise<void> {
           `127.0.0.1:${port}`,
           code
         ] as const)
-        await client.window.getByText('Sim PC: connected').waitFor({ timeout: 30_000 })
+        await client.window.getByText(/^Connected to the sim PC/).waitFor({ timeout: 30_000 })
         const connectedAt = Date.now()
         for (let i = 0; i < 400; i++) {
           const status = await client.window.evaluate(() => window.winglog.hostLinkGetStatus())

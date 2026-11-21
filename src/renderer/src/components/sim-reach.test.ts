@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { HostLinkState } from '@shared/ipc'
 import type { LanLinkState } from '@shared/lan-connection'
-import { simReach, simReachLight } from './sim-reach'
+import { SIM_REACH_TEXT, simReach, simReachLight } from './sim-reach'
 
 const NOT_WORKING: (HostLinkState | LanLinkState)[] = [
   'connecting',
@@ -46,5 +46,13 @@ describe('simReach', () => {
     expect(simReach('offline', 'connected')).toBe('no-pc')
     expect(simReach('connected', 'disconnected')).toBe('no-sim')
     expect(simReach('connected', 'connected')).toBe('ready')
+  })
+})
+
+describe('SIM_REACH_TEXT', () => {
+  it('has a distinct text key for every state', () => {
+    const keys = Object.values(SIM_REACH_TEXT)
+    expect(Object.keys(SIM_REACH_TEXT).sort()).toEqual(['no-pc', 'no-sim', 'ready', 'unpaired'])
+    expect(new Set(keys).size).toBe(4)
   })
 })

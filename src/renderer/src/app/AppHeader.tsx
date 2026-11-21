@@ -13,7 +13,7 @@ import { cn } from '@/lib/utils'
 import { DevBuildBadge } from '../DevBuildBadge'
 import { OnlineBadge } from '../online/OnlineBadge'
 import { useCapabilities } from './capabilities-context'
-import { simReach, simReachLight } from '@/components/sim-reach'
+import { SIM_REACH_TEXT, simReach, simReachLight } from '@/components/sim-reach'
 import { useHostLinkStatus } from './use-host-link'
 
 /**
@@ -137,31 +137,24 @@ function connectionLight(status: SimConnectionStatus): LightState {
  * What the header shows of the connection on a client: the word "Sim PC" and the lights. Off when no sim PC is paired, red when it is not
  * connected, amber when it is but its sim is not, green when both are.
  *
- * @param props The link (null before it has been read) and the sim PC's own sim status.
+ * @param props The link (null before it has been read); its `hostSim` is the sim PC's own sim state.
  * @returns The element.
  */
-function SimPcLight(props: {
-  link: HostLinkStatus | null
-  simStatus: SimConnectionStatus
-}): React.JSX.Element {
+function SimPcLight(props: { link: HostLinkStatus | null }): React.JSX.Element {
   const { t } = useTranslation()
   const state = props.link?.state ?? 'unpaired'
-  const reach = simReach(state, props.simStatus.state)
+  // The sim PC's sim state comes with the link's own status, which forgets it when the sim PC is forgotten.
+  const simState = props.link?.hostSim ?? undefined
+  const reach = simReach(state, simState)
   const stateText = t(`app.connection.simPcStates.${state}`)
-  // Red keeps the link's own reason (not reachable, pair again, ...); the other three say it in one sentence.
-  const sentence = {
-    unpaired: t('app.connection.simPcUnpaired'),
-    'no-pc': t('app.connection.simPcNotConnected'),
-    'no-sim': t('app.connection.simPcNoSim'),
-    ready: t('app.connection.simPcReady')
-  }[reach]
+  // Red keeps the link's own reason (not reachable, certificate changed, ...); the other three say it in one sentence.
+  const sentence =
+    reach === 'no-pc' ? t('app.connection.simPcBadge', { state: stateText }) : t(SIM_REACH_TEXT[reach])
   return (
     <span title={sentence} className="flex shrink-0 items-center gap-2 text-sm text-muted-foreground">
       <span aria-hidden="true">{t('app.connection.simPcLabel')}</span>
-      <StatusLight state={simReachLight(state, props.simStatus.state)} count={3} />
-      <span className="sr-only">
-        {reach === 'no-pc' ? t('app.connection.simPcBadge', { state: stateText }) : sentence}
-      </span>
+      <StatusLight state={simReachLight(state, simState)} count={3} />
+      <span className="sr-only">{sentence}</span>
     </span>
   )
 }
@@ -209,7 +202,7 @@ export function AppHeader(props: {
         {/* Not below sm: the tabs and the sim light only just fit at 360 px. */}
         <OnlineBadge className="hidden sm:inline-flex" />
         {isClient ? (
-          <SimPcLight link={hostLink} simStatus={simStatus} />
+          <SimPcLight link={hostLink} />
         ) : (
           <span
             title={connectionStatusLabel(simStatus, t)}

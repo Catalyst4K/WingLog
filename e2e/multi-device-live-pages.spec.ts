@@ -53,7 +53,7 @@ test('a GSX routine started on the client shows as running on the client page wi
           `127.0.0.1:${port}`,
           code
         ] as const)
-        await expect(client.window.getByText('Sim PC: connected')).toBeAttached({ timeout: 15_000 })
+        await expect(client.window.getByText(/^Connected to the sim PC/)).toBeAttached({ timeout: 15_000 })
         await client.window.getByRole('tab', { name: 'Ground services' }).click()
         await expect(client.window.getByRole('button', { name: 'Departure', exact: true })).toBeEnabled({
           timeout: 15_000

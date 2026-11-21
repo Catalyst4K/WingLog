@@ -14,6 +14,8 @@ export type SimReach =
   | 'ready'
 
 /**
+ * Works out how far the sim can be reached from this device.
+ *
  * @param link The state of the link to the sim PC: the Mac's `HostLinkState` or the phone's `LanLinkState`. Only `connected` and
  *   `unpaired` are told apart; any other state is a link that is not working.
  * @param simState The sim PC's own sim connection state (`SimConnectionStatus['state']`); undefined while it has not been heard.
@@ -23,6 +25,14 @@ export function simReach(link: string, simState: string | undefined): SimReach {
   if (link === 'unpaired') return 'unpaired'
   if (link !== 'connected') return 'no-pc'
   return simState === 'connected' ? 'ready' : 'no-sim'
+}
+
+/** The text (an `app.connection` key) that says each state, for the tooltip and the screen reader. */
+export const SIM_REACH_TEXT: Record<SimReach, string> = {
+  unpaired: 'app.connection.simPcUnpaired',
+  'no-pc': 'app.connection.simPcNotConnected',
+  'no-sim': 'app.connection.simPcNoSim',
+  ready: 'app.connection.simPcReady'
 }
 
 const LIGHT: Record<SimReach, LightState> = {
