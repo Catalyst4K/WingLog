@@ -5,6 +5,7 @@ import { logger } from '../logging/logger'
 import { LiveHub } from '../live/LiveHub'
 import { HostLink, HOST_LINK_TOPICS } from './HostLink'
 import { HELD_BACK } from './flight-mirror'
+import { FlightRelay } from './flight-relay'
 import type { TwinSyncStatus } from './TwinSync'
 import type { HostLinkStore, StoredHostLink } from './host-link-store'
 import type { SocketPin } from './ws-socket'
@@ -61,6 +62,8 @@ const IDLE = { state: 'idle', lastSyncedAt: null, problem: null } as const
 const PIN = 'p'.repeat(43)
 
 /** The refusal's English wording, as a user sees it: the link is down or reconnecting, so try again. */
+const NOT_PAIRED = "This computer isn't paired with a sim PC. Pair it in Settings → Sim PC."
+
 const NOT_CONNECTED =
   "The sim PC isn't connected right now (the link may be reconnecting). Try again in a moment."
 
@@ -220,14 +223,60 @@ describe('HostLink', () => {
 
   it('sends the host a command once connected, and refuses before', async () => {
     const link = make(memoryStore())
-    expect(() => link.command('atc.setAction', ['Request Taxi'])).toThrow(NOT_CONNECTED)
-    await expect(link.query('stands', 'EGLL')).rejects.toThrow(NOT_CONNECTED)
+    expect(() => link.command('atc.setAction', ['Request Taxi'])).toThrow(NOT_PAIRED)
+    await expect(link.query('stands', 'EGLL')).rejects.toThrow(NOT_PAIRED)
     link.pair('192.168.1.20:5051', '123456', null)
     sockets[0]?.open()
     sockets[0]?.hear({ t: 'paired', token: 't' })
     sockets[0]?.hear({ t: 'snapshot', topics: {}, flight: null })
     link.command('atc.setAction', ['Request Taxi'])
     expect(sockets[0]?.sent.at(-1)).toEqual({ t: 'cmd', name: 'atc.setAction', args: ['Request Taxi'] })
+  })
+
+  it('says the link may be reconnecting for a paired link that is down, for a command, a command after a sync and a lookup, and for Finish and Stop', async () => {
+    const link = make(memoryStore())
+    link.pair('192.168.1.20:5051', '123456', null)
+    sockets[0]?.open()
+    sockets[0]?.hear({ t: 'paired', token: 't' })
+    sockets[0]?.hear({ t: 'snapshot', topics: {}, flight: null })
+    sockets[0]?.drop()
+    expect(link.getStatus().state).toBe('offline')
+    expect(() => link.command('atc.setAction', ['Request Taxi'])).toThrow(NOT_CONNECTED)
+    await expect(link.commandAfterSync('gsx.startRoutine', ['r'])).rejects.toThrow(NOT_CONNECTED)
+    await expect(link.query('stands', 'EGLL')).rejects.toThrow(NOT_CONNECTED)
+    const relay = new FlightRelay(null as never)
+    relay.bind({ run: () => Promise.resolve(false), connected: () => false }, (name, ...args) =>
+      link.query(name, ...args)
+    )
+    await expect(relay.finish()).rejects.toThrow(NOT_CONNECTED)
+    await expect(relay.stop()).rejects.toThrow(NOT_CONNECTED)
+  })
+
+  it('says to pair, not to wait, for a link from before encryption that must be paired again', async () => {
+    const link = make(memoryStore({ address: '192.168.1.20:5051', token: 't', pin: null }))
+    await link.start()
+    expect(link.getStatus().state).toBe('pair-again')
+    expect(() => link.command('atc.setAction', ['Request Taxi'])).toThrow(NOT_PAIRED)
+  })
+
+  it('writes one main.log line for each change of the link state, and none for each retry', () => {
+    vi.mocked(logger.info).mockClear()
+    const link = make(memoryStore())
+    link.pair('192.168.1.20:5051', '123456', null)
+    sockets[0]?.open()
+    sockets[0]?.hear({ t: 'paired', token: 't' })
+    sockets[0]?.hear({ t: 'snapshot', topics: {}, flight: null })
+    sockets[0]?.drop()
+    sockets[0]?.drop()
+    const lines = vi
+      .mocked(logger.info)
+      .mock.calls.map((call) => String(call[0]))
+      .filter((line) => line.startsWith('[host-link] link'))
+    expect(lines).toEqual([
+      '[host-link] link to the sim PC: connecting',
+      '[host-link] link to the sim PC: connected',
+      '[host-link] link to the sim PC: offline'
+    ])
   })
 
   it('sends a command after the two databases are level, so what was just made here is on the host first', async () => {
@@ -259,7 +308,7 @@ describe('HostLink', () => {
         onChange: () => undefined
       }
     })
-    await expect(link.commandAfterSync('gsx.startRoutine', ['my-routine'])).rejects.toThrow(NOT_CONNECTED)
+    await expect(link.commandAfterSync('gsx.startRoutine', ['my-routine'])).rejects.toThrow(NOT_PAIRED)
     link.pair('192.168.1.20:5051', '123456', null)
     sockets[0]?.open()
     sockets[0]?.hear({ t: 'paired', token: 't' })

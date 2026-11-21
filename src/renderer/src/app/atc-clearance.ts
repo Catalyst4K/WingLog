@@ -122,12 +122,20 @@ export function describeSelection(selection: ProcedureSelection): string {
 }
 
 /**
+ * @param ms A time from the boxes, epoch ms, which came from another computer and may be anything.
+ * @returns It as an ISO time, or as the raw value when it is not a time `Date` can show (which would throw).
+ */
+function describeTime(ms: number): string {
+  return Number.isFinite(ms) && Math.abs(ms) <= 8.64e15 ? new Date(ms).toISOString() : String(ms)
+}
+
+/**
  * @param clearance A clearance read or offered.
  * @returns Its summary, fields, arrival runway and the BeyondATC time it came with, on one line, for the log.
  */
 export function describeClearance(clearance: PendingAtcClearance): string {
   const runway = clearance.arrivalRunway ? ` arrivalRunway=${clearance.arrivalRunway}` : ''
-  return `"${clearance.summary}" (${describeFields(clearance.fields)}${runway}) from boxes at ${new Date(clearance.sourceTs).toISOString()}`
+  return `"${clearance.summary}" (${describeFields(clearance.fields)}${runway}) from boxes at ${describeTime(clearance.sourceTs)}`
 }
 
 /**

@@ -25,10 +25,16 @@ import {
  * Writes one line about the clearance prompt to main.log (`[atc-prompt] ...`), so a flight where nobody saw a prompt can say what it did.
  * Only box sets that carry a clearance are logged. On the phone's page this does nothing: it has no way to log to the PC.
  *
- * @param message What happened.
+ * Building the line is inside the try too: a log line must never stop the prompt.
+ *
+ * @param message What happened, or a function that makes the line.
  */
-function logPrompt(message: string): void {
-  logInfo('atc-prompt', message)
+function logPrompt(message: string | (() => string)): void {
+  try {
+    logInfo('atc-prompt', typeof message === 'function' ? message() : message)
+  } catch {
+    // Nothing left to tell: the prompt goes on.
+  }
 }
 
 /** How long the procedure-update pop-up waits for an answer before it gives way to the line on the BeyondATC page (D5). */
@@ -90,7 +96,7 @@ export function useAtcClearancePrompt(
       lastAtcBoxesKey.current = read.key
       const candidate = read.candidate
       if (!candidate) return
-      logPrompt(`read ${describeClearance(candidate)}; selection: ${describeSelection(selection)}`)
+      logPrompt(() => `read ${describeClearance(candidate)}; selection: ${describeSelection(selection)}`)
       runAsync(
         'atc clearance offer',
         explainAtcClearance(candidate, selection).then((outcome) => {
@@ -98,8 +104,9 @@ export function useAtcClearancePrompt(
             logPrompt(`no prompt for "${candidate.summary}": ${outcome.reason}`)
             return
           }
-          logPrompt(`offered ${describeClearance(outcome.offer)}`)
-          setPending(outcome.offer)
+          const offer = outcome.offer
+          logPrompt(() => `offered ${describeClearance(offer)}`)
+          setPending(offer)
         })
       )
     })

@@ -42,6 +42,8 @@
     "notValidAirportCode": "Ce n'est pas un code d'aéroport valide",
     "noFlightBeingTracked": "Aucun vol n'est en cours de suivi",
     "simPcNotConnected": "Le PC du simulateur n'est pas connecté pour le moment (la liaison est peut-être en train de se rétablir). Réessayez dans un instant.",
+    "simPcNotPaired": "Cet ordinateur n'est pas appairé à un PC du simulateur. Appairez-le dans Réglages → PC du simulateur.",
+    "simPcSyncFailed": "Impossible de mettre cet ordinateur à jour avec le PC du simulateur. Voir Réglages → PC du simulateur.",
     "freeFlightOnSimPc": "Les vols libres se lancent depuis le PC du simulateur.",
     "credentialEncryptionUnavailable": "Le chiffrement des identifiants au niveau du système d'exploitation n'est pas disponible sur cet ordinateur",
     "notLoggedIn": "Non connecté",

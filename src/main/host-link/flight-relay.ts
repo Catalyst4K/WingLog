@@ -14,6 +14,8 @@ type Ask = (name: string, ...args: unknown[]) => Promise<unknown>
 /** Brings the two databases level; false when the link is down or the sync failed. */
 interface SyncNow {
   run(): Promise<boolean>
+  /** Whether the link to the sim PC is up. */
+  connected(): boolean
 }
 
 /** The calls the tracking handlers make instead of acting on a flight themselves, when this computer is a client. */
@@ -35,7 +37,7 @@ export class FlightRelay implements FlightRelayPort {
   /**
    * Connects the relay to the link, once it exists.
    *
-   * @param sync Brings this computer level with the sim PC.
+   * @param sync Brings this computer level with the sim PC, and says whether the link is up.
    * @param ask Asks the sim PC a lookup.
    */
   bind(sync: SyncNow, ask: Ask): void {
@@ -78,7 +80,11 @@ export class FlightRelay implements FlightRelayPort {
     const { sync, ask } = this.connected()
     const uuid = getFlightUuidById(this.db, flightId)
     if (!uuid) throw new Error('Unknown flight')
-    if (!(await sync.run())) throw new Error(t('errors.simPcNotConnected'))
+    if (!sync.connected()) throw new Error(t('errors.simPcNotConnected'))
+    // A failed sync with the link still up (the two WingLogs are different versions, say) is not a reconnect to wait for.
+    if (!(await sync.run())) {
+      throw new Error(t(sync.connected() ? 'errors.simPcSyncFailed' : 'errors.simPcNotConnected'))
+    }
     await ask(name, uuid)
   }
 }

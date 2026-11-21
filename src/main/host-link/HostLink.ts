@@ -75,6 +75,8 @@ export class HostLink {
   /** A pairing from before the link was encrypted: it has a token but no pin, so nothing is opened until the pilot pairs again. */
   private pairAgain = false
   private hostSim: HostLinkStatus['hostSim'] = null
+  /** The state last written to the log. */
+  private loggedState: HostLinkState | null = null
   private unsubscribers: (() => void)[] = []
 
   /** @param deps The hub to follow into, where the link is kept, how to open a socket, and who to tell of changes. */
@@ -178,8 +180,7 @@ export class HostLink {
    * @throws When the link is not up.
    */
   command(name: string, args: unknown[]): void {
-    if (!this.connection) throw new Error(t('errors.simPcNotConnected'))
-    this.connection.command(name, ...args)
+    this.requireUp().command(name, ...args)
   }
 
   /**
@@ -190,7 +191,7 @@ export class HostLink {
    * @throws When the link is not up.
    */
   async commandAfterSync(name: string, args: unknown[]): Promise<void> {
-    if (!this.connection) throw new Error(t('errors.simPcNotConnected'))
+    this.requireUp()
     await this.deps.sync?.run()
     this.command(name, args)
   }
@@ -203,8 +204,23 @@ export class HostLink {
    * @returns The host's answer.
    */
   query(name: string, ...args: unknown[]): Promise<unknown> {
-    if (!this.connection) return Promise.reject(new Error(t('errors.simPcNotConnected')))
-    return this.connection.query(name, ...args)
+    try {
+      return this.requireUp().query(name, ...args)
+    } catch (error) {
+      return Promise.reject(error)
+    }
+  }
+
+  /**
+   * @returns The connection, when it is up.
+   * @throws When there is no sim PC to reach (this computer is not paired, was made to forget it, or must pair again), saying to pair; or when
+   *   the link is not up (connecting, offline, refused), saying it may be reconnecting. Both read in the user's language, unlike the
+   *   connection's own refusal.
+   */
+  private requireUp(): LanConnection {
+    if (!this.connection || this.pairAgain) throw new Error(t('errors.simPcNotPaired'))
+    if (this.connection.state !== 'connected') throw new Error(t('errors.simPcNotConnected'))
+    return this.connection
   }
 
   /** Closes the link for good (the app is quitting). */
@@ -310,7 +326,17 @@ export class HostLink {
     this.emit()
   }
 
+  /** Says in main.log when the link's state changes (connected, offline, a refusal), once per change, so a quiet log can be told from a dropped link. */
+  private logState(): void {
+    const state = this.getStatus().state
+    // Each retry of a link that is down flips offline and connecting; only the first drop is news.
+    if (state === this.loggedState || (state === 'connecting' && this.loggedState === 'offline')) return
+    this.loggedState = state
+    logger.info(`[host-link] link to the sim PC: ${state}`)
+  }
+
   private emit(): void {
+    this.logState()
     this.deps.onStatus(this.getStatus())
   }
 }

@@ -307,7 +307,7 @@ describe('useAtcClearancePrompt writes what it did to main.log', () => {
     ])
   })
 
-  it('says once that a clearance was not offered because the pilot is online, and that an offered one was withdrawn', async () => {
+  it('says once that a clearance was not offered because the pilot is online', async () => {
     const { lines, hear, push, result } = setup()
     act(() => push('onlineStatus', online))
     await hear(boxes('STAR', 'LOGA2H'))
@@ -345,6 +345,13 @@ describe('useAtcClearancePrompt writes what it did to main.log', () => {
     await hear(boxes('STAR', 'LOGA2H'))
     act(() => vi.advanceTimersByTime(60_000))
     expect(lines.at(-1)).toBe('[atc-prompt] no answer in 60 s: "STAR LOGA2H" moved to the BeyondATC page')
+  })
+
+  it('still offers the clearance when the boxes carry a time that cannot be formatted', async () => {
+    const { result, lines, hear } = setup()
+    await hear({ ...boxes('STAR', 'LOGA2H'), infoBoxesAt: 1e300 })
+    expect(result.current.pending?.fields).toEqual({ starIdent: 'LOGA2H' })
+    expect(lines[0]).toContain('from boxes at 1e+300')
   })
 
   it('works where nothing can log (the phone page, or a test with no log call)', async () => {

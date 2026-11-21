@@ -42,6 +42,8 @@
     "notValidAirportCode": "Das ist kein gültiger Flughafencode",
     "noFlightBeingTracked": "Es wird kein Flug aufgezeichnet",
     "simPcNotConnected": "Der Sim-PC ist gerade nicht verbunden (die Verbindung wird möglicherweise neu aufgebaut). Versuche es gleich noch einmal.",
+    "simPcNotPaired": "Dieser Computer ist nicht mit einem Sim-PC gekoppelt. Kopple ihn unter Einstellungen → Sim-PC.",
+    "simPcSyncFailed": "Dieser Computer konnte nicht mit dem Sim-PC abgeglichen werden. Siehe Einstellungen → Sim-PC.",
     "freeFlightOnSimPc": "Freie Flüge werden am Sim-PC gestartet.",
     "credentialEncryptionUnavailable": "Betriebssystemseitige Anmeldedatenverschlüsselung ist auf diesem Gerät nicht verfügbar",
     "notLoggedIn": "Nicht angemeldet",

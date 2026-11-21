@@ -9,6 +9,9 @@ import { FlightRelay } from './flight-relay'
 const NOT_CONNECTED =
   "The sim PC isn't connected right now (the link may be reconnecting). Try again in a moment."
 
+/** The refusal when the link is up but the two WingLogs could not be brought level. */
+const SYNC_FAILED = "Couldn't bring this computer up to date with the sim PC. See Settings → Sim PC."
+
 describe('FlightRelay', () => {
   let db: WingLogDb
   let flightId: number
@@ -24,14 +27,18 @@ describe('FlightRelay', () => {
     calls.length = 0
   })
 
-  function bound(syncOk = true): FlightRelay {
+  /** @param syncOk Whether the sync ends well. @param connected Whether the link is up before the sync; `linkAfterSync` is whether it is after. */
+  function bound(syncOk = true, connected = true, linkAfterSync = connected): FlightRelay {
+    let up = connected
     const relay = new FlightRelay(db)
     relay.bind(
       {
         run: () => {
           calls.push('sync')
+          up = linkAfterSync
           return Promise.resolve(syncOk)
-        }
+        },
+        connected: () => up
       },
       (name, ...args) => {
         calls.push(`${name}:${args.join(',')}`)
@@ -63,13 +70,19 @@ describe('FlightRelay', () => {
     expect(calls).toEqual(['flight.finish:', 'flight.stop:'])
   })
 
-  it('says so when the sim PC could not be brought level, and sends nothing', async () => {
-    await expect(bound(false).start(flightId)).rejects.toThrow(NOT_CONNECTED)
+  it('refuses Cancel and Start with the reconnecting message while the link is down, without trying to sync', async () => {
+    await expect(bound(false, false).cancel(flightId)).rejects.toThrow(NOT_CONNECTED)
+    await expect(bound(false, false).start(flightId)).rejects.toThrow(NOT_CONNECTED)
+    expect(calls).toEqual([])
+  })
+
+  it('says the link may be reconnecting when it drops during the sync', async () => {
+    await expect(bound(false, true, false).start(flightId)).rejects.toThrow(NOT_CONNECTED)
     expect(calls).toEqual(['sync'])
   })
 
-  it('refuses Cancel with the same reconnecting message while the link is down', async () => {
-    await expect(bound(false).cancel(flightId)).rejects.toThrow(NOT_CONNECTED)
+  it('says the sync failed, not that the link is reconnecting, when the link is up and the sync did not end well', async () => {
+    await expect(bound(false, true, true).cancel(flightId)).rejects.toThrow(SYNC_FAILED)
     expect(calls).toEqual(['sync'])
   })
 

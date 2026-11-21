@@ -17,10 +17,11 @@ const MAX_RENDERER_LOG_CHARS = 2_000
  * Cuts a renderer string to length and puts it on one line, so it can't add log lines of its own.
  *
  * @param text The renderer's text.
- * @returns At most MAX_RENDERER_LOG_CHARS characters, with every line break replaced by a space.
+ * @returns At most MAX_RENDERER_LOG_CHARS characters, with every control character (line breaks, NEL, tabs, escapes) and the Unicode line and paragraph separators replaced by a space.
  */
 function oneLine(text: string): string {
-  return text.slice(0, MAX_RENDERER_LOG_CHARS).replace(/[\r\n\u2028\u2029]+/g, ' ')
+  // eslint-disable-next-line no-control-regex -- control characters are exactly what is being removed
+  return text.slice(0, MAX_RENDERER_LOG_CHARS).replace(/[\u0000-\u001f\u007f-\u009f\u2028\u2029]+/g, ' ')
 }
 
 /**

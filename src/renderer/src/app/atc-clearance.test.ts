@@ -129,6 +129,12 @@ describe('the log descriptions', () => {
     expect(describeSelection(selection)).toBe('arrivalIcao=WSSS departureRunway=07R sidIdent=OCEAN2B')
   })
 
+  it('prints a time it cannot format as it came, instead of throwing', () => {
+    const clearance = { fields: { starIdent: 'UPRS2C' }, summary: 'STAR UPRS2C', sourceTs: Number.NaN }
+    expect(describeClearance(clearance)).toBe('"STAR UPRS2C" (starIdent=UPRS2C) from boxes at NaN')
+    expect(describeClearance({ ...clearance, sourceTs: 1e300 })).toContain('from boxes at 1e+300')
+  })
+
   it('describes a clearance with its runway, fields and the time its boxes came', () => {
     expect(
       describeClearance({
