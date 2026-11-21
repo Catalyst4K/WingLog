@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { ProcedureSelection } from '@shared/ipc'
-import { clearanceDiffers, readNewInfoBoxes, resolveAtcClearance } from './atc-clearance'
+import { clearanceDiffers, readNewInfoBoxes, readNewSpeech, resolveAtcClearance } from './atc-clearance'
 
 // VHHH departure, as SimBrief planned it.
 const selection: ProcedureSelection = {
@@ -85,5 +85,47 @@ describe('readNewInfoBoxes', () => {
     const noise = [{ title: 'Center Frequency', info: '132.205' }]
     const read = readNewInfoBoxes('', { infoBoxes: noise, infoBoxesAt: 1 }, 2)
     expect(read).toEqual({ key: JSON.stringify(noise), candidate: null })
+  })
+})
+
+describe('readNewSpeech', () => {
+  const briefing =
+    'Hongkong Shuttle 250, leave WL heading 245, expect radar vectors for ILS-Z approach runway 08.'
+  const atc = (text: string, ts: number) => ({ speaker: 'atc' as const, text, ts })
+  const vectors = { approachIdent: 'ILS Z 08', approachTransition: 'Vectors' }
+
+  it("reads the player's own ATC briefing, with when it was said", () => {
+    const read = readNewSpeech('', [atc(briefing, 5_000)], 9_000)
+    expect(read?.candidate?.fields).toEqual(vectors)
+    expect(read?.candidate?.sourceTs).toBe(5_000)
+  })
+
+  it('reads the same briefing once, even when ATC says it again', () => {
+    const first = readNewSpeech('', [atc(briefing, 5_000)], 9_000)
+    const again = [atc(briefing, 5_000), atc(briefing, 23_000)]
+    expect(readNewSpeech(first!.key, again, 30_000)).toBeNull()
+  })
+
+  it('reads a briefing again after ATC has said something else', () => {
+    const first = readNewSpeech('', [atc(briefing, 5_000)], 9_000)
+    const moved = readNewSpeech(
+      first!.key,
+      [atc(briefing, 5_000), atc('Descend to altitude 1,800m.', 60_000)],
+      70_000
+    )
+    expect(moved).toEqual({ key: '', candidate: null })
+    expect(
+      readNewSpeech('', [atc(briefing, 5_000), atc('Descend to altitude 1,800m.', 60_000)], 70_000)
+    ).toBeNull()
+    expect(readNewSpeech('', [atc(briefing, 90_000)], 95_000)?.candidate?.fields).toEqual(vectors)
+  })
+
+  it("ignores another aircraft's briefing, which is worded the same", () => {
+    const traffic = [
+      { speaker: 'atcTraffic' as const, text: 'China Eastern 5771, ' + briefing, ts: 1_000 },
+      { speaker: 'traffic' as const, text: briefing, ts: 2_000 },
+      { speaker: 'player' as const, text: briefing, ts: 3_000 }
+    ]
+    expect(readNewSpeech('', traffic, 4_000)).toBeNull()
   })
 })

@@ -4,9 +4,10 @@
  */
 
 import { winglogApi } from '../data/winglog-api'
-import type { BeyondAtcInfoBox, ProcedureSelection } from '@shared/ipc'
+import type { BeyondAtcInfoBox, BeyondAtcTranscriptEntry, ProcedureSelection } from '@shared/ipc'
 import { matchClearanceApproach } from '@shared/atc-approach-match'
 import { parseAtcBoxClearance, type AtcClearanceUpdate } from '@shared/atc-info-boxes'
+import { parseAtcVectorsBriefing } from '@shared/atc-speech-approach'
 import { approachForArrivalRunway, starEndFix } from '../atc-approach-match'
 
 /** A clearance waiting for the user's accept or dismiss, with when BeyondATC gave it. */
@@ -93,4 +94,27 @@ export function readNewInfoBoxes(
   if (key === lastKey) return null
   const update = parseAtcBoxClearance(state.infoBoxes)
   return { key, candidate: update ? { ...update, sourceTs: state.infoBoxesAt ?? nowMs } : null }
+}
+
+/**
+ * Reads the player's own latest ATC line for an approach briefed with radar vectors, once. The boxes never carry this fact (see
+ * `parseAtcVectorsBriefing`), so it is the one clearance read from speech; the same line repeated reads once, and any other ATC line
+ * in between lets a later briefing be offered again.
+ *
+ * @param lastKey The key returned for the last briefing read, or '' when none is current.
+ * @param transcript BeyondATC's transcript, oldest first.
+ * @param nowMs The current time, epoch ms, for a line carrying none.
+ * @returns Null when there is nothing new; otherwise the new key ('' once ATC has said something else) and the clearance, if any.
+ */
+export function readNewSpeech(
+  lastKey: string,
+  transcript: BeyondAtcTranscriptEntry[],
+  nowMs: number
+): { key: string; candidate: PendingAtcClearance | null } | null {
+  const latest = transcript.filter((line) => line.speaker === 'atc').at(-1)
+  const update = latest ? parseAtcVectorsBriefing(latest.text) : null
+  if (!latest || !update) return lastKey === '' ? null : { key: '', candidate: null }
+  const key = JSON.stringify(update.fields)
+  if (key === lastKey) return null
+  return { key, candidate: { ...update, sourceTs: latest.ts || nowMs } }
 }

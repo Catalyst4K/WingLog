@@ -5,7 +5,12 @@
  */
 
 import { useEffect, useRef, useState } from 'react'
-import type { BeyondAtcState, GsxRemoteMenuState, ProcedureSelection } from '@shared/ipc'
+import type {
+  BeyondAtcState,
+  BeyondAtcTranscriptEntry,
+  GsxRemoteMenuState,
+  ProcedureSelection
+} from '@shared/ipc'
 import { gsxPromptState } from '../gsx-remote-importance'
 import { useLiveClient } from '../live/LiveClient'
 import { useBeyondAtcHidden } from '../live/use-online-status'
@@ -14,6 +19,7 @@ import { applyClearance } from '@shared/procedure-selection'
 import {
   clearanceDiffers,
   readNewInfoBoxes,
+  readNewSpeech,
   resolveAtcClearance,
   type PendingAtcClearance
 } from './atc-clearance'
@@ -23,8 +29,8 @@ export const ATC_CLEARANCE_POPUP_MS = 60_000
 
 /**
  * Reads each new set of BeyondATC InfoBoxes for a clearance whose fields differ from the current selection, and holds it for the
- * user's accept or dismiss: overwrite, but ask first, gently. Never ATC's speech (winglog-backend's
- * docs/decisions.md). Re-subscribes whenever the selection changes so a diff is always checked against the live value,
+ * user's accept or dismiss: overwrite, but ask first, gently. ATC's speech is read for one fact only, an approach briefed with
+ * radar vectors, which no box carries (`readNewSpeech`; winglog-backend's docs/decisions.md for the boxes-first rule). Re-subscribes whenever the selection changes so a diff is always checked against the live value,
  * the same "just resubscribe, it's cheap" style as procedure-selection.ts's fetch effects.
  *
  * @param selection The current procedure selection.
@@ -58,20 +64,35 @@ export function useAtcClearancePrompt(
   // Online, the network's controllers are the only voice: no clearance is offered, and one already offered is withdrawn.
   const hidden = useBeyondAtcHidden()
 
+  // The last approach briefed in speech already read (see readNewSpeech), kept as the boxes' is.
+  const lastSpeechKey = useRef('')
+
   useEffect(() => {
-    return client.subscribe('beyondAtcState', (state: BeyondAtcState) => {
+    const offer = (candidate: PendingAtcClearance): void =>
+      runAsync(
+        'atc clearance offer',
+        resolveAtcClearance(candidate, selection).then((resolved) => {
+          if (resolved) setPending(resolved)
+        })
+      )
+    const stopBoxes = client.subscribe('beyondAtcState', (state: BeyondAtcState) => {
       if (hidden) return
       const read = readNewInfoBoxes(lastAtcBoxesKey.current, state, Date.now())
       if (!read) return
       lastAtcBoxesKey.current = read.key
-      if (!read.candidate) return
-      runAsync(
-        'atc clearance offer',
-        resolveAtcClearance(read.candidate, selection).then((offer) => {
-          if (offer) setPending(offer)
-        })
-      )
+      if (read.candidate) offer(read.candidate)
     })
+    const stopSpeech = client.subscribe('beyondAtcTranscript', (transcript: BeyondAtcTranscriptEntry[]) => {
+      if (hidden) return
+      const read = readNewSpeech(lastSpeechKey.current, transcript, Date.now())
+      if (!read) return
+      lastSpeechKey.current = read.key
+      if (read.candidate) offer(read.candidate)
+    })
+    return () => {
+      stopBoxes()
+      stopSpeech()
+    }
   }, [client, selection, hidden])
 
   useEffect(() => {

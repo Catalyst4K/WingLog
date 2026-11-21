@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { BeyondAtcState, GsxRemoteMenuState, ProcedureSelection, WingLogApi } from '@shared/ipc'
 import { LiveClientContext, type LiveClient } from '../live/LiveClient'
 import { emptyProcedureSelection } from '@shared/procedure-selection'
+import { VECTORS_TRANSITION } from '@shared/route'
 import { useAtcClearancePrompt, useImportantGsxMenu } from './use-prompts'
 
 /** A LiveClient fed by hand: the two hooks must run on it alone, as they do on the second screen. */
@@ -88,6 +89,122 @@ describe('useAtcClearancePrompt on a LiveClient', () => {
     // The other screen pressed Update: the selection now holds what this prompt would apply.
     rerender({ sel: { ...selection, starIdent: 'LOGA2H' } })
     expect(result.current.pending).toBeNull()
+  })
+
+  // Flight 445 (VHHH-ZJSY, 2026-11-21): planned ILS X 08 via SY935. Approaching Sanya, ATC briefed "expect radar vectors for ILS-Z
+  // approach runway 08". The boxes of that moment carried the runway and `Approach Type` "Procedure" (the only value ever seen), and
+  // named neither the approach nor the vectors; the `Cleared Approach` box came six minutes later.
+  describe('an approach briefed in ATC speech only (flight 445)', () => {
+    const planned: ProcedureSelection = {
+      ...emptyProcedureSelection(),
+      arrivalIcao: 'ZJSY',
+      starIdent: 'UPRS3D',
+      approachIdent: 'ILS X 08',
+      approachTransition: 'SY935'
+    }
+    const zjsyApproaches = [
+      { identifier: 'ILS X 08', transition: 'SY462' },
+      { identifier: 'ILS X 08', transition: 'SY935' },
+      { identifier: 'ILS Z 08', transition: 'SY462' },
+      { identifier: 'ILS Z 08', transition: 'SY463' },
+      { identifier: 'ILS Z 08', transition: 'SY498' }
+    ]
+    const briefingBoxes = {
+      infoBoxes: [
+        { title: 'Approach Type', info: 'Procedure' },
+        { title: 'Landing Runway', info: '08' },
+        { title: 'QNH', info: 'QNH 1020' }
+      ],
+      infoBoxesAt: 1_000
+    } as BeyondAtcState
+    const speech = (speaker: 'atc' | 'atcTraffic' | 'traffic' | 'player', text: string, ts = 2_000) => ({
+      speaker,
+      text,
+      ts
+    })
+    const briefing =
+      'Hongkong Shuttle 250 Sanya Approach, good evening, QNH 1020 expect radar vectors for ILS-Z approach runway 08.'
+
+    async function offered(lines: ReturnType<typeof speech>[]) {
+      window.winglog = {
+        appLogRendererError: vi.fn().mockResolvedValue(undefined),
+        navdataListApproaches: vi.fn().mockResolvedValue(zjsyApproaches),
+        navdataGetProcedureWaypoints: vi.fn().mockResolvedValue([])
+      } as unknown as WingLogApi
+      const { client, push } = fakeClient()
+      const hook = renderHook(() => useAtcClearancePrompt(planned, vi.fn()), { wrapper: wrapper(client) })
+      await act(async () => {
+        push('beyondAtcState', briefingBoxes)
+        push('beyondAtcTranscript', lines)
+        await Promise.resolve()
+        await Promise.resolve()
+      })
+      return { ...hook, push }
+    }
+
+    it('offers the approach ATC named, with vectors in place of the planned transition', async () => {
+      const { result } = await offered([speech('atc', briefing)])
+      expect(result.current.pending?.fields).toEqual({
+        approachIdent: 'ILS Z 08',
+        approachTransition: VECTORS_TRANSITION
+      })
+    })
+
+    it('does not offer it again when ATC says it again after it was dismissed', async () => {
+      const { result, push } = await offered([speech('atc', briefing)])
+      act(() => result.current.onDismiss())
+      expect(result.current.pending).toBeNull()
+      const again = speech(
+        'atc',
+        'Hongkong Shuttle 250, leave WL heading 245, expect radar vectors for ILS-Z approach runway 08.',
+        20_000
+      )
+      await act(async () => {
+        push('beyondAtcTranscript', [speech('atc', briefing), again])
+        await Promise.resolve()
+        await Promise.resolve()
+      })
+      expect(result.current.pending).toBeNull()
+    })
+
+    it('accepted, it agrees with the Cleared Approach box that follows, so nothing more is offered', async () => {
+      const { result } = await offered([speech('atc', briefing)])
+      expect(result.current.pending?.fields.approachTransition).toBe(VECTORS_TRANSITION)
+      // What accepting does to the selection (applyClearance), shown here as the selection the hook is then given.
+      const { client, push: pushAccepted } = fakeClient()
+      const accepted = renderHook(
+        () =>
+          useAtcClearancePrompt(
+            { ...planned, approachIdent: 'ILS Z 08', approachTransition: VECTORS_TRANSITION },
+            vi.fn()
+          ),
+        { wrapper: wrapper(client) }
+      )
+      await act(async () => {
+        pushAccepted('beyondAtcState', {
+          infoBoxes: [{ title: 'Cleared Approach', info: 'ILS-Z approach runway 08' }],
+          infoBoxesAt: 2_000
+        })
+        await Promise.resolve()
+        await Promise.resolve()
+      })
+      expect(accepted.result.current.pending).toBeNull()
+    })
+
+    it('does not take the approach from another aircraft, or from the pilot own readback', async () => {
+      const { result } = await offered([
+        speech(
+          'atcTraffic',
+          'China Eastern 5771, leave WL heading 225, expect radar vectors for ILS-Z approach runway 08.'
+        ),
+        speech(
+          'traffic',
+          'Leave WL heading 225, expect radar vectors for ILS-Z approach runway 08, China Eastern 5771.'
+        ),
+        speech('player', 'QNH 1020 expect radar vectors for ILS-Z approach runway 08, Hongkong Shuttle 250.')
+      ])
+      expect(result.current.pending).toBeNull()
+    })
   })
 
   describe('the pop-up gives way to the BeyondATC page after a minute (v2, Part 4)', () => {

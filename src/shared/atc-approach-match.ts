@@ -2,6 +2,7 @@
 
 import type { NavdataProcedureOption } from './ipc'
 import type { AtcClearanceUpdate } from './atc-info-boxes'
+import { VECTORS_TRANSITION } from './route'
 
 /**
  * "R NAV 02L", "RNAV 02L", "rnav-02l" all compare equal: what BeyondATC calls a procedure and
@@ -45,10 +46,16 @@ export function matchClearanceApproach(
   const fields: AtcClearanceUpdate['fields'] = { ...rest, approachIdent: identifier }
   const clearedTransition = update.fields.approachTransition
   if (clearedTransition) {
-    const transition = options.find(
-      (o) =>
-        o.identifier === identifier && o.transition && compact(o.transition) === compact(clearedTransition)
-    )?.transition
+    // "Vectors" is no navdata transition (ProcedureSelector adds it to every approach), so it is not looked up.
+    const transition =
+      clearedTransition === VECTORS_TRANSITION
+        ? VECTORS_TRANSITION
+        : options.find(
+            (o) =>
+              o.identifier === identifier &&
+              o.transition &&
+              compact(o.transition) === compact(clearedTransition)
+          )?.transition
     if (transition) fields.approachTransition = transition
   }
   const summary = fields.approachTransition

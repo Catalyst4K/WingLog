@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { NavdataProcedureOption } from './ipc'
 import { parseAtcBoxClearance } from './atc-info-boxes'
+import { parseAtcVectorsBriefing } from './atc-speech-approach'
 import { matchClearanceApproach } from './atc-approach-match'
 
 // WSSS's real approaches from the sim's navdata (cached), one row per transition.
@@ -55,5 +56,26 @@ describe('matchClearanceApproach (WSSS, 2026-10-02)', () => {
       { title: 'Arrival Runway', info: '02L' }
     ])!
     expect(matchClearanceApproach(star, WSSS)).toBe(star)
+  })
+})
+
+describe('matchClearanceApproach with vectors (ZJSY, flight 445, 2026-11-21)', () => {
+  const ZJSY: NavdataProcedureOption[] = [
+    { identifier: 'ILS X 08', transition: 'SY935' },
+    { identifier: 'ILS Z 08', transition: 'SY498' },
+    { identifier: 'ILS Z 26', transition: 'SY501' }
+  ]
+  const briefed = () =>
+    parseAtcVectorsBriefing('QNH 1020 expect radar vectors for ILS-Z approach runway 08.')!
+
+  it('keeps Vectors, which the navdata never lists as a transition', () => {
+    expect(matchClearanceApproach(briefed(), ZJSY)).toEqual({
+      fields: { approachIdent: 'ILS Z 08', approachTransition: 'Vectors' },
+      summary: 'Approach ILS Z 08 via Vectors'
+    })
+  })
+
+  it('offers nothing for an approach the airport does not have', () => {
+    expect(matchClearanceApproach(briefed(), [{ identifier: 'ILS X 08', transition: 'SY935' }])).toBeNull()
   })
 })
