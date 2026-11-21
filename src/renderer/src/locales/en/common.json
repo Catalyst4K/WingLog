@@ -71,7 +71,10 @@
       "autoFinish": "Finish flights automatically",
       "autoFinishOff": "Off: the flight stays open after you park and shut down, until you press {{finishAndSave}}.",
       "on": "On",
-      "off": "Off"
+      "off": "Off",
+      "setOnSimPc": "Set on the sim PC",
+      "simPcUnavailable": "Not available right now",
+      "clientDescription": "These are the sim PC’s settings, shown here to read. Change them in WingLog on the sim PC."
     },
     "theme": {
       "cardTitle": "Theme",

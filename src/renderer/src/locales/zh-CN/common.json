@@ -69,7 +69,10 @@
       "autoFinish": "自动结束航班",
       "autoFinishOff": "关闭：停机并关车后航班保持进行中，直到你点 {{finishAndSave}}。",
       "on": "开",
-      "off": "关"
+      "off": "关",
+      "setOnSimPc": "在模拟器电脑上设置",
+      "simPcUnavailable": "暂时无法获取",
+      "clientDescription": "这些是模拟器电脑的设置，此处仅供查看。请在模拟器电脑上的 WingLog 中修改。"
     },
     "theme": {
       "cardTitle": "主题",

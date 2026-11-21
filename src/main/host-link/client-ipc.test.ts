@@ -207,6 +207,32 @@ describe('a client IPC handlers', () => {
     expect(await invoke(IpcChannels.settingsGetBeyondAtc)).toMatchObject({ enabled: false })
   })
 
+  it('reads the sim PC’s automatic start and finish for the Settings page, and null while it cannot say', async () => {
+    const { invoke, link } = setup()
+    link.query.mockResolvedValueOnce({ autoStart: true, autoFinish: false })
+    expect(await invoke(IpcChannels.settingsGetTracking)).toEqual({ autoStart: true, autoFinish: false })
+    expect(link.query).toHaveBeenLastCalledWith('settings.tracking')
+    // Anything but two true/false values is not an answer, and a refusal or a dropped link is not one either.
+    for (const odd of [null, 'on', { autoStart: 1, autoFinish: true }, { autoStart: true }]) {
+      link.query.mockResolvedValueOnce(odd)
+      expect(await invoke(IpcChannels.settingsGetTracking), JSON.stringify(odd)).toBeNull()
+    }
+    link.query.mockRejectedValueOnce(new Error('Not connected'))
+    expect(await invoke(IpcChannels.settingsGetTracking)).toBeNull()
+  })
+
+  it('takes the tracking lookup over from the local settings handler, which a client must not answer from its own database', async () => {
+    const ipc = fakeIpc()
+    ipc.ipcMain.handle(IpcChannels.settingsGetTracking, () => ({ autoStart: false, autoFinish: false }))
+    const link = { query: vi.fn().mockResolvedValue({ autoStart: true, autoFinish: true }) }
+    registerHostLinkHandlers(ipc.ipcMain, {
+      link: link as unknown as HostLink,
+      hub: new LiveHub(),
+      handled: new Set([IpcChannels.settingsGetTracking])
+    })
+    expect(await ipc.invoke(IpcChannels.settingsGetTracking)).toEqual({ autoStart: true, autoFinish: true })
+  })
+
   it('asks the sim PC for runways, procedures, the taxi chart and stands, with the arguments the screen gave', async () => {
     const { invoke, link } = setup()
     link.query.mockResolvedValue([{ ident: '07L' }])

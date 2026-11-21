@@ -21,6 +21,7 @@ import { MAP_LANGUAGES } from './map-labels'
 import { trackingLabels } from './tracking-labels'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { useCapabilities } from './app/capabilities-context'
 import { runAsync } from './report-error'
 import { SegmentButton, SegmentedGroup, SettingRow } from './settings/ui/SettingsCard'
 
@@ -253,16 +254,22 @@ export function LanguageRows(
 
 /**
  * Automatic tracking start and finish (tracking-auto-toggles.md), each with what turning it
- * off means. Reads and saves its own setting.
+ * off means. Reads and saves its own setting. On a client the two are the sim PC's, which
+ * tracks the flight: they are shown read only, and nothing here changes them.
  *
  * @returns The element.
  */
 export function TrackingFields(): React.JSX.Element {
   const { t } = useTranslation()
-  const [tracking, setTracking] = useState<TrackingSettings>({ autoStart: true, autoFinish: true })
+  const isClient = useCapabilities().runMode === 'client'
+  // Undefined until the answer arrives; null when there is none (the sim PC cannot be asked, on a client).
+  const [tracking, setTracking] = useState<TrackingSettings | null | undefined>(undefined)
   useEffect(() => {
     runAsync('SettingsFields settingsGetTracking', winglogApi().settingsGetTracking().then(setTracking))
   }, [])
+
+  if (isClient) return <SimPcTrackingRows tracking={tracking} />
+  const current = tracking ?? { autoStart: true, autoFinish: true }
 
   async function handleTrackingChange(next: TrackingSettings): Promise<void> {
     setTracking(next)
@@ -276,19 +283,45 @@ export function TrackingFields(): React.JSX.Element {
         <SegmentedRow
           key={key}
           label={t(`settingsView.tracking.${key}`)}
-          value={tracking[key] ? 'on' : 'off'}
+          value={current[key] ? 'on' : 'off'}
           options={[
             { value: 'on', label: t('settingsView.tracking.on') },
             { value: 'off', label: t('settingsView.tracking.off') }
           ]}
           onChange={(value) =>
-            runAsync(
-              'settings: change tracking',
-              handleTrackingChange({ ...tracking, [key]: value === 'on' })
-            )
+            runAsync('settings: change tracking', handleTrackingChange({ ...current, [key]: value === 'on' }))
           }
           note={t(`settingsView.tracking.${key}Off`, labels)}
         />
+      ))}
+    </>
+  )
+}
+
+/**
+ * The sim PC's automatic start and finish on a client: its values, read only, labelled as the sim PC's.
+ *
+ * @param props The two switches as the sim PC has them; null when it cannot be asked, undefined before it has answered.
+ * @returns The element.
+ */
+function SimPcTrackingRows(props: { tracking: TrackingSettings | null | undefined }): React.JSX.Element {
+  const { t } = useTranslation()
+  return (
+    <>
+      {(['autoStart', 'autoFinish'] as const).map((key) => (
+        <SettingRow
+          key={key}
+          label={t(`settingsView.tracking.${key}`)}
+          note={t('settingsView.tracking.setOnSimPc')}
+        >
+          <span className="text-sm text-foreground">
+            {props.tracking === undefined
+              ? ''
+              : props.tracking === null
+                ? t('settingsView.tracking.simPcUnavailable')
+                : t(props.tracking[key] ? 'settingsView.tracking.on' : 'settingsView.tracking.off')}
+          </span>
+        </SettingRow>
       ))}
     </>
   )

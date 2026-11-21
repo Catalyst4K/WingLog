@@ -71,7 +71,10 @@
       "autoFinish": "Terminer les vols automatiquement",
       "autoFinishOff": "Désactivé : le vol reste ouvert après le stationnement et l'arrêt, jusqu'à ce que vous appuyiez sur {{finishAndSave}}.",
       "on": "Activé",
-      "off": "Désactivé"
+      "off": "Désactivé",
+      "setOnSimPc": "Se règle sur le PC du simulateur",
+      "simPcUnavailable": "Indisponible pour le moment",
+      "clientDescription": "Ce sont les réglages du PC du simulateur, affichés ici en lecture seule. Modifiez-les dans WingLog sur le PC du simulateur."
     },
     "theme": {
       "cardTitle": "Thème",

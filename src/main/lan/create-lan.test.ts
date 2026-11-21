@@ -68,6 +68,7 @@ function fakeSelection(): EventEmitter & { current: () => unknown; set: (selecti
 const LOCAL = {
   display: () => ({ weightUnit: 'kg', altitudeUnit: 'ft', windSpeedUnit: 'kt', mapLanguage: 'en' }),
   addOns: () => ({ gsxRemote: true, beyondAtc: false }),
+  tracking: () => ({ autoStart: true, autoFinish: false }),
   routines: () => [{ id: 'builtin-arrival', name: 'Arrival' }],
   metars: (codes: unknown) => Promise.resolve([{ asked: codes }]),
   atis: (requests: unknown) => Promise.resolve({ network: 'vatsim', asked: requests })
@@ -100,6 +101,10 @@ describe('lanQueries', () => {
     })
     expect(queries['settings.gsxRemote']()).toEqual({ enabled: true, host: '', port: 1 })
     expect(queries['settings.beyondAtc']()).toEqual({ enabled: false, host: '' })
+  })
+
+  it('answers the PC’s automatic start and finish, which a twin shows read only', () => {
+    expect(queries['settings.tracking']()).toEqual({ autoStart: true, autoFinish: false })
   })
 
   it('answers the GSX routines a device may start, read only', () => {

@@ -327,6 +327,41 @@ describe('SettingsView', () => {
         expect(screen.getByRole('textbox', { name: 'Address' })).toBeInTheDocument()
       })
 
+      it('shows the sim PC’s automatic start and finish read only on a client, with nothing to press', async () => {
+        const winglog = setWinglog({
+          appGetCapabilities: vi.fn().mockResolvedValue(CLIENT),
+          settingsGetTracking: vi.fn().mockResolvedValue({ autoStart: true, autoFinish: false })
+        })
+        renderSettings()
+        // A setting's row is its label's grandparent's parent: label, the line holding it, the column, the row.
+        const rowOf = (label: HTMLElement): HTMLElement => label.parentElement!.parentElement!.parentElement!
+        // The rows are the sim PC's once the run mode has arrived: the labels found before it are replaced.
+        await waitFor(() => expect(screen.getAllByText('Set on the sim PC')).toHaveLength(2))
+        const startRow = rowOf(screen.getByText('Start tracking automatically'))
+        const finishRow = rowOf(screen.getByText('Finish flights automatically'))
+        await waitFor(() => expect(within(startRow).getByText('On')).toBeInTheDocument())
+        expect(within(finishRow).getByText('Off')).toBeInTheDocument()
+        expect(screen.getAllByText('Set on the sim PC')).toHaveLength(2)
+        expect(
+          screen.getByText(
+            'These are the sim PC’s settings, shown here to read. Change them in WingLog on the sim PC.'
+          )
+        ).toBeInTheDocument()
+        // No switch to press and no "what off means" note: the Mac cannot change either.
+        expect(screen.queryByRole('group', { name: 'Start tracking automatically' })).not.toBeInTheDocument()
+        expect(screen.queryByText(/press Start tracking on Track yourself/)).not.toBeInTheDocument()
+        expect(winglog.settingsSetTracking).not.toHaveBeenCalled()
+      })
+
+      it('says the sim PC’s automatic start and finish are not available while it cannot be asked', async () => {
+        setWinglog({
+          appGetCapabilities: vi.fn().mockResolvedValue(CLIENT),
+          settingsGetTracking: vi.fn().mockResolvedValue(null)
+        })
+        renderSettings()
+        expect(await screen.findAllByText('Not available right now')).toHaveLength(2)
+      })
+
       it('lights the Sim PC page by the link: green connected, off when nothing is paired', async () => {
         setWinglog({
           appGetCapabilities: vi.fn().mockResolvedValue(CLIENT),

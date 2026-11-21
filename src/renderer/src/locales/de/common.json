@@ -71,7 +71,10 @@
       "autoFinish": "Flüge automatisch beenden",
       "autoFinishOff": "Aus: Der Flug bleibt nach dem Parken und Abschalten offen, bis du {{finishAndSave}} drückst.",
       "on": "An",
-      "off": "Aus"
+      "off": "Aus",
+      "setOnSimPc": "Am Sim-PC einstellen",
+      "simPcUnavailable": "Gerade nicht verfügbar",
+      "clientDescription": "Das sind die Einstellungen des Sim-PCs, hier nur zum Lesen. Ändere sie in WingLog am Sim-PC."
     },
     "theme": {
       "cardTitle": "Design",

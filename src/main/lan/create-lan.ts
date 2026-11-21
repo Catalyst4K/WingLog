@@ -17,6 +17,7 @@ import {
   getAppLanguage,
   getBeyondAtcSettings,
   getGsxRemoteSettings,
+  getTrackingSettings,
   getLanSettings,
   getMapLanguage,
   getTheme,
@@ -25,7 +26,7 @@ import {
   setLanSettings
 } from '../db/settings-repo'
 import type { LiveHub } from '../live/LiveHub'
-import type { ProcedureSelection } from '@shared/ipc'
+import type { ProcedureSelection, TrackingSettings } from '@shared/ipc'
 import type { ProcedureSelectionStore } from '../procedures/ProcedureSelectionStore'
 import type { TrackingController } from '../tracking/TrackingController'
 import { listAirfields } from '../airports/airfields'
@@ -124,6 +125,8 @@ export interface LanLocalData {
   display(): unknown
   /** Whether GSX Remote and BeyondATC are switched on at the PC (their pages only show then). */
   addOns(): { gsxRemote: boolean; beyondAtc: boolean }
+  /** Whether tracking starts and finishes a flight by itself on this PC. A twin shows both read only; only this PC changes them. */
+  tracking(): TrackingSettings
   /** The GSX routines a device may start: the built-ins, then the pilot's own. Read only; editing stays on the PC. */
   routines(): unknown
   /** Current METARs for airport codes. */
@@ -150,6 +153,7 @@ export function lanQueries(
     // Only whether they are on: the host and port stay on the PC.
     'settings.gsxRemote': () => ({ enabled: local.addOns().gsxRemote, host: '', port: 1 }),
     'settings.beyondAtc': () => ({ enabled: local.addOns().beyondAtc, host: '' }),
+    'settings.tracking': () => local.tracking(),
     'gsx.routines': () => local.routines(),
     'weather.metars': (codes) => {
       if (!Array.isArray(codes) || codes.length > MAX_METAR_CODES) throw new Error('Invalid airports')
@@ -322,6 +326,7 @@ export function createLan({
           gsxRemote: getGsxRemoteSettings(db).enabled,
           beyondAtc: getBeyondAtcSettings(db).enabled
         }),
+        tracking: () => getTrackingSettings(db),
         routines: () => allRoutines(listOwnRoutines(db).routines, listHiddenBuiltIns(db)),
         metars: (codes) => fetchMetars(codes, userAgent, metarUrl),
         atis: (requests) => atis(requests)

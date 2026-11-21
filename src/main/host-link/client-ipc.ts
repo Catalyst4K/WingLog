@@ -7,7 +7,7 @@ import type { IpcMain } from 'electron'
 import type { LiveCommand, LiveTopic } from '@shared/live'
 import { IpcChannels } from '@shared/ipc'
 import { EMPTY_BEYONDATC_STATE } from '@shared/beyondatc-state'
-import type { HostLinkStatus } from '@shared/ipc'
+import type { HostLinkStatus, TrackingSettings } from '@shared/ipc'
 import { isCertificatePin } from '@shared/host-address'
 import { logger } from '../logging/logger'
 import type { LiveHub } from '../live/LiveHub'
@@ -34,6 +34,16 @@ export const FORWARDED_COMMANDS: Partial<Record<LiveCommand, string>> = {
   'traffic.setNetworkOn': IpcChannels.trafficSetNetworkOn,
   'traffic.setSimOn': IpcChannels.trafficSetSimOn,
   'traffic.setAtcOn': IpcChannels.trafficSetAtcOn
+}
+
+/**
+ * @param value What the sim PC answered to `settings.tracking`.
+ * @returns Its two switches, or null when the answer is not two true/false values.
+ */
+function simPcTracking(value: unknown): TrackingSettings | null {
+  if (typeof value !== 'object' || value === null) return null
+  const { autoStart, autoFinish } = value as Record<string, unknown>
+  return typeof autoStart === 'boolean' && typeof autoFinish === 'boolean' ? { autoStart, autoFinish } : null
 }
 
 /** The "current value" query each topic has, answered from the hub (what the host last said). */
@@ -182,6 +192,11 @@ export function registerHostLinkHandlers(
     }
     ipcMain.handle(channel, (_event, ...args: unknown[]) => reply(...args))
   }
+  // Automatic start and finish are the sim PC's settings, shown here read only (a twin may not change the sim PC's settings). Null while
+  // the sim PC cannot be asked, or answers with something else.
+  answer(IpcChannels.settingsGetTracking, () =>
+    link.query('settings.tracking').then(simPcTracking, () => null)
+  )
   for (const [command, channel] of Object.entries(FORWARDED_COMMANDS)) {
     if (command === 'gsx.startRoutine') continue
     answer(channel, (...args) => link.command(command, args))
