@@ -1518,12 +1518,12 @@ describe('TrackView', () => {
     expect(current).toEqual(['Taxi in'])
   })
 
-  it('shows "Taxi out" before the first takeoff, and "Taxi in" once the flight is re-read after a landing', async () => {
+  it('reads the flight again at each new phase and not at each point, and shows "Taxi in" once the landing is stored', async () => {
     let pointListener: ((point: TrackPoint) => void) | undefined
-    const flightList = vi
-      .fn()
-      .mockResolvedValueOnce([makeFlight({ status: 'active' })])
-      .mockResolvedValue([makeFlight({ status: 'active', actualOnUtc: '2026-01-01T01:00:00.000Z' })])
+    let landed = false
+    const flightList = vi.fn(async () => [
+      makeFlight({ status: 'active', actualOnUtc: landed ? '2026-01-01T01:00:00.000Z' : null })
+    ])
     setWinglog({
       aircraftList: vi.fn().mockResolvedValue([AIRCRAFT]),
       flightList,
@@ -1535,9 +1535,21 @@ describe('TrackView', () => {
     })
     renderTrack()
     expect(await screen.findByText('Taxi out')).not.toHaveClass('sr-only')
-    // The touchdown is stored by now; the next phase's point makes the screen read the flight again.
-    pointListener?.(makeTrackPoint({ id: 2, phase: 'landing', flightId: 1 }))
-    pointListener?.(makeTrackPoint({ id: 3, phase: 'taxi', flightId: 1 }))
+    const send = (phase: TrackPoint['phase']): void =>
+      pointListener?.(makeTrackPoint({ phase, flightId: 1, id: flightList.mock.calls.length + 100 }))
+    await waitFor(() => expect(flightList).toHaveBeenCalled())
+    const reads = (): number => flightList.mock.calls.length
+    const before = reads()
+    for (const phase of ['takeoff', 'takeoff', 'climb', 'climb', 'descent', 'descent'] as const) send(phase)
+    expect(reads()).toBe(before + 3)
+    // The touchdown is stored just before the 'landing' point arrives.
+    landed = true
+    send('landing')
+    send('landing')
+    expect(reads()).toBe(before + 4)
+    send('taxi')
+    send('taxi')
+    expect(reads()).toBe(before + 5)
     expect(await screen.findByText('Taxi in')).not.toHaveClass('sr-only')
     expect(screen.getByText('Taxi out')).toHaveClass('sr-only')
   })
