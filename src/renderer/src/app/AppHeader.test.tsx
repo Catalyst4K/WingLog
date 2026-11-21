@@ -72,122 +72,97 @@ describe('AppHeader', () => {
 
 describe('AppHeader on a client', () => {
   const CLIENT: AppCapabilities = { runMode: 'client', canHostSim: false, multiDevice: true }
+  const SIM_UP: SimConnectionStatus = { state: 'connected', simConnectVersion: '12.2' }
 
-  function renderClient(link: HostLinkStatus) {
+  function linkStatus(state: HostLinkStatus['state']): HostLinkStatus {
+    return {
+      state,
+      address: state === 'unpaired' ? null : '192.168.1.20:5051',
+      hostSim: null,
+      sync: { state: 'idle', lastSyncedAt: null, problem: null }
+    }
+  }
+
+  function renderClient(link: HostLinkStatus, simStatus: SimConnectionStatus = SIM_UP) {
     window.winglog = {
       appGetCapabilities: vi.fn(() => Promise.resolve(CLIENT)),
       hostLinkGetStatus: vi.fn(() => Promise.resolve(link)),
       onHostLinkStatus: vi.fn(() => () => {}),
       appLogRendererError: vi.fn(() => Promise.resolve())
     } as unknown as typeof window.winglog
-    return render(
+    const header = (status: SimConnectionStatus): React.JSX.Element => (
       <CapabilitiesProvider>
         <Tabs value="track">
           <AppHeader
             gsxRemoteEnabled={false}
             beyondAtcEnabled={false}
             onTabClick={vi.fn()}
-            simStatus={{ state: 'connected', simConnectVersion: '12.2' }}
+            simStatus={status}
           />
         </Tabs>
       </CapabilitiesProvider>
     )
+    const view = render(header(simStatus))
+    return { ...view, withSim: (status: SimConnectionStatus) => view.rerender(header(status)) }
   }
 
+  const lightState = (container: HTMLElement): string | null =>
+    container.querySelector('header [data-slot="status-light"]')?.getAttribute('data-state') ?? null
+
   it.each([
-    [
-      {
-        state: 'connected',
-        address: '192.168.1.20:5051',
-        hostSim: 'connected',
-        sync: { state: 'idle', lastSyncedAt: null, problem: null }
-      } as const,
-      'green',
-      'connected'
-    ],
-    [
-      {
-        state: 'offline',
-        address: '192.168.1.20:5051',
-        hostSim: 'disconnected',
-        sync: { state: 'idle', lastSyncedAt: null, problem: null }
-      } as const,
-      'amber',
-      'not reachable'
-    ],
-    [
-      {
-        state: 'connecting',
-        address: '192.168.1.20:5051',
-        hostSim: null,
-        sync: { state: 'idle', lastSyncedAt: null, problem: null }
-      } as const,
-      'amber',
-      'connecting'
-    ],
-    [
-      {
-        state: 'unpaired',
-        address: null,
-        hostSim: null,
-        sync: { state: 'idle', lastSyncedAt: null, problem: null }
-      } as const,
-      'off',
-      'not paired'
-    ],
-    [
-      {
-        state: 'pair-again',
-        address: '192.168.1.20:5051',
-        hostSim: null,
-        sync: { state: 'idle', lastSyncedAt: null, problem: null }
-      } as const,
-      'amber',
-      'pair again'
-    ],
-    [
-      {
-        state: 'certificate-changed',
-        address: '192.168.1.20:5051',
-        hostSim: null,
-        sync: { state: 'idle', lastSyncedAt: null, problem: null }
-      } as const,
-      'amber',
-      'certificate changed'
-    ],
-    [
-      {
-        state: 'not-secure',
-        address: '192.168.1.20:5051',
-        hostSim: null,
-        sync: { state: 'idle', lastSyncedAt: null, problem: null }
-      } as const,
-      'amber',
-      'not encrypted'
-    ]
-  ])(
-    'shows the link to the sim PC (%j) as %s lights, and says "%s" to a screen reader',
-    async (link, light, word) => {
-      const { container } = renderClient(link)
+    ['connecting', 'connecting'],
+    ['offline', 'not reachable'],
+    ['wrong-code', 'not paired'],
+    ['pair-again', 'pair again'],
+    ['certificate-changed', 'certificate changed'],
+    ['not-secure', 'not encrypted']
+  ] as const)(
+    'is red, and names why to a screen reader, while the link is %s: not connected to the sim PC',
+    async (state, word) => {
+      const { container } = renderClient(linkStatus(state))
       expect(await screen.findByText(`Sim PC: ${word}`)).toBeInTheDocument()
-      await vi.waitFor(() =>
-        expect(container.querySelector('header [data-slot="status-light"]')).toHaveAttribute(
-          'data-state',
-          light
-        )
+      await vi.waitFor(() => expect(lightState(container)).toBe('red'))
+      expect(screen.getByText(`Sim PC: ${word}`).parentElement).toHaveAttribute(
+        'title',
+        'Not connected to the sim PC'
       )
       // The sim's own lights are not drawn: the sim is on another computer.
-      expect(screen.queryByText(/Sim: /)).not.toBeInTheDocument()
+      expect(screen.queryByText(/^Sim: /)).not.toBeInTheDocument()
     }
   )
 
+  it('is amber when connected to the sim PC while its sim is not, and green once the sim connects', async () => {
+    const { container, withSim } = renderClient(linkStatus('connected'), { state: 'disconnected' })
+    const noSim = "Connected to the sim PC; its sim isn't running"
+    expect(await screen.findByText(noSim)).toBeInTheDocument()
+    await vi.waitFor(() => expect(lightState(container)).toBe('amber'))
+    expect(screen.getByText(noSim).parentElement).toHaveAttribute('title', noSim)
+
+    withSim({ state: 'connecting' })
+    expect(lightState(container)).toBe('amber')
+
+    withSim(SIM_UP)
+    expect(await screen.findByText('Connected to the sim PC and its sim')).toBeInTheDocument()
+    expect(lightState(container)).toBe('green')
+    expect(screen.getByText('Connected to the sim PC and its sim').parentElement).toHaveAttribute(
+      'title',
+      'Connected to the sim PC and its sim'
+    )
+  })
+
+  it('is off when no sim PC has been paired, even with a sim state to hand', async () => {
+    const { container } = renderClient(linkStatus('unpaired'))
+    expect(await screen.findByText('No sim PC paired')).toBeInTheDocument()
+    await vi.waitFor(() => expect(lightState(container)).toBe('off'))
+  })
+
+  it('goes red when the link drops, whatever the last sim state was', async () => {
+    const { container } = renderClient(linkStatus('offline'), SIM_UP)
+    await vi.waitFor(() => expect(lightState(container)).toBe('red'))
+  })
+
   it('writes the word Sim PC beside the lights', async () => {
-    renderClient({
-      state: 'connected',
-      address: '192.168.1.20:5051',
-      hostSim: 'connected',
-      sync: { state: 'idle', lastSyncedAt: null, problem: null }
-    })
+    renderClient(linkStatus('connected'))
     expect(await screen.findByText('Sim PC', { selector: '[aria-hidden="true"]' })).toBeInTheDocument()
   })
 })

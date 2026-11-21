@@ -367,7 +367,9 @@
         "certificate-changed": "certificato cambiato",
         "not-secure": "non cifrato"
       },
-      "simPcConnected": "Connesso al PC del simulatore",
+      "simPcUnpaired": "Nessun PC del simulatore associato",
+      "simPcNoSim": "Connesso al PC del simulatore; il suo simulatore non è in esecuzione",
+      "simPcReady": "Connesso al PC del simulatore e al suo simulatore",
       "simPcLabel": "PC del simulatore"
     },
     "orphanedFlight": {

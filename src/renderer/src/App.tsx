@@ -1,7 +1,7 @@
 /** The app shell: the tabs, the settings they share, and the app-wide banners and dialogs. */
 
 import { Suspense, useEffect } from 'react'
-import type { AppPage as AppPageId, SimTelemetry } from '@shared/ipc'
+import type { AppPage as AppPageId, SimConnectionStatus, SimTelemetry } from '@shared/ipc'
 import { SetupDialog } from './SetupDialog'
 import { UpdateBanner } from './UpdateBanner'
 import { CloseConfirm } from './CloseConfirm'
@@ -142,6 +142,8 @@ function CurrentPage(props: {
   settings: DisplaySettings
   plan: FlightPlan
   telemetry: SimTelemetry | null
+  /** The sim connection's state, for the Settings list's Sim PC light on a client. */
+  simState: SimConnectionStatus['state']
   onRunSetup: () => void
 }): React.JSX.Element {
   const { nav, settings, plan } = props
@@ -203,6 +205,7 @@ function CurrentPage(props: {
             theme={settings.theme}
             onThemeChange={asyncHandler('App handleThemeChange', settings.onThemeChange)}
             onRunSetup={props.onRunSetup}
+            simState={props.simState}
             resetSignal={nav.settingsResetSignal}
           />
         )}
@@ -273,6 +276,7 @@ export default function App(): React.JSX.Element {
                 settings={settings}
                 plan={plan}
                 telemetry={telemetry}
+                simState={simStatus.state}
                 onRunSetup={() => setSetupOpen(true)}
               />
             </AtcClearanceBackupContext.Provider>

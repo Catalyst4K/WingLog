@@ -365,7 +365,9 @@
         "certificate-changed": "certificate changed",
         "not-secure": "not encrypted"
       },
-      "simPcConnected": "Connected to the sim PC",
+      "simPcUnpaired": "No sim PC paired",
+      "simPcNoSim": "Connected to the sim PC; its sim isn't running",
+      "simPcReady": "Connected to the sim PC and its sim",
       "simPcLabel": "Sim PC"
     },
     "orphanedFlight": {

@@ -530,7 +530,11 @@ describe('LanApp', () => {
       })
     })
     expect(screen.getByText("The sim isn't connected to WingLog on the PC.")).toBeInTheDocument()
-    expect(screen.getByText('Sim').closest('[data-state]')).toHaveAttribute('data-state', 'gone')
+    // Amber: connected to the PC, but the PC has no sim.
+    const simLight = (): HTMLElement => screen.getByText('Sim').closest('[data-state]') as HTMLElement
+    expect(simLight()).toHaveAttribute('data-state', 'no-sim')
+    expect(simLight().querySelector('[data-slot="status-light"]')).toHaveAttribute('data-state', 'amber')
+    expect(simLight()).toHaveAttribute('title', "Connected to the sim PC; its sim isn't running")
     expect(mapProps.current?.telemetry).toBeNull()
 
     // It comes back: the banner goes and the readings return.
@@ -542,13 +546,22 @@ describe('LanApp', () => {
       })
     )
     expect(screen.queryByText("The sim isn't connected to WingLog on the PC.")).not.toBeInTheDocument()
-    expect(screen.getByText('Sim').closest('[data-state]')).toHaveAttribute('data-state', 'connected')
+    expect(simLight()).toHaveAttribute('data-state', 'ready')
+    expect(simLight().querySelector('[data-slot="status-light"]')).toHaveAttribute('data-state', 'green')
+    expect(simLight()).toHaveAttribute('title', 'Connected to the sim PC and its sim')
     expect(mapProps.current?.telemetry).toMatchObject({ latitude: 11 })
 
     // And it goes again.
     act(() => sockets[0].say({ t: 'topic', name: 'simConnectionStatus', payload: { state: 'connecting' } }))
     expect(screen.getByText("The sim isn't connected to WingLog on the PC.")).toBeInTheDocument()
     expect(mapProps.current?.telemetry).toBeNull()
+    expect(simLight()).toHaveAttribute('data-state', 'no-sim')
+
+    // The phone loses the PC (its WingLog is closed): red, whatever the sim last said.
+    act(() => sockets[0].onclose?.())
+    expect(simLight()).toHaveAttribute('data-state', 'no-pc')
+    expect(simLight().querySelector('[data-slot="status-light"]')).toHaveAttribute('data-state', 'red')
+    expect(simLight()).toHaveAttribute('title', 'Not connected to the sim PC')
   })
 
   it('draws the route the PC builds and pushes, follows each new one, and ignores one for another flight', () => {

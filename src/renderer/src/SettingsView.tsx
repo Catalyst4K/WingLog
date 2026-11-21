@@ -30,7 +30,8 @@ import { HostLinkCard } from './settings/HostLinkCard'
 import { TwinCard } from './settings/TwinCard'
 import { RunModeCard } from './settings/RunModeCard'
 import { useCapabilities } from './app/capabilities-context'
-import { hostLinkLight, useHostLinkStatus } from './app/use-host-link'
+import { simReachLight } from '@/components/sim-reach'
+import { useHostLinkStatus } from './app/use-host-link'
 import { useSettingsNavStatus } from './settings/use-settings-nav-status'
 import { useResetSignal } from './hooks/use-reset-signal'
 import { asyncHandler, runAsync } from './report-error'
@@ -233,6 +234,8 @@ export function SettingsView(
     onBeyondAtcEnabledChange: (enabled: boolean) => void
     /** Settings → About → "Run setup again" reopens the first-launch setup. */
     onRunSetup?: () => void
+    /** The sim connection's state (on a client, the sim PC's), for the Sim PC light in the list. */
+    simState?: string
     /** Bumped by App.tsx when the Settings tab is clicked while already active — returns to
      *  the first category (docs/plans/navigation-tab-behaviour.md). See useResetSignal. */
     resetSignal?: number
@@ -278,7 +281,7 @@ export function SettingsView(
             gsxRemote: addonLight(gsxRemote.settings.enabled, gsxRemote.status.state),
             beyondAtc: addonLight(beyondAtc.settings.enabled, beyondAtc.status.state),
             ...navStatus,
-            simPc: isClient && hostLink ? { light: hostLinkLight(hostLink.state) } : {}
+            simPc: isClient && hostLink ? { light: simReachLight(hostLink.state, props.simState) } : {}
           }}
           mode={{ multiDevice, isClient }}
         />
