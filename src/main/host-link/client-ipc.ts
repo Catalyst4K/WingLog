@@ -7,9 +7,10 @@ import type { IpcMain } from 'electron'
 import type { LiveCommand, LiveTopic } from '@shared/live'
 import { IpcChannels } from '@shared/ipc'
 import { EMPTY_BEYONDATC_STATE } from '@shared/beyondatc-state'
-import type { HostLinkStatus, TrackingSettings } from '@shared/ipc'
+import type { HostLinkStatus, OnlineNetwork, OnlineNetworkSettings, TrackingSettings } from '@shared/ipc'
 import { isCertificatePin } from '@shared/host-address'
 import { logger } from '../logging/logger'
+import { asOnlineNetwork } from '../online/prefile-url'
 import type { LiveHub } from '../live/LiveHub'
 import { parseProcedureSelection } from '../live/commands'
 import type { ProcedureSelectionStore } from '../procedures/ProcedureSelectionStore'
@@ -34,6 +35,22 @@ export const FORWARDED_COMMANDS: Partial<Record<LiveCommand, string>> = {
   'traffic.setNetworkOn': IpcChannels.trafficSetNetworkOn,
   'traffic.setSimOn': IpcChannels.trafficSetSimOn,
   'traffic.setAtcOn': IpcChannels.trafficSetAtcOn
+}
+
+/**
+ * @param value Anything.
+ * @returns Whether it is a plain object whose fields can be read.
+ */
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
+}
+
+/**
+ * @param network The network the sim PC has chosen, or null for none or when it cannot be asked.
+ * @returns The online settings as a client reads them: the network, and nothing else of the sim PC's (no member numbers).
+ */
+function clientOnlineSettings(network: OnlineNetwork | null): OnlineNetworkSettings {
+  return { network, vatsimCid: null, ivaoVid: null, keepBeyondAtcOnline: false, simTrafficButton: true }
 }
 
 /**
@@ -201,6 +218,14 @@ export function registerHostLinkHandlers(
     }
     ipcMain.handle(channel, (_event, ...args: unknown[]) => reply(...args))
   }
+  // Which network to file on is the sim PC's choice, read here and never changed from here. Nothing but its name is asked for: the member
+  // numbers stay on the sim PC, and the rest read as they do on a client with nothing chosen.
+  answer(IpcChannels.settingsGetOnlineNetwork, () =>
+    link.query('settings.onlineNetwork').then(
+      (value) => clientOnlineSettings(asOnlineNetwork(isRecord(value) ? value.network : null)),
+      () => clientOnlineSettings(null)
+    )
+  )
   // Automatic start and finish are the sim PC's settings, shown here read only (a twin may not change the sim PC's settings). Null while
   // the sim PC cannot be asked, or answers with something else.
   answer(IpcChannels.settingsGetTracking, () =>

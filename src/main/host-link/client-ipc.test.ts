@@ -264,6 +264,28 @@ describe('a client IPC handlers', () => {
     expect(NAVDATA_LOOKUPS).toHaveLength(8)
   })
 
+  it('reads the online network the sim PC has chosen, so the Mac can offer filing on it, with no member numbers', async () => {
+    const { invoke, link } = setup()
+    link.query.mockResolvedValueOnce({ network: 'ivao', ivaoVid: '123456' })
+    expect(await invoke(IpcChannels.settingsGetOnlineNetwork)).toEqual({
+      network: 'ivao',
+      vatsimCid: null,
+      ivaoVid: null,
+      keepBeyondAtcOnline: false,
+      simTrafficButton: true
+    })
+    expect(link.query).toHaveBeenLastCalledWith('settings.onlineNetwork')
+    // A network that is not one WingLog knows, a malformed answer and a dropped link all read as none chosen.
+    for (const odd of [{ network: 'pilotedge' }, null, 'vatsim']) {
+      link.query.mockResolvedValueOnce(odd)
+      expect(await invoke(IpcChannels.settingsGetOnlineNetwork), JSON.stringify(odd)).toMatchObject({
+        network: null
+      })
+    }
+    link.query.mockRejectedValueOnce(new Error('Not connected'))
+    expect(await invoke(IpcChannels.settingsGetOnlineNetwork)).toMatchObject({ network: null })
+  })
+
   it('asks the sim PC for the weather panel’s ATIS and BeyondATC’s, and reads them as nothing to show while it cannot be asked', async () => {
     const { invoke, link } = setup()
     const requests = [{ icao: 'EGLL', slot: 'departure' }]

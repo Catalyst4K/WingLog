@@ -69,6 +69,7 @@ const LOCAL = {
   display: () => ({ weightUnit: 'kg', altitudeUnit: 'ft', windSpeedUnit: 'kt', mapLanguage: 'en' }),
   addOns: () => ({ gsxRemote: true, beyondAtc: false }),
   tracking: () => ({ autoStart: true, autoFinish: false }),
+  onlineNetwork: () => 'vatsim' as const,
   routines: () => [{ id: 'builtin-arrival', name: 'Arrival' }],
   metars: (codes: unknown) => Promise.resolve([{ asked: codes }]),
   atis: (requests: unknown) => Promise.resolve({ network: 'vatsim', asked: requests }),
@@ -137,6 +138,10 @@ describe('lanQueries', () => {
   it('hands the weather panel’s ATIS request to the PC’s own lookup, which does the checking', async () => {
     const asked = [{ icao: 'EGLL', slot: 'departure' }]
     await expect(queries['online.atis'](asked)).resolves.toEqual({ network: 'vatsim', asked })
+  })
+
+  it('says which online network the PC has chosen, and nothing else of its network settings', () => {
+    expect(queries['settings.onlineNetwork']()).toEqual({ network: 'vatsim' })
   })
 
   it('reads BeyondATC’s ATIS fresh for a twin’s BeyondATC page', async () => {

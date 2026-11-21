@@ -26,7 +26,7 @@ import {
   setLanSettings
 } from '../db/settings-repo'
 import type { LiveHub } from '../live/LiveHub'
-import type { ProcedureSelection, TrackingSettings } from '@shared/ipc'
+import type { OnlineNetwork, ProcedureSelection, TrackingSettings } from '@shared/ipc'
 import type { ProcedureSelectionStore } from '../procedures/ProcedureSelectionStore'
 import type { TrackingController } from '../tracking/TrackingController'
 import { listAirfields } from '../airports/airfields'
@@ -38,6 +38,7 @@ import type { LiveCommand } from '@shared/live'
 import { fetchMetars } from '../weather/metar-client'
 import { LanController } from './LanController'
 import { clearDeferredRows } from '../db/sync-deferred-repo'
+import { getOnlineNetworkSettings } from '../online/online-settings'
 import { twinOrigin, twinSyncDeviceQueries, twinSyncQueries } from './twin-sync'
 import { twinFlightQueries, type FlightControl } from './twin-flight'
 import { onLocalWrite } from '../sync/local-write-hints'
@@ -129,6 +130,8 @@ export interface LanLocalData {
   addOns(): { gsxRemote: boolean; beyondAtc: boolean }
   /** Whether tracking starts and finishes a flight by itself on this PC. A twin shows both read only; only this PC changes them. */
   tracking(): TrackingSettings
+  /** The online network chosen on this PC, or null for none. A twin reads it to offer filing on that network; it never changes it. */
+  onlineNetwork(): OnlineNetwork | null
   /** The GSX routines a device may start: the built-ins, then the pilot's own. Read only; editing stays on the PC. */
   routines(): unknown
   /** Current METARs for airport codes. */
@@ -158,6 +161,8 @@ export function lanQueries(
     'settings.gsxRemote': () => ({ enabled: local.addOns().gsxRemote, host: '', port: 1 }),
     'settings.beyondAtc': () => ({ enabled: local.addOns().beyondAtc, host: '' }),
     'settings.tracking': () => local.tracking(),
+    // Only the network's name: the member numbers stay on the PC.
+    'settings.onlineNetwork': () => ({ network: local.onlineNetwork() }),
     'gsx.routines': () => local.routines(),
     'weather.metars': (codes) => {
       if (!Array.isArray(codes) || codes.length > MAX_METAR_CODES) throw new Error('Invalid airports')
@@ -333,6 +338,7 @@ export function createLan({
           beyondAtc: getBeyondAtcSettings(db).enabled
         }),
         tracking: () => getTrackingSettings(db),
+        onlineNetwork: () => getOnlineNetworkSettings(db).network,
         routines: () => allRoutines(listOwnRoutines(db).routines, listHiddenBuiltIns(db)),
         metars: (codes) => fetchMetars(codes, userAgent, metarUrl),
         atis: (requests) => atis(requests),

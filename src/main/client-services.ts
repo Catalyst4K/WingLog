@@ -4,11 +4,12 @@
  * this computer's fleet and logbook in step with the sim PC's.
  */
 import { hostname } from 'node:os'
-import { app, ipcMain, type BrowserWindow } from 'electron'
+import { app, ipcMain, shell, type BrowserWindow } from 'electron'
 import { IpcChannels } from '@shared/ipc'
 import type { WingLogDb } from './db/client'
 import { ownEpoch } from './db/sync-change-repo'
 import { runLogged } from './logging/run-logged'
+import { registerPrefileHandlers } from './online/register-prefile-handlers'
 import type { LiveHub } from './live/LiveHub'
 import { HostLink } from './host-link/HostLink'
 import { followHostFlight, onSyncLanded, showHeldRoute } from './host-link/client-follow'
@@ -82,6 +83,9 @@ export function startClientServices(deps: {
     handled,
     ownSelection: { store: selection, hostFlying: () => mirror.hostTracking() }
   })
+  // Filing on VATSIM or IVAO opens the network's own page in this computer's browser, from the link in this computer's copy of the flight's
+  // OFP: the same checked link the sim PC would open, and nothing is sent by WingLog. Which network is the sim PC's setting (see client-ipc.ts).
+  registerPrefileHandlers(ipcMain, { db, openExternal: (url) => shell.openExternal(url) })
   // The GSX routines are rows in this computer's own database, synced with the sim PC's: listed, saved and deleted here.
   registerRoutineQueries(ipcMain, db)
   relay.bind(sync, (name, ...args) => link.query(name, ...args))
