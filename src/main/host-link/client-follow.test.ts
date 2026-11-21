@@ -7,8 +7,8 @@ import { createDb } from '../db/client'
 import { createFlight, getLiveFlight, setSelectedProcedures } from '../db/flight-repo'
 import { shownFlight } from '../lan/lan-flight'
 import { ProcedureSelectionStore } from '../procedures/ProcedureSelectionStore'
-import { followHostFlight, onSyncLanded } from './client-follow'
-import { FlightMirror } from './flight-mirror'
+import { followHostFlight, onSyncLanded, showHeldRoute } from './client-follow'
+import { FlightMirror, mapFlightTopic } from './flight-mirror'
 
 vi.mock('../logging/logger', () => ({ logger: { info: vi.fn(), warn: vi.fn() } }))
 
@@ -110,5 +110,29 @@ describe('onSyncLanded', () => {
     // The pilot clears it here: it is a change, so it is saved.
     store.set({ ...withApproach, approachIdent: null }, 'window')
     expect(getLiveFlight(db, planned.id)?.selectedApproachIdent).toBeNull()
+  })
+})
+
+describe('showHeldRoute', () => {
+  const route = {
+    flightId: 445,
+    flightUuid: 'u',
+    revision: 1,
+    selection: emptyProcedureSelection(),
+    waypoints: []
+  }
+
+  it('puts the sim PC’s route in the hub once its flight has synced, and not before', () => {
+    let localId: number | undefined
+    const mirror = new FlightMirror(() => localId)
+    const hub = { publish: vi.fn() }
+    mapFlightTopic(mirror, 'plannedRoute', route)
+    showHeldRoute(mirror, hub)
+    expect(hub.publish).not.toHaveBeenCalled()
+    localId = 3
+    showHeldRoute(mirror, hub)
+    expect(hub.publish).toHaveBeenCalledWith('plannedRoute', expect.objectContaining({ flightId: 3 }))
+    showHeldRoute(mirror, hub)
+    expect(hub.publish).toHaveBeenCalledTimes(1)
   })
 })

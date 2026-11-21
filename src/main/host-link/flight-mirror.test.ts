@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { LanFlightSnapshot, TrackPoint } from '@shared/ipc'
+import type { PlannedRoute } from '@shared/live'
+import { emptyProcedureSelection } from '@shared/procedure-selection'
 import { FlightMirror, HELD_BACK, mapFlightTopic } from './flight-mirror'
 
 const HOST_ID = 7
@@ -149,5 +151,68 @@ describe('mapFlightTopic', () => {
     ]) {
       expect(mapFlightTopic(mirror, topic, null), topic).toBeNull()
     }
+  })
+})
+
+describe('the planned route re-labelled for this computer', () => {
+  function route(overrides: Partial<PlannedRoute> = {}): PlannedRoute {
+    return {
+      flightId: 445,
+      flightUuid: UUID,
+      revision: 2,
+      selection: emptyProcedureSelection(),
+      waypoints: [],
+      ...overrides
+    }
+  }
+
+  it('gives the route this computer’s id for its flight, found by uuid and not by the sim PC’s id', () => {
+    // The sim PC's id for the flight (445) and this computer's (3) differ; 3 here is also not the tracked flight's snapshot.
+    const mirror = new FlightMirror((uuid) => (uuid === UUID ? 3 : undefined))
+    expect(mapFlightTopic(mirror, 'plannedRoute', route())).toMatchObject({
+      flightId: 3,
+      flightUuid: UUID,
+      revision: 2
+    })
+  })
+
+  it('maps the route of a planned flight that is not being tracked, since it needs no snapshot', () => {
+    const mirror = new FlightMirror((uuid) => (uuid === UUID ? 3 : undefined))
+    mirror.setFlight(snapshot({ tracking: false }), () => [])
+    expect(mapFlightTopic(mirror, 'plannedRoute', route())).toMatchObject({ flightId: 3 })
+  })
+
+  it('holds a route back until its flight has synced, then releases it once, re-labelled', () => {
+    let synced = false
+    const mirror = new FlightMirror((uuid) => (synced && uuid === UUID ? 3 : undefined))
+    expect(mapFlightTopic(mirror, 'plannedRoute', route())).toBe(HELD_BACK)
+    expect(mirror.releaseHeldRoute()).toBeNull()
+    synced = true
+    expect(mirror.releaseHeldRoute()).toMatchObject({ flightId: 3, revision: 2 })
+    expect(mirror.releaseHeldRoute()).toBeNull()
+  })
+
+  it('holds back a route that says no uuid rather than showing it against whatever flight has its id', () => {
+    const mirror = new FlightMirror(() => 3)
+    expect(mapFlightTopic(mirror, 'plannedRoute', route({ flightUuid: undefined }))).toBe(HELD_BACK)
+  })
+
+  it('keeps only the newest route held, and drops it when the sim PC clears its route or the link closes', () => {
+    let synced = false
+    const mirror = new FlightMirror((uuid) => (synced && uuid === UUID ? 3 : undefined))
+    mapFlightTopic(mirror, 'plannedRoute', route({ revision: 1 }))
+    mapFlightTopic(mirror, 'plannedRoute', route({ revision: 2 }))
+    synced = true
+    expect(mirror.releaseHeldRoute()).toMatchObject({ revision: 2 })
+    synced = false
+    mapFlightTopic(mirror, 'plannedRoute', route())
+    expect(mapFlightTopic(mirror, 'plannedRoute', null)).toBeNull()
+    synced = true
+    expect(mirror.releaseHeldRoute()).toBeNull()
+    synced = false
+    mapFlightTopic(mirror, 'plannedRoute', route())
+    mirror.clear()
+    synced = true
+    expect(mirror.releaseHeldRoute()).toBeNull()
   })
 })

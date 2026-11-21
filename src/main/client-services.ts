@@ -11,7 +11,7 @@ import { ownEpoch } from './db/sync-change-repo'
 import { runLogged } from './logging/run-logged'
 import type { LiveHub } from './live/LiveHub'
 import { HostLink } from './host-link/HostLink'
-import { followHostFlight, onSyncLanded } from './host-link/client-follow'
+import { followHostFlight, onSyncLanded, showHeldRoute } from './host-link/client-follow'
 import { mapFlightTopic, type FlightMirror } from './host-link/flight-mirror'
 import type { FlightRelay } from './host-link/flight-relay'
 import { registerHostLinkHandlers } from './host-link/client-ipc'
@@ -87,6 +87,7 @@ export function startClientServices(deps: {
   relay.bind(sync, (name, ...args) => link.query(name, ...args))
   // Each time a sync ends well the lists on screen can be read again, and the procedure store looks at its flight's row: rows may have come in.
   onSyncLanded(sync, () => {
+    showHeldRoute(mirror, liveHub)
     selection.refresh()
     if (!window.isDestroyed()) window.webContents.send(IpcChannels.dataChanged)
   })

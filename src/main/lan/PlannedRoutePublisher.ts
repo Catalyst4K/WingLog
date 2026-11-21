@@ -9,7 +9,7 @@ import type { PlannedRoute } from '@shared/live'
 import { selectionFromFlight } from '@shared/procedure-selection'
 import type { Waypoint } from '@shared/route'
 import type { WingLogDb } from '../db/client'
-import { getLiveFlight } from '../db/flight-repo'
+import { getFlightUuidById, getLiveFlight } from '../db/flight-repo'
 import { logger } from '../logging/logger'
 import type { LiveHub } from '../live/LiveHub'
 import { assembleFlightRoute } from '../navdata/assemble-flight-route'
@@ -81,7 +81,13 @@ export class PlannedRoutePublisher {
     this.revision = flight.id === this.flightId ? this.revision + 1 : 1
     this.flightId = flight.id
     this.lastKey = key
-    const route: PlannedRoute = { flightId: flight.id, revision: this.revision, selection, waypoints }
+    const route: PlannedRoute = {
+      flightId: flight.id,
+      flightUuid: getFlightUuidById(db, flight.id) ?? undefined,
+      revision: this.revision,
+      selection,
+      waypoints
+    }
     this.last = route
     this.published += 1
     hub.publish('plannedRoute', route)
