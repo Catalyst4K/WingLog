@@ -64,8 +64,6 @@ describe('startProcedureSelection', () => {
   })
 
   it("tells sync the flight was written when it saves a window's choice, so a twin and the cloud hear of it", async () => {
-    // 2026-11-21: a Mac accepted BeyondATC's runway and SID; the save was never reported as a write, so nothing sent it to the sim PC,
-    // and the next sync (a PC write, minutes later) pulled the PC's older row over it.
     const { ipc, onWrite } = setup()
     expect(onWrite).not.toHaveBeenCalled()
     await ipc.invoke(IpcChannels.trackingSetProcedureSelection, {

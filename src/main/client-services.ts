@@ -11,6 +11,7 @@ import { ownEpoch } from './db/sync-change-repo'
 import { runLogged } from './logging/run-logged'
 import type { LiveHub } from './live/LiveHub'
 import { HostLink } from './host-link/HostLink'
+import { followHostFlight, onSyncLanded } from './host-link/client-follow'
 import { mapFlightTopic, type FlightMirror } from './host-link/flight-mirror'
 import type { FlightRelay } from './host-link/flight-relay'
 import { registerHostLinkHandlers } from './host-link/client-ipc'
@@ -73,12 +74,7 @@ export function startClientServices(deps: {
     sync,
     // The sim PC's flight ids mean nothing here: its points are re-labelled with this computer's id for the same flight (by uuid).
     mapTopic: (topic, payload) => mapFlightTopic(mirror, topic, payload),
-    onFlight: (flight, track) => {
-      if (flight) mirror.setFlight(flight, track)
-      else mirror.clear()
-      // Whether the sim PC is flying may have changed: if so the sim PC's choice is the one shown, not one held here.
-      selection.refresh()
-    }
+    onFlight: followHostFlight(mirror, selection)
   })
   registerHostLinkHandlers(ipcMain, {
     link,
@@ -89,12 +85,9 @@ export function startClientServices(deps: {
   // The GSX routines are rows in this computer's own database, synced with the sim PC's: listed, saved and deleted here.
   registerRoutineQueries(ipcMain, db)
   relay.bind(sync, (name, ...args) => link.query(name, ...args))
-  // Each time a sync ends well the lists on screen can be read again: rows may have come in.
-  let lastSeen: string | null = null
-  sync.onChange(() => {
-    const { state, lastSyncedAt } = sync.status()
-    if (state !== 'idle' || lastSyncedAt === lastSeen) return
-    lastSeen = lastSyncedAt
+  // Each time a sync ends well the lists on screen can be read again, and the procedure store looks at its flight's row: rows may have come in.
+  onSyncLanded(sync, () => {
+    selection.refresh()
     if (!window.isDestroyed()) window.webContents.send(IpcChannels.dataChanged)
   })
   // A change made here reaches the sim PC soon after.

@@ -101,7 +101,6 @@ describe('a client IPC handlers', () => {
     }
 
     it('goes to the sim PC, as a phone sends it, while the sim PC is flying: this computer holds no copy of that flight to set', () => {
-      // 2026-11-21: a Mac accepted BeyondATC's 07R and PECA3A for the flight the PC was flying; its own store showed no flight and ignored it.
       const { invoke, link, store } = setup({ hostFlying: true })
       invoke(IpcChannels.trackingSetProcedureSelection, choice)
       expect(link.command).toHaveBeenCalledWith('track.setProcedureSelection', [choice])

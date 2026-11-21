@@ -20,7 +20,7 @@ afterEach(() => {
 
 describe("a twin's procedure choice reaching the sim PC", () => {
   it('is taken up by the PC from the pushed row alone, with no window open: the store, the push and the refresh are all in the main process', async () => {
-    // 2026-11-21: a Mac accepted BeyondATC's 07R and PECA3A. The PC's window was in the tray; nothing here involves one.
+    // No window is built anywhere in this test.
     const { db } = createDb(':memory:')
     migrate(db, { migrationsFolder: 'drizzle' })
     const dir = mkdtempSync(join(tmpdir(), 'winglog-twin-choice-'))
