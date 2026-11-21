@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import { createDb, type WingLogDb } from '../db/client'
+import { correctLandingsForDisplacedThresholds } from '../db/landing-displacement'
+import { navdataRunway } from '../db/schema'
 import {
   hasCachedAirport,
   hasCachedTaxiNetwork,
@@ -11,6 +13,7 @@ import type { ParsedLeg } from '../sim/facility-fields'
 import type { FetchedAirportNavdata, FetchedTaxiNetwork } from './sim-facilities-fetch'
 import { SimFacilitiesProvider, unplacedFixes, type OpenSimConnect } from './sim-facilities-provider'
 
+vi.mock('../db/landing-displacement', () => ({ correctLandingsForDisplacedThresholds: vi.fn() }))
 vi.mock('./sim-facilities-fetch', () => ({
   fetchAirportNavdata: vi.fn(),
   fetchTaxiNetwork: vi.fn()
@@ -65,6 +68,51 @@ describe('SimFacilitiesProvider', () => {
     expect(close).toHaveBeenCalledTimes(1)
     expect(hasCachedAirport(db, 'EGLL')).toBe(true)
     expect(listCachedRunways(db, 'EGLL')).toHaveLength(2)
+  })
+
+  describe('landings corrected for displaced thresholds', () => {
+    /** An airport cached before the sim's displaced thresholds were read: its runway has none recorded. */
+    function cacheRunwayWithoutThreshold(): void {
+      db.insert(navdataRunway)
+        .values({
+          icao: 'EGLL',
+          source: 'sim-facility',
+          fetchedAt: '2026-10-01T00:00:00.000Z',
+          ident: '27R',
+          headingTrueDeg: 270,
+          lengthM: 3902,
+          widthM: 50,
+          surface: 2,
+          thresholdLat: 51.4775,
+          thresholdLon: -0.4614,
+          displacedThresholdM: null
+        })
+        .run()
+    }
+
+    it('tells sync when it changed landings, since they are synced rows', async () => {
+      const { fetchAirportNavdata } = await import('./sim-facilities-fetch')
+      vi.mocked(fetchAirportNavdata).mockResolvedValue(FETCHED)
+      vi.mocked(correctLandingsForDisplacedThresholds).mockReturnValue(2)
+      cacheRunwayWithoutThreshold()
+      const onWrite = vi.fn()
+      const provider = new SimFacilitiesProvider(db, openSimConnect, undefined, undefined, onWrite)
+      await provider.refreshAirport('EGLL')
+      expect(correctLandingsForDisplacedThresholds).toHaveBeenCalledWith(db, 'EGLL')
+      expect(onWrite).toHaveBeenCalledTimes(1)
+    })
+
+    it('says nothing to sync when no landing was changed', async () => {
+      const { fetchAirportNavdata } = await import('./sim-facilities-fetch')
+      vi.mocked(fetchAirportNavdata).mockResolvedValue(FETCHED)
+      vi.mocked(correctLandingsForDisplacedThresholds).mockReturnValue(0)
+      cacheRunwayWithoutThreshold()
+      const onWrite = vi.fn()
+      const provider = new SimFacilitiesProvider(db, openSimConnect, undefined, undefined, onWrite)
+      await provider.refreshAirport('EGLL')
+      expect(correctLandingsForDisplacedThresholds).toHaveBeenCalled()
+      expect(onWrite).not.toHaveBeenCalled()
+    })
   })
 
   it('tells its listeners which airport was refreshed, once the new data is cached, and not when the fetch fails', async () => {

@@ -1,7 +1,7 @@
 import { EventEmitter } from 'node:events'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import { IpcChannels } from '@shared/ipc'
 import type { BeyondAtcAtisList, NetworkTraffic, SimTelemetry } from '@shared/ipc'
@@ -33,6 +33,7 @@ describe('online network handlers', () => {
   let stop: (() => void) | undefined
 
   let beyondAtcAtis: BeyondAtcAtisList
+  let onWrite: Mock<() => void>
 
   function register(ipc = fakeIpc(), options: { isDevBuild?: boolean } = {}) {
     const registered = registerOnlineHandlers(ipc.ipcMain, {
@@ -44,6 +45,7 @@ describe('online network handlers', () => {
       isDevBuild: options.isDevBuild ?? false,
       atcAreas: bundledAtcAreas,
       beyondAtcAtis: () => Promise.resolve(beyondAtcAtis),
+      onWrite,
       urls: { ...REAL_FEED_URLS, vatsimStatus: null, vatsimData: 'http://feed.test/vatsim' }
     })
     stop = registered.stop
@@ -52,6 +54,7 @@ describe('online network handlers', () => {
 
   beforeEach(() => {
     beyondAtcAtis = { state: 'off', airports: [] }
+    onWrite = vi.fn()
     db = createDb(':memory:').db
     migrate(db, { migrationsFolder: 'drizzle' })
     liveHub = new LiveHub()
@@ -300,6 +303,8 @@ describe('online network handlers', () => {
       )
       tracking.emit('completed', flightId)
       expect(getFlight(db, flightId)).toMatchObject({ onlineNetwork: 'vatsim', onlineCallsign: callsign })
+      // The flight's row changed after the tracking's own writes, so a twin and the cloud are told.
+      expect(onWrite).toHaveBeenCalledTimes(1)
     })
 
     it('is not recorded for a flight flown offline, or seen online only on the ground', async () => {
@@ -311,6 +316,7 @@ describe('online network handlers', () => {
       )
       tracking.emit('completed', flightId)
       expect(getFlight(db, flightId)).toMatchObject({ onlineNetwork: null, onlineCallsign: null })
+      expect(onWrite).not.toHaveBeenCalled()
     })
 
     it('forgets what was seen when the flight is dropped or a new one starts', async () => {

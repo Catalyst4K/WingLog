@@ -380,7 +380,13 @@ function startApp(cloudSession: StoredSession | null): void {
   // Navdata: its own short-lived SimConnect connection per refresh, separate from the live one (docs/navdata-notes.md). The services that
   // follow the flight shown (its navdata, taxi line and procedure choice) run here, whichever screen is open.
   const readNavdataSignature = createNavdataSignatureReader(signatureFilesFor(app.isPackaged, process.env))
-  const navdataProvider = new SimFacilitiesProvider(db, undefined, undefined, readNavdataSignature)
+  const navdataProvider = new SimFacilitiesProvider(
+    db,
+    undefined,
+    undefined,
+    readNavdataSignature,
+    scheduleBackgroundSync
+  )
   const flightServices = startFlightServices(ipcMain, {
     db,
     sim,
@@ -436,6 +442,7 @@ function startApp(cloudSession: StoredSession | null): void {
       replayStreams,
       trackingController,
       navdataProvider,
+      scheduleBackgroundSync,
       selection: flightServices.selection
     })
   }

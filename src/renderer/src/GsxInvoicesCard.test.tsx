@@ -3,6 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { FlightInvoice, GsxNotailCandidate, GsxSettings, WingLogApi } from '@shared/ipc'
 import i18n from './i18n'
+import { CapabilitiesContext } from './app/capabilities-context'
 import { GsxInvoicesCard } from './GsxInvoicesCard'
 
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }))
@@ -45,6 +46,20 @@ function withWinglog(overrides: Partial<WingLogApi> = {}): WingLogApi {
 describe('GsxInvoicesCard', () => {
   afterEach(async () => {
     await i18n.changeLanguage('en')
+  })
+
+  it('has a Rescan button on the sim PC and none on a client, whose receipts arrive by sync', async () => {
+    withWinglog({})
+    const { unmount } = render(<GsxInvoicesCard flightId={42} />)
+    expect(await screen.findByText('Rescan')).toBeInTheDocument()
+    unmount()
+    render(
+      <CapabilitiesContext.Provider value={{ runMode: 'client', canHostSim: false, multiDevice: true }}>
+        <GsxInvoicesCard flightId={42} />
+      </CapabilitiesContext.Provider>
+    )
+    await screen.findByText(/No GSX receipts matched/)
+    expect(screen.queryByText('Rescan')).not.toBeInTheDocument()
   })
 
   it('renders its title and empty state in the active i18next language, not a hardcoded English string', async () => {

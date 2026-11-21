@@ -63,6 +63,7 @@ describe('what a twin may make the sim PC do with a flight', () => {
   const autoStart = { arm: vi.fn(), disarm: vi.fn() }
   const releaseReplay = vi.fn()
   const flightsChanged = vi.fn()
+  const syncTold = vi.fn()
 
   beforeEach(() => {
     db = createDb(':memory:').db
@@ -78,7 +79,8 @@ describe('what a twin may make the sim PC do with a flight', () => {
       autoStartDetector: autoStart,
       getLastTelemetry: () => undefined,
       releaseReplay,
-      onFlightsChanged: flightsChanged
+      onFlightsChanged: flightsChanged,
+      scheduleBackgroundSync: syncTold
     })
   }
 
@@ -96,6 +98,8 @@ describe('what a twin may make the sim PC do with a flight', () => {
     expect(getLiveFlight(db, flight.id)?.status).toBe('planned')
     expect(autoStart.arm).toHaveBeenCalledWith(flight.id, undefined, 'EGLL')
     expect(flightsChanged).toHaveBeenCalled()
+    // The other planned flight was removed here: a twin and the cloud must hear of it.
+    expect(syncTold).toHaveBeenCalledTimes(1)
   })
 
   it('starts tracking a planned flight now, and lets a held replay play', () => {
@@ -128,12 +132,14 @@ describe('what a twin may make the sim PC do with a flight', () => {
     expect(getLiveFlight(db, flight.id)).toBeUndefined()
     expect(autoStart.disarm).toHaveBeenCalled()
     expect(flightsChanged).toHaveBeenCalled()
+    expect(syncTold).toHaveBeenCalledTimes(1)
   })
 
   it('refuses to cancel a flight it does not have, and does nothing (audit M9)', () => {
     expect(() => control().cancel('unknown')).toThrow('has not reached this computer')
     expect(autoStart.disarm).not.toHaveBeenCalled()
     expect(flightsChanged).not.toHaveBeenCalled()
+    expect(syncTold).not.toHaveBeenCalled()
   })
 
   it.each(['active', 'completed'] as const)(

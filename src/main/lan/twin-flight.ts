@@ -74,6 +74,7 @@ function icaoArg(value: unknown): string | null {
  * @param deps.getLastTelemetry Where the aircraft is now.
  * @param deps.releaseReplay Lets an e2e replay held until tracking starts play.
  * @param deps.onFlightsChanged Called after a flight is planned or cancelled: what a second screen shows may have changed.
+ * @param deps.scheduleBackgroundSync Called after a flight is abandoned, so a twin and the cloud are told.
  * @returns The control.
  */
 export function flightControl(deps: {
@@ -86,6 +87,8 @@ export function flightControl(deps: {
   getLastTelemetry: () => SimTelemetry | undefined
   releaseReplay: () => void
   onFlightsChanged?: () => void
+  /** Called after a flight row is written here, so the twins and the cloud hear of it (`scheduleBackgroundSync`). */
+  scheduleBackgroundSync?: () => void
 }): FlightControl {
   const { db, trackingController, autoStartDetector } = deps
   /**
@@ -118,6 +121,7 @@ export function flightControl(deps: {
       for (const other of listFlightSummaries(db)) {
         if (other.status === 'planned' && other.id !== flight.id) abandonFlight(db, other.id)
       }
+      deps.scheduleBackgroundSync?.()
       autoStartDetector.arm(flight.id, deps.getLastTelemetry(), flight.depIcao)
       deps.onFlightsChanged?.()
     },
@@ -140,6 +144,7 @@ export function flightControl(deps: {
     cancel(uuid) {
       // Only a planned flight: abandoning deletes a flight's track points for good and the deletion syncs to every computer (audit M9).
       abandonFlight(db, plannedFlight(uuid).id)
+      deps.scheduleBackgroundSync?.()
       autoStartDetector.disarm()
       deps.onFlightsChanged?.()
     }
