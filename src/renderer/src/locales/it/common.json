@@ -798,8 +798,7 @@
       "stepClimb": "Salita a gradini a {{altitude}}"
     },
     "flightInProgress": "Volo in corso",
-    "change": "Modifica",
-    "notConnectedSimPc": "Non connesso al PC del simulatore."
+    "change": "Modifica"
   },
   "flightMap": {
     "stopCentering": "Interrompi centratura sull'aeromobile",

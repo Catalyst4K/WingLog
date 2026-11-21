@@ -59,6 +59,27 @@ describe('FlightRelay', () => {
     expect(calls).toEqual(['flight.finish:', 'flight.stop:'])
   })
 
+  it('has the sim PC set an airport of the free flight it tracks, then brings this computer level so the screen reads it back', async () => {
+    const relay = bound()
+    await relay.setDestination(flightId, 'EGCC')
+    await relay.setDeparture(flightId, null)
+    expect(calls).toEqual([
+      `flight.setDestination:${uuid},EGCC`,
+      'sync',
+      `flight.setDeparture:${uuid},`,
+      'sync'
+    ])
+  })
+
+  it('does not sync after an airport the sim PC refused, and passes the refusal on', async () => {
+    const relay = new FlightRelay(db)
+    relay.bind({ run: () => Promise.resolve(true) }, () =>
+      Promise.reject(new Error('Not a valid airport code'))
+    )
+    await expect(relay.setDestination(flightId, 'x!')).rejects.toThrow('Not a valid airport code')
+    await expect(relay.setDeparture(9999, 'EGLL')).rejects.toThrow('Unknown flight')
+  })
+
   it('says so when the sim PC could not be brought level, and sends nothing', async () => {
     await expect(bound(false).start(flightId)).rejects.toThrow('not connected')
     expect(calls).toEqual(['sync'])

@@ -140,9 +140,7 @@ export function TrackView(props: {
 
   function handleOpenFreeFlight(): void {
     if (!props.telemetry) {
-      toast.error(
-        t(capabilities.runMode === 'client' ? 'trackView.notConnectedSimPc' : 'trackView.notConnected')
-      )
+      toast.error(t('trackView.notConnected'))
       return
     }
     setFreeFlightDialogOpen(true)
@@ -260,6 +258,7 @@ export function TrackView(props: {
           plannedFlights={plannedFlights}
           aircraft={aircraft}
           starting={starting}
+          canStartFreeFlight={capabilities.runMode !== 'client'}
           onOpenFreeFlight={handleOpenFreeFlight}
           onStart={handleStart}
           onCancelPlanned={handleCancelPlanned}
@@ -305,13 +304,15 @@ export function TrackView(props: {
 
       {confirmDialog}
 
-      <StartFreeFlightDialog
-        open={freeFlightDialogOpen}
-        onOpenChange={setFreeFlightDialogOpen}
-        telemetry={props.telemetry ?? null}
-        aircraft={aircraft}
-        onStarted={() => runAsync('TrackView handleFreeFlightStarted', handleFreeFlightStarted())}
-      />
+      {capabilities.runMode !== 'client' && (
+        <StartFreeFlightDialog
+          open={freeFlightDialogOpen}
+          onOpenChange={setFreeFlightDialogOpen}
+          telemetry={props.telemetry ?? null}
+          aircraft={aircraft}
+          onStarted={() => runAsync('TrackView handleFreeFlightStarted', handleFreeFlightStarted())}
+        />
+      )}
 
       <FlightEndedDialog label={tracked.completedLabel} onClose={() => tracked.setCompletedLabel(null)} />
     </div>

@@ -796,8 +796,7 @@
       "stepClimb": "Step climb to {{altitude}}"
     },
     "flightInProgress": "Flight in progress",
-    "change": "Change",
-    "notConnectedSimPc": "Not connected to the sim PC."
+    "change": "Change"
   },
   "flightMap": {
     "stopCentering": "Stop centering on aircraft",

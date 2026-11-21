@@ -787,8 +787,7 @@
       "stepClimb": "階梯爬升至 {{altitude}}"
     },
     "flightInProgress": "進行中的航班",
-    "change": "變更",
-    "notConnectedSimPc": "未連線至模擬器電腦。"
+    "change": "變更"
   },
   "flightMap": {
     "stopCentering": "停止以飛機為中心",

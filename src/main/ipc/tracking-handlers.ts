@@ -141,11 +141,15 @@ export function registerTrackingHandlers(ipcMain: IpcMain, deps: TrackingHandler
   )
   ipcMain.handle(IpcChannels.trackingSetDestination, (_event, icao: unknown) => {
     if (icao !== null && typeof icao !== 'string') throw new Error(t('errors.invalidDestination'))
+    if (deps.relay) return deps.relay.setDestination(flightTrackedOnSimPc(deps), icao)
     trackingController.setDestination(icao)
+    return undefined
   })
   ipcMain.handle(IpcChannels.trackingSetDeparture, (_event, icao: unknown) => {
     if (icao !== null && typeof icao !== 'string') throw new Error(t('errors.invalidDeparture'))
+    if (deps.relay) return deps.relay.setDeparture(flightTrackedOnSimPc(deps), icao)
     trackingController.setDeparture(icao)
+    return undefined
   })
 
   // The one flight left "in progress" (planned or already active) when the previous
@@ -174,6 +178,17 @@ export function registerTrackingHandlers(ipcMain: IpcMain, deps: TrackingHandler
     orphanedFlight = undefined
     scheduleBackgroundSync()
   })
+}
+
+/**
+ * @param deps What the tracking channels need.
+ * @returns This computer's id for the flight the sim PC is tracking, which a client names to the sim PC by uuid.
+ * @throws When the sim PC is tracking nothing this computer knows yet.
+ */
+function flightTrackedOnSimPc(deps: Pick<TrackingHandlerDeps, 'mirroredActive'>): number {
+  const active = deps.mirroredActive?.()
+  if (!active) throw new Error(t('errors.noFlightBeingTracked'))
+  return active.flightId
 }
 
 /**

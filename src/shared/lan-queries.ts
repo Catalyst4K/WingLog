@@ -54,7 +54,10 @@ export const LAN_QUERY_KINDS: Record<string, LanQueryKind> = {
   'flight.start': FAST,
   'flight.finish': FAST,
   'flight.stop': FAST,
-  'flight.cancel': FAST
+  'flight.cancel': FAST,
+  // The airports of the free flight being tracked: flight data, not settings, so a twin may set them.
+  'flight.setDestination': FAST,
+  'flight.setDeparture': FAST
 }
 
 /** The lookups only a twin (another WingLog) may ask: a phone or tablet is refused them as if they did not exist. */
@@ -68,7 +71,9 @@ export const TWIN_ONLY_QUERIES: readonly string[] = [
   'flight.start',
   'flight.finish',
   'flight.stop',
-  'flight.cancel'
+  'flight.cancel',
+  'flight.setDestination',
+  'flight.setDeparture'
 ]
 
 /**

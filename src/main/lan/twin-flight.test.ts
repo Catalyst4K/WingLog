@@ -4,7 +4,7 @@ import { createDb, type WingLogDb } from '../db/client'
 import { createAircraft } from '../db/aircraft-repo'
 import { createFlight, getFlightUuidById, getLiveFlight } from '../db/flight-repo'
 import { createTrackPoint, listTrackPoints } from '../db/track-point-repo'
-import { flightControl, twinFlightQueries } from './twin-flight'
+import { flightControl, twinFlightQueries, type FlightControl } from './twin-flight'
 
 /** One recorded point of a flight's track. */
 function trackPoint(flightId: number, i: number): Record<string, unknown> {
@@ -35,10 +35,30 @@ function trackPoint(flightId: number, i: number): Record<string, unknown> {
   }
 }
 
+/** A FlightControl that does nothing. */
+function fakeControl(): FlightControl {
+  return {
+    fly: vi.fn(),
+    start: vi.fn(),
+    finish: vi.fn(),
+    stop: vi.fn(),
+    cancel: vi.fn(),
+    setDestination: vi.fn(),
+    setDeparture: vi.fn()
+  }
+}
+
 describe('what a twin may make the sim PC do with a flight', () => {
   let db: WingLogDb
   let aircraftId: number
-  const tracking = { start: vi.fn(), stop: vi.fn(), finish: vi.fn() }
+  const tracking = {
+    start: vi.fn(),
+    stop: vi.fn(),
+    finish: vi.fn(),
+    getActive: vi.fn((): { flightId: number } | undefined => undefined),
+    setDestination: vi.fn(),
+    setDeparture: vi.fn()
+  }
   const autoStart = { arm: vi.fn(), disarm: vi.fn() }
   const releaseReplay = vi.fn()
   const flightsChanged = vi.fn()
@@ -129,28 +149,76 @@ describe('what a twin may make the sim PC do with a flight', () => {
     }
   )
 
+  describe('the airports of a free flight', () => {
+    const free = (): { id: number; uuid: string } => {
+      const flight = createFlight(db, { aircraftId, depIcao: 'ZZZZ', arrIcao: 'ZZZZ', status: 'active' })
+      tracking.getActive.mockReturnValue({ flightId: flight.id })
+      return { id: flight.id, uuid: getFlightUuidById(db, flight.id) as string }
+    }
+
+    it('sets the destination and the departure of the flight being tracked, when the twin names that flight', () => {
+      const flight = free()
+      control().setDestination(flight.uuid, 'EGCC')
+      control().setDeparture(flight.uuid, null)
+      expect(tracking.setDestination).toHaveBeenCalledWith('EGCC')
+      expect(tracking.setDeparture).toHaveBeenCalledWith(null)
+    })
+
+    it('refuses when the twin names another flight or none is tracked, and changes nothing', () => {
+      const flight = free()
+      const other = planned()
+      expect(() => control().setDestination(other.uuid, 'EGCC')).toThrow('not the one being tracked')
+      expect(() => control().setDeparture('no-such-uuid', 'EGLL')).toThrow('not the one being tracked')
+      tracking.getActive.mockReturnValue(undefined)
+      expect(() => control().setDestination(flight.uuid, 'EGCC')).toThrow('not the one being tracked')
+      expect(tracking.setDestination).not.toHaveBeenCalled()
+      expect(tracking.setDeparture).not.toHaveBeenCalled()
+    })
+
+    it('lets the tracking controller judge the code, so a bad code is refused as it is on the sim PC', () => {
+      const flight = free()
+      tracking.setDestination.mockImplementationOnce(() => {
+        throw new Error('Not a valid airport code')
+      })
+      expect(() => control().setDestination(flight.uuid, 'not a code!')).toThrow('Not a valid airport code')
+    })
+
+    it('checks what a twin sends before it gets that far', () => {
+      const changed = vi.fn()
+      const control = fakeControl()
+      const queries = twinFlightQueries(control, changed)
+      for (const name of ['flight.setDestination', 'flight.setDeparture']) {
+        expect(() => queries[name]('', 'EGCC'), name).toThrow('Invalid flight')
+        expect(() => queries[name]('u', 5), name).toThrow('Invalid airport')
+        expect(() => queries[name]('u', 'EGCCEGCCEGCC'), name).toThrow('Invalid airport')
+        expect(() => queries[name]('u', undefined), name).toThrow('Invalid airport')
+      }
+      queries['flight.setDestination']('u', 'EGCC')
+      queries['flight.setDeparture']('u', null)
+      expect(control.setDestination).toHaveBeenCalledWith('u', 'EGCC')
+      expect(control.setDeparture).toHaveBeenCalledWith('u', null)
+      expect(changed).toHaveBeenCalledTimes(2)
+    })
+  })
+
   it('tells the window after each command, so it reads the flights again, and not after a command that was refused', () => {
     const changed = vi.fn()
-    const ok = twinFlightQueries(
-      { fly: vi.fn(), start: vi.fn(), finish: vi.fn(), stop: vi.fn(), cancel: vi.fn() },
-      changed
-    )
+    const ok = twinFlightQueries(fakeControl(), changed)
     ok['flight.fly']('u')
     ok['flight.start']('u')
     ok['flight.finish']()
     ok['flight.stop']()
     ok['flight.cancel']('u')
-    expect(changed).toHaveBeenCalledTimes(5)
+    ok['flight.setDestination']('u', 'EGCC')
+    ok['flight.setDeparture']('u', null)
+    expect(changed).toHaveBeenCalledTimes(7)
     const refused = vi.fn()
     const failing = twinFlightQueries(
       {
+        ...fakeControl(),
         fly: vi.fn(() => {
           throw new Error('Unknown flight')
-        }),
-        start: vi.fn(),
-        finish: vi.fn(),
-        stop: vi.fn(),
-        cancel: vi.fn()
+        })
       },
       refused
     )
@@ -160,17 +228,13 @@ describe('what a twin may make the sim PC do with a flight', () => {
   })
 
   it('exposes them as lookups that check their argument', () => {
-    const queries = twinFlightQueries({
-      fly: vi.fn(),
-      start: vi.fn(),
-      finish: vi.fn(),
-      stop: vi.fn(),
-      cancel: vi.fn()
-    })
+    const queries = twinFlightQueries(fakeControl())
     expect(Object.keys(queries).sort()).toEqual([
       'flight.cancel',
       'flight.finish',
       'flight.fly',
+      'flight.setDeparture',
+      'flight.setDestination',
       'flight.start',
       'flight.stop'
     ])

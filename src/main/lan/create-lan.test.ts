@@ -79,7 +79,9 @@ const FLIGHT_CONTROL = {
   start: () => undefined,
   finish: () => undefined,
   stop: () => undefined,
-  cancel: () => undefined
+  cancel: () => undefined,
+  setDestination: () => undefined,
+  setDeparture: () => undefined
 }
 const CREATE_DEPS = {
   navdata: NAVDATA,

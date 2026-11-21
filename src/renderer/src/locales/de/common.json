@@ -796,8 +796,7 @@
       "stepClimb": "Stufensteigflug auf {{altitude}}"
     },
     "flightInProgress": "Laufender Flug",
-    "change": "Ändern",
-    "notConnectedSimPc": "Nicht mit dem Sim-PC verbunden."
+    "change": "Ändern"
   },
   "flightMap": {
     "stopCentering": "Zentrierung auf Flugzeug stoppen",

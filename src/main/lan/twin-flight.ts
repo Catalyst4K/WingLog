@@ -7,7 +7,13 @@
 
 import type { WingLogDb } from '../db/client'
 import type { SimTelemetry } from '@shared/ipc'
-import { abandonFlight, getFlightIdByUuid, getLiveFlight, listFlightSummaries } from '../db/flight-repo'
+import {
+  abandonFlight,
+  getFlightIdByUuid,
+  getFlightUuidById,
+  getLiveFlight,
+  listFlightSummaries
+} from '../db/flight-repo'
 import type { AutoStartDetector } from '../tracking/AutoStartDetector'
 import type { TrackingController } from '../tracking/TrackingController'
 
@@ -23,10 +29,17 @@ export interface FlightControl {
   stop(): void
   /** Cancels a planned flight: it is abandoned and auto-start is disarmed. Refuses a flight that is not planned, as fly and start do. */
   cancel(uuid: string): void
+  /** Sets the destination of the free flight being tracked, when it is the flight with this uuid. A blank or null code means not set. */
+  setDestination(uuid: string, icao: string | null): void
+  /** Sets the departure of the free flight being tracked, when it is the flight with this uuid. A blank or null code means not set. */
+  setDeparture(uuid: string, icao: string | null): void
 }
 
 /** Longest uuid taken from a twin. */
 const MAX_UUID_CHARS = 64
+
+/** Longest airport code taken from a twin, before the tracking controller checks it (an ICAO code is 4 characters; the controller takes 2 to 5). */
+const MAX_ICAO_CHARS = 8
 
 /**
  * @param value A flight's uuid from a twin.
@@ -37,6 +50,17 @@ function uuidArg(value: unknown): string {
   if (typeof value !== 'string' || value.length === 0 || value.length > MAX_UUID_CHARS) {
     throw new Error('Invalid flight')
   }
+  return value
+}
+
+/**
+ * @param value An airport code from a twin.
+ * @returns The code as sent, or null for none.
+ * @throws When it is neither null nor a short text.
+ */
+function icaoArg(value: unknown): string | null {
+  if (value === null) return null
+  if (typeof value !== 'string' || value.length > MAX_ICAO_CHARS) throw new Error('Invalid airport')
   return value
 }
 
@@ -54,7 +78,10 @@ function uuidArg(value: unknown): string {
  */
 export function flightControl(deps: {
   db: WingLogDb
-  trackingController: Pick<TrackingController, 'start' | 'stop' | 'finish'>
+  trackingController: Pick<
+    TrackingController,
+    'start' | 'stop' | 'finish' | 'getActive' | 'setDestination' | 'setDeparture'
+  >
   autoStartDetector: Pick<AutoStartDetector, 'arm' | 'disarm'>
   getLastTelemetry: () => SimTelemetry | undefined
   releaseReplay: () => void
@@ -72,6 +99,16 @@ export function flightControl(deps: {
     if (!flight) throw new Error('Unknown flight: it has not reached this computer yet')
     if (flight.status !== 'planned') throw new Error('The flight is not planned')
     return { id: flight.id, depIcao: flight.depIcao }
+  }
+  /**
+   * @param uuid A flight's uuid.
+   * @throws When it is not the flight being tracked: the airports are the tracked flight's, and a twin a moment behind must not set another's.
+   */
+  function requireTracked(uuid: string): void {
+    const flightId = trackingController.getActive()?.flightId
+    if (flightId === undefined || getFlightUuidById(db, flightId) !== uuid) {
+      throw new Error('The flight is not the one being tracked')
+    }
   }
   return {
     fly(uuid) {
@@ -92,6 +129,14 @@ export function flightControl(deps: {
     },
     finish: () => trackingController.finish(),
     stop: () => trackingController.stop(),
+    setDestination(uuid, icao) {
+      requireTracked(uuid)
+      trackingController.setDestination(icao)
+    },
+    setDeparture(uuid, icao) {
+      requireTracked(uuid)
+      trackingController.setDeparture(icao)
+    },
     cancel(uuid) {
       // Only a planned flight: abandoning deletes a flight's track points for good and the deletion syncs to every computer (audit M9).
       abandonFlight(db, plannedFlight(uuid).id)
@@ -104,7 +149,7 @@ export function flightControl(deps: {
 /**
  * @param control What a twin may make this computer do with a flight.
  * @param onChanged Called after a command ran, so the window on this computer reads the flights again (it did not make the change).
- * @returns The lookups a twin may ask: \`flight.fly\`, \`flight.start\`, \`flight.finish\`, \`flight.stop\` and \`flight.cancel\`.
+ * @returns The lookups a twin may ask: \`flight.fly\`, \`flight.start\`, \`flight.finish\`, \`flight.stop\`, \`flight.cancel\`, and \`flight.setDestination\` and \`flight.setDeparture\` (flight data, not settings).
  */
 export function twinFlightQueries(
   control: FlightControl,
@@ -119,6 +164,8 @@ export function twinFlightQueries(
     'flight.start': (uuid) => then(() => control.start(uuidArg(uuid))),
     'flight.finish': () => then(() => control.finish()),
     'flight.stop': () => then(() => control.stop()),
-    'flight.cancel': (uuid) => then(() => control.cancel(uuidArg(uuid)))
+    'flight.cancel': (uuid) => then(() => control.cancel(uuidArg(uuid))),
+    'flight.setDestination': (uuid, icao) => then(() => control.setDestination(uuidArg(uuid), icaoArg(icao))),
+    'flight.setDeparture': (uuid, icao) => then(() => control.setDeparture(uuidArg(uuid), icaoArg(icao)))
   }
 }
