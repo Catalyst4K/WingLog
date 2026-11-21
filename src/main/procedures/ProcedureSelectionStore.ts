@@ -93,22 +93,26 @@ export class ProcedureSelectionStore extends EventEmitter<{ changed: [ProcedureS
           arrivalAirport(this.shown.flight, this.shown.selection) !==
           arrivalAirport(flight, this.shown.selection)
         this.shown.flight = flight
-        if (arrivalChanged) this.forgetSuggestionForOldAirport()
+        if (arrivalChanged) this.dropApproachNotAtNewAirport()
       }
       this.suggest()
     })
   }
 
   /**
-   * A new arrival airport starts the suggestion afresh: the approach this store suggested was for the old airport and is dropped (saved and
-   * announced), and what it remembered of its suggestion goes. An approach the pilot chose is left, as it is whenever the airport changes.
+   * A new arrival airport: the approach held is kept only if the new airport has an approach of that name (read from its approach list, not
+   * from what this store remembers of its own suggestions, which a restart or a sync forgets); otherwise it is dropped, saved and announced,
+   * and the suggestion that follows picks one for the new airport. An approach set to "None" stays so for an airport it was cleared for.
    */
-  private forgetSuggestionForOldAirport(): void {
+  private dropApproachNotAtNewAirport(): void {
     const shown = this.shown
     if (!shown) return
-    const wasSuggested = shown.suggested !== null && shown.selection.approachIdent === shown.suggested
     shown.suggested = null
-    if (!wasSuggested) return
+    const { approachIdent } = shown.selection
+    if (!approachIdent) return
+    const arrIcao = arrivalAirport(shown.flight, shown.selection)
+    if (this.deps.navdata.listApproaches(arrIcao, null).some((option) => option.identifier === approachIdent))
+      return
     const selection = { ...shown.selection, approachIdent: null, approachTransition: null }
     shown.selection = selection
     this.deps.save(shown.flight.id, selection)

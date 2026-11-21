@@ -142,6 +142,29 @@ describe('tracking and flight IPC handlers', () => {
     expect(register()(IpcChannels.trackingGetActive)).toEqual({ flightId: 9, phase: 'taxi' })
   })
 
+  it('tells the procedure store the flight changed after the sim PC’s own window sets an airport, so it suggests for the new one', () => {
+    deps = { ...deps, onFlightsChanged: flightsChanged }
+    const invoke = register()
+    flightsChanged.mockClear()
+    invoke(IpcChannels.trackingSetDestination, 'EGCC')
+    expect(tracking.setDestination).toHaveBeenCalledWith('EGCC')
+    expect(flightsChanged).toHaveBeenCalledTimes(1)
+    invoke(IpcChannels.trackingSetDeparture, 'EGLL')
+    expect(tracking.setDeparture).toHaveBeenCalledWith('EGLL')
+    expect(flightsChanged).toHaveBeenCalledTimes(2)
+  })
+
+  it('does not tell it when the controller refuses the airport', () => {
+    deps = { ...deps, onFlightsChanged: flightsChanged }
+    tracking.setDestination.mockImplementationOnce(() => {
+      throw new Error('Not a valid airport code')
+    })
+    const invoke = register()
+    flightsChanged.mockClear()
+    expect(() => invoke(IpcChannels.trackingSetDestination, 'x!')).toThrow('Not a valid airport code')
+    expect(flightsChanged).not.toHaveBeenCalled()
+  })
+
   describe('on a client, which sends flight commands to the sim PC', () => {
     const relay = {
       fly: vi.fn(() => Promise.resolve()),

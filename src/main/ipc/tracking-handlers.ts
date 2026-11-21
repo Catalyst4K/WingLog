@@ -143,12 +143,15 @@ export function registerTrackingHandlers(ipcMain: IpcMain, deps: TrackingHandler
     if (icao !== null && typeof icao !== 'string') throw new Error(t('errors.invalidDestination'))
     if (deps.relay) return deps.relay.setDestination(flightTrackedOnSimPc(deps), icao)
     trackingController.setDestination(icao)
+    // The procedure store looks at the flight's row again: the arrival airport it suggests an approach for has changed.
+    deps.onFlightsChanged?.()
     return undefined
   })
   ipcMain.handle(IpcChannels.trackingSetDeparture, (_event, icao: unknown) => {
     if (icao !== null && typeof icao !== 'string') throw new Error(t('errors.invalidDeparture'))
     if (deps.relay) return deps.relay.setDeparture(flightTrackedOnSimPc(deps), icao)
     trackingController.setDeparture(icao)
+    deps.onFlightsChanged?.()
     return undefined
   })
 
