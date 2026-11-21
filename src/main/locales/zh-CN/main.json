@@ -41,6 +41,8 @@
     "plannedFlightDepartureFromPlan": "已计划航班的出发地来自其飞行计划",
     "notValidAirportCode": "这不是有效的机场代码",
     "noFlightBeingTracked": "当前没有正在追踪的航班",
+    "simPcNotConnected": "模拟器电脑当前未连接（连接可能正在重新建立）。请稍后再试。",
+    "freeFlightOnSimPc": "自由飞行需在模拟器电脑上开始。",
     "credentialEncryptionUnavailable": "此设备上无法使用操作系统级别的凭据加密",
     "notLoggedIn": "尚未登录",
     "photoInvalid": "“{{field}}”不是 WingLog 可以保存的图片或链接",

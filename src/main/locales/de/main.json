@@ -41,6 +41,8 @@
     "plannedFlightDepartureFromPlan": "Der Abflugort eines geplanten Flugs stammt aus seinem Flugplan",
     "notValidAirportCode": "Das ist kein gültiger Flughafencode",
     "noFlightBeingTracked": "Es wird kein Flug aufgezeichnet",
+    "simPcNotConnected": "Der Sim-PC ist gerade nicht verbunden (die Verbindung wird möglicherweise neu aufgebaut). Versuche es gleich noch einmal.",
+    "freeFlightOnSimPc": "Freie Flüge werden am Sim-PC gestartet.",
     "credentialEncryptionUnavailable": "Betriebssystemseitige Anmeldedatenverschlüsselung ist auf diesem Gerät nicht verfügbar",
     "notLoggedIn": "Nicht angemeldet",
     "photoInvalid": "„{{field}}“ ist kein Bild und kein Link, den WingLog speichern kann",

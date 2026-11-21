@@ -11,6 +11,7 @@ import type { LiveTopic, LiveTopics } from '@shared/live'
 import { LanConnection, type LanLinkState, type LinkSocket, type TokenStore } from '@shared/lan-connection'
 import { parseHostAddress } from '@shared/host-address'
 import type { HostLinkState, HostLinkStatus, LanFlightSnapshot, TrackPoint } from '@shared/ipc'
+import { t } from '../i18n'
 import { logger } from '../logging/logger'
 import { LAN_TOPICS } from '../lan/LanServer'
 import type { LiveHub } from '../live/LiveHub'
@@ -177,7 +178,7 @@ export class HostLink {
    * @throws When the link is not up.
    */
   command(name: string, args: unknown[]): void {
-    if (!this.connection) throw new Error('Not connected to the sim PC')
+    if (!this.connection) throw new Error(t('errors.simPcNotConnected'))
     this.connection.command(name, ...args)
   }
 
@@ -189,7 +190,7 @@ export class HostLink {
    * @throws When the link is not up.
    */
   async commandAfterSync(name: string, args: unknown[]): Promise<void> {
-    if (!this.connection) throw new Error('Not connected to the sim PC')
+    if (!this.connection) throw new Error(t('errors.simPcNotConnected'))
     await this.deps.sync?.run()
     this.command(name, args)
   }
@@ -202,7 +203,7 @@ export class HostLink {
    * @returns The host's answer.
    */
   query(name: string, ...args: unknown[]): Promise<unknown> {
-    if (!this.connection) return Promise.reject(new Error('Not connected to the sim PC'))
+    if (!this.connection) return Promise.reject(new Error(t('errors.simPcNotConnected')))
     return this.connection.query(name, ...args)
   }
 

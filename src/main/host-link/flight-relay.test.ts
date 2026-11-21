@@ -5,6 +5,9 @@ import { createAircraft } from '../db/aircraft-repo'
 import { createFlight, getFlightUuidById } from '../db/flight-repo'
 import { FlightRelay } from './flight-relay'
 
+/** The refusal's English wording, as a user sees it: the link is down or reconnecting, so try again. */
+const NOT_CONNECTED = "The sim PC isn't connected right now (the link may be reconnecting). Try again in a moment."
+
 describe('FlightRelay', () => {
   let db: WingLogDb
   let flightId: number
@@ -60,15 +63,20 @@ describe('FlightRelay', () => {
   })
 
   it('says so when the sim PC could not be brought level, and sends nothing', async () => {
-    await expect(bound(false).start(flightId)).rejects.toThrow('not connected')
+    await expect(bound(false).start(flightId)).rejects.toThrow(NOT_CONNECTED)
+    expect(calls).toEqual(['sync'])
+  })
+
+  it('refuses Cancel with the same reconnecting message while the link is down', async () => {
+    await expect(bound(false).cancel(flightId)).rejects.toThrow(NOT_CONNECTED)
     expect(calls).toEqual(['sync'])
   })
 
   it('refuses a flight it does not know, and everything before it is bound to a link', async () => {
     await expect(bound().fly(9999)).rejects.toThrow('Unknown flight')
     const unbound = new FlightRelay(db)
-    await expect(unbound.fly(flightId)).rejects.toThrow('Not connected to the sim PC')
-    await expect(unbound.finish()).rejects.toThrow('Not connected to the sim PC')
+    await expect(unbound.fly(flightId)).rejects.toThrow(NOT_CONNECTED)
+    await expect(unbound.finish()).rejects.toThrow(NOT_CONNECTED)
     expect(vi.isMockFunction(unbound.stop)).toBe(false)
   })
 })

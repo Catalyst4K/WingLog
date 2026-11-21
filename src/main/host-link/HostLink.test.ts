@@ -60,6 +60,9 @@ const IDLE = { state: 'idle', lastSyncedAt: null, problem: null } as const
 /** The pin of the sim PC's certificate in these tests. */
 const PIN = 'p'.repeat(43)
 
+/** The refusal's English wording, as a user sees it: the link is down or reconnecting, so try again. */
+const NOT_CONNECTED = "The sim PC isn't connected right now (the link may be reconnecting). Try again in a moment."
+
 describe('HostLink', () => {
   let hub: LiveHub
   let sockets: FakeSocket[]
@@ -216,8 +219,8 @@ describe('HostLink', () => {
 
   it('sends the host a command once connected, and refuses before', async () => {
     const link = make(memoryStore())
-    expect(() => link.command('atc.setAction', ['Request Taxi'])).toThrow('Not connected')
-    await expect(link.query('stands', 'EGLL')).rejects.toThrow('Not connected')
+    expect(() => link.command('atc.setAction', ['Request Taxi'])).toThrow(NOT_CONNECTED)
+    await expect(link.query('stands', 'EGLL')).rejects.toThrow(NOT_CONNECTED)
     link.pair('192.168.1.20:5051', '123456', null)
     sockets[0]?.open()
     sockets[0]?.hear({ t: 'paired', token: 't' })
@@ -255,7 +258,7 @@ describe('HostLink', () => {
         onChange: () => undefined
       }
     })
-    await expect(link.commandAfterSync('gsx.startRoutine', ['my-routine'])).rejects.toThrow('Not connected')
+    await expect(link.commandAfterSync('gsx.startRoutine', ['my-routine'])).rejects.toThrow(NOT_CONNECTED)
     link.pair('192.168.1.20:5051', '123456', null)
     sockets[0]?.open()
     sockets[0]?.hear({ t: 'paired', token: 't' })

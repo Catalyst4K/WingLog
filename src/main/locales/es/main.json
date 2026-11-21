@@ -41,6 +41,8 @@
     "plannedFlightDepartureFromPlan": "El origen de un vuelo planificado proviene de su plan de vuelo",
     "notValidAirportCode": "Ese no es un código de aeropuerto válido",
     "noFlightBeingTracked": "No se está registrando ningún vuelo",
+    "simPcNotConnected": "El PC del simulador no está conectado ahora mismo (puede que el enlace se esté reconectando). Inténtalo de nuevo en un momento.",
+    "freeFlightOnSimPc": "Los vuelos libres se inician en el PC del simulador.",
     "credentialEncryptionUnavailable": "El cifrado de credenciales a nivel del sistema operativo no está disponible en este equipo",
     "notLoggedIn": "No has iniciado sesión",
     "photoInvalid": "«{{field}}» no es una imagen ni un enlace que WingLog pueda guardar",

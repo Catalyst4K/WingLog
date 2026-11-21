@@ -6,6 +6,7 @@
 
 import { getFlightUuidById } from '../db/flight-repo'
 import type { WingLogDb } from '../db/client'
+import { t } from '../i18n'
 
 /** Asks the sim PC a lookup (`HostLink.query`). */
 type Ask = (name: string, ...args: unknown[]) => Promise<unknown>
@@ -63,7 +64,7 @@ export class FlightRelay implements FlightRelayPort {
 
   /** @returns The link, or an error to show when there is none. */
   private connected(): { sync: SyncNow; ask: Ask } {
-    if (!this.target) throw new Error('Not connected to the sim PC')
+    if (!this.target) throw new Error(t('errors.simPcNotConnected'))
     return this.target
   }
 
@@ -77,7 +78,7 @@ export class FlightRelay implements FlightRelayPort {
     const { sync, ask } = this.connected()
     const uuid = getFlightUuidById(this.db, flightId)
     if (!uuid) throw new Error('Unknown flight')
-    if (!(await sync.run())) throw new Error('Could not bring this flight to the sim PC: it is not connected')
+    if (!(await sync.run())) throw new Error(t('errors.simPcNotConnected'))
     await ask(name, uuid)
   }
 }

@@ -41,6 +41,8 @@
     "plannedFlightDepartureFromPlan": "A planned flight's departure comes from its flight plan",
     "notValidAirportCode": "That is not a valid airport code",
     "noFlightBeingTracked": "No flight is being tracked",
+    "simPcNotConnected": "The sim PC isn't connected right now (the link may be reconnecting). Try again in a moment.",
+    "freeFlightOnSimPc": "Free flights are started on the sim PC.",
     "credentialEncryptionUnavailable": "OS-level credential encryption is not available on this machine",
     "notLoggedIn": "Not logged in",
     "photoInvalid": "\"{{field}}\" is not a picture or link WingLog can keep",
