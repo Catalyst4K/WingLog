@@ -32,7 +32,7 @@ function start(isClient: boolean) {
       onAirportRefreshed: () => () => undefined
     } as never,
     onWrite: vi.fn(),
-    isClient
+    client: isClient ? { hostFlying: () => false } : undefined
   })
   return { ipc, hub, taxiRoutes, services }
 }

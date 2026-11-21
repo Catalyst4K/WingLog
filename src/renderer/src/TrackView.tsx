@@ -304,15 +304,14 @@ export function TrackView(props: {
 
       {confirmDialog}
 
-      {capabilities.runMode !== 'client' && (
-        <StartFreeFlightDialog
-          open={freeFlightDialogOpen}
-          onOpenChange={setFreeFlightDialogOpen}
-          telemetry={props.telemetry ?? null}
-          aircraft={aircraft}
-          onStarted={() => runAsync('TrackView handleFreeFlightStarted', handleFreeFlightStarted())}
-        />
-      )}
+      {/* Opened only from the free-flight card and banner, which a client does not show. */}
+      <StartFreeFlightDialog
+        open={freeFlightDialogOpen}
+        onOpenChange={setFreeFlightDialogOpen}
+        telemetry={props.telemetry ?? null}
+        aircraft={aircraft}
+        onStarted={() => runAsync('TrackView handleFreeFlightStarted', handleFreeFlightStarted())}
+      />
 
       <FlightEndedDialog label={tracked.completedLabel} onClose={() => tracked.setCompletedLabel(null)} />
     </div>

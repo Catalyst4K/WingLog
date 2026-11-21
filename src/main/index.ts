@@ -306,6 +306,29 @@ function registerTrackingAreas(
 }
 
 /**
+ * @param db The database.
+ * @param scheduleBackgroundSync Tells a twin and the cloud that a row was written here (landings corrected for displaced thresholds).
+ * @returns The navdata cache that fetches from the sim, and the reader of what the sim's navigation data is.
+ */
+function createNavdata(
+  db: WingLogDb,
+  scheduleBackgroundSync: () => void
+): {
+  navdataProvider: SimFacilitiesProvider
+  readNavdataSignature: ReturnType<typeof createNavdataSignatureReader>
+} {
+  const readNavdataSignature = createNavdataSignatureReader(signatureFilesFor(app.isPackaged, process.env))
+  const navdataProvider = new SimFacilitiesProvider(
+    db,
+    undefined,
+    undefined,
+    readNavdataSignature,
+    scheduleBackgroundSync
+  )
+  return { navdataProvider, readNavdataSignature }
+}
+
+/**
  * @param window The main window.
  * @param channel The channel to send on.
  * @param payload What to send.
@@ -377,16 +400,8 @@ function startApp(cloudSession: StoredSession | null): void {
     scheduleBackgroundSync
   )
 
-  // Navdata: its own short-lived SimConnect connection per refresh, separate from the live one (docs/navdata-notes.md). The services that
-  // follow the flight shown (its navdata, taxi line and procedure choice) run here, whichever screen is open.
-  const readNavdataSignature = createNavdataSignatureReader(signatureFilesFor(app.isPackaged, process.env))
-  const navdataProvider = new SimFacilitiesProvider(
-    db,
-    undefined,
-    undefined,
-    readNavdataSignature,
-    scheduleBackgroundSync
-  )
+  // Navdata (its own short-lived SimConnect connection per refresh) and the services that follow the flight shown, whichever screen is open.
+  const { navdataProvider, readNavdataSignature } = createNavdata(db, scheduleBackgroundSync)
   const flightServices = startFlightServices(ipcMain, {
     db,
     sim,
@@ -394,8 +409,7 @@ function startApp(cloudSession: StoredSession | null): void {
     trackingController,
     navdata: navdataProvider,
     onWrite: scheduleBackgroundSync,
-    isClient,
-    hostFlying: isClient ? () => flightMirror.hostTracking() : undefined,
+    client: isClient ? { hostFlying: () => flightMirror.hostTracking() } : undefined,
     traceWorker: isClient ? undefined : createTraceWorkerRunner()
   })
   app.on('before-quit', flightServices.stop)

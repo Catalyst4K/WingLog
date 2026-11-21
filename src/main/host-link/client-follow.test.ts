@@ -124,13 +124,13 @@ describe('showHeldRoute', () => {
   }
 
   it('puts the sim PC’s route in the hub once its flight has synced, and not before', () => {
-    let localId: number | undefined
-    const mirror = new FlightMirror(() => localId)
+    const ids: { local?: number } = {}
+    const mirror = new FlightMirror(() => ids.local)
     const hub = { publish: vi.fn() }
     mapFlightTopic(mirror, 'plannedRoute', route)
     showHeldRoute(mirror, hub)
     expect(hub.publish).not.toHaveBeenCalled()
-    localId = 3
+    ids.local = 3
     showHeldRoute(mirror, hub)
     expect(hub.publish).toHaveBeenCalledWith('plannedRoute', expect.objectContaining({ flightId: 3 }))
     showHeldRoute(mirror, hub)
