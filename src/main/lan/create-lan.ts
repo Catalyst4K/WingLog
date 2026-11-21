@@ -122,16 +122,20 @@ const PROCEDURE_KINDS = ['sid', 'star', 'approach'] as const
 /** The most airports one weather lookup may ask about. */
 const MAX_METAR_CODES = 6
 
+/** The PC's own settings only a twin reads (`twinSettingsQueries`). */
+export interface TwinSettings {
+  /** Whether tracking starts and finishes a flight by itself on this PC. A twin shows both read only; only this PC changes them. */
+  tracking(): TrackingSettings
+  /** The online network chosen on this PC, or null for none. A twin reads it to offer filing on that network; it never changes it. */
+  onlineNetwork(): OnlineNetwork | null
+}
+
 /** The PC's own settings and weather a device's pages read, as lookups. */
 export interface LanLocalData {
   /** The unit and map-language settings, so the page shows figures as the PC does. */
   display(): unknown
   /** Whether GSX Remote and BeyondATC are switched on at the PC (their pages only show then). */
   addOns(): { gsxRemote: boolean; beyondAtc: boolean }
-  /** Whether tracking starts and finishes a flight by itself on this PC. A twin shows both read only; only this PC changes them. */
-  tracking(): TrackingSettings
-  /** The online network chosen on this PC, or null for none. A twin reads it to offer filing on that network; it never changes it. */
-  onlineNetwork(): OnlineNetwork | null
   /** The GSX routines a device may start: the built-ins, then the pilot's own. Read only; editing stays on the PC. */
   routines(): unknown
   /** Current METARs for airport codes. */
@@ -140,6 +144,21 @@ export interface LanLocalData {
   atis(requests: unknown): Promise<unknown>
   /** BeyondATC's ATIS, read fresh. */
   beyondAtcAtis(): Promise<unknown>
+}
+
+/**
+ * The PC's own settings that only a twin reads, to show them (automatic start and finish) or to act on them (which network to file on).
+ * A phone has no use for them and is refused them as if they did not exist (`TWIN_ONLY_QUERIES`). Read only: a twin never changes them.
+ *
+ * @param local The PC's settings.
+ * @returns The queries table.
+ */
+export function twinSettingsQueries(local: TwinSettings): Record<string, (...args: unknown[]) => unknown> {
+  return {
+    'settings.tracking': () => local.tracking(),
+    // Only the network's name: the member numbers stay on the PC.
+    'settings.onlineNetwork': () => ({ network: local.onlineNetwork() })
+  }
 }
 
 /**
@@ -160,9 +179,6 @@ export function lanQueries(
     // Only whether they are on: the host and port stay on the PC.
     'settings.gsxRemote': () => ({ enabled: local.addOns().gsxRemote, host: '', port: 1 }),
     'settings.beyondAtc': () => ({ enabled: local.addOns().beyondAtc, host: '' }),
-    'settings.tracking': () => local.tracking(),
-    // Only the network's name: the member numbers stay on the PC.
-    'settings.onlineNetwork': () => ({ network: local.onlineNetwork() }),
     'gsx.routines': () => local.routines(),
     'weather.metars': (codes) => {
       if (!Array.isArray(codes) || codes.length > MAX_METAR_CODES) throw new Error('Invalid airports')
@@ -323,6 +339,10 @@ export function createLan({
     queries: {
       ...twinSyncQueries(db),
       ...twinFlightQueries(flightControl, onTwinChange),
+      ...twinSettingsQueries({
+        tracking: () => getTrackingSettings(db),
+        onlineNetwork: () => getOnlineNetworkSettings(db).network
+      }),
       ...lanQueries(navdata, {
         display: () => ({
           weightUnit: getWeightUnit(db),
@@ -337,8 +357,6 @@ export function createLan({
           gsxRemote: getGsxRemoteSettings(db).enabled,
           beyondAtc: getBeyondAtcSettings(db).enabled
         }),
-        tracking: () => getTrackingSettings(db),
-        onlineNetwork: () => getOnlineNetworkSettings(db).network,
         routines: () => allRoutines(listOwnRoutines(db).routines, listHiddenBuiltIns(db)),
         metars: (codes) => fetchMetars(codes, userAgent, metarUrl),
         atis: (requests) => atis(requests),

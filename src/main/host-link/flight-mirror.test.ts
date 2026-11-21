@@ -182,19 +182,31 @@ describe('the planned route re-labelled for this computer', () => {
     expect(mapFlightTopic(mirror, 'plannedRoute', route())).toMatchObject({ flightId: 3 })
   })
 
-  it('holds a route back until its flight has synced, then releases it once, re-labelled', () => {
+  it('shows no route (null, not the one before) until its flight has synced, then releases it once, re-labelled', () => {
     let synced = false
     const mirror = new FlightMirror((uuid) => (synced && uuid === UUID ? 3 : undefined))
-    expect(mapFlightTopic(mirror, 'plannedRoute', route())).toBe(HELD_BACK)
+    expect(mapFlightTopic(mirror, 'plannedRoute', route())).toBeNull()
     expect(mirror.releaseHeldRoute()).toBeNull()
     synced = true
     expect(mirror.releaseHeldRoute()).toMatchObject({ flightId: 3, revision: 2 })
     expect(mirror.releaseHeldRoute()).toBeNull()
   })
 
-  it('holds back a route that says no uuid rather than showing it against whatever flight has its id', () => {
-    const mirror = new FlightMirror(() => 3)
-    expect(mapFlightTopic(mirror, 'plannedRoute', route({ flightUuid: undefined }))).toBe(HELD_BACK)
+  it('shows no route for one that says no uuid, or a uuid that is not a text, rather than against whatever flight has its id', () => {
+    const lookups: unknown[] = []
+    const mirror = new FlightMirror((uuid) => {
+      lookups.push(uuid)
+      return 3
+    })
+    expect(mapFlightTopic(mirror, 'plannedRoute', route({ flightUuid: undefined }))).toBeNull()
+    for (const odd of [7, {}, ['u'], true, null]) {
+      expect(
+        mapFlightTopic(mirror, 'plannedRoute', route({ flightUuid: odd as never })),
+        String(odd)
+      ).toBeNull()
+    }
+    // Nothing but a text ever reaches the database lookup.
+    expect(lookups).toEqual([])
   })
 
   it('keeps only the newest route held, and drops it when the sim PC clears its route or the link closes', () => {

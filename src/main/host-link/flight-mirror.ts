@@ -74,7 +74,8 @@ export class FlightMirror {
    * @returns The route for this computer, or null when its flight has not synced here (or the sim PC did not say which flight it is).
    */
   mapRoute(route: PlannedRoute): PlannedRoute | null {
-    const flightId = route.flightUuid ? this.localFlightId(route.flightUuid) : undefined
+    // The uuid is the sim PC's word: only a text is looked up.
+    const flightId = typeof route.flightUuid === 'string' ? this.localFlightId(route.flightUuid) : undefined
     this.heldRoute = flightId === undefined ? route : null
     return flightId === undefined ? null : { ...route, flightId }
   }
@@ -124,7 +125,7 @@ export class FlightMirror {
  * @param mirror The flight the sim PC is tracking, as this computer knows it.
  * @param topic A topic the sim PC published.
  * @param payload Its value.
- * @returns The value for this computer: a point or a planned route with this computer's flight id, or HELD_BACK while that flight has not synced here yet. Other topics as they are, null included.
+ * @returns The value for this computer: a point or a planned route with this computer's flight id (while that flight has not synced here yet, a point is HELD_BACK and a route null). Other topics as they are, null included.
  */
 export function mapFlightTopic(mirror: FlightMirror, topic: string, payload: unknown): unknown {
   if (topic === 'trackingPoint') return mirror.mapPoint(payload as TrackPoint) ?? HELD_BACK
@@ -133,8 +134,9 @@ export function mapFlightTopic(mirror: FlightMirror, topic: string, payload: unk
     return points.length > 0 ? points : HELD_BACK
   }
   // A null is the sim PC clearing the route: it is a value, and drops any route held back.
-  if (topic === 'plannedRoute' && payload !== null)
-    return mirror.mapRoute(payload as PlannedRoute) ?? HELD_BACK
+  // A route whose flight has not synced here is a null in the hub, not the route before it: that one is another flight's, and would be shown
+  // beside this flight's ATC until the next sync. The route comes once the flight has (`releaseHeldRoute`).
+  if (topic === 'plannedRoute' && payload !== null) return mirror.mapRoute(payload as PlannedRoute)
   if (topic === 'plannedRoute') mirror.clearHeldRoute()
   return payload
 }

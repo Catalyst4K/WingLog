@@ -6,7 +6,7 @@ import { emptyProcedureSelection } from '@shared/procedure-selection'
 import { LiveClientContext, type LiveClient } from './live/LiveClient'
 import { useFlightAirlineIata } from './use-flight-airline'
 
-/** This computer's own ids: the flight is 3 here, wherever the sim PC numbers it (445 there). */
+/** This computer's own ids: the flight is 3 here (the sim PC numbers it 445). */
 const LOCAL_FLIGHT_ID = 3
 
 function routeFor(flightId: number): PlannedRoute {
@@ -31,6 +31,8 @@ async function mount(route: PlannedRoute | null) {
   return view.result
 }
 
+// The contract of the hook: it finds the airline of the flight its route names, by the id the route carries, which must be this computer's.
+// A twin's route gets that id in the main process (flight-mirror.test.ts); this does not show that.
 describe('useFlightAirlineIata', () => {
   beforeEach(() => {
     window.winglog = {
@@ -42,11 +44,11 @@ describe('useFlightAirlineIata', () => {
     vi.restoreAllMocks()
   })
 
-  it('finds the airline of the flight a twin’s route names, once the route carries this computer’s id for it', async () => {
+  it('finds the airline of the flight whose id the route carries', async () => {
     expect((await mount(routeFor(LOCAL_FLIGHT_ID))).current).toBe('SQ')
   })
 
-  it('shows no logo for a route that still carries the sim PC’s id, which is no flight here', async () => {
+  it('shows no logo for a route whose id is no flight on this computer', async () => {
     expect((await mount(routeFor(445))).current).toBeNull()
   })
 

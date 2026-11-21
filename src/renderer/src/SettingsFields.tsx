@@ -22,6 +22,7 @@ import { trackingLabels } from './tracking-labels'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useCapabilities } from './app/capabilities-context'
+import { useHostLinkStatus } from './app/use-host-link'
 import { runAsync } from './report-error'
 import { SegmentButton, SegmentedGroup, SettingRow } from './settings/ui/SettingsCard'
 
@@ -264,9 +265,22 @@ export function TrackingFields(): React.JSX.Element {
   const isClient = useCapabilities().runMode === 'client'
   // Undefined until the answer arrives; null when there is none (the sim PC cannot be asked, on a client).
   const [tracking, setTracking] = useState<TrackingSettings | null | undefined>(undefined)
+  // A client asks again whenever the link to the sim PC changes state: asked while it was down, the answer is null until it is up.
+  const linkState = useHostLinkStatus(isClient)?.state
   useEffect(() => {
-    runAsync('SettingsFields settingsGetTracking', winglogApi().settingsGetTracking().then(setTracking))
-  }, [])
+    let current = true
+    runAsync(
+      'SettingsFields settingsGetTracking',
+      winglogApi()
+        .settingsGetTracking()
+        .then((next) => {
+          if (current) setTracking(next)
+        })
+    )
+    return () => {
+      current = false
+    }
+  }, [linkState])
 
   if (isClient) return <SimPcTrackingRows tracking={tracking} />
   const current = tracking ?? { autoStart: true, autoFinish: true }

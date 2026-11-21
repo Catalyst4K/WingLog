@@ -70,6 +70,8 @@ export const TWIN_ONLY_QUERIES: readonly string[] = [
   'sync.push',
   'sync.trackedFlights',
   'sync.trackPoints',
+  'settings.tracking',
+  'settings.onlineNetwork',
   'flight.fly',
   'flight.start',
   'flight.finish',

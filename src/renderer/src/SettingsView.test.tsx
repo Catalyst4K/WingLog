@@ -1,5 +1,5 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { toast } from 'sonner'
 import type {
@@ -351,6 +351,29 @@ describe('SettingsView', () => {
         expect(screen.queryByRole('group', { name: 'Start tracking automatically' })).not.toBeInTheDocument()
         expect(screen.queryByText(/press Start tracking on Track yourself/)).not.toBeInTheDocument()
         expect(winglog.settingsSetTracking).not.toHaveBeenCalled()
+      })
+
+      it('asks again for the sim PC’s automatic start and finish when the link comes up, having asked while it was down', async () => {
+        let linkChanged: (status: unknown) => void = () => undefined
+        const settingsGetTracking = vi
+          .fn()
+          .mockResolvedValueOnce(null)
+          .mockResolvedValue({ autoStart: false, autoFinish: true })
+        setWinglog({
+          appGetCapabilities: vi.fn().mockResolvedValue(CLIENT),
+          hostLinkGetStatus: vi.fn().mockResolvedValue({ state: 'offline', address: null }),
+          onHostLinkStatus: vi.fn((listener: (status: unknown) => void) => {
+            linkChanged = listener
+            return () => undefined
+          }),
+          settingsGetTracking
+        })
+        renderSettings()
+        expect(await screen.findAllByText('Not available right now')).toHaveLength(2)
+        act(() => linkChanged({ state: 'connected', address: '192.168.1.20:5051', hostSim: 'connected' }))
+        await waitFor(() => expect(screen.queryByText('Not available right now')).not.toBeInTheDocument())
+        expect(settingsGetTracking.mock.calls.length).toBeGreaterThanOrEqual(2)
+        expect(screen.getAllByText('On')).not.toHaveLength(0)
       })
 
       it('says the sim PC’s automatic start and finish are not available while it cannot be asked', async () => {
