@@ -12,18 +12,21 @@ import { ProcedureSelectionStore, type ProcedureSelectionStoreDeps } from './Pro
 
 /**
  * @param ipcMain Electron's IPC.
- * @param deps The database, the live hub, tracking and the navdata cache.
+ * @param deps The database, the live hub, tracking and the navdata cache, and what to call after each save (`scheduleBackgroundSync`: the
+ *   choice is a change to the flight's row, which a twin and the cloud must hear of like any other).
  * @returns The store, already looking at the flight shown.
  */
 export function startProcedureSelection(
   ipcMain: IpcMain,
   {
     db,
+    onWrite,
     liveHub,
     trackingController,
     navdata
   }: {
     db: WingLogDb
+    onWrite: () => void
     liveHub: Pick<LiveHub, 'publish' | 'snapshot'>
     trackingController: Pick<TrackingController, 'getActive' | 'on'>
     navdata: ProcedureSelectionStoreDeps['navdata']
@@ -31,7 +34,10 @@ export function startProcedureSelection(
 ): ProcedureSelectionStore {
   const store = new ProcedureSelectionStore({
     shownFlight: () => shownFlight(db, trackingController.getActive()?.flightId),
-    save: (flightId, selection) => setSelectedProcedures(db, flightId, selection),
+    save: (flightId, selection) => {
+      setSelectedProcedures(db, flightId, selection)
+      onWrite()
+    },
     navdata
   })
   store.on('changed', (selection) => liveHub.publish('procedureSelection', selection))

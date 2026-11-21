@@ -380,6 +380,7 @@ function startApp(cloudSession: StoredSession | null): void {
     liveHub,
     trackingController,
     navdata: navdataProvider,
+    onWrite: scheduleBackgroundSync,
     traceWorker: createTraceWorkerRunner()
   })
   app.on('before-quit', flightServices.stop)

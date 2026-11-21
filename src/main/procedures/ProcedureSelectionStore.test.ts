@@ -341,6 +341,46 @@ describe('ProcedureSelectionStore: the suggested approach', () => {
     expect(store.current()?.approachIdent).toBeNull()
   })
 
+  it("keeps an approach set to None on the row by another WingLog (a twin's sync) cleared, and does not suggest one again", () => {
+    // Review finding R1: the row's choice was adopted without the rule that an approach going to None is the pilot clearing it, so the
+    // suggestion picked one again, saved it, and the next sync put it back on the twin.
+    const { db, state, store, flight } = setup()
+    state.approaches.ZJSY = ZJSY
+    const f = flight()
+    state.shownId = f.id
+    store.refresh()
+    expect(store.current()?.approachIdent).toBeTruthy()
+
+    setSelectedProcedures(
+      db,
+      f.id,
+      chosen({ ...store.current(), approachIdent: null, approachTransition: null })
+    )
+    store.refresh()
+
+    expect(store.current()?.approachIdent).toBeNull()
+    expect(getLiveFlight(db, f.id)?.selectedApproachIdent).toBeNull()
+    state.refreshed.forEach((listener) => listener('ZJSY'))
+    expect(store.current()?.approachIdent).toBeNull()
+  })
+
+  it('announces nothing on a refresh after it saved a choice from a screen or a suggestion: the row it wrote is its own', () => {
+    // Review finding R2: without `saved` updated after each save, every later refresh would announce the same choice again.
+    const { state, store, announced, flight } = setup()
+    state.approaches.ZJSY = ZJSY
+    state.shownId = flight().id
+    store.refresh()
+    expect(store.current()?.approachIdent).toBeTruthy()
+    announced.length = 0
+    store.refresh()
+    expect(announced).toEqual([])
+
+    store.set(chosen({ ...store.current(), sidIdent: 'NEWSID' }), 'window')
+    announced.length = 0
+    store.refresh()
+    expect(announced).toEqual([])
+  })
+
   it("treats a switch to the alternate as a new airport, not a cleared approach, and suggests the alternate's", () => {
     const { state, store, flight } = setup()
     state.approaches.ZJSY = ZJSY

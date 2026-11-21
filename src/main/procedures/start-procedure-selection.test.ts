@@ -31,8 +31,10 @@ function setup() {
   const tracking = Object.assign(new EventEmitter(), {
     getActive: () => undefined as { flightId: number } | undefined
   })
+  const onWrite = vi.fn()
   const store = startProcedureSelection(ipc.ipcMain, {
     db,
+    onWrite,
     liveHub: hub,
     trackingController: tracking as never,
     navdata: {
@@ -41,7 +43,7 @@ function setup() {
       onAirportRefreshed: () => () => undefined
     }
   })
-  return { db, aircraftId, flight, hub, published, ipc, tracking, store }
+  return { db, aircraftId, flight, hub, published, ipc, tracking, store, onWrite }
 }
 
 describe('startProcedureSelection', () => {
@@ -58,6 +60,25 @@ describe('startProcedureSelection', () => {
     expect(getFlight(db, flight.id)).toMatchObject({ selectedSidIdent: 'BPK7F', selectedStarIdent: 'UPRS2C' })
     expect(published.at(-1)).toEqual(choice)
     expect(await ipc.invoke(IpcChannels.trackingGetProcedureSelection)).toEqual(choice)
+  })
+
+  it("tells sync the flight was written when it saves a window's choice, so a twin and the cloud hear of it", async () => {
+    // 2026-11-21: a Mac accepted BeyondATC's runway and SID; the save was never reported as a write, so nothing sent it to the sim PC,
+    // and the next sync (a PC write, minutes later) pulled the PC's older row over it.
+    const { ipc, onWrite } = setup()
+    expect(onWrite).not.toHaveBeenCalled()
+    await ipc.invoke(IpcChannels.trackingSetProcedureSelection, {
+      ...emptyProcedureSelection(),
+      departureRunway: '07R',
+      sidIdent: 'PECA3A'
+    })
+    expect(onWrite).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not tell sync when a choice equal to the one held changed nothing', async () => {
+    const { ipc, store, onWrite } = setup()
+    await ipc.invoke(IpcChannels.trackingSetProcedureSelection, store.current())
+    expect(onWrite).not.toHaveBeenCalled()
   })
 
   it('refuses a choice that is not a short-text selection, as it would from a phone', () => {
