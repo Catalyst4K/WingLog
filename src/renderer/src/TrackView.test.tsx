@@ -1496,21 +1496,48 @@ describe('TrackView', () => {
     expect(winglog.trackPointList).toHaveBeenCalledWith(1)
   })
 
-  it('shows the second taxi light, "Taxi in", once the track has a landing after its takeoff', async () => {
+  it('shows "Taxi in" from the first render when the tab opens during the taxi in, before the track has loaded, and never "Taxi out"', async () => {
     setWinglog({
       aircraftList: vi.fn().mockResolvedValue([AIRCRAFT]),
-      flightList: vi.fn().mockResolvedValue([makeFlight({ status: 'active' })]),
-      trackingGetActive: vi.fn().mockResolvedValue({ flightId: 1, phase: 'taxi' }),
-      trackPointList: vi
+      flightList: vi
         .fn()
-        .mockResolvedValue([
-          makeTrackPoint({ id: 1, phase: 'taxi' }),
-          makeTrackPoint({ id: 2, phase: 'takeoff' }),
-          makeTrackPoint({ id: 3, phase: 'landing' }),
-          makeTrackPoint({ id: 4, phase: 'taxi' })
-        ])
+        .mockResolvedValue([makeFlight({ status: 'active', actualOnUtc: '2026-01-01T01:00:00.000Z' })]),
+      trackingGetActive: vi.fn().mockResolvedValue({ flightId: 1, phase: 'taxi' }),
+      // The track never arrives: the strip must not depend on it.
+      trackPointList: vi.fn().mockReturnValue(new Promise(() => {}))
+    })
+    const { container } = renderTrack()
+    const current: string[] = []
+    const note = (): void => {
+      const text = container.querySelector('[data-testid="phase-lights"] [aria-current]')?.textContent
+      if (text && current.at(-1) !== text) current.push(text)
+    }
+    new MutationObserver(note).observe(container, { childList: true, subtree: true, attributes: true })
+    expect(await screen.findByText('Taxi in')).not.toHaveClass('sr-only')
+    note()
+    expect(current).toEqual(['Taxi in'])
+  })
+
+  it('shows "Taxi out" before the first takeoff, and "Taxi in" once the flight is re-read after a landing', async () => {
+    let pointListener: ((point: TrackPoint) => void) | undefined
+    const flightList = vi
+      .fn()
+      .mockResolvedValueOnce([makeFlight({ status: 'active' })])
+      .mockResolvedValue([makeFlight({ status: 'active', actualOnUtc: '2026-01-01T01:00:00.000Z' })])
+    setWinglog({
+      aircraftList: vi.fn().mockResolvedValue([AIRCRAFT]),
+      flightList,
+      trackingGetActive: vi.fn().mockResolvedValue({ flightId: 1, phase: 'taxi' }),
+      onTrackingPoint: vi.fn((listener) => {
+        pointListener = listener
+        return () => {}
+      })
     })
     renderTrack()
+    expect(await screen.findByText('Taxi out')).not.toHaveClass('sr-only')
+    // The touchdown is stored by now; the next phase's point makes the screen read the flight again.
+    pointListener?.(makeTrackPoint({ id: 2, phase: 'landing', flightId: 1 }))
+    pointListener?.(makeTrackPoint({ id: 3, phase: 'taxi', flightId: 1 }))
     expect(await screen.findByText('Taxi in')).not.toHaveClass('sr-only')
     expect(screen.getByText('Taxi out')).toHaveClass('sr-only')
   })

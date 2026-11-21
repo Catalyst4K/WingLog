@@ -26,7 +26,6 @@ import {
 } from '@/track-times'
 import { ProcedureSelector } from '@/ProcedureSelector'
 import { PhaseLights } from '@/track/PhaseLights'
-import { isPastLanding } from '@shared/phase-strip'
 import { PlanMark } from '@/components/PlanMark'
 import { AirlineLogo } from '@/AirlineLogo'
 import { AtcClearanceDialog } from '@/app/AppDialogs'
@@ -322,7 +321,6 @@ function FlightView(props: {
   )
   const transition = useMemo(() => parseTransitionAltitudes(ofpJson), [ofpJson])
   const phase = trackPoints.at(-1)?.phase
-  const pastLanding = useMemo(() => isPastLanding(trackPoints), [trackPoints])
   const times = useFlightTimes({
     route,
     telemetry,
@@ -354,7 +352,6 @@ function FlightView(props: {
         snapshot={snapshot}
         times={times}
         phase={phase}
-        pastLanding={pastLanding}
         simConnected={!simGone}
         unconfirmed={unconfirmed}
       />
@@ -391,7 +388,6 @@ function FlightHeader(props: {
   snapshot: LanFlightSnapshot | null
   times: TrackTimes
   phase: FlightPhase | undefined
-  pastLanding: boolean
   simConnected: boolean
   unconfirmed: boolean
 }): React.JSX.Element {
@@ -411,7 +407,8 @@ function FlightHeader(props: {
           <FlightBanner
             flight={snapshot.flight}
             phase={props.phase}
-            pastLanding={props.pastLanding}
+            // The PC's stored touchdown time (`actualOnUtc`, written at every touchdown), not worked out from the track.
+            pastLanding={snapshot.flight.actualOnUtc != null}
             flightNumber={flightNumber}
           />
           {flightNumber !== null ? (

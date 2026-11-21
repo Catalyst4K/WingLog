@@ -757,7 +757,7 @@
       "cruise": "Reiseflug",
       "descent": "Sinkflug",
       "landing": "Landung",
-      "taxiIn": "Rollen zum Gate",
+      "taxiIn": "Rollen zur Position",
       "shutdown": "Abstellen"
     },
     "times": {

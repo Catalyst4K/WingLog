@@ -43,8 +43,12 @@ function currentIndex(phase: FlightPhase, pastLanding: boolean): number {
  * The flight's phases as a row of dots (winglog-backend docs/plans/v2-design.md, "Track", and the canvas): green for those done, a larger
  * ringed green dot with its name for the one it is in, off for those still to come. The other names are there for a screen reader.
  *
- * @param props The phase the flight is in, and whether it is past its landing (`isPastLanding` in `@shared/phase-strip`), which makes a
- * 'taxi' the second taxi light, "Taxi in".
+ * The strip reads the flight's stored touchdown time (`actualOnUtc`, written by `recordOn` at every touchdown and the same fact resume()
+ * reads as "has landed"), not the track. It is not compared with `actualOffUtc`: that is written once, at the first liftoff, and the phase
+ * machine reaches 'taxi' only before the first takeoff or after a landing, so a touchdown time alone says which taxi it is.
+ *
+ * @param props The phase the flight is in, and whether the flight has a stored touchdown (`actualOnUtc` is set), which makes a 'taxi'
+ * the second taxi light, "Taxi in".
  * @returns The element.
  */
 export function PhaseLights(props: {

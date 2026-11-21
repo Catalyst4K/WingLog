@@ -760,7 +760,7 @@
       "descent": "Descenso",
       "landing": "Aterrizaje",
       "taxiIn": "Rodaje de llegada",
-      "shutdown": "Apagado"
+      "shutdown": "Corte de motores"
     },
     "times": {
       "et": "ET",

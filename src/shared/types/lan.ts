@@ -67,6 +67,8 @@ export interface LanFlight {
   flightNumber: string | null
   /** The scheduled arrival, UTC ISO text, for the ETA when there is no live estimate. */
   schedInUtc: string | null
+  /** When the flight last touched down, UTC ISO text (the flight's `actualOnUtc`); null before any landing. Tells the phase strip "Taxi in" from "Taxi out". */
+  actualOnUtc: string | null
   /** The aircraft's registration and ICAO type, when it is a fleet aircraft. */
   registration: string | null
   icaoType: string | null

@@ -45,7 +45,8 @@ export function lanFlightKey(db: WingLogDb, activeFlightId: number | undefined):
         flight.ofpId,
         flight.flightNumber,
         flight.depIcao,
-        flight.arrIcao
+        flight.arrIcao,
+        flight.actualOnUtc
       ])
     : 'none'
 }
@@ -75,6 +76,7 @@ export function lanFlightSnapshot(
       arrIcao: flight.arrIcao,
       flightNumber: flight.flightNumber,
       schedInUtc: flight.schedInUtc,
+      actualOnUtc: flight.actualOnUtc,
       registration: aircraft?.registration ?? null,
       icaoType: aircraft?.icaoType ?? null,
       operatorIata: aircraft?.operatorIata ?? null,

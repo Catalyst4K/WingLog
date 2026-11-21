@@ -741,13 +741,13 @@
   "trackView": {
     "title": "追蹤",
     "phases": {
-      "pushback": "推出",
+      "pushback": "後推",
       "taxiOut": "滑出",
       "takeoff": "起飛",
       "climb": "爬升",
       "cruise": "巡航",
       "descent": "下降",
-      "landing": "著陸",
+      "landing": "落地",
       "taxiIn": "滑入",
       "shutdown": "關車"
     },
@@ -1020,7 +1020,7 @@
         "cancelled": "流程已取消。",
         "gsxDisconnected": "流程已停止：GSX 已中斷連線。",
         "aircraftMoved": "流程已停止：飛機已移動。",
-        "departure": "流程已停止：已請求推出。",
+        "departure": "流程已停止：已請求後推。",
         "menuFailed": "流程已停止：GSX 選單未能開啟。",
         "gsxHasNoPlan": "流程已停止：GSX 沒有 SimBrief 計畫。請使用「Reload SimBrief」。",
         "noPlannedWeight": "流程已停止：WingLog 沒有此航班的計畫重量。"

@@ -524,6 +524,7 @@ describe('LanApp', () => {
             arrIcao: 'EGLL',
             flightNumber: 'SIA321',
             schedInUtc: null,
+            actualOnUtc: null,
             registration: '9V-SKA',
             icaoType: 'A388',
             ofpJson: OFP
@@ -535,10 +536,26 @@ describe('LanApp', () => {
     expect(screen.getByText('Taxi out')).not.toHaveClass('sr-only')
     expect(screen.getByText('Taxi in')).toHaveClass('sr-only')
 
+    // After the landing the PC sends the flight again with its stored touchdown time.
     act(() => {
-      sockets[0].say({ t: 'topic', name: 'trackingPoint', payload: point(2, 'takeoff') })
-      sockets[0].say({ t: 'topic', name: 'trackingPoint', payload: point(3, 'landing') })
-      sockets[0].say({ t: 'topic', name: 'trackingPoint', payload: point(4, 'taxi') })
+      sockets[0].say({ t: 'topic', name: 'trackingPoint', payload: point(2, 'taxi') })
+      sockets[0].say({
+        t: 'flight',
+        flight: {
+          flight: {
+            flightId: 7,
+            depIcao: 'WSSS',
+            arrIcao: 'EGLL',
+            flightNumber: 'SIA321',
+            schedInUtc: null,
+            actualOnUtc: '2026-01-01T01:00:00.000Z',
+            registration: '9V-SKA',
+            icaoType: 'A388',
+            ofpJson: OFP
+          },
+          trackPoints: [point(1, 'taxi'), point(2, 'taxi')]
+        }
+      })
     })
     expect(screen.getByText('Taxi in')).not.toHaveClass('sr-only')
     expect(screen.getByText('Taxi out')).toHaveClass('sr-only')
