@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { NavdataLeg } from '@shared/ipc'
+import { greatCircleNm } from './geo'
 import {
   applyProcedureSelection,
   approachConnectingToStar,
@@ -392,6 +393,145 @@ describe('applyProcedureSelection', () => {
     expect(end.lat).toBeCloseTo(51.652, 2)
     expect(end.lon).toBeCloseTo(-0.143, 2)
     expect(end.segment).toBe(result.find((w) => w.ident === 'LAM')!.segment)
+  })
+
+  describe('an FD leg (fix to DME), whose distance is measured from its recommended navaid', () => {
+    // Every leg and navaid below is real, read from the sim 2026-11-22 (docs/navdata-notes.md).
+    const MCT = { ident: 'MCT', latitude: 53.357, longitude: -2.2623 }
+    const D051L = { fixIdent: 'D051L', fixLatitude: 53.482408225536346, fixLongitude: -2.002122402191162 }
+    const desi1s = (fd: Partial<NavdataLeg>): ProcedureLegs => ({
+      identifier: 'DESI1S',
+      legs: [
+        leg('DE05L', 231.6, { type: 7, fixLatitude: 53.362355567514896, fixLongitude: -2.2571387887001038 }),
+        leg('D051L', 1219.2, {
+          type: 4,
+          ...D051L,
+          courseDeg: 51,
+          routeDistanceM: 20372,
+          recommendedNavaid: MCT
+        }),
+        leg('D051L', 0, {
+          type: 10,
+          ...D051L,
+          courseDeg: 51,
+          routeDistanceM: 25928,
+          recommendedNavaid: MCT,
+          ...fd
+        }),
+        leg('DESIG', 1524, {
+          fixLatitude: 53.527258448302746,
+          fixLongitude: -1.8926945328712463,
+          courseDeg: 79
+        })
+      ]
+    })
+    const ident = (w: Waypoint): string => w.ident
+
+    it("ends at 14 DME from the Manchester VOR, 2 nm past D051L, not 14 nm along the course from D051L (flight 446's DESI1S 05L)", () => {
+      const route = applyProcedureSelection([], desi1s({}), null, null)
+      expect(route.map(ident)).toEqual(['DE05L', 'D051L', 'D051L', 'MCT/14', 'DESIG'])
+      const d051l = route[1]!
+      const end = route[3]!
+      const desig = route[4]!
+      expect(greatCircleNm(MCTPOINT(), end)).toBeCloseTo(14, 1)
+      expect(greatCircleNm(d051l, end)).toBeCloseTo(2, 0)
+      // Out along the radial, then on to DESIG: nothing is drawn past it and back.
+      expect(greatCircleNm(MCTPOINT(), desig)).toBeGreaterThan(greatCircleNm(MCTPOINT(), end))
+    })
+
+    it('ends short of the fix when the course flies in towards the navaid (ZGOW ILS Y 22, 18 DME from JCS)', () => {
+      const jcs = { ident: 'JCS', latitude: 23.5983, longitude: 116.4117 }
+      const route = applyProcedureSelection([], null, null, {
+        identifier: 'ILS Y 22',
+        legs: [
+          leg('D065U', 0, {
+            type: 10,
+            fixLatitude: 23.76646,
+            fixLongitude: 116.75055,
+            courseDeg: 242,
+            routeDistanceM: 33336,
+            recommendedNavaid: jcs
+          })
+        ]
+      })
+      expect(route.map(ident)).toEqual(['D065U', 'JCS/18'])
+      expect(greatCircleNm({ lat: jcs.latitude, lon: jcs.longitude }, route[1]!)).toBeCloseTo(18, 1)
+      expect(greatCircleNm(route[0]!, route[1]!)).toBeCloseTo(3.2, 0)
+    })
+
+    it('labels a half nautical mile as one (ZSPD ILS Y 16L, 14.5 DME from HSH)', () => {
+      const route = applyProcedureSelection([], null, null, {
+        identifier: 'ILS Y 16L',
+        legs: [
+          leg('NUPLA', 0, {
+            type: 10,
+            fixLatitude: 31.31667,
+            fixLongitude: 121.525,
+            courseDeg: 85,
+            routeDistanceM: 26854,
+            recommendedNavaid: { ident: 'HSH', latitude: 31.3683, longitude: 121.8467 }
+          })
+        ]
+      })
+      expect(route.map(ident)).toEqual(['NUPLA', 'HSH/14.5'])
+    })
+
+    it('measures along the course from the fix when the fix is its own navaid (EGLL OCK, 7 DME)', () => {
+      const ock = { ident: 'OCK', latitude: 51.305, longitude: -0.4472 }
+      const route = applyProcedureSelection([], null, null, {
+        identifier: 'ILS 27R',
+        legs: [
+          leg('OCK', 0, {
+            type: 10,
+            fixType: 'V',
+            fixLatitude: ock.latitude,
+            fixLongitude: ock.longitude,
+            courseDeg: 74,
+            routeDistanceM: 12964,
+            recommendedNavaid: ock
+          })
+        ]
+      })
+      expect(route.map(ident)).toEqual(['OCK', 'OCK/7'])
+      expect(greatCircleNm(route[0]!, route[1]!)).toBeCloseTo(7, 1)
+    })
+
+    it('still plots a VOR-anchored FD leg cached before the navaid was read, as the fix itself', () => {
+      const route = applyProcedureSelection([], null, null, {
+        identifier: 'ILS 27R',
+        legs: [
+          leg('OCK', 0, {
+            type: 10,
+            fixType: 'V',
+            fixLatitude: 51.305,
+            fixLongitude: -0.4472,
+            courseDeg: 74,
+            routeDistanceM: 12964
+          })
+        ]
+      })
+      expect(route.map(ident)).toEqual(['OCK', 'OCK/7'])
+    })
+
+    it('draws no end point for a waypoint-anchored FD leg cached before the navaid was read: nothing says where its DME is from', () => {
+      const route = applyProcedureSelection([], desi1s({ recommendedNavaid: null }), null, null)
+      expect(route.map(ident)).toEqual(['DE05L', 'D051L', 'D051L', 'DESIG'])
+    })
+
+    it('draws no end point when the course never reaches that DME', () => {
+      // D051L is 12 DME out and the course flies further out, so 5 DME is behind it.
+      const route = applyProcedureSelection([], desi1s({ routeDistanceM: 9260 }), null, null)
+      expect(route.map(ident)).toEqual(['DE05L', 'D051L', 'D051L', 'DESIG'])
+    })
+
+    it('draws no end point for a leg that already is at its DME', () => {
+      const route = applyProcedureSelection([], desi1s({ routeDistanceM: 22175 }), null, null)
+      expect(route.map(ident)).toEqual(['DE05L', 'D051L', 'D051L', 'DESIG'])
+    })
+
+    function MCTPOINT(): { lat: number; lon: number } {
+      return { lat: MCT.latitude, lon: MCT.longitude }
+    }
   })
 
   it('joins a STAR to a Visual approach with a straight STAR-end -> join point -> threshold line', () => {

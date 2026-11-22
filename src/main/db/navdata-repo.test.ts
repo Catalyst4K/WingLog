@@ -17,6 +17,7 @@ import {
   listCachedRunways,
   listCachedStands,
   listCachedTaxiSegments,
+  fdLegsLackNavaid,
   replaceAirportNavdata,
   replaceAirportStands,
   replaceAirportTaxiSegments,
@@ -37,6 +38,9 @@ function leg(fixIdent: string, overrides: Partial<ParsedLeg> = {}): ParsedLeg {
     altitude2: 0,
     speedLimit: 250,
     routeDistanceM: 0,
+    originIdent: null,
+    originLatitude: null,
+    originLongitude: null,
     ...overrides
   }
 }
@@ -133,6 +137,50 @@ describe("navdata repo: the sim's displaced thresholds", () => {
     expect(runwaysLackDisplacedThresholds(db, 'EGLL')).toBe(true)
     replaceAirportNavdata(db, 'EGLL', withThresholds(0, 0), '2026-10-17T11:00:00.000Z')
     expect(runwaysLackDisplacedThresholds(db, 'EGLL')).toBe(false)
+  })
+})
+
+describe("navdata repo: an FD leg's recommended navaid", () => {
+  let db: WingLogDb
+
+  beforeEach(() => {
+    const created = createDb(':memory:')
+    migrate(created.db, { migrationsFolder: 'drizzle' })
+    db = created.db
+  })
+
+  // EGCC DESI1S 05L, read from the sim 2026-11-22: D051L is a waypoint and the leg's 14 DME is measured from the Manchester VOR.
+  const MCT = { originIdent: 'MCT', originLatitude: 53.357, originLongitude: -2.2623 }
+  const desi = (fd: Partial<ParsedLeg>): FetchedAirportNavdata =>
+    fetched({
+      icao: 'EGCC',
+      departures: [
+        procedure({
+          name: 'DESI1S',
+          runwayTransitions: [
+            {
+              runwayIdent: '05L',
+              legs: [leg('D051L', { type: 10, courseDeg: 51, routeDistanceM: 25928, ...fd }), leg('DESIG')]
+            }
+          ]
+        })
+      ]
+    })
+
+  it('stores the navaid and reads it back with its position', () => {
+    replaceAirportNavdata(db, 'EGCC', desi(MCT), '2026-11-22T12:00:00.000Z')
+    const legs = listCachedProcedureLegs(db, 'EGCC', 'sid', 'DESI1S', '05L', null)
+    expect(legs[0]!.recommendedNavaid).toEqual({ ident: 'MCT', latitude: 53.357, longitude: -2.2623 })
+    expect(legs[1]!.recommendedNavaid).toBeNull()
+  })
+
+  it('wants an airport fetched again while any FD leg lacks its navaid, and not once every one has it or none is cached', () => {
+    expect(fdLegsLackNavaid(db, 'EGCC')).toBe(false)
+    replaceAirportNavdata(db, 'EGCC', desi({}), '2026-11-22T12:00:00.000Z')
+    expect(fdLegsLackNavaid(db, 'EGCC')).toBe(true)
+    expect(fdLegsLackNavaid(db, 'EGLL')).toBe(false)
+    replaceAirportNavdata(db, 'EGCC', desi(MCT), '2026-11-22T13:00:00.000Z')
+    expect(fdLegsLackNavaid(db, 'EGCC')).toBe(false)
   })
 })
 

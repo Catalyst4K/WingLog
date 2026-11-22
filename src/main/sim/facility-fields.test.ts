@@ -202,6 +202,9 @@ describe('parseLeg', () => {
       routeDistanceM: number
       type: number
       courseDeg: number
+      originIcao: string
+      originLatitude: number
+      originLongitude: number
     }> = {}
   ): RawBuffer {
     return buffer((w) => {
@@ -216,6 +219,9 @@ describe('parseLeg', () => {
       w.writeFloat32(4000)
       w.writeFloat32(250)
       w.writeFloat32(overrides.routeDistanceM ?? 0)
+      w.writeString8(overrides.originIcao ?? '')
+      w.writeFloat64(overrides.originLatitude ?? 0)
+      w.writeFloat64(overrides.originLongitude ?? 0)
     })
   }
 
@@ -232,8 +238,39 @@ describe('parseLeg', () => {
       altitude1: 6000,
       altitude2: 4000,
       speedLimit: 250,
-      routeDistanceM: 0
+      routeDistanceM: 0,
+      originIdent: null,
+      originLatitude: null,
+      originLongitude: null
     })
+  })
+
+  it("reads an FD leg's recommended navaid — EGCC DESI1S 05L's D051L leg, read from the sim 2026-11-22", () => {
+    const leg = parseLeg(
+      legBuffer({
+        type: 10,
+        fixIcao: 'D051L',
+        courseDeg: 51,
+        routeDistanceM: 25928,
+        originIcao: 'MCT',
+        originLatitude: 53.357,
+        originLongitude: -2.2623
+      })
+    )
+    expect(leg.originIdent).toBe('MCT')
+    expect(leg.originLatitude).toBe(53.357)
+    expect(leg.originLongitude).toBe(-2.2623)
+    expect(leg.routeDistanceM).toBe(25928) // 14 nm of DME from MCT, not from D051L
+  })
+
+  it('has no navaid when the sim names none, or names one with no position', () => {
+    expect(parseLeg(legBuffer({ originLatitude: 53.357, originLongitude: -2.2623 })).originIdent).toBeNull()
+    const unplaced = parseLeg(legBuffer({ originIcao: 'MCT' }))
+    expect([unplaced.originIdent, unplaced.originLatitude, unplaced.originLongitude]).toEqual([
+      null,
+      null,
+      null
+    ])
   })
 
   it("reads ROUTE_DISTANCE (metres) — EGLL ILS 27R's LAM transition FC leg, confirmed live 2026-09-18", () => {

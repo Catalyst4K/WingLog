@@ -2,7 +2,7 @@
 
 import type { NavdataLeg, NavdataProcedureOption, ProcedureSelection } from './ipc'
 import { isVisualApproach } from './visual-approach'
-import { destinationPoint, isPlacedPosition, METRES_PER_NM, wrapLongitude } from './geo'
+import { destinationPoint, isPlacedPosition, METRES_PER_NM, offsetFrom, wrapLongitude } from './geo'
 import { navlogFixes, parseRouteFromOfpJson } from './ofp-route'
 
 /**
@@ -215,9 +215,21 @@ export interface ProcedureLegs {
   legs: NavdataLeg[]
 }
 
-/** FC (fix to distance) and FD (fix to DME): ARINC 424 leg types 9 and 10 in the sim's Facilities data. Their fix is the
- *  navaid the leg is anchored to; the leg *ends* a ROUTE_DISTANCE along COURSE from it (docs/navdata-notes.md). */
-const DISTANCE_TERMINATED_LEG_TYPES = new Set([9, 10])
+/** FC (fix to distance): ARINC 424 leg type 9 in the sim's Facilities data. Its fix is the navaid the leg is anchored to, and
+ *  the leg ends a ROUTE_DISTANCE along COURSE from it (docs/navdata-notes.md). */
+const FC_LEG_TYPE = 9
+
+/** FD (fix to DME): leg type 10. The leg starts at its fix, flies COURSE, and ends where it reaches ROUTE_DISTANCE of DME from
+ *  the leg's recommended navaid. That navaid is the fix itself when the fix is a navaid (EGLL's OCK), and another one when the
+ *  fix is a waypoint (Manchester's D051L, measured from the Manchester VOR), so the distance is not always along the course
+ *  from the fix. */
+export const FD_LEG_TYPE = 10
+
+/** How far an end point must lie from its fix to be worth drawing, metres. */
+const MIN_LEG_END_M = 100
+
+/** Fix types that are navaids: an FD leg anchored on one is measured from it. */
+const NAVAID_FIX_TYPES = new Set(['V', 'N'])
 
 /**
  * Great-circle destination point. COURSE is treated as a true bearing although the sim
@@ -241,6 +253,80 @@ function legEnd(
 }
 
 /**
+ * How far along a course from a fix it first reaches a given distance from a navaid: where a line meets a circle.
+ *
+ * @param fix Where the leg starts.
+ * @param courseDeg The leg's course, degrees.
+ * @param navaid The circle's centre.
+ * @param radiusM The circle's radius, metres.
+ * @returns Metres from the fix along the course to the nearest crossing ahead of it, or null if the course never reaches the
+ *   distance.
+ */
+function distanceToCircleAlongCourse(
+  fix: { lat: number; lon: number },
+  courseDeg: number,
+  navaid: { lat: number; lon: number },
+  radiusM: number
+): number | null {
+  const { eastM, northM } = offsetFrom(navaid, fix)
+  const courseRad = (courseDeg * Math.PI) / 180
+  const ahead = eastM * Math.sin(courseRad) + northM * Math.cos(courseRad)
+  const discriminant = ahead * ahead - (eastM * eastM + northM * northM - radiusM * radiusM)
+  if (discriminant < 0) return null
+  const root = Math.sqrt(discriminant)
+  const nearer = -ahead - root
+  const farther = -ahead + root
+  if (nearer >= 0) return nearer
+  return farther >= 0 ? farther : null
+}
+
+/**
+ * The navaid an FD leg's DME is measured from. A leg cached before the navaid was read has none: if its fix is itself a VOR or
+ * NDB that is the navaid (every such leg the sim gave named the fix as its own navaid), and if its fix is a waypoint nothing
+ * says which navaid it is, so there is none.
+ *
+ * @param leg An FD leg.
+ * @returns The navaid, or null if it can't be known.
+ */
+function fdLegNavaid(leg: NavdataLeg): { ident: string; lat: number; lon: number } | null {
+  const navaid = leg.recommendedNavaid
+  if (navaid) return { ident: navaid.ident, lat: navaid.latitude, lon: navaid.longitude }
+  if (leg.fixIdent !== null && leg.fixType !== null && NAVAID_FIX_TYPES.has(leg.fixType)) {
+    return { ident: leg.fixIdent, lat: leg.fixLatitude, lon: leg.fixLongitude }
+  }
+  return null
+}
+
+/**
+ * The point a distance-terminated leg ends at, labelled as the FMC does ("LAM/11", "MCT/14"): an FC leg's, along its course from
+ * its fix, and an FD leg's, where its course reaches its DME distance from its navaid.
+ *
+ * @param leg A leg that starts at a placed fix.
+ * @returns The end point, or null when the leg isn't distance-terminated or its end can't be placed.
+ */
+function distanceLegEnd(leg: NavdataLeg): { ident: string; lat: number; lon: number } | null {
+  if (leg.routeDistanceM <= 0 || leg.fixIdent === null) return null
+  const label = (ident: string): string =>
+    `${ident}/${Number((leg.routeDistanceM / METRES_PER_NM).toFixed(1))}`
+  if (leg.type === FC_LEG_TYPE) {
+    const end = legEnd(leg.fixLatitude, leg.fixLongitude, leg.courseDeg, leg.routeDistanceM)
+    return { ident: label(leg.fixIdent), ...end }
+  }
+  if (leg.type !== FD_LEG_TYPE) return null
+  const navaid = fdLegNavaid(leg)
+  if (navaid === null) return null
+  const alongM = distanceToCircleAlongCourse(
+    { lat: leg.fixLatitude, lon: leg.fixLongitude },
+    leg.courseDeg,
+    navaid,
+    leg.routeDistanceM
+  )
+  if (alongM === null || alongM < MIN_LEG_END_M) return null
+  const end = legEnd(leg.fixLatitude, leg.fixLongitude, leg.courseDeg, alongM)
+  return { ident: label(navaid.ident), ...end }
+}
+
+/**
  * Turns a procedure's legs into route waypoints, skipping legs that name no fix, or a fix with no position (one cached before
  * `refreshAirport` refused them would otherwise be drawn at 0,0, off West Africa).
  *
@@ -257,17 +343,11 @@ function legsToWaypoints(legs: NavdataLeg[], segment: RouteSegment): Waypoint[] 
     // altitude constraint already reads (parseWaypointsFromOfpJson's `?? 0`).
     const altitudeFt = leg.altitude1 > 0 ? leg.altitude1 : 0
     waypoints.push({ ident: leg.fixIdent, lon: leg.fixLongitude, lat: leg.fixLatitude, altitudeFt, segment })
-    if (DISTANCE_TERMINATED_LEG_TYPES.has(leg.type) && leg.routeDistanceM > 0) {
-      // The point the FMC labels "<navaid>/<nm>" (e.g. LAM/11) — otherwise the map only ever
-      // showed the navaid itself and the aircraft flew on to a point it never drew.
-      const end = legEnd(leg.fixLatitude, leg.fixLongitude, leg.courseDeg, leg.routeDistanceM)
-      waypoints.push({
-        ident: `${leg.fixIdent}/${Math.round(leg.routeDistanceM / METRES_PER_NM)}`,
-        lon: end.lon,
-        lat: end.lat,
-        altitudeFt,
-        segment
-      })
+    // The point the FMC labels "<navaid>/<nm>" (e.g. LAM/11) — otherwise the map only ever showed the fix itself and the
+    // aircraft flew on to a point it never drew.
+    const end = distanceLegEnd(leg)
+    if (end !== null) {
+      waypoints.push({ ident: end.ident, lon: end.lon, lat: end.lat, altitudeFt, segment })
     }
   }
   return waypoints
