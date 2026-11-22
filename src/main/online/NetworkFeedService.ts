@@ -290,6 +290,16 @@ export class NetworkFeedService {
     }
   }
 
+  /**
+   * Call when the sim connects or disconnects: where the traffic is centred changes, so the map is redrawn from the feed held at once
+   * (the whole network when the sim has gone, around the aircraft when it is back) instead of at the next read.
+   */
+  onSimStatusChanged(): void {
+    if (this.stopped) return
+    this.updateStatus()
+    if (this.lastState === 'shown' && this.snapshot) this.publishTraffic()
+  }
+
   /** @returns Which layers draw now. */
   private layers(): TrafficLayers {
     const settings = this.deps.settings()

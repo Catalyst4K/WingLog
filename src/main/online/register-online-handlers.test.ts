@@ -27,7 +27,10 @@ const busy = readFileSync(join(__dirname, '__fixtures__', 'vatsim-busy.json'), '
 describe('online network handlers', () => {
   let db: WingLogDb
   let liveHub: LiveHub
-  let sim: EventEmitter & { getLastTelemetry: () => SimTelemetry | undefined }
+  let sim: EventEmitter & {
+    getLastTelemetry: () => SimTelemetry | undefined
+    getStatus: () => { state: string }
+  }
   let tracking: EventEmitter & { getActive: () => { flightId: number } | undefined }
   let fetchMock: ReturnType<typeof vi.fn>
   let stop: (() => void) | undefined
@@ -56,7 +59,8 @@ describe('online network handlers', () => {
     migrate(db, { migrationsFolder: 'drizzle' })
     liveHub = new LiveHub()
     sim = Object.assign(new EventEmitter(), {
-      getLastTelemetry: () => ({ latitude: 51.4706, longitude: -0.4619 }) as SimTelemetry
+      getLastTelemetry: () => ({ latitude: 51.4706, longitude: -0.4619 }) as SimTelemetry,
+      getStatus: () => ({ state: 'connected' })
     })
     tracking = Object.assign(new EventEmitter(), { getActive: () => undefined })
     fetchMock = vi.fn(() => Promise.resolve(new Response(busy, { status: 200 })))

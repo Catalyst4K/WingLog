@@ -7,7 +7,7 @@
  * the settings are **queries**. Saving the settings restarts the feed service's decisions at once.
  */
 import type { IpcMain } from 'electron'
-import { IpcChannels, type AtisAnswer, type BeyondAtcAtisList } from '@shared/ipc'
+import { IpcChannels, type AtisAnswer, type BeyondAtcAtisList, type SimTelemetry } from '@shared/ipc'
 import type { LatLon } from '@shared/geo'
 import { getAirportCoords } from '../airports/airport-search'
 import type { AreaData } from './atc-areas'
@@ -39,7 +39,7 @@ import {
 export interface OnlineHandlerDeps {
   db: WingLogDb
   liveHub: Pick<LiveHub, 'publish' | 'snapshot'>
-  sim: Pick<SimConnectSource, 'on' | 'getLastTelemetry'>
+  sim: Pick<SimConnectSource, 'on' | 'getLastTelemetry' | 'getStatus'>
   trackingController: Pick<TrackingController, 'on' | 'getActive'>
   /** The app's version, for the User-Agent. */
   appVersion: string
@@ -56,15 +56,24 @@ export interface OnlineHandlerDeps {
 /**
  * @param deps The database, sim, tracking and live hub.
  * @returns A function giving where to centre the traffic: the aircraft's position while the sim is connected, otherwise the departure
- *   airport of the flight shown, otherwise null.
+ *   airport of the flight shown, otherwise null (the whole network).
  */
 function centreOf(deps: Pick<OnlineHandlerDeps, 'db' | 'sim' | 'trackingController'>): () => LatLon | null {
   return () => {
-    const telemetry = deps.sim.getLastTelemetry()
+    const telemetry = simTelemetryNow(deps.sim)
     if (telemetry) return { lat: telemetry.latitude, lon: telemetry.longitude }
     const flight = shownFlightOf(deps.db, deps.trackingController.getActive()?.flightId)
     return flight?.depIcao ? getAirportCoords(flight.depIcao) : null
   }
+}
+
+/**
+ * @param sim The sim connection.
+ * @returns The latest tick while the sim is connected, otherwise undefined: the service keeps the last tick after the connection drops,
+ *   and it is where the last flight ended, not where the aircraft is.
+ */
+function simTelemetryNow(sim: Pick<SimConnectSource, 'getLastTelemetry' | 'getStatus'>): SimTelemetry | undefined {
+  return sim.getStatus().state === 'connected' ? sim.getLastTelemetry() : undefined
 }
 
 /**
@@ -120,12 +129,24 @@ export function registerOnlineHandlers(
     airportAt: getAirportCoords,
     centre: centreOf(deps),
     trackedFlight: () => trackedFlightOf(deps),
-    isAirborne: () => sim.getLastTelemetry()?.onGround === false,
+    isAirborne: () => simTelemetryNow(sim)?.onGround === false,
     pretendCallsign: () => (deps.isDevBuild ? getPretendCallsign(db) : null),
     onLayers: (layers) => simTraffic.setWanted(layers.drawSim),
     log: logger
   })
-  sim.on('telemetry', () => service.onPositionChanged())
+  // A connection that comes up still holds the last flight's tick until its first one arrives: republish on that tick, not before.
+  let republishOnNextTick = false
+  sim.on('status', (status) => {
+    if (status.state === 'connected') republishOnNextTick = true
+    else service.onSimStatusChanged()
+  })
+  sim.on('telemetry', () => {
+    service.onPositionChanged()
+    if (republishOnNextTick) {
+      republishOnNextTick = false
+      service.onSimStatusChanged()
+    }
+  })
   trackingController.on('started', () => {
     service.resetOnlineSeen()
     service.refresh()
