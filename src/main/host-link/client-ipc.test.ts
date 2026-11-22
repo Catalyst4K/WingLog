@@ -248,6 +248,19 @@ describe('a client IPC handlers', () => {
     expect(await ipc.invoke(IpcChannels.settingsGetTracking)).toEqual({ autoStart: true, autoFinish: true })
   })
 
+  it('refuses to answer one channel twice, which would leave it with no handler', () => {
+    const ipc = fakeIpc()
+    const handled = new HandledChannels()
+    handled.claimed.add(IpcChannels.settingsGetTracking)
+    expect(() =>
+      registerHostLinkHandlers(ipc.ipcMain, {
+        link: { query: vi.fn() } as unknown as HostLink,
+        hub: new LiveHub(),
+        handled
+      })
+    ).toThrow(/registered twice/)
+  })
+
   it('asks the sim PC for runways, procedures, the taxi chart and stands, with the arguments the screen gave', async () => {
     const { invoke, link } = setup()
     link.query.mockResolvedValue([{ ident: '07L' }])

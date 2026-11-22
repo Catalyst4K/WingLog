@@ -31,7 +31,11 @@ describe('a client registers its handlers in any order', () => {
   function start() {
     const ipc = fakeIpc()
     const handled = trackHandledChannels(ipc.ipcMain)
-    const link = { query: vi.fn().mockResolvedValue(SIM_PC_TRACKING) }
+    const link = {
+      query: vi.fn().mockResolvedValue(SIM_PC_TRACKING),
+      command: vi.fn(),
+      commandAfterSync: vi.fn()
+    }
     const settings = () =>
       registerSettingsHandlers(ipc.ipcMain, {
         db,
@@ -69,15 +73,13 @@ describe('a client registers its handlers in any order', () => {
     const notLocal: string[] = [
       IpcChannels.hostLinkGetStatus,
       IpcChannels.hostLinkPair,
-      IpcChannels.hostLinkForget,
-      IpcChannels.settingsGetGsxRemote,
-      IpcChannels.settingsGetBeyondAtc
+      IpcChannels.hostLinkForget
     ]
     const everyChannel = Object.values(IpcChannels).filter((channel) => !notLocal.includes(channel))
     for (const localFirst of [true, false]) {
-      const { ipc, client } = start()
+      const { ipc, handled, client } = start()
       const local = () => {
-        for (const channel of everyChannel) if (!ipc.has(channel)) ipc.ipcMain.handle(channel, () => 'local')
+        for (const channel of everyChannel) ipc.ipcMain.handle(channel, () => 'local')
       }
       if (localFirst) local()
       expect(client).not.toThrow()
@@ -85,12 +87,13 @@ describe('a client registers its handlers in any order', () => {
       // The sim PC's lookup answers, never the local `'local'` stand-in, and none of the channels it took over lost its handler.
       expect(await ipc.invoke(IpcChannels.settingsGetTracking)).toEqual(SIM_PC_TRACKING)
       expect(await ipc.invoke(IpcChannels.trafficLayersGet)).not.toBe('local')
-      for (const channel of [
-        IpcChannels.navdataListRunways,
-        IpcChannels.trafficSetAtcOn,
-        IpcChannels.gsxRoutineStart
-      ])
+      // Every channel the link claimed still has a handler and it is the link's, in both orders.
+      expect(handled.claimed.size).toBeGreaterThan(50)
+      for (const channel of handled.claimed) {
         expect(ipc.has(channel)).toBe(true)
+        const answer = await (async () => ipc.invoke(channel))().catch(() => 'the link threw')
+        expect(answer, channel).not.toBe('local')
+      }
     }
   })
 

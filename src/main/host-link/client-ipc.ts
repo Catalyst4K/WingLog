@@ -204,13 +204,6 @@ export function registerHostLinkHandlers(
     }
   )
   ipcMain.handle(IpcChannels.hostLinkForget, () => link.forget())
-  // The add-ons run on the sim PC, so whether they are on is its setting: a client asks it, and reads them as off while it cannot.
-  ipcMain.handle(IpcChannels.settingsGetGsxRemote, () =>
-    link.query('settings.gsxRemote').catch(() => ADD_ON_OFF.gsxRemote)
-  )
-  ipcMain.handle(IpcChannels.settingsGetBeyondAtc, () =>
-    link.query('settings.beyondAtc').catch(() => ADD_ON_OFF.beyondAtc)
-  )
   const taken: string[] = []
   const answer = (channel: string, reply: (...args: unknown[]) => unknown): void => {
     // A channel answered twice would lose its handler (the second is left out as a local one would be), so it is refused where it is written.
@@ -225,6 +218,13 @@ export function registerHostLinkHandlers(
     // From here on a local service that registers the channel is left out (client-mode.ts), whichever of them starts first.
     handled.claimed.add(channel)
   }
+  // The add-ons run on the sim PC, so whether they are on is its setting: a client asks it, and reads them as off while it cannot.
+  answer(IpcChannels.settingsGetGsxRemote, () =>
+    link.query('settings.gsxRemote').catch(() => ADD_ON_OFF.gsxRemote)
+  )
+  answer(IpcChannels.settingsGetBeyondAtc, () =>
+    link.query('settings.beyondAtc').catch(() => ADD_ON_OFF.beyondAtc)
+  )
   // Which network to file on is the sim PC's choice, read here and never changed from here. Nothing but its name is asked for: the member
   // numbers stay on the sim PC, and the rest read as they do on a client with nothing chosen.
   answer(IpcChannels.settingsGetOnlineNetwork, () =>
