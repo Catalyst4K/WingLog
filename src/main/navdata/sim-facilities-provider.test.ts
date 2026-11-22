@@ -7,6 +7,7 @@ import {
   listCachedRunways,
   listCachedTaxiSegments
 } from '../db/navdata-repo'
+import { navdataProcedureLeg } from '../db/schema'
 import type { ParsedLeg } from '../sim/facility-fields'
 import type { FetchedAirportNavdata, FetchedTaxiNetwork } from './sim-facilities-fetch'
 import { SimFacilitiesProvider, unplacedFixes, type OpenSimConnect } from './sim-facilities-provider'
@@ -110,7 +111,10 @@ describe('SimFacilitiesProvider', () => {
       originLatitude: originIdent === null ? null : 53.357,
       originLongitude: originIdent === null ? null : -2.2623
     })
-    const cachedWith = async (originIdent: string | null): Promise<SimFacilitiesProvider> => {
+    const cachedWith = async (
+      originIdent: string | null,
+      cachedBeforeNavaidsWereRead = false
+    ): Promise<SimFacilitiesProvider> => {
       const { fetchAirportNavdata } = await import('./sim-facilities-fetch')
       vi.mocked(fetchAirportNavdata).mockResolvedValue({
         ...FETCHED,
@@ -128,15 +132,28 @@ describe('SimFacilitiesProvider', () => {
       })
       const provider = new SimFacilitiesProvider(db, openSimConnect)
       await provider.refreshAirport('EGCC')
+      if (cachedBeforeNavaidsWereRead) {
+        db.update(navdataProcedureLeg)
+          .set({ originIdent: null, originLatitude: null, originLongitude: null })
+          .run()
+      }
       vi.mocked(fetchAirportNavdata).mockClear()
       return provider
     }
 
     it('fetches it again in the background, whatever the cycle, the next time it is used', async () => {
       const { fetchAirportNavdata } = await import('./sim-facilities-fetch')
-      const provider = await cachedWith(null)
+      const provider = await cachedWith(null, true)
       provider.listSids('EGCC')
       await vi.waitFor(() => expect(fetchAirportNavdata).toHaveBeenCalledTimes(1))
+    })
+
+    it('leaves it alone when the sim named no navaid for them: it was read, and there is none', async () => {
+      const { fetchAirportNavdata } = await import('./sim-facilities-fetch')
+      const provider = await cachedWith(null)
+      provider.listSids('EGCC')
+      await new Promise((resolve) => setTimeout(resolve, 20))
+      expect(fetchAirportNavdata).not.toHaveBeenCalled()
     })
 
     it('leaves it alone once its FD legs have theirs', async () => {

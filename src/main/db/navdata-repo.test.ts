@@ -23,7 +23,7 @@ import {
   replaceAirportTaxiSegments,
   runwaysLackDisplacedThresholds
 } from './navdata-repo'
-import { navdataTaxiSegment } from './schema'
+import { navdataProcedureLeg, navdataTaxiSegment } from './schema'
 
 function leg(fixIdent: string, overrides: Partial<ParsedLeg> = {}): ParsedLeg {
   return {
@@ -149,7 +149,7 @@ describe("navdata repo: an FD leg's recommended navaid", () => {
     db = created.db
   })
 
-  // EGCC DESI1S 05L, read from the sim 2026-11-22: D051L is a waypoint and the leg's 14 DME is measured from the Manchester VOR.
+  // EGCC DESI1S 05L, as the sim gives it (docs/navdata-notes.md): D051L is a waypoint and the leg's 14 DME is measured from the Manchester VOR.
   const MCT = { originIdent: 'MCT', originLatitude: 53.357, originLongitude: -2.2623 }
   const desi = (fd: Partial<ParsedLeg>): FetchedAirportNavdata =>
     fetched({
@@ -174,13 +174,23 @@ describe("navdata repo: an FD leg's recommended navaid", () => {
     expect(legs[1]!.recommendedNavaid).toBeNull()
   })
 
-  it('wants an airport fetched again while any FD leg lacks its navaid, and not once every one has it or none is cached', () => {
+  it('wants an airport fetched again while a cached FD leg was never read for its navaid, and not otherwise', () => {
     expect(fdLegsLackNavaid(db, 'EGCC')).toBe(false)
-    replaceAirportNavdata(db, 'EGCC', desi({}), '2026-11-22T12:00:00.000Z')
-    expect(fdLegsLackNavaid(db, 'EGCC')).toBe(true)
+    replaceAirportNavdata(db, 'EGCC', desi(MCT), '2026-11-22T12:00:00.000Z')
+    expect(fdLegsLackNavaid(db, 'EGCC')).toBe(false)
     expect(fdLegsLackNavaid(db, 'EGLL')).toBe(false)
-    replaceAirportNavdata(db, 'EGCC', desi(MCT), '2026-11-22T13:00:00.000Z')
+    // A row cached before the columns existed.
+    db.update(navdataProcedureLeg)
+      .set({ originIdent: null, originLatitude: null, originLongitude: null })
+      .run()
+    expect(fdLegsLackNavaid(db, 'EGCC')).toBe(true)
+  })
+
+  it('does not want it fetched again when the sim named no navaid: the fetch did read it, and has none to give', () => {
+    replaceAirportNavdata(db, 'EGCC', desi({}), '2026-11-22T12:00:00.000Z')
     expect(fdLegsLackNavaid(db, 'EGCC')).toBe(false)
+    const legs = listCachedProcedureLegs(db, 'EGCC', 'sid', 'DESI1S', '05L', null)
+    expect(legs[0]!.recommendedNavaid).toBeNull()
   })
 })
 

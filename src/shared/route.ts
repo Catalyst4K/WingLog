@@ -268,7 +268,9 @@ function distanceToCircleAlongCourse(
   navaid: { lat: number; lon: number },
   radiusM: number
 ): number | null {
-  const { eastM, northM } = offsetFrom(navaid, fix)
+  // The fix's longitude as the short way round from the navaid's, so a pair either side of the date line is close.
+  const nearFix = { lat: fix.lat, lon: navaid.lon + wrapLongitude(fix.lon - navaid.lon) }
+  const { eastM, northM } = offsetFrom(navaid, nearFix)
   const courseRad = (courseDeg * Math.PI) / 180
   const ahead = eastM * Math.sin(courseRad) + northM * Math.cos(courseRad)
   const discriminant = ahead * ahead - (eastM * eastM + northM * northM - radiusM * radiusM)

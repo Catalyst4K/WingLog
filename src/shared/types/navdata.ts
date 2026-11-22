@@ -58,7 +58,6 @@ export interface NavdataLeg {
   altitude1: number
   altitude2: number
   speedLimit: number
-  /** Metres along `courseDeg` from `fixIdent` — FC/FD legs only, 0 otherwise. */
   /** Metres: FC, along `courseDeg` from `fixIdent`; FD, the DME distance from `recommendedNavaid` (the fix itself when it is a
    *  navaid); 0 for other leg types. */
   routeDistanceM: number

@@ -493,11 +493,11 @@ export const navdataProcedureLeg = sqliteTable(
     altitude1: real('altitude1').notNull(),
     altitude2: real('altitude2').notNull(),
     speedLimit: real('speed_limit').notNull(),
-    // Metres; only set for FC/FD legs (see ParsedLeg.routeDistanceM). Default 0 covers legs
-    // cached before this column existed — they read as "no distance known" until refreshed.
+    // Metres; set on FC, FD, TF and CF legs (see ParsedLeg.routeDistanceM). Default 0 covers legs cached before this column
+    // existed — they read as "no distance known" until refreshed.
     routeDistanceM: real('route_distance_m').notNull().default(0),
     // The leg's recommended navaid (ParsedLeg.originIdent), which an FD leg's DME is measured from. Null on legs cached before
-    // these columns existed, and where the sim names none: both read as "no navaid known" until refreshed.
+    // these columns existed, which are fetched again (fdLegsLackNavaid); empty where the sim names none.
     originIdent: text('origin_ident'),
     originLatitude: real('origin_latitude'),
     originLongitude: real('origin_longitude')

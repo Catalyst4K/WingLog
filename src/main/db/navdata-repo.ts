@@ -149,7 +149,8 @@ function legInserter(
         altitude2: leg.altitude2,
         speedLimit: leg.speedLimit,
         routeDistanceM: leg.routeDistanceM,
-        originIdent: leg.originIdent,
+        // Empty when the sim names none, so that "read, none" differs from the null of a row cached before it was read.
+        originIdent: leg.originIdent ?? '',
         originLatitude: leg.originLatitude,
         originLongitude: leg.originLongitude
       })
@@ -419,7 +420,10 @@ function toNavdataLeg(row: typeof navdataProcedureLeg.$inferSelect): NavdataLeg 
     speedLimit: row.speedLimit,
     routeDistanceM: row.routeDistanceM,
     recommendedNavaid:
-      row.originIdent !== null && row.originLatitude !== null && row.originLongitude !== null
+      row.originIdent !== null &&
+      row.originIdent !== '' &&
+      row.originLatitude !== null &&
+      row.originLongitude !== null
         ? { ident: row.originIdent, latitude: row.originLatitude, longitude: row.originLongitude }
         : null
   }

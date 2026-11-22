@@ -245,7 +245,7 @@ describe('parseLeg', () => {
     })
   })
 
-  it("reads an FD leg's recommended navaid — EGCC DESI1S 05L's D051L leg, read from the sim 2026-11-22", () => {
+  it("reads an FD leg's recommended navaid — EGCC DESI1S 05L's D051L leg, as the sim gives it", () => {
     const leg = parseLeg(
       legBuffer({
         type: 10,

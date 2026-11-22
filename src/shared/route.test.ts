@@ -396,7 +396,7 @@ describe('applyProcedureSelection', () => {
   })
 
   describe('an FD leg (fix to DME), whose distance is measured from its recommended navaid', () => {
-    // Every leg and navaid below is real, read from the sim 2026-11-22 (docs/navdata-notes.md).
+    // Every leg and navaid below is real, read from the sim (docs/navdata-notes.md).
     const MCT = { ident: 'MCT', latitude: 53.357, longitude: -2.2623 }
     const D051L = { fixIdent: 'D051L', fixLatitude: 53.482408225536346, fixLongitude: -2.002122402191162 }
     const desi1s = (fd: Partial<NavdataLeg>): ProcedureLegs => ({
@@ -427,7 +427,7 @@ describe('applyProcedureSelection', () => {
     })
     const ident = (w: Waypoint): string => w.ident
 
-    it("ends at 14 DME from the Manchester VOR, 2 nm past D051L, not 14 nm along the course from D051L (flight 446's DESI1S 05L)", () => {
+    it('ends at 14 DME from the Manchester VOR, 2 nm past D051L, not 14 nm along the course from D051L (EGCC DESI1S 05L)', () => {
       const route = applyProcedureSelection([], desi1s({}), null, null)
       expect(route.map(ident)).toEqual(['DE05L', 'D051L', 'D051L', 'MCT/14', 'DESIG'])
       const d051l = route[1]!
@@ -474,6 +474,25 @@ describe('applyProcedureSelection', () => {
         ]
       })
       expect(route.map(ident)).toEqual(['NUPLA', 'HSH/14.5'])
+    })
+
+    it('measures across the date line the short way (a fix at 179.95°E, its navaid at 179.95°W)', () => {
+      const route = applyProcedureSelection([], null, null, {
+        identifier: 'TEST',
+        legs: [
+          leg('FIXAA', 0, {
+            type: 10,
+            fixLatitude: 0,
+            fixLongitude: 179.95,
+            courseDeg: 90,
+            routeDistanceM: 20000,
+            recommendedNavaid: { ident: 'NAVAA', latitude: 0, longitude: -179.95 }
+          })
+        ]
+      })
+      // The fix is 0.1° (11 km) west of the navaid across the date line, so 20 km from it is 0.18° east of the navaid.
+      expect(route.map(ident)).toEqual(['FIXAA', 'NAVAA/10.8'])
+      expect(route[1]!.lon).toBeCloseTo(-179.77, 2)
     })
 
     it('measures along the course from the fix when the fix is its own navaid (EGLL OCK, 7 DME)', () => {
