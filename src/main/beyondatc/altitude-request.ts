@@ -11,11 +11,11 @@ import { METRES_PER_FOOT } from '@shared/units'
  * docs/beyondatc-notes.md ("requesting a new cruise altitude"):
  *
  *   set_action: Request Altitude Change..  → Player: "request new cruise altitude."
- *                                          → Actions: [FL290¬…¬FL410¬Cancel¬] (before 2026-11-21: "Request Altitude Change", and the list
- *                                            was [Cancel Altitude Change¬FL320¬…¬FL380¬Say Again¬], after ATC's "Say again altitude.")
- *   set_action: FL380                      → Player: "Request FL380"
- *                                          → ATC: "roger, new cruise altitude FL380."
- *                                            (and the cleared-level InfoBox shows FL380)
+ *                                          → Actions: [FL290¬…¬FL410¬Cancel¬] (the older form: "Request Altitude Change", and a list of
+ *                                            [Cancel Altitude Change¬FL320¬…¬FL380¬Say Again¬] after ATC's "Say again altitude.")
+ *   set_action: FL370                      → Player: "Request FL370"
+ *                                          → ATC: "roger, new cruise altitude FL370."
+ *                                            (and the cleared-level InfoBox shows FL370)
  *
  * There is no altitude command: BeyondATC's toolbar only sends `set_action` with an offered label, and a level label sent while
  * it isn't on offer is silently ignored. So the level list must be waited for, and the wanted level picked from it.
@@ -79,7 +79,7 @@ export function levelLabelToFeet(label: string): number | null {
 }
 
 /**
- * A label without the ".." BeyondATC adds (since 2026-11-21) to an entry that opens another menu, trimmed and lower-cased.
+ * A label without the ".." BeyondATC now adds to an entry that opens another menu, trimmed and lower-cased.
  *
  * @param label A label as BeyondATC writes it.
  * @returns The label to compare with.
@@ -89,7 +89,7 @@ function plainLabel(label: string): string {
 }
 
 /**
- * The menu entry that asks for a new cruise level, as BeyondATC offers it ("Request Altitude Change.." since 2026-11-21, with no
+ * The menu entry that asks for a new cruise level, as BeyondATC offers it ("Request Altitude Change.." now, with no
  * dots before). The label found is the one to send back.
  *
  * @param actions The menu's labels.
@@ -100,7 +100,7 @@ export function findRequestAltitudeAction(actions: string[]): string | null {
 }
 
 /**
- * The cancel entry of an open level list ("Cancel Altitude Change" before 2026-11-21, "Cancel" since). A list is open when the menu
+ * The cancel entry of an open level list ("Cancel" now, "Cancel Altitude Change" in the older form). A list is open when the menu
  * holds at least one level; a "Cancel" alone, with no level beside it, is some other menu's.
  *
  * @param actions The menu's labels.
@@ -185,7 +185,8 @@ function waitFor<T>(
 
 /**
  * A request gave up waiting for the level list, but the request is still queued in BeyondATC: if the list turns up later, nobody
- * is there to choose from it, and BeyondATC keeps asking "say again altitude" until someone does. Cancels it when it appears.
+ * is there to choose from it, and an open list can leave BeyondATC waiting for a level (the older form kept asking "say again
+ * altitude"). Cancels it when it appears.
  *
  * @param session BeyondATC's connection.
  * @returns Stops the watch; the caller stops it when a newer request starts, so that one is never cancelled out from under itself.
