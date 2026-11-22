@@ -143,6 +143,36 @@ function trackedFlightOf(
 }
 
 /**
+ * Keeps the feed service in step with tracking: a flight starting or stopping resets what was seen online, and a completed flight flown
+ * online keeps the network and callsign it was seen with while airborne.
+ *
+ * @param deps The database, tracking and the sync hint.
+ * @param service The feed service.
+ */
+function followTracking(
+  deps: Pick<OnlineHandlerDeps, 'db' | 'trackingController' | 'onWrite'>,
+  service: NetworkFeedService
+): void {
+  const { db, trackingController } = deps
+  trackingController.on('started', () => {
+    service.resetOnlineSeen()
+    service.refresh()
+  })
+  trackingController.on('stopped', () => {
+    service.resetOnlineSeen()
+    service.refresh()
+  })
+  trackingController.on('completed', (flightId: number) => {
+    const seen = service.takeOnlineSeen()
+    if (seen) {
+      setFlightOnline(db, flightId, seen.network, seen.callsign)
+      deps.onWrite()
+    }
+    service.refresh()
+  })
+}
+
+/**
  * Starts the feed service and registers the channels.
  *
  * @param ipcMain Electron's IPC.
@@ -160,7 +190,7 @@ export function registerOnlineHandlers(
   /** The whole network's traffic for a screen set to "Whole network" (a second screen asks through this too). */
   trafficWhole: () => NetworkTraffic
 } {
-  const { db, liveHub, sim, trackingController } = deps
+  const { db, liveHub, sim } = deps
   const simPosition = trackSim(sim)
   const timers = {
     set: (callback: () => void, ms: number): unknown => setTimeout(callback, ms),
@@ -192,23 +222,7 @@ export function registerOnlineHandlers(
     log: logger
   })
   simPosition.follow(service)
-  trackingController.on('started', () => {
-    service.resetOnlineSeen()
-    service.refresh()
-  })
-  trackingController.on('stopped', () => {
-    service.resetOnlineSeen()
-    service.refresh()
-  })
-  // A flight flown online keeps the network and callsign it was seen with while airborne.
-  trackingController.on('completed', (flightId: number) => {
-    const seen = service.takeOnlineSeen()
-    if (seen) {
-      setFlightOnline(db, flightId, seen.network, seen.callsign)
-      deps.onWrite()
-    }
-    service.refresh()
-  })
+  followTracking(deps, service)
 
   ipcMain.handle(IpcChannels.networkTrafficGet, () => liveHub.snapshot().networkTraffic)
   ipcMain.handle(IpcChannels.networkTrafficWholeGet, () => service.wholeTraffic())
