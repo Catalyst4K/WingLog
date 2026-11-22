@@ -58,8 +58,19 @@ export interface NavdataLeg {
   altitude1: number
   altitude2: number
   speedLimit: number
-  /** Metres along `courseDeg` from `fixIdent` — FC/FD legs only, 0 otherwise. */
+  /** Metres: FC, along `courseDeg` from `fixIdent`; FD, the DME distance from `recommendedNavaid` (the fix itself when it is a
+   *  navaid); 0 for other leg types. */
   routeDistanceM: number
+  /** The navaid an FD leg's DME is measured from; null when none is known (cached before it was read), absent from a host
+   *  older than this field. */
+  recommendedNavaid?: RecommendedNavaid | null
+}
+
+/** A navaid named by a leg, with its position. */
+export interface RecommendedNavaid {
+  ident: string
+  latitude: number
+  longitude: number
 }
 
 /** A stand/gate from the sim (TAXI_PARKING) — see main's sim-facilities-fetch.ts fetchStands. */
