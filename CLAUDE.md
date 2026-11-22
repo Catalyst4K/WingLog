@@ -58,6 +58,8 @@ It currently holds:
   `winglog-backend`'s `docs/taxi-and-second-screen-how-it-works.md` in the same branch (2026-10-23).
 - the model usage rules: which model and effort each kind of work runs on, the review by `winglog-reviewer` before a branch
   merges into `develop`, and the agents and hooks that go with them (2026-11-10).
+- check the time: run `date` before saying when something happened or whether a limit has reset; don't carry on from the last
+  time seen in the conversation (2026-11-22).
 
 The plan-doc workflow, branching model and two-machine sync moved there 2026-09-13
 (`docs/decisions.md` has why). In the other direction, that file treats this file's code
