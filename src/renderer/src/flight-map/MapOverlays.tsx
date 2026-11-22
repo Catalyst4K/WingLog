@@ -1,6 +1,7 @@
 /** What FlightMap draws over the map: its control buttons and its readout pills. */
 
 import {
+  Globe,
   Layers,
   Locate,
   LocateFixed,
@@ -137,6 +138,30 @@ function NetworkTrafficButton(props: {
 }
 
 /**
+ * The switch for the network traffic's area, beside the traffic button and only while that layer draws: the whole network (on),
+ * or the aircraft near the pilot (off, "Nearby"). The choice is this screen's own, remembered on this device: `whole` and the press come
+ * from the map's traffic hook.
+ *
+ * @param props The layers, this screen's choice and the toggle.
+ * @returns The element, or nothing while the network's traffic is not drawn.
+ */
+function NetworkAreaButton(props: {
+  layers: TrafficLayers | null
+  whole: boolean
+  onToggle: () => void
+}): React.JSX.Element | null {
+  const { t } = useTranslation()
+  if (props.layers?.drawNetwork !== true) return null
+  const whole = props.whole
+  const label = whole ? t('flightMap.showNearbyTraffic') : t('flightMap.showWholeNetwork')
+  return (
+    <ToggleControl on={whole} label={label} title={label} onClick={props.onToggle}>
+      <Globe />
+    </ToggleControl>
+  )
+}
+
+/**
  * The shared switch for the ATC layer: the staffed centre and approach areas and airports of the chosen network. Hidden while no network
  * is chosen; disabled for IVAO until a VID is entered, as the traffic button is. It has a switch of its own: traffic and ATC can show
  * together.
@@ -199,6 +224,9 @@ interface LayerControlProps {
     onToggle: () => void
     onToggleSim: () => void
     onToggleAtc: () => void
+    /** Whether this screen shows the whole network. */
+    whole: boolean
+    onToggleWhole: () => void
   }
   taxiChartEnabled: boolean
   onToggleTaxiChart: () => void
@@ -227,6 +255,11 @@ function LayerControls(props: LayerControlProps): React.JSX.Element {
       {props.live && props.networkTraffic && (
         <>
           <NetworkTrafficButton {...props.networkTraffic} />
+          <NetworkAreaButton
+            layers={props.networkTraffic.layers}
+            whole={props.networkTraffic.whole}
+            onToggle={props.networkTraffic.onToggleWhole}
+          />
           {/* Offered unless switched off in Settings; like the network's button, not before the topics arrive. */}
           {props.networkTraffic.layers?.simOffered && (
             <SimTrafficButton
@@ -305,6 +338,9 @@ export function MapControls(props: {
     onToggle: () => void
     onToggleSim: () => void
     onToggleAtc: () => void
+    /** Whether this screen shows the whole network. */
+    whole: boolean
+    onToggleWhole: () => void
   }
   taxiChartEnabled: boolean
   onToggleTaxiChart: () => void

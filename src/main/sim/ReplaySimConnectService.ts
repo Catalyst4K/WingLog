@@ -167,6 +167,7 @@ export class ReplaySimConnectService extends EventEmitter<ReplaySimConnectServic
     if (this.timer) clearTimeout(this.timer)
     this.timer = undefined
     this.status = { state: 'disconnected' }
+    this.emit('status', this.status)
   }
 
   /**

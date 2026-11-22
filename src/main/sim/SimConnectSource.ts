@@ -2,7 +2,7 @@
  * What TrackingController needs from a sim connection, so the live SimConnectService and the
  * replay (ReplaySimConnectService) are interchangeable.
  */
-import type { SimTelemetry } from '@shared/ipc'
+import type { SimConnectionStatus, SimTelemetry } from '@shared/ipc'
 
 /**
  * A near-contact touchdown severity reading from SimConnectService's second, high-rate
@@ -35,5 +35,8 @@ export interface SimConnectSource {
    *  for ReplaySimConnectService (recorded fixtures are 1 Hz only) — TrackingController falls
    *  back to previousTelemetry in that case, same as before this existed. */
   on(event: 'touchdownSeverity', listener: (result: TouchdownSeverity) => void): this
+  on(event: 'status', listener: (status: SimConnectionStatus) => void): this
+  /** Whether the sim connection is up. The last telemetry is kept after it drops, so it alone does not say the sim is running. */
+  getStatus(): SimConnectionStatus
   getLastTelemetry(): SimTelemetry | undefined
 }

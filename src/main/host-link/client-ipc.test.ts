@@ -77,6 +77,14 @@ describe('a client IPC handlers', () => {
     expect(link.forget).toHaveBeenCalled()
   })
 
+  it('answers a screen asking for the whole network’s traffic from the sim PC, as that PC answered', async () => {
+    const { invoke, link } = setup()
+    const answer = { network: 'vatsim', state: 'shown', aircraft: [], whole: true }
+    link.query.mockResolvedValueOnce(answer)
+    await expect(invoke(IpcChannels.networkTrafficWholeGet)).resolves.toBe(answer)
+    expect(link.query).toHaveBeenCalledWith('online.trafficWhole')
+  })
+
   it('forwards each command a phone may send to the host, by its name', () => {
     const { invoke, link } = setup()
     invoke(IpcChannels.beyondAtcSetAction, 'Request Taxi')

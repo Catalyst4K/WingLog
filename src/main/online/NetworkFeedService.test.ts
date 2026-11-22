@@ -250,6 +250,90 @@ describe('NetworkFeedService', () => {
       expect(fetchMock).toHaveBeenCalledTimes(1)
     })
 
+    it('gives a screen that asks the whole network while the pushed set is around a position, built once for each read', async () => {
+      centre = { lat: 22.31, lon: 113.92 }
+      service.start()
+      await settle()
+      expect(last()?.aircraft).toEqual([])
+      const whole = service.wholeTraffic()
+      expect(whole).toMatchObject({ network: 'vatsim', state: 'shown' })
+      expect(whole.aircraft).toHaveLength(150)
+      expect(service.wholeTraffic()).toBe(whole)
+      expect(last()?.aircraft).toEqual([])
+      await clock.advance(15_000)
+      await settle()
+      expect(fetchMock).toHaveBeenCalledTimes(2)
+      const next = service.wholeTraffic()
+      expect(next).not.toBe(whole)
+      expect(next.aircraft).toHaveLength(150)
+    })
+
+    it('leaves the pilot’s own aircraft out of the whole set too', async () => {
+      settings = { ...settings, vatsimCid: '1000001' }
+      service.start()
+      await settle()
+      expect(service.wholeTraffic().aircraft.some((a) => a.callsign === 'BAW623')).toBe(false)
+      expect(service.wholeTraffic().aircraft).toHaveLength(149)
+    })
+
+    it('says the same states as the pushed set when there is nothing to show', async () => {
+      settings = { ...settings, network: null }
+      service.start()
+      expect(service.wholeTraffic()).toEqual({ network: null, state: 'noNetwork', aircraft: [] })
+      settings = { ...settings, network: 'ivao', ivaoVid: null }
+      expect(service.wholeTraffic()).toEqual({ network: 'ivao', state: 'needsVid', aircraft: [] })
+      settings = { ...settings, network: 'vatsim' }
+      switches = { networkOn: false, simOn: false, atcOn: false }
+      expect(service.wholeTraffic()).toEqual({ network: 'vatsim', state: 'off', aircraft: [] })
+      switches = { networkOn: true, simOn: false, atcOn: false }
+      expect(service.wholeTraffic()).toEqual({ network: 'vatsim', state: 'shown', aircraft: [] })
+    })
+
+    it('says unavailable once the feed has been failing as long as the last aircraft are kept', async () => {
+      service.start()
+      await settle()
+      fetchMock.mockImplementation(() => Promise.reject(new Error('down')))
+      await clock.advance(60_000 + STALE_AFTER_MS + 1_000)
+      expect(service.wholeTraffic()).toEqual({ network: 'vatsim', state: 'unavailable', aircraft: [] })
+      expect(last()?.state).toBe('unavailable')
+    })
+
+    it('follows the pushed set after the feed failed and anything redraws it (a network switch, the layer off and on)', async () => {
+      service.start()
+      await settle()
+      fetchMock.mockImplementation(() => Promise.reject(new Error('down')))
+      await clock.advance(60_000 + STALE_AFTER_MS + 1_000)
+      expect(last()?.state).toBe('unavailable')
+      settings = { ...settings, network: 'ivao', ivaoVid: '123456' }
+      service.refresh()
+      expect(last()).toMatchObject({ state: 'shown', aircraft: [] })
+      expect(service.wholeTraffic()).toEqual({ network: 'ivao', state: 'shown', aircraft: [] })
+    })
+
+    it('marks the pushed set and the whole set as the whole network only when they are', async () => {
+      centre = null
+      service.start()
+      await settle()
+      expect(last()?.whole).toBe(true)
+      expect(service.wholeTraffic().whole).toBe(true)
+      centre = EGLL
+      service.onPositionChanged()
+      expect(last()?.whole).toBeUndefined()
+      expect(service.wholeTraffic().whole).toBe(true)
+    })
+
+    it('adds the time since the build to the ages of a later answer, so a screen glides on from where the build did', async () => {
+      service.start()
+      await settle()
+      const first = service.wholeTraffic()
+      await clock.advance(5_000)
+      const later = service.wholeTraffic()
+      expect(later.aircraft).toHaveLength(first.aircraft.length)
+      expect(later.aircraft[0]!.ageS - first.aircraft[0]!.ageS).toBeCloseTo(5, 3)
+      // The build itself is not changed, so the next asker is measured from the same point.
+      expect(service.wholeTraffic().aircraft[0]!.ageS - first.aircraft[0]!.ageS).toBeCloseTo(5, 3)
+    })
+
     it('keeps reading the feed for the whole network while there is no position, every 15 s', async () => {
       centre = null
       service.start()

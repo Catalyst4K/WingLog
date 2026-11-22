@@ -7,7 +7,13 @@
  * the settings are **queries**. Saving the settings restarts the feed service's decisions at once.
  */
 import type { IpcMain } from 'electron'
-import { IpcChannels, type AtisAnswer, type BeyondAtcAtisList } from '@shared/ipc'
+import {
+  IpcChannels,
+  type AtisAnswer,
+  type BeyondAtcAtisList,
+  type NetworkTraffic,
+  type SimTelemetry
+} from '@shared/ipc'
 import type { LatLon } from '@shared/geo'
 import { getAirportCoords } from '../airports/airport-search'
 import type { AreaData } from './atc-areas'
@@ -39,7 +45,7 @@ import {
 export interface OnlineHandlerDeps {
   db: WingLogDb
   liveHub: Pick<LiveHub, 'publish' | 'snapshot'>
-  sim: Pick<SimConnectSource, 'on' | 'getLastTelemetry'>
+  sim: Pick<SimConnectSource, 'on' | 'getLastTelemetry' | 'getStatus'>
   trackingController: Pick<TrackingController, 'on' | 'getActive'>
   /** The app's version, for the User-Agent. */
   appVersion: string
@@ -56,16 +62,71 @@ export interface OnlineHandlerDeps {
 }
 
 /**
- * @param deps The database, sim, tracking and live hub.
+ * @param deps The database and tracking.
+ * @param position The aircraft's tick while the sim is connected and has sent one since, else undefined.
  * @returns A function giving where to centre the traffic: the aircraft's position while the sim is connected, otherwise the departure
- *   airport of the flight shown, otherwise null.
+ *   airport of the flight shown, otherwise null (the whole network).
  */
-function centreOf(deps: Pick<OnlineHandlerDeps, 'db' | 'sim' | 'trackingController'>): () => LatLon | null {
+function centreOf(
+  deps: Pick<OnlineHandlerDeps, 'db' | 'trackingController'>,
+  position: () => SimTelemetry | undefined
+): () => LatLon | null {
   return () => {
-    const telemetry = deps.sim.getLastTelemetry()
+    const telemetry = position()
     if (telemetry) return { lat: telemetry.latitude, lon: telemetry.longitude }
     const flight = shownFlightOf(deps.db, deps.trackingController.getActive()?.flightId)
     return flight?.depIcao ? getAirportCoords(flight.depIcao) : null
+  }
+}
+
+/**
+ * @param sim The sim connection.
+ * @param hasFreshTick Whether a tick has arrived since the sim last connected.
+ * @returns The latest tick while the sim is connected and has sent one since, otherwise undefined: the service keeps the last tick
+ *   after the connection drops, and until the new connection's first tick it is where the last flight ended, not where the aircraft is.
+ */
+function simTelemetryNow(
+  sim: Pick<SimConnectSource, 'getLastTelemetry' | 'getStatus'>,
+  hasFreshTick: () => boolean
+): SimTelemetry | undefined {
+  return sim.getStatus().state === 'connected' && hasFreshTick() ? sim.getLastTelemetry() : undefined
+}
+
+/**
+ * Keeps track of whether the sim has sent a tick since it last connected, and tells the feed service when the traffic's centre changes.
+ *
+ * @param sim The sim connection.
+ * @returns `position`: the aircraft's latest tick, or undefined while the sim is not connected or has sent nothing since it connected;
+ *   `follow`: starts telling the service (call it once the service exists, so its listeners run after this one's).
+ */
+function trackSim(sim: OnlineHandlerDeps['sim']): {
+  position: () => SimTelemetry | undefined
+  follow: (service: NetworkFeedService) => void
+} {
+  let tickSeen = sim.getStatus().state === 'connected' && sim.getLastTelemetry() !== undefined
+  let wasConnected = sim.getStatus().state === 'connected'
+  sim.on('status', () => {
+    tickSeen = false
+  })
+  sim.on('telemetry', () => {
+    tickSeen = true
+  })
+  return {
+    position: () => simTelemetryNow(sim, () => tickSeen),
+    follow: (service) => {
+      let firstTick = true
+      sim.on('status', (status) => {
+        const connected = status.state === 'connected'
+        // Only a connected-to-not-connected change moves the map: the retries while the sim is closed change nothing.
+        if (wasConnected && !connected) service.onSimStatusChanged()
+        wasConnected = connected
+        firstTick = true
+      })
+      sim.on('telemetry', () => {
+        service.onPositionChanged(firstTick)
+        firstTick = false
+      })
+    }
   }
 }
 
@@ -96,8 +157,11 @@ export function registerOnlineHandlers(
   commands: CommandTable<TrafficCommand>
   /** The live ATIS for the weather panel's airports (the second screen asks through this too). */
   atisAt: (requests: unknown) => Promise<AtisAnswer>
+  /** The whole network's traffic for a screen set to "Whole network" (a second screen asks through this too). */
+  trafficWhole: () => NetworkTraffic
 } {
   const { db, liveHub, sim, trackingController } = deps
+  const simPosition = trackSim(sim)
   const timers = {
     set: (callback: () => void, ms: number): unknown => setTimeout(callback, ms),
     clear: (handle: unknown): void => clearTimeout(handle as NodeJS.Timeout)
@@ -120,14 +184,14 @@ export function registerOnlineHandlers(
     saveSwitches: (switches) => setTrafficSwitches(db, switches),
     atcAreas: deps.atcAreas,
     airportAt: getAirportCoords,
-    centre: centreOf(deps),
+    centre: centreOf(deps, simPosition.position),
     trackedFlight: () => trackedFlightOf(deps),
-    isAirborne: () => sim.getLastTelemetry()?.onGround === false,
+    isAirborne: () => simPosition.position()?.onGround === false,
     pretendCallsign: () => (deps.isDevBuild ? getPretendCallsign(db) : null),
     onLayers: (layers) => simTraffic.setWanted(layers.drawSim),
     log: logger
   })
-  sim.on('telemetry', () => service.onPositionChanged())
+  simPosition.follow(service)
   trackingController.on('started', () => {
     service.resetOnlineSeen()
     service.refresh()
@@ -147,6 +211,7 @@ export function registerOnlineHandlers(
   })
 
   ipcMain.handle(IpcChannels.networkTrafficGet, () => liveHub.snapshot().networkTraffic)
+  ipcMain.handle(IpcChannels.networkTrafficWholeGet, () => service.wholeTraffic())
   ipcMain.handle(IpcChannels.simTrafficGet, () => liveHub.snapshot().simTraffic)
   ipcMain.handle(IpcChannels.trafficLayersGet, () => liveHub.snapshot().trafficLayers)
   ipcMain.handle(IpcChannels.networkAtcGet, () => liveHub.snapshot().networkAtc)
@@ -187,6 +252,7 @@ export function registerOnlineHandlers(
       simTraffic.stop()
     },
     commands,
-    atisAt
+    atisAt,
+    trafficWhole: () => service.wholeTraffic()
   }
 }

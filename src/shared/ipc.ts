@@ -321,6 +321,8 @@ export interface WingLogApi {
   onPlannedRoute: (listener: (route: PlannedRoute | null) => void) => () => void
   /** The chosen network's traffic near the aircraft, for a window that opens mid-flight. */
   getNetworkTraffic: () => Promise<NetworkTraffic>
+  /** The whole network's traffic (at most 3,000 aircraft), asked for by a screen set to "Whole network"; the pushed topic stays the nearby set. */
+  getNetworkTrafficWhole: () => Promise<NetworkTraffic>
   /** Pushed each time main has a new set of aircraft (or a new state). */
   onNetworkTraffic: (listener: (traffic: NetworkTraffic) => void) => () => void
   /** The aircraft the sim lists around the pilot, for a window that opens mid-flight. */

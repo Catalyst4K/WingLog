@@ -23,9 +23,11 @@ type TrafficProp = NonNullable<Parameters<typeof MapControls>[0]['networkTraffic
 
 function controls(
   networkTraffic:
-    | (Omit<TrafficProp, 'onToggleSim' | 'onToggleAtc' | 'atc'> & {
+    | (Omit<TrafficProp, 'onToggleSim' | 'onToggleAtc' | 'onToggleWhole' | 'whole' | 'atc'> & {
         onToggleSim?: () => void
         onToggleAtc?: () => void
+        onToggleWhole?: () => void
+        whole?: boolean
         atc?: NetworkAtc | null
       })
     | undefined,
@@ -39,7 +41,14 @@ function controls(
       vfrEnabled={false}
       onToggleVfr={() => {}}
       networkTraffic={
-        networkTraffic && { onToggleSim: () => {}, onToggleAtc: () => {}, atc: null, ...networkTraffic }
+        networkTraffic && {
+          onToggleSim: () => {},
+          onToggleAtc: () => {},
+          onToggleWhole: () => {},
+          whole: false,
+          atc: null,
+          ...networkTraffic
+        }
       }
       taxiChartEnabled={false}
       onToggleTaxiChart={() => {}}
@@ -233,6 +242,35 @@ describe('the ATC button', () => {
   })
 })
 
+describe('the network traffic area button', () => {
+  it('is hidden while the network traffic is not drawn', () => {
+    controls({ layers: LAYERS_OFF, traffic: traffic('vatsim', 'off'), onToggle: () => {} })
+    expect(screen.queryByRole('button', { name: /whole network|near the aircraft/ })).not.toBeInTheDocument()
+  })
+
+  it('offers the whole network while traffic is nearby, and sends the press', async () => {
+    const onToggleWhole = vi.fn()
+    controls({
+      layers: LAYERS_ON,
+      traffic: traffic('vatsim', 'shown'),
+      onToggle: () => {},
+      onToggleWhole
+    })
+    await userEvent.click(screen.getByRole('button', { name: 'Show traffic on the whole network' }))
+    expect(onToggleWhole).toHaveBeenCalledTimes(1)
+  })
+
+  it('offers going back to the aircraft’s surroundings while the whole network is shown', () => {
+    controls({
+      layers: LAYERS_ON,
+      whole: true,
+      traffic: traffic('vatsim', 'shown'),
+      onToggle: () => {}
+    })
+    expect(screen.getByRole('button', { name: 'Show only traffic near the aircraft' })).toBeInTheDocument()
+  })
+})
+
 describe('the ATC pill', () => {
   function atcPill(
     state: NetworkAtc['state'],
@@ -400,7 +438,9 @@ describe('the layers on a small screen (the phone)', () => {
           atc: null,
           onToggle: () => {},
           onToggleSim: () => {},
-          onToggleAtc: () => {}
+          onToggleAtc: () => {},
+          whole: false,
+          onToggleWhole: () => {}
         }}
         taxiChartEnabled={false}
         onToggleTaxiChart={onToggleTaxiChart}

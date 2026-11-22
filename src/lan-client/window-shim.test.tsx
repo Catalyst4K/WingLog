@@ -49,6 +49,15 @@ describe('installWindowShim', () => {
     await expect(window.winglog.onlineAtisGet(asked)).resolves.toEqual({ name: 'online.atis', args: [asked] })
   })
 
+  it('asks the PC for the whole network’s traffic, with no arguments', async () => {
+    const query = vi.fn((name: string, ...args: unknown[]) => Promise.resolve({ name, args }))
+    installWindowShim({ latest: () => undefined, query })
+    await expect(window.winglog.getNetworkTrafficWhole()).resolves.toEqual({
+      name: 'online.trafficWhole',
+      args: []
+    })
+  })
+
   it('carries on without a chart when the PC cannot refresh one', async () => {
     installWindowShim({ latest: () => undefined, query: () => Promise.reject(new Error('no sim')) })
     await expect(window.winglog.navdataRefreshTaxiNetwork('WSSS')).resolves.toBeUndefined()

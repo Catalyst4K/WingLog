@@ -3,7 +3,13 @@ import { isKept, isWorthKeeping, laneOf, LAN_QUERY_KINDS } from './lan-queries'
 
 describe('the lookup table', () => {
   it('puts the lookups that reach the sim or the internet in the slow lane, and answers from the PC’s own data in the fast one', () => {
-    for (const name of ['navdata.refreshAirport', 'taxi.refresh', 'stands', 'weather.metars'])
+    for (const name of [
+      'navdata.refreshAirport',
+      'taxi.refresh',
+      'stands',
+      'weather.metars',
+      'online.trafficWhole'
+    ])
       expect(laneOf(name)).toBe('slow')
     for (const name of [
       'navdata.procedureWaypoints',

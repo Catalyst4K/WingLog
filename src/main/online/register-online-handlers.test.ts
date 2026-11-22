@@ -27,7 +27,10 @@ const busy = readFileSync(join(__dirname, '__fixtures__', 'vatsim-busy.json'), '
 describe('online network handlers', () => {
   let db: WingLogDb
   let liveHub: LiveHub
-  let sim: EventEmitter & { getLastTelemetry: () => SimTelemetry | undefined }
+  let sim: EventEmitter & {
+    getLastTelemetry: () => SimTelemetry | undefined
+    getStatus: () => { state: string }
+  }
   let tracking: EventEmitter & { getActive: () => { flightId: number } | undefined }
   let fetchMock: ReturnType<typeof vi.fn>
   let stop: (() => void) | undefined
@@ -59,7 +62,8 @@ describe('online network handlers', () => {
     migrate(db, { migrationsFolder: 'drizzle' })
     liveHub = new LiveHub()
     sim = Object.assign(new EventEmitter(), {
-      getLastTelemetry: () => ({ latitude: 51.4706, longitude: -0.4619 }) as SimTelemetry
+      getLastTelemetry: () => ({ latitude: 51.4706, longitude: -0.4619 }) as SimTelemetry,
+      getStatus: () => ({ state: 'connected' })
     })
     tracking = Object.assign(new EventEmitter(), { getActive: () => undefined })
     fetchMock = vi.fn(() => Promise.resolve(new Response(busy, { status: 200 })))
@@ -317,6 +321,37 @@ describe('online network handlers', () => {
       tracking.emit('completed', flightId)
       expect(getFlight(db, flightId)).toMatchObject({ onlineNetwork: null, onlineCallsign: null })
       expect(onWrite).not.toHaveBeenCalled()
+    })
+
+    it('is not recorded from the last tick the sim kept after it disconnected', async () => {
+      sim.getLastTelemetry = () =>
+        ({ latitude: 51.4706, longitude: -0.4619, onGround: false }) as SimTelemetry
+      sim.getStatus = () => ({ state: 'disconnected' })
+      const { flightId } = trackPlannedPilot()
+      const { invoke } = register()
+      await vi.waitFor(() =>
+        expect((invoke(IpcChannels.onlineStatusGet) as { state: string }).state).toBe('online')
+      )
+      sim.emit('telemetry', {})
+      tracking.emit('completed', flightId)
+      expect(getFlight(db, flightId)).toMatchObject({ onlineNetwork: null, onlineCallsign: null })
+    })
+
+    it('is not recorded from the old flight’s tick between a reconnect and the first new one, but is from that tick on', async () => {
+      sim.getLastTelemetry = () =>
+        ({ latitude: 51.4706, longitude: -0.4619, onGround: false }) as SimTelemetry
+      const { flightId, callsign } = trackPlannedPilot()
+      const { invoke } = register()
+      sim.emit('status', { state: 'disconnected' })
+      sim.emit('status', { state: 'connected' })
+      await vi.waitFor(() =>
+        expect((invoke(IpcChannels.onlineStatusGet) as { state: string }).state).toBe('online')
+      )
+      tracking.emit('completed', flightId)
+      expect(getFlight(db, flightId)).toMatchObject({ onlineNetwork: null, onlineCallsign: null })
+      sim.emit('telemetry', {})
+      tracking.emit('completed', flightId)
+      expect(getFlight(db, flightId)).toMatchObject({ onlineNetwork: 'vatsim', onlineCallsign: callsign })
     })
 
     it('forgets what was seen when the flight is dropped or a new one starts', async () => {

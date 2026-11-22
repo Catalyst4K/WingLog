@@ -105,6 +105,64 @@ test.describe('Online network traffic', () => {
     }
   })
 
+  test("the map's area button is this screen's own: the PC asks for the whole network and a phone is still sent only the near aircraft", async () => {
+    const feed = await startNetworkFeedServer({ centre: EGLL })
+    const port = await freePort()
+    const { window: page, cleanup } = await launchApp({
+      env: {
+        WINGLOG_E2E_FIXTURE: FIXTURE,
+        WINGLOG_E2E_REPLAY_MODE: 'paced',
+        WINGLOG_E2E_REPLAY_SPEED: '1',
+        WINGLOG_E2E_LAN_ADDRESS: '127.0.0.1',
+        WINGLOG_E2E_VATSIM_URL: feed.vatsimUrl,
+        WINGLOG_E2E_IVAO_URL: feed.ivaoUrl
+      }
+    })
+    const whole = (): Promise<{ state: string; aircraft: { callsign: string }[] }> =>
+      page.evaluate(() => (globalThis as unknown as Window).winglog.getNetworkTrafficWhole())
+    try {
+      const code = await page.evaluate(async (p) => {
+        const w = (globalThis as unknown as { winglog: Winglog }).winglog
+        await w.settingsSetOnlineNetwork({
+          network: 'vatsim',
+          vatsimCid: null,
+          ivaoVid: null,
+          keepBeyondAtcOnline: false,
+          simTrafficButton: true
+        })
+        await w.lanSetSettings({ enabled: true, port: p })
+        return (await w.lanStartPairing()).pairing?.code ?? ''
+      }, port)
+      const phone = new Device(port)
+      await phone.opened()
+      phone.send({ t: 'pair', code, name: 'Test phone' })
+      await phone.message('paired')
+      await phone.message('snapshot')
+      await page.evaluate(() => (globalThis as unknown as Window).winglog.trafficSetNetworkOn(true))
+      await expect
+        .poll(async () => (await traffic(page)).aircraft.map((a) => a.callsign).sort(), { timeout: 20_000 })
+        .toEqual(['NEAR1', 'NEAR2'])
+
+      // The button is offered while the layer draws, set to Nearby; pressing it changes this screen only.
+      await page.getByRole('tab', { name: 'Track' }).click()
+      await page.getByRole('button', { name: 'Show traffic on the whole network' }).click()
+      await expect(page.getByRole('button', { name: 'Show only traffic near the aircraft' })).toBeVisible()
+      await expect
+        .poll(async () => (await whole()).aircraft.map((a) => a.callsign).sort())
+        .toEqual(['FAR1', 'NEAR1', 'NEAR2'])
+      // Nothing about the choice reaches the sim PC's settings or the phone: its pushed set is still the near aircraft.
+      expect((await traffic(page)).aircraft).toHaveLength(2)
+      expect(((latestTopic(phone, 'networkTraffic')?.aircraft ?? []) as unknown[]).length).toBe(2)
+
+      await page.getByRole('button', { name: 'Show only traffic near the aircraft' }).click()
+      await expect(page.getByRole('button', { name: 'Show traffic on the whole network' })).toBeVisible()
+      phone.close()
+    } finally {
+      await cleanup()
+      await feed.close()
+    }
+  })
+
   test("the sim's own traffic has its own switch, says when the sim cannot be read, gives way to the network's, and goes when switched off in Settings", async () => {
     const feed = await startNetworkFeedServer({ centre: EGLL })
     const port = await freePort()

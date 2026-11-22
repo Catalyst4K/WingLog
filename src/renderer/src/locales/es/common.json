@@ -843,6 +843,8 @@
     "simTrafficUnavailable": "Tráfico del sim no disponible",
     "showAtc": "Mostrar ATC de {{network}}",
     "hideAtc": "Ocultar ATC de {{network}}",
+    "showWholeNetwork": "Mostrar el tráfico de toda la red",
+    "showNearbyTraffic": "Mostrar solo el tráfico cercano a la aeronave",
     "atcNeedsVid": "Introduce tu VID de IVAO en Ajustes para ver el ATC de IVAO",
     "atcUnavailable": "ATC de {{network}} no disponible",
     "key": {

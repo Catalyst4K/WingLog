@@ -65,6 +65,7 @@ export const IpcChannels = {
   plannedRouteGet: 'planned-route:get',
   networkTraffic: 'online:traffic',
   networkTrafficGet: 'online:traffic-get',
+  networkTrafficWholeGet: 'online:traffic-whole-get',
   simTraffic: 'online:sim-traffic',
   simTrafficGet: 'online:sim-traffic-get',
   trafficLayers: 'online:traffic-layers',

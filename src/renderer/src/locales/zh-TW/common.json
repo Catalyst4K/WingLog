@@ -832,6 +832,8 @@
     "simTrafficUnavailable": "模擬器交通無法使用",
     "showAtc": "顯示 {{network}} 管制",
     "hideAtc": "隱藏 {{network}} 管制",
+    "showWholeNetwork": "顯示整個網路的交通",
+    "showNearbyTraffic": "僅顯示飛機附近的交通",
     "atcNeedsVid": "請在設定中輸入你的 IVAO VID 以查看 IVAO 管制",
     "atcUnavailable": "{{network}} 管制無法使用",
     "key": {

@@ -194,7 +194,9 @@ function FlightMapView({
             runAsync(
               'FlightMap traffic.setAtcOn',
               liveClient.command('traffic.setAtcOn', !networkTraffic.layers?.atcOn)
-            )
+            ),
+          whole: networkTraffic.whole,
+          onToggleWhole: networkTraffic.toggleWhole
         }}
         taxiChartEnabled={taxiChart.enabled}
         onToggleTaxiChart={taxiChart.toggle}
