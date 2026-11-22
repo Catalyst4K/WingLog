@@ -86,6 +86,17 @@ describe('where the network traffic is centred once the sim has gone', () => {
     expect((invoke(IpcChannels.networkTrafficGet) as NetworkTraffic).aircraft).toEqual([])
   })
 
+  it('shows the whole network while the sim is connected when the whole-network choice is on, and the window again when it is off', async () => {
+    const { invoke } = showTraffic()
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(1))
+    await vi.waitFor(() => expect(invoke(IpcChannels.networkTrafficGet)).toMatchObject({ state: 'shown' }))
+    expect((invoke(IpcChannels.networkTrafficGet) as NetworkTraffic).aircraft).toEqual([])
+    invoke(IpcChannels.trafficSetNetworkWhole, true)
+    expect((invoke(IpcChannels.networkTrafficGet) as NetworkTraffic).aircraft.length).toBeGreaterThan(0)
+    invoke(IpcChannels.trafficSetNetworkWhole, false)
+    expect((invoke(IpcChannels.networkTrafficGet) as NetworkTraffic).aircraft).toEqual([])
+  })
+
   it('widens to the whole network the moment the sim disconnects, without waiting for the next feed read', async () => {
     const { invoke } = showTraffic()
     await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(1))

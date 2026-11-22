@@ -147,7 +147,7 @@ describe('NetworkFeedService', () => {
       keepBeyondAtcOnline: false,
       simTrafficButton: true
     }
-    switches = { networkOn: true, simOn: false, atcOn: false }
+    switches = { networkOn: true, simOn: false, atcOn: false, networkWhole: false }
     centre = EGLL
     tracked = null
     airborne = false
@@ -161,7 +161,7 @@ describe('NetworkFeedService', () => {
 
   describe('publishing', () => {
     it('says the layer is off, without a request, while the switch is off', async () => {
-      switches = { networkOn: false, simOn: false, atcOn: false }
+      switches = { networkOn: false, simOn: false, atcOn: false, networkWhole: false }
       service.start()
       await clock.advance(60_000)
       expect(last()).toEqual({ network: 'vatsim', state: 'off', aircraft: [] })
@@ -250,6 +250,29 @@ describe('NetworkFeedService', () => {
       expect(fetchMock).toHaveBeenCalledTimes(1)
     })
 
+    it('shows the whole network around a known position when the whole-network choice is on, and nearby again when it is off', async () => {
+      centre = { lat: 22.31, lon: 113.92 }
+      service.start()
+      await settle()
+      expect(last()?.aircraft).toEqual([])
+      service.setNetworkWhole(true)
+      expect(switches).toEqual({ networkOn: true, simOn: false, atcOn: false, networkWhole: true })
+      expect(published.layers.at(-1)).toMatchObject({ networkWhole: true, drawNetwork: true })
+      expect(last()?.aircraft).toHaveLength(150)
+      service.setNetworkWhole(false)
+      expect(last()?.aircraft).toEqual([])
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+    })
+
+    it('does not republish on every position change while the whole network is chosen', async () => {
+      switches = { networkOn: true, simOn: false, atcOn: false, networkWhole: true }
+      service.start()
+      await settle()
+      const before = published.traffic.length
+      service.onPositionChanged()
+      expect(published.traffic.length).toBe(before)
+    })
+
     it('keeps reading the feed for the whole network while there is no position, every 15 s', async () => {
       centre = null
       service.start()
@@ -268,7 +291,7 @@ describe('NetworkFeedService', () => {
     })
 
     it('publishes the layers at start, and again when the switch is turned on from any screen', async () => {
-      switches = { networkOn: false, simOn: false, atcOn: false }
+      switches = { networkOn: false, simOn: false, atcOn: false, networkWhole: false }
       service.start()
       expect(published.layers.at(-1)).toMatchObject({ networkOn: false })
       service.setNetworkOn(true)
@@ -288,7 +311,7 @@ describe('NetworkFeedService', () => {
     })
 
     it('draws only the network layer when both switches are stored on, and shows the sim switch off', async () => {
-      switches = { networkOn: true, simOn: true, atcOn: false }
+      switches = { networkOn: true, simOn: true, atcOn: false, networkWhole: false }
       service.start()
       expect(published.layers.at(-1)).toMatchObject({
         drawNetwork: true,
@@ -300,10 +323,10 @@ describe('NetworkFeedService', () => {
 
   describe('the sim layer', () => {
     it('draws when its switch is on and the network layer is not, and tells the sim reader', () => {
-      switches = { networkOn: false, simOn: false, atcOn: false }
+      switches = { networkOn: false, simOn: false, atcOn: false, networkWhole: false }
       service.start()
       service.setSimOn(true)
-      expect(switches).toEqual({ networkOn: false, simOn: true, atcOn: false })
+      expect(switches).toEqual({ networkOn: false, simOn: true, atcOn: false, networkWhole: false })
       expect(published.layers.at(-1)).toMatchObject({ drawSim: true, drawNetwork: false, simOn: true })
       expect(told.at(-1)?.drawSim).toBe(true)
       service.setSimOn(false)
@@ -311,25 +334,25 @@ describe('NetworkFeedService', () => {
     })
 
     it('and the network layer switch each other off: turning one on turns the other off, and it stays off (Callum, 2026-10-29)', () => {
-      switches = { networkOn: false, simOn: true, atcOn: false }
+      switches = { networkOn: false, simOn: true, atcOn: false, networkWhole: false }
       service.start()
       expect(told.at(-1)?.drawSim).toBe(true)
       service.setNetworkOn(true)
-      expect(switches).toEqual({ networkOn: true, simOn: false, atcOn: false })
+      expect(switches).toEqual({ networkOn: true, simOn: false, atcOn: false, networkWhole: false })
       expect(told.at(-1)).toMatchObject({ drawNetwork: true, drawSim: false, simOn: false })
       service.setSimOn(true)
-      expect(switches).toEqual({ networkOn: false, simOn: true, atcOn: false })
+      expect(switches).toEqual({ networkOn: false, simOn: true, atcOn: false, networkWhole: false })
       expect(told.at(-1)).toMatchObject({ drawNetwork: false, drawSim: true })
       // Turning one off leaves the other as it is.
       service.setSimOn(false)
-      expect(switches).toEqual({ networkOn: false, simOn: false, atcOn: false })
+      expect(switches).toEqual({ networkOn: false, simOn: false, atcOn: false, networkWhole: false })
       service.setNetworkOn(true)
       service.setNetworkOn(false)
-      expect(switches).toEqual({ networkOn: false, simOn: false, atcOn: false })
+      expect(switches).toEqual({ networkOn: false, simOn: false, atcOn: false, networkWhole: false })
     })
 
     it('is neither offered nor drawn once its button is switched off in Settings, and the sim reader is told to stop', () => {
-      switches = { networkOn: false, simOn: true, atcOn: false }
+      switches = { networkOn: false, simOn: true, atcOn: false, networkWhole: false }
       service.start()
       expect(told.at(-1)).toMatchObject({ simOffered: true, drawSim: true })
       settings = { ...settings, simTrafficButton: false }
@@ -671,7 +694,7 @@ describe('NetworkFeedService', () => {
     }
 
     it('is unknown, with nothing fetched, while no flight is tracked and the layer is off', async () => {
-      switches = { networkOn: false, simOn: false, atcOn: false }
+      switches = { networkOn: false, simOn: false, atcOn: false, networkWhole: false }
       service.start()
       await clock.advance(5 * 60_000)
       expect(statuses().at(-1) ?? { state: 'unknown' }).toMatchObject({ state: 'unknown' })
@@ -680,7 +703,7 @@ describe('NetworkFeedService', () => {
 
     it('is looked up every 60 s while a flight is tracked, even with the traffic layer off', async () => {
       const self = planned()
-      switches = { networkOn: false, simOn: false, atcOn: false }
+      switches = { networkOn: false, simOn: false, atcOn: false, networkWhole: false }
       settings = {
         network: 'vatsim',
         vatsimCid: String(self.cid),
@@ -876,7 +899,7 @@ describe('NetworkFeedService', () => {
     })
 
     it('lists no airports while no flight is tracked, and nothing was fetched for it', async () => {
-      switches = { networkOn: false, simOn: false, atcOn: false }
+      switches = { networkOn: false, simOn: false, atcOn: false, networkWhole: false }
       service.start()
       await settle()
       expect(published.controllers.at(-1) ?? { airports: [] }).toMatchObject({ airports: [] })
@@ -958,7 +981,7 @@ describe('NetworkFeedService', () => {
 
     beforeEach(() => {
       // Nothing draws traffic and no flight is tracked: only the ATIS asks for the feed.
-      switches = { networkOn: false, simOn: false, atcOn: false }
+      switches = { networkOn: false, simOn: false, atcOn: false, networkWhole: false }
     })
 
     it('reads the feed once for a request, however nothing else wants it, and answers each tab with its own ATIS', async () => {
@@ -1074,12 +1097,12 @@ describe('NetworkFeedService', () => {
     }
 
     beforeEach(() => {
-      switches = { networkOn: false, simOn: false, atcOn: true }
+      switches = { networkOn: false, simOn: false, atcOn: true, networkWhole: false }
       chooseVatsim()
     })
 
     it('says it is off, and reads nothing, while its switch is off', async () => {
-      switches = { networkOn: false, simOn: false, atcOn: false }
+      switches = { networkOn: false, simOn: false, atcOn: false, networkWhole: false }
       service.start()
       await clock.advance(120_000)
       expect(atcLayer()).toEqual({ network: 'vatsim', state: 'off', areas: [], airports: [] })
@@ -1155,20 +1178,20 @@ describe('NetworkFeedService', () => {
     })
 
     it('has a switch of its own: it leaves the two traffic switches as they were, and they leave it', () => {
-      switches = { networkOn: true, simOn: false, atcOn: false }
+      switches = { networkOn: true, simOn: false, atcOn: false, networkWhole: false }
       service.start()
       service.setAtcOn(true)
-      expect(switches).toEqual({ networkOn: true, simOn: false, atcOn: true })
+      expect(switches).toEqual({ networkOn: true, simOn: false, atcOn: true, networkWhole: false })
       service.setSimOn(true)
-      expect(switches).toEqual({ networkOn: false, simOn: true, atcOn: true })
+      expect(switches).toEqual({ networkOn: false, simOn: true, atcOn: true, networkWhole: false })
       service.setNetworkOn(true)
-      expect(switches).toEqual({ networkOn: true, simOn: false, atcOn: true })
+      expect(switches).toEqual({ networkOn: true, simOn: false, atcOn: true, networkWhole: false })
       service.setAtcOn(false)
-      expect(switches).toEqual({ networkOn: true, simOn: false, atcOn: false })
+      expect(switches).toEqual({ networkOn: true, simOn: false, atcOn: false, networkWhole: false })
     })
 
     it('shows with the network traffic: the traffic layer’s 15 s read serves both', async () => {
-      switches = { networkOn: true, simOn: false, atcOn: true }
+      switches = { networkOn: true, simOn: false, atcOn: true, networkWhole: false }
       service.start()
       await settle()
       await clock.advance(15_000)

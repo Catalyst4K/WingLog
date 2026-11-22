@@ -127,7 +127,8 @@ export const electronLiveClient: LiveClient = {
       'track.setProcedureSelection': (selection) => w.trackingSetProcedureSelection(selection),
       'traffic.setNetworkOn': (on) => w.trafficSetNetworkOn(on),
       'traffic.setSimOn': (on) => w.trafficSetSimOn(on),
-      'traffic.setAtcOn': (on) => w.trafficSetAtcOn(on)
+      'traffic.setAtcOn': (on) => w.trafficSetAtcOn(on),
+      'traffic.setNetworkWhole': (whole) => w.trafficSetNetworkWhole(whole)
     }
     return (commands[name] as (...a: LiveCommands[typeof name]) => Promise<void>)(...args)
   }

@@ -16,6 +16,8 @@ export interface TrafficLayerInput {
   simOffered: boolean
   /** The ATC layer's switch. */
   atcOn: boolean
+  /** The network traffic's area: the whole network, or the window around the aircraft. */
+  networkWhole: boolean
 }
 
 /**
@@ -31,6 +33,7 @@ export function decideTrafficLayers(input: TrafficLayerInput): TrafficLayers {
     simOn,
     simOffered: input.simOffered,
     atcOn: input.atcOn,
+    networkWhole: input.networkWhole,
     drawNetwork,
     drawSim: input.simOffered && simOn,
     drawAtc: input.atcOn && networkChosen

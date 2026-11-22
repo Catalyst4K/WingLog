@@ -176,6 +176,7 @@ export function trafficCommands(feed: {
   setNetworkOn(on: boolean): void
   setSimOn(on: boolean): void
   setAtcOn(on: boolean): void
+  setNetworkWhole(whole: boolean): void
 }): CommandTable<TrafficCommand> {
   return {
     'traffic.setNetworkOn': (on) => {
@@ -189,6 +190,10 @@ export function trafficCommands(feed: {
     'traffic.setAtcOn': (on) => {
       if (typeof on !== 'boolean') throw new Error('Invalid traffic switch')
       feed.setAtcOn(on)
+    },
+    'traffic.setNetworkWhole': (whole) => {
+      if (typeof whole !== 'boolean') throw new Error('Invalid traffic switch')
+      feed.setNetworkWhole(whole)
     }
   }
 }

@@ -33,7 +33,8 @@ export const FORWARDED_COMMANDS: Partial<Record<LiveCommand, string>> = {
   'gsx.cancelRoutine': IpcChannels.gsxRoutineCancel,
   'traffic.setNetworkOn': IpcChannels.trafficSetNetworkOn,
   'traffic.setSimOn': IpcChannels.trafficSetSimOn,
-  'traffic.setAtcOn': IpcChannels.trafficSetAtcOn
+  'traffic.setAtcOn': IpcChannels.trafficSetAtcOn,
+  'traffic.setNetworkWhole': IpcChannels.trafficSetNetworkWhole
 }
 
 /** The "current value" query each topic has, answered from the hub (what the host last said). */

@@ -222,6 +222,7 @@ const api: WingLogApi = {
   trafficSetNetworkOn: (on: boolean) => ipcRenderer.invoke(IpcChannels.trafficSetNetworkOn, on),
   trafficSetSimOn: (on: boolean) => ipcRenderer.invoke(IpcChannels.trafficSetSimOn, on),
   trafficSetAtcOn: (on: boolean) => ipcRenderer.invoke(IpcChannels.trafficSetAtcOn, on),
+  trafficSetNetworkWhole: (whole: boolean) => ipcRenderer.invoke(IpcChannels.trafficSetNetworkWhole, whole),
   logbookListCompletedFlights: () => ipcRenderer.invoke(IpcChannels.logbookListCompletedFlights),
   logbookGetFlight: (id: number) => ipcRenderer.invoke(IpcChannels.logbookGetFlight, id),
   logbookGetStats: () => ipcRenderer.invoke(IpcChannels.logbookGetStats),

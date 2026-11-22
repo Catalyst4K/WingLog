@@ -81,7 +81,9 @@ describe('a client IPC handlers', () => {
     expect(link.command).toHaveBeenLastCalledWith('gsx.cancelRoutine', [])
     invoke(IpcChannels.trafficSetNetworkOn, true)
     expect(link.command).toHaveBeenLastCalledWith('traffic.setNetworkOn', [true])
-    expect(Object.keys(FORWARDED_COMMANDS)).toHaveLength(17)
+    invoke(IpcChannels.trafficSetNetworkWhole, true)
+    expect(link.command).toHaveBeenLastCalledWith('traffic.setNetworkWhole', [true])
+    expect(Object.keys(FORWARDED_COMMANDS)).toHaveLength(18)
   })
 
   it('never forwards the command that acts on this computer own flight', () => {

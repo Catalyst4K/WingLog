@@ -81,6 +81,7 @@ export const IpcChannels = {
   trafficSetNetworkOn: 'online:traffic-set-network-on',
   trafficSetSimOn: 'online:traffic-set-sim-on',
   trafficSetAtcOn: 'online:traffic-set-atc-on',
+  trafficSetNetworkWhole: 'online:traffic-set-network-whole',
   onlinePrefileFromOfp: 'online:prefile-from-ofp',
   onlinePrefileForFlight: 'online:prefile-for-flight',
   atcAreasGetStatus: 'online:atc-areas-status',

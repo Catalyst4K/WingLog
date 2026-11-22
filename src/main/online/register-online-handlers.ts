@@ -72,8 +72,32 @@ function centreOf(deps: Pick<OnlineHandlerDeps, 'db' | 'sim' | 'trackingControll
  * @returns The latest tick while the sim is connected, otherwise undefined: the service keeps the last tick after the connection drops,
  *   and it is where the last flight ended, not where the aircraft is.
  */
-function simTelemetryNow(sim: Pick<SimConnectSource, 'getLastTelemetry' | 'getStatus'>): SimTelemetry | undefined {
+function simTelemetryNow(
+  sim: Pick<SimConnectSource, 'getLastTelemetry' | 'getStatus'>
+): SimTelemetry | undefined {
   return sim.getStatus().state === 'connected' ? sim.getLastTelemetry() : undefined
+}
+
+/**
+ * Tells the feed service when the aircraft moves and when the sim connects or disconnects, so the traffic is re-centred at once.
+ *
+ * @param sim The sim connection.
+ * @param service The feed service.
+ */
+function followSim(sim: OnlineHandlerDeps['sim'], service: NetworkFeedService): void {
+  // A connection that comes up still holds the last flight's tick until its first one arrives: republish on that tick, not before.
+  let republishOnNextTick = false
+  sim.on('status', (status) => {
+    if (status.state === 'connected') republishOnNextTick = true
+    else service.onSimStatusChanged()
+  })
+  sim.on('telemetry', () => {
+    service.onPositionChanged()
+    if (republishOnNextTick) {
+      republishOnNextTick = false
+      service.onSimStatusChanged()
+    }
+  })
 }
 
 /**
@@ -134,19 +158,7 @@ export function registerOnlineHandlers(
     onLayers: (layers) => simTraffic.setWanted(layers.drawSim),
     log: logger
   })
-  // A connection that comes up still holds the last flight's tick until its first one arrives: republish on that tick, not before.
-  let republishOnNextTick = false
-  sim.on('status', (status) => {
-    if (status.state === 'connected') republishOnNextTick = true
-    else service.onSimStatusChanged()
-  })
-  sim.on('telemetry', () => {
-    service.onPositionChanged()
-    if (republishOnNextTick) {
-      republishOnNextTick = false
-      service.onSimStatusChanged()
-    }
-  })
+  followSim(sim, service)
   trackingController.on('started', () => {
     service.resetOnlineSeen()
     service.refresh()
@@ -194,6 +206,9 @@ export function registerOnlineHandlers(
   )
   ipcMain.handle(IpcChannels.trafficSetAtcOn, (_event, ...args: unknown[]) =>
     dispatchCommand(commands, 'traffic.setAtcOn', args)
+  )
+  ipcMain.handle(IpcChannels.trafficSetNetworkWhole, (_event, ...args: unknown[]) =>
+    dispatchCommand(commands, 'traffic.setNetworkWhole', args)
   )
   simTraffic.start()
   service.start()

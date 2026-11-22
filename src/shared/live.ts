@@ -148,6 +148,7 @@ export interface LiveCommands {
   'traffic.setNetworkOn': [on: boolean]
   'traffic.setSimOn': [on: boolean]
   'traffic.setAtcOn': [on: boolean]
+  'traffic.setNetworkWhole': [whole: boolean]
 }
 
 export type LiveCommand = keyof LiveCommands

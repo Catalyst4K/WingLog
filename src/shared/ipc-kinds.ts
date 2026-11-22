@@ -79,6 +79,7 @@ const NOT_QUERIES = {
     'trafficSetNetworkOn',
     'trafficSetSimOn',
     'trafficSetAtcOn',
+    'trafficSetNetworkWhole',
     'trackingSetDestination',
     'trackingSetDeparture',
     'trackingResumeOrphaned',

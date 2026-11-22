@@ -356,6 +356,8 @@ export interface WingLogApi {
   trafficSetSimOn: (on: boolean) => Promise<void>
   /** Turns the ATC layer on or off, for every screen. It leaves the two traffic switches as they are. */
   trafficSetAtcOn: (on: boolean) => Promise<void>
+  /** Chooses the network traffic's area for every screen: true the whole network, false the aircraft's surroundings. */
+  trafficSetNetworkWhole: (whole: boolean) => Promise<void>
   /** Manually re-runs the resume-cleanup pass for one already-completed flight — the
    *  Logbook detail page's "Clean up track" button, alongside the automatic live/
    *  completion-time pass TrackingController already runs on its own. Useful for a flight

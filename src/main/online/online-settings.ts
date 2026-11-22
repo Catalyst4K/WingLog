@@ -12,6 +12,7 @@ const IVAO_VID_KEY = 'ivaoVid'
 const NETWORK_ON_KEY = 'trafficNetworkOn'
 const SIM_ON_KEY = 'trafficSimOn'
 const ATC_ON_KEY = 'trafficAtcOn'
+const NETWORK_WHOLE_KEY = 'trafficNetworkWhole'
 const PRETEND_CALLSIGN_KEY = 'devPretendCallsign'
 const KEEP_BEYONDATC_KEY = 'onlineKeepBeyondAtc'
 const SIM_BUTTON_KEY = 'trafficSimButton'
@@ -21,6 +22,8 @@ export interface TrafficSwitches {
   networkOn: boolean
   simOn: boolean
   atcOn: boolean
+  /** The network traffic's area: the whole network (true) or around the aircraft (false, the default). */
+  networkWhole: boolean
 }
 
 /** A callsign: letters, digits, underscore and hyphen, at most 12. */
@@ -122,7 +125,8 @@ export function getTrafficSwitches(db: WingLogDb): TrafficSwitches {
   return {
     networkOn: getSetting(db, NETWORK_ON_KEY) === '1',
     simOn: getSetting(db, SIM_ON_KEY) === '1',
-    atcOn: getSetting(db, ATC_ON_KEY) === '1'
+    atcOn: getSetting(db, ATC_ON_KEY) === '1',
+    networkWhole: getSetting(db, NETWORK_WHOLE_KEY) === '1'
   }
 }
 
@@ -136,4 +140,5 @@ export function setTrafficSwitches(db: WingLogDb, switches: TrafficSwitches): vo
   setSetting(db, NETWORK_ON_KEY, switches.networkOn ? '1' : '0')
   setSetting(db, SIM_ON_KEY, switches.simOn ? '1' : '0')
   setSetting(db, ATC_ON_KEY, switches.atcOn ? '1' : '0')
+  setSetting(db, NETWORK_WHOLE_KEY, switches.networkWhole ? '1' : '0')
 }

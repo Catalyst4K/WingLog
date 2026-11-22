@@ -65,7 +65,8 @@ const COMMANDS: { [C in LiveCommand]: [keyof WingLogApi, LiveCommands[C]] } = {
   ],
   'traffic.setNetworkOn': ['trafficSetNetworkOn', [true]],
   'traffic.setSimOn': ['trafficSetSimOn', [true]],
-  'traffic.setAtcOn': ['trafficSetAtcOn', [true]]
+  'traffic.setAtcOn': ['trafficSetAtcOn', [true]],
+  'traffic.setNetworkWhole': ['trafficSetNetworkWhole', [true]]
 }
 
 function mockWinglog(): Record<string, ReturnType<typeof vi.fn>> {
