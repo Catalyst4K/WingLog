@@ -5,6 +5,7 @@ import { expect, test } from '@playwright/test'
 import { freePort } from './lan-device'
 import { FakeGsxRemoteServer, VHHH_BOOT_SNAPSHOT } from './gsx-remote-server'
 import { launchApp } from './launch-app'
+import { skipWithoutMultiDevice } from './multi-device-build'
 
 // A client checks the sim PC's certificate (winglog-backend's docs/plans/security-audit-v2.md, step 22): the pin in pasted pairing text
 // connects, and a different pin ends in "certificate changed" without the code ever reaching the host.
@@ -16,7 +17,7 @@ test('a client pairs with the sim PC’s pin, and refuses another certificate be
     const setup = await launchApp({ userDataDir: clientDir })
     try {
       const capabilities = await setup.window.evaluate(() => window.winglog.appGetCapabilities())
-      test.skip(!capabilities.multiDevice, 'needs a build with WINGLOG_MULTI_DEVICE=1')
+      skipWithoutMultiDevice(capabilities.multiDevice)
       await setup.window.evaluate(() => window.winglog.settingsSetRunMode('client'))
     } finally {
       await setup.cleanup()
@@ -90,7 +91,7 @@ test('a client pairs with the host by address and code, follows its sim and keep
     const setup = await launchApp({ userDataDir: clientDir })
     try {
       const capabilities = await setup.window.evaluate(() => window.winglog.appGetCapabilities())
-      test.skip(!capabilities.multiDevice, 'needs a build with WINGLOG_MULTI_DEVICE=1')
+      skipWithoutMultiDevice(capabilities.multiDevice)
       await setup.window.evaluate(() => window.winglog.settingsSetRunMode('client'))
     } finally {
       await setup.cleanup()

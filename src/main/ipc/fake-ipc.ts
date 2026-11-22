@@ -17,14 +17,18 @@ export interface FakeIpc {
 }
 
 /**
- * An ipcMain that records handlers.
+ * An ipcMain that records handlers, and throws on a second handler for a channel as Electron does.
  *
  * @returns The fake, with `invoke` to call a channel.
  */
 export function fakeIpc(): FakeIpc {
   const handlers = new Map<string, Handler>()
   const ipcMain = {
-    handle: (channel: string, handler: Handler) => handlers.set(channel, handler),
+    handle: (channel: string, handler: Handler) => {
+      // Electron refuses a second handler for a channel, so the double does too: a start-up that registers one twice must fail in a test.
+      if (handlers.has(channel)) throw new Error(`Attempted to register a second handler for '${channel}'`)
+      handlers.set(channel, handler)
+    },
     removeHandler: (channel: string) => handlers.delete(channel)
   }
   return {

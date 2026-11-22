@@ -14,6 +14,7 @@ import { HostLink } from './host-link/HostLink'
 import { followHostFlight, onSyncLanded, showHeldRoute } from './host-link/client-follow'
 import { mapFlightTopic, type FlightMirror } from './host-link/flight-mirror'
 import type { FlightRelay } from './host-link/flight-relay'
+import type { HandledChannels } from './client-mode'
 import { registerHostLinkHandlers } from './host-link/client-ipc'
 import { registerClientLocalHandlers } from './host-link/client-local-handlers'
 import { fileHostLinkStore } from './host-link/host-link-store'
@@ -40,7 +41,7 @@ import { onLocalWrite } from './sync/local-write-hints'
 export function startClientServices(deps: {
   liveHub: LiveHub
   window: BrowserWindow
-  handled: ReadonlySet<string>
+  handled: HandledChannels
   db: WingLogDb
   dbPath: string
   mirror: FlightMirror

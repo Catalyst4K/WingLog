@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { IpcChannels } from '@shared/ipc'
-import { registerInertHandlers, trackHandledChannels } from './client-mode'
+import { HandledChannels, registerInertHandlers, trackHandledChannels } from './client-mode'
 import { fakeIpc } from './ipc/fake-ipc'
 
 describe('a client leaves the host-only services out', () => {
@@ -32,7 +32,7 @@ describe('a client leaves the host-only services out', () => {
 
   it('reads the add-ons as switched off, so nothing is started or shown', () => {
     const ipc = fakeIpc()
-    registerInertHandlers(ipc.ipcMain, new Set())
+    registerInertHandlers(ipc.ipcMain, new HandledChannels())
     expect(ipc.invoke(IpcChannels.settingsGetGsxRemote)).toMatchObject({ enabled: false })
     expect(ipc.invoke(IpcChannels.settingsGetBeyondAtc)).toMatchObject({ enabled: false })
     expect(ipc.invoke(IpcChannels.settingsGetOnlineNetwork)).toMatchObject({ network: null })
