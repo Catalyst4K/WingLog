@@ -359,7 +359,9 @@
         "certificate-changed": "证书已更改",
         "not-secure": "未加密"
       },
-      "simPcConnected": "已连接到模拟器电脑",
+      "simPcUnpaired": "未配对模拟器电脑",
+      "simPcNoSim": "已连接到模拟器电脑，但其模拟器未运行",
+      "simPcReady": "已连接到模拟器电脑及其模拟器",
       "simPcLabel": "模拟器电脑"
     },
     "orphanedFlight": {

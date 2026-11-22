@@ -35,8 +35,9 @@ import { OnlineAtcSection } from '@/online/OnlineAtc'
 import { OnlineBadge } from '@/online/OnlineBadge'
 import type { ProcedureAirports } from '@shared/procedure-selection'
 import { parseTransitionAltitudes } from '@shared/route'
-import type { LanConnection } from '@shared/lan-connection'
-import { useTopic } from './use-link'
+import type { LanConnection, LanLinkState } from '@shared/lan-connection'
+import { SIM_REACH_TEXT, simReach, simReachLight } from '@/components/sim-reach'
+import { useLinkState, useTopic } from './use-link'
 import { usePlannedWaypoints } from './use-planned-route'
 import { useProcedureChoice } from './use-procedure-choice'
 import { useReportTaxiRoute } from './use-reports'
@@ -124,17 +125,27 @@ function FlightBanner({
 }
 
 /**
- * Whether the sim is connected to WingLog on the PC, as three dots and the word.
+ * How far the sim can be reached from the phone, as three dots and the word: red when the phone is not connected to the PC, amber when
+ * it is but the PC has no sim connected, green when both are. The same lights as the twin's header.
  *
- * @param props Whether the sim is connected.
+ * @param props The state of the phone's link to the PC, and the state of the PC's sim connection (undefined until the PC has said).
  * @returns The element.
  */
-function SimLink({ connected }: { connected: boolean }): React.JSX.Element {
+function SimLink({
+  linkState,
+  simState
+}: {
+  linkState: LanLinkState
+  simState: string | undefined
+}): React.JSX.Element {
   const { t } = useTranslation()
+  const reach = simReach(linkState, simState)
+  const sentence = t(SIM_REACH_TEXT[reach])
   return (
-    <span className="inline-flex shrink-0 items-center gap-1.5" data-state={connected ? 'connected' : 'gone'}>
-      <StatusLight state={connected ? 'green' : 'off'} count={3} />
+    <span className="inline-flex shrink-0 items-center gap-1.5" data-state={reach} title={sentence}>
+      <StatusLight state={simReachLight(linkState, simState)} count={3} />
       {t('lanPage.sim')}
+      <span className="sr-only">{sentence}</span>
     </span>
   )
 }
@@ -274,13 +285,18 @@ function ProceduresBar(props: {
  * connects later: while the sim is not connected there are no readings to show.
  *
  * @param link The link to the PC.
- * @returns The readings (undefined while there are none to show), and whether the sim is not connected.
+ * @returns The readings (undefined while there are none to show), whether the sim is not connected, and the sim's state (undefined until
+ *   the PC has said).
  */
-function useLiveTelemetry(link: LanConnection): { telemetry: SimTelemetry | undefined; simGone: boolean } {
+function useLiveTelemetry(link: LanConnection): {
+  telemetry: SimTelemetry | undefined
+  simGone: boolean
+  simState: string | undefined
+} {
   const status = useTopic(link, 'simConnectionStatus')
   const latest = useTopic(link, 'simTelemetry') as SimTelemetry | undefined
   const simGone = status !== undefined && status.state !== 'connected'
-  return { telemetry: simGone ? undefined : latest, simGone }
+  return { telemetry: simGone ? undefined : latest, simGone, simState: status?.state }
 }
 
 /**
@@ -300,7 +316,8 @@ function FlightView(props: {
     (notify) => link.onTrack(notify),
     () => link.track
   )
-  const { telemetry, simGone } = useLiveTelemetry(link)
+  const { telemetry, simGone, simState } = useLiveTelemetry(link)
+  const linkState = useLinkState(link)
   const ofpJson = snapshot?.flight.ofpJson ?? null
   const depIcao = snapshot?.flight.depIcao
   const arrIcao = snapshot?.flight.arrIcao
@@ -349,7 +366,8 @@ function FlightView(props: {
         snapshot={snapshot}
         times={times}
         phase={phase}
-        simConnected={!simGone}
+        linkState={linkState}
+        simState={simState}
         unconfirmed={unconfirmed}
       />
       <div className="relative min-h-0 flex-1">
@@ -385,7 +403,8 @@ function FlightHeader(props: {
   snapshot: LanFlightSnapshot | null
   times: TrackTimes
   phase: FlightPhase | undefined
-  simConnected: boolean
+  linkState: LanLinkState
+  simState: string | undefined
   unconfirmed: boolean
 }): React.JSX.Element {
   const { snapshot, times } = props
@@ -406,14 +425,14 @@ function FlightHeader(props: {
             <>
               <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
                 <RouteText route={routeText(snapshot.flight)} />
-                <SimLink connected={props.simConnected} />
+                <SimLink linkState={props.linkState} simState={props.simState} />
               </div>
               <TimesBanner times={times} />
             </>
           ) : (
             <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
               <TimesBanner times={times} />
-              <SimLink connected={props.simConnected} />
+              <SimLink linkState={props.linkState} simState={props.simState} />
             </div>
           )}
         </div>

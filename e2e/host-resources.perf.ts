@@ -306,7 +306,7 @@ async function states(): Promise<string> {
           `127.0.0.1:${port}`,
           code
         ] as const)
-        await client.window.getByText('Sim PC: connected').waitFor({ timeout: 20_000 })
+        await client.window.getByText(/^Connected to the sim PC/).waitFor({ timeout: 20_000 })
         await client.window.getByRole('tab', { name: 'Track' }).click()
         results.push(await measure(host.app, '3. Window hidden, another WingLog connected and following'))
 

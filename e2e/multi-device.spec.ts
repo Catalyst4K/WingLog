@@ -30,7 +30,7 @@ test('a client starts none of the host services and offers none of their setting
       const capabilities = await client.window.evaluate(() => window.winglog.appGetCapabilities())
       expect(capabilities).toMatchObject({ runMode: 'client', multiDevice: true })
       // The header draws the link as lights, with the state for a screen reader; the sim's own lights are not drawn.
-      await expect(client.window.getByText('Sim PC: not paired')).toBeAttached()
+      await expect(client.window.getByText('No sim PC paired')).toBeAttached()
       await expect(client.window.getByText(/^Sim: /)).toHaveCount(0)
       // Nothing started the second screen: its channel is answered with nothing, not a status.
       expect(await client.window.evaluate(() => window.winglog.lanGetStatus())).toBeUndefined()

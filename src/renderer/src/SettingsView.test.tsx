@@ -327,11 +327,36 @@ describe('SettingsView', () => {
         expect(screen.getByRole('textbox', { name: 'Address' })).toBeInTheDocument()
       })
 
-      it('lights the Sim PC page by the link: green connected, off when nothing is paired', async () => {
+      it.each([
+        ['connected', 'green'],
+        ['connecting', 'amber'],
+        ['disconnected', 'amber'],
+        [null, 'amber']
+      ])(
+        'lights the Sim PC page by how far the sim is reached: connected to the sim PC with its sim %s is %s',
+        async (hostSim, light) => {
+          setWinglog({
+            appGetCapabilities: vi.fn().mockResolvedValue(CLIENT),
+            hostLinkGetStatus: vi.fn().mockResolvedValue({
+              state: 'connected',
+              address: '192.168.1.20:5051',
+              hostSim,
+              sync: { state: 'idle', lastSyncedAt: null }
+            })
+          })
+          renderSettings()
+          const tab = await screen.findByRole('tab', { name: /Sim PC/ })
+          await waitFor(() =>
+            expect(tab.querySelector('[data-slot="status-light"]')).toHaveAttribute('data-state', light)
+          )
+        }
+      )
+
+      it('lights the Sim PC page red when the link is not connected, whatever the sim last said', async () => {
         setWinglog({
           appGetCapabilities: vi.fn().mockResolvedValue(CLIENT),
           hostLinkGetStatus: vi.fn().mockResolvedValue({
-            state: 'connected',
+            state: 'offline',
             address: '192.168.1.20:5051',
             hostSim: 'connected',
             sync: { state: 'idle', lastSyncedAt: null }
@@ -340,7 +365,7 @@ describe('SettingsView', () => {
         renderSettings()
         const tab = await screen.findByRole('tab', { name: /Sim PC/ })
         await waitFor(() =>
-          expect(tab.querySelector('[data-slot="status-light"]')).toHaveAttribute('data-state', 'green')
+          expect(tab.querySelector('[data-slot="status-light"]')).toHaveAttribute('data-state', 'red')
         )
       })
     })

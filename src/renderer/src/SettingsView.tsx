@@ -30,7 +30,8 @@ import { HostLinkCard } from './settings/HostLinkCard'
 import { TwinCard } from './settings/TwinCard'
 import { RunModeCard } from './settings/RunModeCard'
 import { useCapabilities } from './app/capabilities-context'
-import { hostLinkLight, useHostLinkStatus } from './app/use-host-link'
+import { simReachLight } from '@/components/sim-reach'
+import { useHostLinkStatus } from './app/use-host-link'
 import { useSettingsNavStatus } from './settings/use-settings-nav-status'
 import { useResetSignal } from './hooks/use-reset-signal'
 import { asyncHandler, runAsync } from './report-error'
@@ -278,7 +279,10 @@ export function SettingsView(
             gsxRemote: addonLight(gsxRemote.settings.enabled, gsxRemote.status.state),
             beyondAtc: addonLight(beyondAtc.settings.enabled, beyondAtc.status.state),
             ...navStatus,
-            simPc: isClient && hostLink ? { light: hostLinkLight(hostLink.state) } : {}
+            simPc:
+              isClient && hostLink
+                ? { light: simReachLight(hostLink.state, hostLink.hostSim ?? undefined) }
+                : {}
           }}
           mode={{ multiDevice, isClient }}
         />

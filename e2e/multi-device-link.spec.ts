@@ -37,7 +37,7 @@ test('a client pairs with the sim PC’s pin, and refuses another certificate be
 
       const client = await launchApp({ userDataDir: clientDir })
       try {
-        await expect(client.window.getByText('Sim PC: not paired')).toBeAttached()
+        await expect(client.window.getByText('No sim PC paired')).toBeAttached()
         const address = `127.0.0.1:${port}`
         await client.window.evaluate(([a, c, p]) => window.winglog.hostLinkPair(a, c, p), [
           address,
@@ -62,7 +62,7 @@ test('a client pairs with the sim PC’s pin, and refuses another certificate be
           code,
           pin
         ] as const)
-        await expect(client.window.getByText('Sim PC: connected')).toBeAttached({ timeout: 15_000 })
+        await expect(client.window.getByText(/^Connected to the sim PC/)).toBeAttached({ timeout: 15_000 })
         const paired = await host.window.evaluate(() => window.winglog.lanGetStatus())
         expect(paired.devices).toHaveLength(1)
         expect(paired.devices[0]?.kind).toBe('twin')
@@ -133,7 +133,7 @@ test('a client pairs with the host by address and code, follows its sim and keep
 
       const client = await launchApp({ userDataDir: clientDir })
       try {
-        await expect(client.window.getByText('Sim PC: not paired')).toBeAttached()
+        await expect(client.window.getByText('No sim PC paired')).toBeAttached()
         // An address that is not on the home network is refused, and nothing is opened.
         await expect(
           client.window.evaluate(() => window.winglog.hostLinkPair('example.com:5051', '123456'))
@@ -143,7 +143,7 @@ test('a client pairs with the host by address and code, follows its sim and keep
           `127.0.0.1:${port}`,
           code
         ] as const)
-        await expect(client.window.getByText('Sim PC: connected')).toBeAttached({ timeout: 15_000 })
+        await expect(client.window.getByText(/^Connected to the sim PC/)).toBeAttached({ timeout: 15_000 })
         await expect(client.window.getByRole('tab', { name: 'BeyondATC' })).toBeVisible({ timeout: 15_000 })
         // The add-on pages open on the client (one that gets nothing for a lookup used to fall over), with the routine editor: routines are rows that sync.
         await client.window.getByRole('tab', { name: 'Ground services' }).click()
@@ -327,9 +327,9 @@ test('a client pairs with the host by address and code, follows its sim and keep
       // A restart: the token and address are remembered, so it reconnects without a code.
       const again = await launchApp({ userDataDir: clientDir })
       try {
-        await expect(again.window.getByText('Sim PC: connected')).toBeAttached({ timeout: 20_000 })
+        await expect(again.window.getByText(/^Connected to the sim PC/)).toBeAttached({ timeout: 20_000 })
         await again.window.evaluate(() => window.winglog.hostLinkForget())
-        await expect(again.window.getByText('Sim PC: not paired')).toBeAttached()
+        await expect(again.window.getByText('No sim PC paired')).toBeAttached()
       } finally {
         await again.cleanup()
       }
