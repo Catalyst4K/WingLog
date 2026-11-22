@@ -300,7 +300,8 @@ often the *whole* suite gets *re-run*: during day-to-day iteration on a change, 
 test file(s) actually relevant to what changed, not a full `npm test` / `npm run
 test:coverage` across all 80+ files each time. Run the complete battery —
 `typecheck` + `lint` + `test` + `test:coverage` + `build`, plus `test:e2e` before merging
-into `develop` (CI runs only on release PRs) — at a real checkpoint instead:
+into `develop` (CI runs only on release PRs), plus `test:e2e:multi` on `plan/v2-design` and before any dev installer (plain
+`test:e2e` skips every Mac-twin spec; `winglog-backend`'s `CLAUDE.md`, 2026-11-22, binding here) — at a real checkpoint instead:
 opening or updating a PR, merging a branch, running `npm run package:win`, or cutting a
 release. If genuinely unsure whether a change is small enough to skip the full battery,
 run it rather than guess wrong on something that gates a release.
