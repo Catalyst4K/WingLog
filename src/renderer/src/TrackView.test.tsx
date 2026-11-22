@@ -776,7 +776,7 @@ describe('TrackView', () => {
         trackingGetActive: vi.fn().mockResolvedValue({ flightId: 1, phase: 'cruise' })
       })
       renderTrack({ telemetry: makeTelemetry({ onGround: false }) })
-      await screen.findByText('cruise') // wait for the active-flight card to settle
+      await screen.findByText('Cruise') // wait for the active-flight card to settle
       expect(screen.queryByText(/start tracking\?/)).not.toBeInTheDocument()
     })
 
@@ -1060,7 +1060,7 @@ describe('TrackView', () => {
       trackingGetActive: vi.fn().mockResolvedValue({ flightId: 1, phase: 'cruise' })
     })
     renderTrack()
-    expect(await screen.findByText('cruise')).toBeInTheDocument()
+    expect(await screen.findByText('Cruise')).toBeInTheDocument()
     expect(screen.getByText('Cancel flight')).toBeInTheDocument()
     expect(screen.getByText('Finish & save')).toBeInTheDocument()
   })
@@ -1268,7 +1268,7 @@ describe('TrackView', () => {
       trackingGetActive: vi.fn().mockResolvedValue({ flightId: 1, phase: 'cruise' })
     })
     renderTrack({ selection: { ...emptyProcedureSelection(), sidIdent: 'DET2G' } })
-    await screen.findByText('cruise')
+    await screen.findByText('Cruise')
     expect(winglog.trackingSetProcedureSelection).not.toHaveBeenCalled()
   })
 
@@ -1293,7 +1293,7 @@ describe('TrackView', () => {
         onSelectionChange={onSelectionChange}
       />
     )
-    await screen.findByText('cruise')
+    await screen.findByText('Cruise')
     expect(screen.getByText('Nothing selected yet')).toBeInTheDocument()
 
     isSimUp = true
@@ -1335,7 +1335,7 @@ describe('TrackView', () => {
       })
     })
     renderTrack({ onFlightEnded })
-    await screen.findByText('landing')
+    await screen.findByText('Landing')
 
     pointListener?.(makeTrackPoint({ phase: 'shutdown', flightId: 1 }))
 
@@ -1376,15 +1376,15 @@ describe('TrackView', () => {
       })
     })
     renderTrack()
-    await screen.findByText('taxi')
+    await screen.findByText('Taxi out')
 
     pointListener?.(makeTrackPoint({ phase: 'takeoff', flightId: 1 }))
-    expect(await screen.findByText('takeoff')).toBeInTheDocument()
+    expect(await screen.findByText('Takeoff')).toBeInTheDocument()
 
     // A point for a different flight id replaces the accumulated trail rather than
     // appending to it.
     pointListener?.(makeTrackPoint({ phase: 'climb', flightId: 2, id: 2 }))
-    expect(await screen.findByText('climb')).toBeInTheDocument()
+    expect(await screen.findByText('Climb')).toBeInTheDocument()
   })
 
   it('unsubscribes the tracking-point listener on unmount', async () => {
@@ -1479,7 +1479,7 @@ describe('TrackView', () => {
       trackingGetActive: vi.fn().mockResolvedValue({ flightId: 1, phase: 'taxi' })
     })
     renderTrack({ telemetry: OVERLAY_TELEMETRY })
-    await screen.findByText('taxi')
+    await screen.findByText('Taxi out')
     expect(screen.getByText(/Heading: 270°/)).toBeInTheDocument()
     expect(screen.getByText(/Speed: 233 kt/)).toBeInTheDocument()
   })
@@ -1492,7 +1492,65 @@ describe('TrackView', () => {
       trackPointList: vi.fn().mockResolvedValue([makeTrackPoint()])
     })
     renderTrack()
-    await screen.findByText('cruise')
+    await screen.findByText('Cruise')
     expect(winglog.trackPointList).toHaveBeenCalledWith(1)
+  })
+
+  it('shows "Taxi in" from the first render when the tab opens during the taxi in, before the track has loaded, and never "Taxi out"', async () => {
+    setWinglog({
+      aircraftList: vi.fn().mockResolvedValue([AIRCRAFT]),
+      flightList: vi
+        .fn()
+        .mockResolvedValue([makeFlight({ status: 'active', actualOnUtc: '2026-01-01T01:00:00.000Z' })]),
+      trackingGetActive: vi.fn().mockResolvedValue({ flightId: 1, phase: 'taxi' }),
+      // The track never arrives: the strip must not depend on it.
+      trackPointList: vi.fn().mockReturnValue(new Promise(() => {}))
+    })
+    const { container } = renderTrack()
+    const current: string[] = []
+    const note = (): void => {
+      const text = container.querySelector('[data-testid="phase-lights"] [aria-current]')?.textContent
+      if (text && current.at(-1) !== text) current.push(text)
+    }
+    new MutationObserver(note).observe(container, { childList: true, subtree: true, attributes: true })
+    expect(await screen.findByText('Taxi in')).not.toHaveClass('sr-only')
+    note()
+    expect(current).toEqual(['Taxi in'])
+  })
+
+  it('reads the flight again at each new phase and not at each point, and shows "Taxi in" once the landing is stored', async () => {
+    let pointListener: ((point: TrackPoint) => void) | undefined
+    let landed = false
+    const flightList = vi.fn(async () => [
+      makeFlight({ status: 'active', actualOnUtc: landed ? '2026-01-01T01:00:00.000Z' : null })
+    ])
+    setWinglog({
+      aircraftList: vi.fn().mockResolvedValue([AIRCRAFT]),
+      flightList,
+      trackingGetActive: vi.fn().mockResolvedValue({ flightId: 1, phase: 'taxi' }),
+      onTrackingPoint: vi.fn((listener) => {
+        pointListener = listener
+        return () => {}
+      })
+    })
+    renderTrack()
+    expect(await screen.findByText('Taxi out')).not.toHaveClass('sr-only')
+    const send = (phase: TrackPoint['phase']): void =>
+      pointListener?.(makeTrackPoint({ phase, flightId: 1, id: flightList.mock.calls.length + 100 }))
+    await waitFor(() => expect(flightList).toHaveBeenCalled())
+    const reads = (): number => flightList.mock.calls.length
+    const before = reads()
+    for (const phase of ['takeoff', 'takeoff', 'climb', 'climb', 'descent', 'descent'] as const) send(phase)
+    expect(reads()).toBe(before + 3)
+    // The touchdown is stored just before the 'landing' point arrives.
+    landed = true
+    send('landing')
+    send('landing')
+    expect(reads()).toBe(before + 4)
+    send('taxi')
+    send('taxi')
+    expect(reads()).toBe(before + 5)
+    expect(await screen.findByText('Taxi in')).not.toHaveClass('sr-only')
+    expect(screen.getByText('Taxi out')).toHaveClass('sr-only')
   })
 })

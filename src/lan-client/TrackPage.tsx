@@ -92,16 +92,19 @@ function RouteText({ route }: { route: string }): React.JSX.Element {
  * (`FlightHeader`), so a long number or the online badge never cuts it short; the aircraft's type is left to the PC. When the two groups
  * don't fit side by side, the second wraps whole.
  *
- * @param props The flight being tracked, its phase, and its number (null when it has none, and then the route leads).
+ * @param props The flight being tracked, its phase, whether it is past its landing (the second taxi light), and its number (null when it
+ * has none, and then the route leads).
  * @returns The element.
  */
 function FlightBanner({
   flight,
   phase,
+  pastLanding,
   flightNumber
 }: {
   flight: LanFlight
   phase: FlightPhase | undefined
+  pastLanding: boolean
   flightNumber: string | null
 }): React.JSX.Element {
   return (
@@ -118,7 +121,7 @@ function FlightBanner({
       </span>
       <span className="flex shrink-0 items-center gap-2">
         <OnlineBadge />
-        {phase && <PhaseLights phase={phase} compact />}
+        {phase && <PhaseLights phase={phase} pastLanding={pastLanding} compact />}
       </span>
     </div>
   )
@@ -420,7 +423,13 @@ function FlightHeader(props: {
       )}
       {snapshot && (
         <div className="flex flex-col gap-1.5 border-b-[3px] border-foreground bg-card px-3.5 pt-3 pb-2">
-          <FlightBanner flight={snapshot.flight} phase={props.phase} flightNumber={flightNumber} />
+          <FlightBanner
+            flight={snapshot.flight}
+            phase={props.phase}
+            // The PC's stored touchdown time (`actualOnUtc`, written at every touchdown), not worked out from the track.
+            pastLanding={snapshot.flight.actualOnUtc != null}
+            flightNumber={flightNumber}
+          />
           {flightNumber !== null ? (
             <>
               <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">

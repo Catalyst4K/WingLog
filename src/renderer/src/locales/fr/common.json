@@ -753,6 +753,17 @@
   },
   "trackView": {
     "title": "Suivi",
+    "phases": {
+      "pushback": "Repoussage",
+      "taxiOut": "Roulage départ",
+      "takeoff": "Décollage",
+      "climb": "Montée",
+      "cruise": "Croisière",
+      "descent": "Descente",
+      "landing": "Atterrissage",
+      "taxiIn": "Roulage arrivée",
+      "shutdown": "Arrêt moteurs"
+    },
     "times": {
       "et": "ET",
       "remaining": "Restant",

@@ -165,7 +165,7 @@ export function ActiveFlightCard(props: {
               flight?.hasOfp ? `${displayIcao(flight.depIcao)} → ${displayIcao(flight.arrIcao)}` : undefined
             }
           />
-          <PhaseLights phase={props.active.phase} />
+          <PhaseLights phase={props.active.phase} pastLanding={flight?.actualOnUtc != null} />
         </div>
         <div className="flex flex-wrap items-center gap-x-6 gap-y-3.5">
           <EtaReadout times={props.times} />

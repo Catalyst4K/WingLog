@@ -12,7 +12,7 @@ import type { Duplex } from 'node:stream'
 import { WebSocketServer, type WebSocket } from 'ws'
 import { laneOf, type LanQueryLane } from '@shared/lan-queries'
 import { parseReport, parseReportDetail } from '@shared/lan-report'
-import type { LiveCommand, LiveSnapshot, LiveTopic } from '@shared/live'
+import type { LiveCommand, LiveTopic } from '@shared/live'
 import type { LanDeviceKind } from '@shared/ipc'
 import { describeError } from '../logging/describe-error'
 import { findQuery } from './find-query'
@@ -24,8 +24,9 @@ import { logName, parseIncoming, type Incoming } from './lan-incoming'
 import { originMatches, pageSecurityPolicy } from './lan-http'
 import { createTlsServer, LanListener, loadHostIdentity } from './lan-listener'
 import { dueForLog } from './lan-log'
-import { LAN_TOPICS } from './lan-topics'
+import { LAN_TOPICS, lanTopicsOf } from './lan-topics'
 import { cleanDeviceName, hashToken, newDeviceToken, PAIRING_WINDOW_MS, PairingWindow } from './pairing'
+import { PhaseWatch } from './phase-watch'
 
 export { LAN_TOPICS } from './lan-topics'
 
@@ -163,6 +164,7 @@ export class LanServer {
   /** The flight the connected devices were last told about. */
   private sentFlightId: number | null = null
   private lastFlightKey: string | null = null
+  private readonly phases = new PhaseWatch()
 
   constructor(private readonly deps: LanServerDeps) {}
 
@@ -676,14 +678,10 @@ export class LanServer {
     clearTimeout(client.authTimer)
     client.deviceId = deviceId
     client.kind = kind
-    const topics: LiveSnapshot = {}
-    const snapshot = this.deps.hub.snapshot()
+    const topics = lanTopicsOf(this.deps.hub.snapshot())
     const flight = this.deps.flight() as { flight?: { flightId?: number } } | null
     this.sentFlightId = flight?.flight?.flightId ?? null
     this.lastFlightKey = this.deps.flightKey?.() ?? null
-    for (const topic of LAN_TOPICS) {
-      if (topic in snapshot) (topics as Record<string, unknown>)[topic] = snapshot[topic]
-    }
     this.send(client, { t: 'snapshot', topics, flight })
   }
 
@@ -703,6 +701,10 @@ export class LanServer {
     this.deps.onFlightChanged?.()
     const flight = this.deps.flight() as { flight?: { flightId?: number } } | null
     this.sentFlightId = flight?.flight?.flightId ?? null
+    this.sendFlight(flight)
+  }
+
+  private sendFlight(flight: unknown): void {
     for (const client of this.clients)
       if (client.deviceId !== null) this.send(client, { t: 'flight', flight })
   }
@@ -715,13 +717,12 @@ export class LanServer {
    */
   private announceFlightChange(topic: LiveTopic, payload: unknown): void {
     if (topic !== 'trackingPoint' || typeof payload !== 'object' || payload === null) return
-    const flightId = (payload as { flightId?: unknown }).flightId
+    const { flightId, phase } = payload as { flightId?: unknown; phase?: unknown }
+    // A touchdown's row is written before its 'landing' point, so a new phase is when the flight is checked: no waiting for the heartbeat.
+    if (this.phases.changed(phase)) this.syncFlight()
     if (typeof flightId !== 'number' || flightId === this.sentFlightId) return
     this.sentFlightId = flightId
-    const flight = this.deps.flight()
-    for (const client of this.clients) {
-      if (client.deviceId !== null) this.send(client, { t: 'flight', flight })
-    }
+    this.sendFlight(this.deps.flight())
   }
 
   private send(client: Client, message: unknown): void {

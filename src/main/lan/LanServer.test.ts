@@ -1123,6 +1123,32 @@ describe('LanServer', () => {
       expect(client.received.filter((m) => m.t === 'flight')).toHaveLength(count)
     })
 
+    it('checks the flight when a tracked point brings a new phase, not at every point, so a touchdown reaches a device before the next heartbeat', async () => {
+      let key = 'a'
+      let shown: unknown = { flight: { flightId: 7, actualOnUtc: null } }
+      const { pair, hub } = await setup({ flightKey: () => key, flight: () => shown })
+      const { client } = await pair()
+      await client.message('snapshot')
+      const flights = (): number => client.received.filter((m) => m.t === 'flight').length
+      hub.publish('trackingPoint', { id: 1, flightId: 7, phase: 'descent' } as never)
+      // The flight row changes (a touchdown), but a point of the same phase does not look at it.
+      key = 'b'
+      shown = { flight: { flightId: 7, actualOnUtc: '2026-01-01T01:00:00.000Z' } }
+      hub.publish('trackingPoint', { id: 2, flightId: 7, phase: 'descent' } as never)
+      await client.waitFor(() => client.received.filter((m) => m.t === 'topic').length === 2)
+      expect(client.received.some((m) => m.t === 'flight' && m.flight === shown)).toBe(false)
+      hub.publish('trackingPoint', { id: 3, flightId: 7, phase: 'landing' } as never)
+      await client.waitFor(() => client.received.filter((m) => m.t === 'topic').length === 3)
+      const sent = client.received.filter((m) => m.t === 'flight')
+      expect(sent.at(-1)).toEqual({ t: 'flight', flight: shown })
+      // The flight goes ahead of the point that brought the phase, and only once for it.
+      expect(client.received.at(-1)).toMatchObject({ t: 'topic', payload: { id: 3 } })
+      const count = flights()
+      hub.publish('trackingPoint', { id: 4, flightId: 7, phase: 'landing' } as never)
+      await client.waitFor(() => client.received.filter((m) => m.t === 'topic').length === 4)
+      expect(flights()).toBe(count)
+    })
+
     it('tells the PC when the flight shown changed, so the route built from it can be built again', async () => {
       let key = 'a'
       let changed = 0

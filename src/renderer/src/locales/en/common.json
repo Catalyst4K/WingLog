@@ -751,6 +751,17 @@
   },
   "trackView": {
     "title": "Track",
+    "phases": {
+      "pushback": "Pushback",
+      "taxiOut": "Taxi out",
+      "takeoff": "Takeoff",
+      "climb": "Climb",
+      "cruise": "Cruise",
+      "descent": "Descent",
+      "landing": "Landing",
+      "taxiIn": "Taxi in",
+      "shutdown": "Shutdown"
+    },
     "times": {
       "et": "ET",
       "remaining": "Remaining",

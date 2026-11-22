@@ -6,7 +6,14 @@
 import { winglogApi } from '../data/winglog-api'
 import { useDataChanged } from '../app/use-data-changed'
 import { useEffect, useRef, useState } from 'react'
-import type { ActiveTracking, Aircraft, LogbookFlight, SimTelemetry, TrackPoint } from '@shared/ipc'
+import type {
+  ActiveTracking,
+  Aircraft,
+  FlightPhase,
+  LogbookFlight,
+  SimTelemetry,
+  TrackPoint
+} from '@shared/ipc'
 import { flightLabel } from '../flight-label'
 import { runAsync } from '../report-error'
 import { computeTrackTimes, type TrackTimes } from '../track-times'
@@ -77,6 +84,20 @@ export interface TrackedFlights {
 }
 
 /**
+ * Remembers the phase of the newest point. A new phase can follow a change to the flight's row (a touchdown writes its on time), so the
+ * flight is read again for each.
+ *
+ * @param last Where the last phase is kept.
+ * @param phase The phase of the point that has just arrived.
+ * @returns True when it differs from the one before.
+ */
+function notePhase(last: { current: FlightPhase | null }, phase: FlightPhase): boolean {
+  const changed = last.current !== phase
+  last.current = phase
+  return changed
+}
+
+/**
  * Loads the fleet, the flights and the active flight's track, then follows tracking live.
  *
  * @param onFlightEnded Called when a flight completes on its own.
@@ -93,6 +114,7 @@ export function useTrackedFlights(onFlightEnded: (() => void) | undefined): Trac
   // whatever `flights`/`onFlightEnded` were at that time — refs kept in step with the real
   // values let it use both without going stale.
   const flightsRef = useRef<LogbookFlight[]>([])
+  const lastPhaseRef = useRef<FlightPhase | null>(null)
   const onFlightEndedRef = useRef(onFlightEnded)
 
   function reload(): Promise<void> {
@@ -168,6 +190,7 @@ export function useTrackedFlights(onFlightEnded: (() => void) | undefined): Trac
       setTrackPoints((current) =>
         current.length && current[0].flightId !== point.flightId ? [point] : [...current, point]
       )
+      if (notePhase(lastPhaseRef, point.phase)) runAsync('TrackView reload', reload())
       showActive({ flightId: point.flightId, phase: point.phase })
     })
     // A resume-cleanup pass (winglog-backend's docs/plans/done/resume-track-cleanup.md) can

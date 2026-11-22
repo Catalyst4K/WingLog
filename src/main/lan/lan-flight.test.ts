@@ -3,7 +3,7 @@ import { sql } from 'drizzle-orm'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import { createDb } from '../db/client'
 import { createAircraft } from '../db/aircraft-repo'
-import { createFlight, getFlightUuidById } from '../db/flight-repo'
+import { createFlight, getFlightUuidById, recordOn } from '../db/flight-repo'
 import { lanFlightKey, lanFlightSnapshot } from './lan-flight'
 
 function freshDb() {
@@ -86,6 +86,7 @@ describe('lanFlightSnapshot', () => {
       arrIcao: 'EGLL',
       flightNumber: 'SIA321',
       schedInUtc: null,
+      actualOnUtc: null,
       registration: '9V-SKA',
       icaoType: 'A388',
       operatorIata: null,
@@ -112,6 +113,18 @@ describe('lanFlightSnapshot', () => {
     expect(shown).toMatchObject({ flightId: planned.id, tracking: false })
     expect(shown?.uuid).toBe(getFlightUuidById(db, planned.id))
     expect(lanFlightSnapshot(db, planned.id)?.flight.tracking).toBe(true)
+  })
+
+  it('carries the flights stored touchdown time, and its key changes when one is recorded', () => {
+    const db = freshDb()
+    const aircraftId = createAircraft(db, { registration: '9V-SKA', icaoType: 'A388' }).id
+    const flight = createFlight(db, { aircraftId, depIcao: 'WSSS', arrIcao: 'EGLL', status: 'active' })
+    expect(lanFlightSnapshot(db, flight.id)?.flight.actualOnUtc).toBeNull()
+    const before = lanFlightKey(db, flight.id)
+    const landed = recordOn(db, flight.id)
+    expect(landed?.actualOnUtc).not.toBeNull()
+    expect(lanFlightSnapshot(db, flight.id)?.flight.actualOnUtc).toBe(landed?.actualOnUtc)
+    expect(lanFlightKey(db, flight.id)).not.toBe(before)
   })
 
   it('gives the airline of the fleet aircraft, for the logo beside the flight number', () => {

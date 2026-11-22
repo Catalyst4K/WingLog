@@ -780,6 +780,17 @@
   },
   "trackView": {
     "title": "Трек",
+    "phases": {
+      "pushback": "Буксировка",
+      "taxiOut": "Руление на старт",
+      "takeoff": "Взлёт",
+      "climb": "Набор высоты",
+      "cruise": "Крейсерский полёт",
+      "descent": "Снижение",
+      "landing": "Посадка",
+      "taxiIn": "Руление на стоянку",
+      "shutdown": "Выключение"
+    },
     "times": {
       "et": "ET",
       "remaining": "Осталось",
