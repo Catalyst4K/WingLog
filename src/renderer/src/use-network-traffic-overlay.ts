@@ -13,7 +13,7 @@ import { useTranslation } from 'react-i18next'
 import type { NetworkTraffic, SimTraffic, TrafficAircraft, TrafficLayers } from '@shared/ipc'
 import { useLiveClient, type LiveClient } from './live/LiveClient'
 import { winglogApi } from './data/winglog-api'
-import { reportError } from './report-error'
+import { reportError, runAsync } from './report-error'
 import { setSourceData } from './map-source'
 import { openTextPopup } from './flight-map/map-popup'
 import { addTrafficIcon, TRAFFIC_ICON_ID } from './flight-map/traffic-icon'
@@ -246,52 +246,81 @@ function drawnAircraft(
 /**
  * This screen's own choice between "Nearby" and "Whole network", remembered on this device. Set to Whole network while the layer draws,
  * it asks the sim PC for the whole set now and again each time the pushed set arrives (each feed read), so a screen set to Nearby never
- * receives it.
+ * receives it. It does not ask while the pushed set already is the whole network (no position), and keeps one ask in flight: a push that
+ * arrives meanwhile is answered once the ask returns, so a slow link never queues two whole sets.
  *
- * @param args The live client, whether the network layer draws, the pushed traffic, and the ref stamped when traffic arrives (the glide).
- * @returns The choice, its toggle, and the traffic this screen shows.
+ * @param args The live client, whether the network layer draws, the pushed traffic and the ref stamped when it arrives (the glide).
+ * @returns The choice, its toggle, the traffic this screen shows, and the ref its glide counts from (the whole set has its own).
  */
 function useWholeNetwork({
   client,
   asks,
   traffic,
-  receivedAtRef
+  pushedReceivedAtRef
 }: {
   client: LiveClient
   asks: boolean
   traffic: NetworkTraffic | null
+  pushedReceivedAtRef: MutableRefObject<number>
+}): {
+  whole: boolean
+  toggleWhole: () => void
+  shownTraffic: NetworkTraffic | null
   receivedAtRef: MutableRefObject<number>
-}): { whole: boolean; toggleWhole: () => void; shownTraffic: NetworkTraffic | null } {
+} {
   const [whole, setWhole] = useState(readWholeChoice)
   const [wholeTraffic, setWholeTraffic] = useState<NetworkTraffic | null>(null)
-  const asksWhole = asks && whole
+  const wholeReceivedAtRef = useRef(0)
+  const asksWhole = asks && whole && traffic?.whole !== true
   useEffect(() => {
     if (!asksWhole) return
     let current = true
+    let pending = false
+    let askAgain = false
     const ask = (): void => {
-      winglogApi()
-        .getNetworkTrafficWhole()
-        .then(
-          (value) => {
+      if (pending) {
+        askAgain = true
+        return
+      }
+      pending = true
+      runAsync(
+        'map: whole network traffic',
+        winglogApi()
+          .getNetworkTrafficWhole()
+          .then((value) => {
             if (!current) return
-            receivedAtRef.current = performance.now()
+            wholeReceivedAtRef.current = performance.now()
             setWholeTraffic(value)
-          },
-          (e: unknown) => reportError('map: whole network traffic', e)
-        )
+          })
+          .finally(() => {
+            pending = false
+            if (askAgain && current) {
+              askAgain = false
+              ask()
+            }
+          })
+      )
     }
     ask()
     const unsubscribe = client.subscribe('networkTraffic', ask)
     return () => {
       current = false
       unsubscribe()
+      // An old set (another network, or from before the layer was off) is never drawn again.
+      setWholeTraffic(null)
     }
-  }, [asksWhole, client, receivedAtRef])
+  }, [asksWhole, client])
   const toggleWhole = (): void => {
     writeWholeChoice(!whole)
     setWhole(!whole)
   }
-  return { whole, toggleWhole, shownTraffic: asksWhole && wholeTraffic ? wholeTraffic : traffic }
+  const showsWhole = asksWhole && wholeTraffic !== null
+  return {
+    whole,
+    toggleWhole,
+    shownTraffic: showsWhole ? wholeTraffic : traffic,
+    receivedAtRef: showsWhole ? wholeReceivedAtRef : pushedReceivedAtRef
+  }
 }
 
 /**
@@ -354,11 +383,16 @@ export function useNetworkTrafficOverlay({
     }
   }, [client, live])
 
-  const { whole, toggleWhole, shownTraffic } = useWholeNetwork({
+  const {
+    whole,
+    toggleWhole,
+    shownTraffic,
+    receivedAtRef: drawnReceivedAtRef
+  } = useWholeNetwork({
     client,
     asks: live && layers?.drawNetwork === true,
     traffic,
-    receivedAtRef: networkReceivedAtRef
+    pushedReceivedAtRef: networkReceivedAtRef
   })
 
   useDrawnLayer({
@@ -366,7 +400,7 @@ export function useNetworkTrafficOverlay({
     mapReady,
     style: NETWORK_STYLE,
     aircraft: drawnAircraft(live, layers?.drawNetwork, shownTraffic),
-    receivedAtMsRef: networkReceivedAtRef,
+    receivedAtMsRef: drawnReceivedAtRef,
     onGroundText
   })
   useDrawnLayer({

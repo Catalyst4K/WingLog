@@ -27,7 +27,9 @@ export const LAN_QUERY_KINDS: Record<string, LanQueryKind> = {
   'weather.metars': SLOW,
   // Waits for a read of the network's feed when the PC's is too old.
   'online.atis': SLOW,
-  // The whole network's traffic, up to about 600 kB, built once per feed read and cached: the slow lane's few slots keep many answers from queuing at once on a phone's link.
+  // The whole network's traffic, up to about 600 kB, built once per feed read and cached. The lane only keeps it apart from the quick
+  // lookups: the PC frees the slot once the answer is handed to the socket, so the slots do not limit what queues on a slow link. The page
+  // itself keeps one ask in flight.
   'online.trafficWhole': SLOW,
   'taxi.has': FAST,
   // Does nothing now: the PC fetches the shown flight's chart itself (flight-navdata-fetcher.ts). Kept, and left in this lane,

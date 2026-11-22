@@ -6,6 +6,8 @@ import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import { IpcChannels } from '@shared/ipc'
 import type { NetworkTraffic, SimTelemetry } from '@shared/ipc'
 import { createDb, type WingLogDb } from '../db/client'
+import { createAircraft } from '../db/aircraft-repo'
+import { createFlight } from '../db/flight-repo'
 import { fakeIpc } from '../ipc/fake-ipc'
 import { LiveHub } from '../live/LiveHub'
 import { bundledAtcAreas } from './bundled-atc-areas'
@@ -31,6 +33,7 @@ describe('where the network traffic is centred once the sim has gone', () => {
     getStatus: () => { state: string }
   }
   let stop: (() => void) | undefined
+  let activeFlightId: number | undefined
 
   function showTraffic(): { invoke: ReturnType<typeof fakeIpc>['invoke'] } {
     const ipc = fakeIpc()
@@ -38,7 +41,9 @@ describe('where the network traffic is centred once the sim has gone', () => {
       db,
       liveHub,
       sim: sim as never,
-      trackingController: Object.assign(new EventEmitter(), { getActive: () => undefined }) as never,
+      trackingController: Object.assign(new EventEmitter(), {
+        getActive: () => (activeFlightId === undefined ? undefined : { flightId: activeFlightId })
+      }) as never,
       appVersion: '2.0.0',
       isDevBuild: false,
       atcAreas: bundledAtcAreas,
@@ -61,6 +66,7 @@ describe('where the network traffic is centred once the sim has gone', () => {
     db = createDb(':memory:').db
     migrate(db, { migrationsFolder: 'drizzle' })
     liveHub = new LiveHub()
+    activeFlightId = undefined
     status = { state: 'connected' }
     // As SimConnectService behaves: the last tick is kept after the connection drops (it is never cleared).
     sim = Object.assign(new EventEmitter(), {
@@ -148,6 +154,26 @@ describe('where the network traffic is centred once the sim has gone', () => {
     expect(publish.mock.calls.filter(([topic]) => topic === 'networkTraffic')).toHaveLength(1)
   })
 
+  it('draws once around the first tick when the map was centred on the shown flight’s departure, which is not where the tick is', async () => {
+    const aircraft = createAircraft(db, { registration: 'G-TEST', icaoType: 'A320' })
+    activeFlightId = createFlight(db, { aircraftId: aircraft.id, depIcao: 'EGLL', arrIcao: 'EGKK' }).id
+    status = { state: 'disconnected' }
+    const { invoke } = showTraffic()
+    // Centred on Heathrow: the London aircraft of the fixture are around it.
+    await vi.waitFor(() =>
+      expect((invoke(IpcChannels.networkTrafficGet) as NetworkTraffic).aircraft.length).toBeGreaterThan(0)
+    )
+    status = { state: 'connected' }
+    sim.emit('status', status)
+    const publish = vi.spyOn(liveHub, 'publish')
+    sim.emit('telemetry', SANYA_GATE)
+    const drawn = publish.mock.calls.filter(([topic]) => topic === 'networkTraffic')
+    expect(drawn).toHaveLength(1)
+    expect((drawn[0]![1] as NetworkTraffic).aircraft).toEqual([])
+    sim.emit('telemetry', SANYA_GATE)
+    expect(publish.mock.calls.filter(([topic]) => topic === 'networkTraffic')).toHaveLength(1)
+  })
+
   it('leaves the map alone for the reconnect attempts while the sim is closed', async () => {
     status = { state: 'disconnected' }
     const { invoke } = showTraffic()
@@ -187,7 +213,8 @@ describe('where the network traffic is centred once the sim has gone', () => {
     expect(whole.state).toBe('shown')
     expect(whole.aircraft.length).toBeGreaterThan(0)
     // Built once for each feed read: another screen's request is the same build.
-    expect(invoke(IpcChannels.networkTrafficWholeGet)).toBe(whole)
+    const again = invoke(IpcChannels.networkTrafficWholeGet) as NetworkTraffic
+    expect(again.aircraft.map((a) => a.callsign)).toEqual(whole.aircraft.map((a) => a.callsign))
     expect(fetch).toHaveBeenCalledTimes(1)
   })
 

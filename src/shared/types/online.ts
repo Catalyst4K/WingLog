@@ -69,6 +69,8 @@ export interface NetworkTraffic {
    */
   state: 'shown' | 'off' | 'noNetwork' | 'needsVid' | 'unavailable'
   aircraft: TrafficAircraft[]
+  /** Present (true) when the aircraft are the whole network and not the surroundings of a position: a screen set to "Whole network" need not ask for them again. */
+  whole?: true
 }
 
 /** The `simTraffic` live topic: the aircraft the sim itself lists around the pilot (BeyondATC's traffic, AI traffic), for the teal layer. */

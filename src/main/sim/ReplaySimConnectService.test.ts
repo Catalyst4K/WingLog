@@ -191,12 +191,16 @@ describe('ReplaySimConnectService', () => {
       })
       const lats: number[] = []
       service.on('telemetry', (t) => lats.push(t.latitude))
+      const states: string[] = []
+      service.on('status', (status) => states.push(status.state))
       service.start()
       await vi.advanceTimersByTimeAsync(300)
       service.stop()
       await vi.advanceTimersByTimeAsync(60_000)
       expect(lats).toEqual([1])
       expect(service.getStatus().state).toBe('disconnected')
+      // Listeners are told, so the map and the status lights do not keep a connected sim.
+      expect(states.at(-1)).toBe('disconnected')
     })
   })
 

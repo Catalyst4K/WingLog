@@ -295,6 +295,43 @@ describe('NetworkFeedService', () => {
       fetchMock.mockImplementation(() => Promise.reject(new Error('down')))
       await clock.advance(60_000 + STALE_AFTER_MS + 1_000)
       expect(service.wholeTraffic()).toEqual({ network: 'vatsim', state: 'unavailable', aircraft: [] })
+      expect(last()?.state).toBe('unavailable')
+    })
+
+    it('follows the pushed set after the feed failed and anything redraws it (a network switch, the layer off and on)', async () => {
+      service.start()
+      await settle()
+      fetchMock.mockImplementation(() => Promise.reject(new Error('down')))
+      await clock.advance(60_000 + STALE_AFTER_MS + 1_000)
+      expect(last()?.state).toBe('unavailable')
+      settings = { ...settings, network: 'ivao', ivaoVid: '123456' }
+      service.refresh()
+      expect(last()).toMatchObject({ state: 'shown', aircraft: [] })
+      expect(service.wholeTraffic()).toEqual({ network: 'ivao', state: 'shown', aircraft: [] })
+    })
+
+    it('marks the pushed set and the whole set as the whole network only when they are', async () => {
+      centre = null
+      service.start()
+      await settle()
+      expect(last()?.whole).toBe(true)
+      expect(service.wholeTraffic().whole).toBe(true)
+      centre = EGLL
+      service.onPositionChanged()
+      expect(last()?.whole).toBeUndefined()
+      expect(service.wholeTraffic().whole).toBe(true)
+    })
+
+    it('adds the time since the build to the ages of a later answer, so a screen glides on from where the build did', async () => {
+      service.start()
+      await settle()
+      const first = service.wholeTraffic()
+      await clock.advance(5_000)
+      const later = service.wholeTraffic()
+      expect(later.aircraft).toHaveLength(first.aircraft.length)
+      expect(later.aircraft[0]!.ageS - first.aircraft[0]!.ageS).toBeCloseTo(5, 3)
+      // The build itself is not changed, so the next asker is measured from the same point.
+      expect(service.wholeTraffic().aircraft[0]!.ageS - first.aircraft[0]!.ageS).toBeCloseTo(5, 3)
     })
 
     it('keeps reading the feed for the whole network while there is no position, every 15 s', async () => {

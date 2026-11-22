@@ -1,7 +1,8 @@
 /**
  * Reads the chosen network's public feed while anything needs it, and publishes from each download: the aircraft near the pilot, or the
- * whole network while there is no position (`networkTraffic`; a screen set to "Whole network" asks for the whole set with `wholeTraffic`), which traffic layers draw (`trafficLayers`), the pilot's own online status
- * (`onlineStatus`), and who is online at the flight's airports (`networkControllers`).
+ * whole network while there is no position (`networkTraffic`), which traffic layers draw (`trafficLayers`), the pilot's own online status
+ * (`onlineStatus`), and who is online at the flight's airports (`networkControllers`). A screen set to "Whole network" asks for the whole
+ * set with `wholeTraffic`.
  *
  * A thin wrapper: when to fetch is `feed-poll-step.ts`'s pure step, what a feed means is the two parsers, what draws is
  * `traffic-layers.ts`, and who the pilot is is `self-status.ts`. This class injects the fetch, clock and timers, owns the timer, and keeps
@@ -118,7 +119,12 @@ export class NetworkFeedService {
   /** Whether the feed has been failing past the time the last aircraft are kept (it has no snapshot). */
   private feedUnavailable = false
   /** The whole-network set built for the snapshot held, so any number of requests between two reads cost one build. */
-  private wholeCache: { key: string; snapshot: FeedSnapshot; traffic: NetworkTraffic } | null = null
+  private wholeCache: {
+    key: string
+    snapshot: FeedSnapshot
+    builtAtMs: number
+    traffic: NetworkTraffic
+  } | null = null
   private status: OnlineStatus = unknownStatus(null)
   /** The last controllers payload published, as text, so only a change is published. */
   private lastControllers = ''
@@ -245,6 +251,8 @@ export class NetworkFeedService {
   /** Re-reads the settings and switches and acts on them: call after either changes. */
   refresh(): void {
     if (this.stopped) return
+    // The pushed set is published again below, and with no snapshot it says shown (waiting), not unavailable: the whole set follows it.
+    this.feedUnavailable = false
     const layers = this.layers()
     this.deps.hub.publish('trafficLayers', layers)
     this.deps.onLayers?.(layers)
@@ -330,15 +338,21 @@ export class NetworkFeedService {
     if (!this.snapshot)
       return { network, state: this.feedUnavailable ? 'unavailable' : 'shown', aircraft: [] }
     const key = `${network}|${settings.vatsimCid}|${settings.ivaoVid}|${this.ownCallsign}`
-    if (this.wholeCache?.snapshot === this.snapshot && this.wholeCache.key === key)
-      return this.wholeCache.traffic
-    const traffic: NetworkTraffic = {
-      network,
-      state: 'shown',
-      aircraft: this.toShow(this.snapshot, null, settings)
+    const nowMs = this.deps.now()
+    if (this.wholeCache?.snapshot !== this.snapshot || this.wholeCache.key !== key) {
+      const traffic: NetworkTraffic = {
+        network,
+        state: 'shown',
+        aircraft: this.toShow(this.snapshot, null, settings),
+        whole: true
+      }
+      this.wholeCache = { key, snapshot: this.snapshot, builtAtMs: nowMs, traffic }
     }
-    this.wholeCache = { key, snapshot: this.snapshot, traffic }
-    return traffic
+    const { builtAtMs, traffic } = this.wholeCache
+    // A later asker gets the build with the time since then added to each age, so its glide carries on from where the build's did.
+    const lateS = (nowMs - builtAtMs) / 1000
+    if (lateS <= 0) return traffic
+    return { ...traffic, aircraft: traffic.aircraft.map((a) => ({ ...a, ageS: a.ageS + lateS })) }
   }
 
   /** @returns Which layers draw now. */
@@ -621,6 +635,7 @@ export class NetworkFeedService {
       this.publishWaiting(network)
       return
     }
+    if (traffic.state === 'shown' && !centred) traffic.whole = true
     this.lastState = traffic.state
     this.lastCentred = centred
     this.deps.hub.publish('networkTraffic', traffic)

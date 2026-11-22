@@ -208,6 +208,61 @@ describe('the Nearby / Whole network choice on this screen', () => {
     expect(whole).not.toHaveBeenCalled()
   })
 
+  it('does not ask while the pushed set already is the whole network, and draws that', async () => {
+    window.localStorage.setItem(WHOLE_NETWORK_STORAGE_KEY, '1')
+    const fake = fakeMap()
+    const { client } = fakeClient({
+      traffic: { ...shown(aircraft('ALL1'), aircraft('ALL2')), whole: true },
+      layers: LAYERS_ON
+    })
+    const view = await mount(client, fake)
+    expect(whole).not.toHaveBeenCalled()
+    expect(lastFeatures(fake).map((f) => f.properties.callsign)).toEqual(['ALL1', 'ALL2'])
+    expect(view.result.current.whole).toBe(true)
+  })
+
+  it('never draws an old whole set again: switching to Nearby and back shows the pushed set until the new answer arrives', async () => {
+    window.localStorage.setItem(WHOLE_NETWORK_STORAGE_KEY, '1')
+    whole.mockResolvedValueOnce(shown(aircraft('OLD'))).mockReturnValue(new Promise(() => {}))
+    const fake = fakeMap()
+    const { client } = fakeClient({ traffic: shown(aircraft('NEAR')), layers: LAYERS_ON })
+    const view = await mount(client, fake)
+    expect(view.result.current.traffic?.aircraft.map((a) => a.callsign)).toEqual(['OLD'])
+    await act(async () => view.result.current.toggleWhole())
+    expect(view.result.current.traffic?.aircraft.map((a) => a.callsign)).toEqual(['NEAR'])
+    await act(async () => view.result.current.toggleWhole())
+    expect(view.result.current.traffic?.aircraft.map((a) => a.callsign)).toEqual(['NEAR'])
+  })
+
+  it('keeps one ask in flight, answering a push that came meanwhile once it returns', async () => {
+    window.localStorage.setItem(WHOLE_NETWORK_STORAGE_KEY, '1')
+    let release: (value: NetworkTraffic) => void = () => {}
+    whole.mockReturnValueOnce(new Promise<NetworkTraffic>((resolve) => (release = resolve)))
+    whole.mockResolvedValue(shown(aircraft('LATER')))
+    const fake = fakeMap()
+    const { client, push } = fakeClient({ traffic: shown(aircraft('NEAR')), layers: LAYERS_ON })
+    await mount(client, fake)
+    await act(async () => push('networkTraffic', shown(aircraft('NEAR'))))
+    await act(async () => push('networkTraffic', shown(aircraft('NEAR'))))
+    expect(whole).toHaveBeenCalledTimes(1)
+    await act(async () => release(shown(aircraft('FIRST'))))
+    expect(whole).toHaveBeenCalledTimes(2)
+  })
+
+  it('glides the whole set from its own answer: a pushed set arriving between reads does not restart it', async () => {
+    window.localStorage.setItem(WHOLE_NETWORK_STORAGE_KEY, '1')
+    whole.mockResolvedValueOnce(shown(aircraft('FAR'))).mockReturnValue(new Promise(() => {}))
+    const fake = fakeMap()
+    const { client, push } = fakeClient({ traffic: shown(aircraft('NEAR')), layers: LAYERS_ON })
+    await mount(client, fake)
+    const lon = (): number => lastFeatures(fake)[0]!.geometry.coordinates[0]!
+    await act(async () => vi.advanceTimersByTime(5_000))
+    const before = lon()
+    await act(async () => push('networkTraffic', shown(aircraft('NEAR'))))
+    await act(async () => vi.advanceTimersByTime(1_000))
+    expect(lon()).toBeGreaterThan(before)
+  })
+
   it('remembers the choice on this device, and starts asking when it is switched to Whole network', async () => {
     whole.mockResolvedValue(shown(aircraft('FAR')))
     const fake = fakeMap()
