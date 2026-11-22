@@ -10,18 +10,20 @@ import { METRES_PER_FOOT } from '@shared/units'
  * Asks BeyondATC for a new cruise altitude over its WebSocket, in the two-step flow documented in winglog-backend's
  * docs/beyondatc-notes.md ("requesting a new cruise altitude"):
  *
- *   set_action: Request Altitude Change   → Player: "request new cruise altitude."
- *   (ATC: "Say again altitude.")          → Actions: [Cancel Altitude Change¬FL320¬…¬FL380¬Say Again¬]
- *   set_action: FL380                     → Player: "Request FL380"
- *                                          → ATC: "roger, new cruise altitude FL380."
- *                                            (and the cleared-level InfoBox shows FL380)
+ *   set_action: Request Altitude Change..  → Player: "request new cruise altitude."
+ *                                          → Actions: [FL290¬…¬FL410¬Cancel¬] (the older form: "Request Altitude Change", and a list of
+ *                                            [Cancel Altitude Change¬FL320¬…¬FL380¬Say Again¬] after ATC's "Say again altitude.")
+ *   set_action: FL370                      → Player: "Request FL370"
+ *                                          → ATC: "roger, new cruise altitude FL370."
+ *                                            (and the cleared-level InfoBox shows FL370)
  *
  * There is no altitude command: BeyondATC's toolbar only sends `set_action` with an offered label, and a level label sent while
  * it isn't on offer is silently ignored. So the level list must be waited for, and the wanted level picked from it.
+ *
+ * BeyondATC has changed these labels once already, so they are matched loosely (see `findRequestAltitudeAction` and
+ * `findCancelAltitudeAction`) and the label it offered is the one sent back, whatever it looks like.
  */
 
-export const REQUEST_ALTITUDE_ACTION = 'Request Altitude Change'
-export const CANCEL_ALTITUDE_ACTION = 'Cancel Altitude Change'
 const FEET_PER_METRE = 1 / METRES_PER_FOOT
 /** How close an offered level must be to count as the one wanted — FL labels are exact to
  *  100 ft; a metric level converts to a non-round number of feet. */
@@ -74,6 +76,39 @@ export function levelLabelToFeet(label: string): number | null {
   const metric = /^([\d,]+) ?m$/i.exec(label.trim())
   if (metric?.[1]) return Number(metric[1].replace(/,/g, '')) * FEET_PER_METRE
   return null
+}
+
+/**
+ * A label without the ".." BeyondATC now adds to an entry that opens another menu, trimmed and lower-cased.
+ *
+ * @param label A label as BeyondATC writes it.
+ * @returns The label to compare with.
+ */
+function plainLabel(label: string): string {
+  return label.trim().replace(/\.+$/, '').trim().toLowerCase()
+}
+
+/**
+ * The menu entry that asks for a new cruise level, as BeyondATC offers it ("Request Altitude Change.." now, with no
+ * dots before). The label found is the one to send back.
+ *
+ * @param actions The menu's labels.
+ * @returns The entry's label, or null when it isn't offered.
+ */
+export function findRequestAltitudeAction(actions: string[]): string | null {
+  return actions.find((label) => plainLabel(label) === 'request altitude change') ?? null
+}
+
+/**
+ * The cancel entry of an open level list ("Cancel" now, "Cancel Altitude Change" in the older form). A list is open when the menu
+ * holds at least one level; a "Cancel" alone, with no level beside it, is some other menu's.
+ *
+ * @param actions The menu's labels.
+ * @returns The cancel entry's label, or null when no level list is open.
+ */
+export function findCancelAltitudeAction(actions: string[]): string | null {
+  if (!actions.some((label) => levelLabelToFeet(label) !== null)) return null
+  return actions.find((label) => plainLabel(label).startsWith('cancel')) ?? null
 }
 
 /**
@@ -150,7 +185,8 @@ function waitFor<T>(
 
 /**
  * A request gave up waiting for the level list, but the request is still queued in BeyondATC: if the list turns up later, nobody
- * is there to choose from it, and BeyondATC keeps asking "say again altitude" until someone does. Cancels it when it appears.
+ * is there to choose from it, and an open list can leave BeyondATC waiting for a level (the older form kept asking "say again
+ * altitude"). Cancels it when it appears.
  *
  * @param session BeyondATC's connection.
  * @returns Stops the watch; the caller stops it when a newer request starts, so that one is never cancelled out from under itself.
@@ -161,9 +197,10 @@ function watchForLateMenu(session: AltitudeRequestSession): () => void {
     session.off('state', listener)
   }
   const listener = (): void => {
-    if (!session.getState().actions.includes(CANCEL_ALTITUDE_ACTION)) return
+    const cancel = findCancelAltitudeAction(session.getState().actions)
+    if (!cancel) return
     stop()
-    session.setAction(CANCEL_ALTITUDE_ACTION)
+    session.setAction(cancel)
   }
   const timer = setTimeout(stop, LATE_MENU_WATCH_MS)
   session.on('state', listener)
@@ -185,17 +222,18 @@ export async function requestAltitude(
 ): Promise<{ outcome: AltitudeRequestOutcome; label: string | null; stopWatching?: () => void }> {
   // A level list already open (an earlier request's, or the pilot's) is used as it is: BeyondATC offers no second request while
   // it waits for a level, and would keep asking for one.
-  const listOpen = session.getState().actions.includes(CANCEL_ALTITUDE_ACTION)
-  if (!listOpen && !session.getState().actions.includes(REQUEST_ALTITUDE_ACTION))
-    return { outcome: 'unavailable', label: null }
+  const offered = session.getState().actions
+  const listOpen = findCancelAltitudeAction(offered) !== null
+  const requestAction = findRequestAltitudeAction(offered)
+  if (!listOpen && !requestAction) return { outcome: 'unavailable', label: null }
 
-  if (!listOpen) session.setAction(REQUEST_ALTITUDE_ACTION)
+  if (!listOpen && requestAction) session.setAction(requestAction)
   const levels = await waitFor(
     session,
     'state',
     () => {
       const actions = session.getState().actions
-      return actions.includes(CANCEL_ALTITUDE_ACTION) ? actions : null
+      return findCancelAltitudeAction(actions) ? actions : null
     },
     timeouts.menuMs
   )
@@ -203,7 +241,8 @@ export async function requestAltitude(
 
   const label = pickLevelLabel(levels, targetFt)
   if (!label) {
-    session.setAction(CANCEL_ALTITUDE_ACTION)
+    const cancel = findCancelAltitudeAction(levels)
+    if (cancel) session.setAction(cancel)
     return { outcome: 'notOffered', label: null }
   }
 
