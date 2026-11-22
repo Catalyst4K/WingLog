@@ -21,6 +21,7 @@ import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { createDb } from './client'
 import { migrateDb } from './migrate'
+import { localSyncVersion } from '../sync/sync-version'
 import { fdLegsLackNavaid } from './navdata-repo'
 
 const REAL_DIR = join(process.cwd(), 'drizzle')
@@ -161,7 +162,6 @@ describe('migration 0048: the FD navaid columns on navdata_procedure_leg', () =>
     expect(columns(sqlite, 'navdata_procedure_leg')).toEqual([...LEG_COLUMNS_BEFORE, ...ORIGIN_COLUMNS])
     expect(sqlite.pragma('foreign_key_check')).toEqual([])
     expect(sqlite.pragma('integrity_check', { simple: true })).toBe('ok')
-    expect(sqlite.pragma('foreign_keys', { simple: true })).toBe(1)
     expect(userRows(sqlite)).toEqual(userRowsBefore)
     expect(
       sqlite
@@ -200,6 +200,41 @@ describe('migration 0048: the FD navaid columns on navdata_procedure_leg', () =>
         )
         .all()
     ).toEqual([{ name: 'navdata_procedure_leg_procedure_id_idx' }])
+    sqlite.close()
+  })
+
+  it('rebuilds the table with the same definitions as before (types, NOT NULL, defaults, primary key, foreign key) plus the three nullable origin columns', () => {
+    const v2Dir = join(dir, 'v2-before')
+    buildFolder(v2Dir, 47, false)
+    const old = createDb(join(dir, 'old.db'))
+    migrate(old.db, { migrationsFolder: v2Dir })
+    const definitions = (sqlite: Database.Database): Row[] =>
+      (sqlite.pragma('table_xinfo(navdata_procedure_leg)') as Row[])
+        .map((column): Row => ({ ...column, cid: undefined }))
+        .sort((a, b) => String(a.name).localeCompare(String(b.name)))
+    const foreignKeys = (sqlite: Database.Database): unknown =>
+      (sqlite.pragma('foreign_key_list(navdata_procedure_leg)') as Row[]).map((key) => ({
+        ...key,
+        id: undefined
+      }))
+    const oldDefinitions = definitions(old.sqlite)
+    const oldForeignKeys = foreignKeys(old.sqlite)
+    old.sqlite.close()
+
+    migrateDb(dbPath, REAL_DIR)
+    const sqlite = open()
+    const origin = ORIGIN_COLUMNS.map((name) => ({
+      name,
+      type: name === 'origin_ident' ? 'TEXT' : 'REAL',
+      notnull: 0,
+      dflt_value: null,
+      pk: 0,
+      hidden: 0
+    }))
+    expect(definitions(sqlite)).toEqual(
+      [...oldDefinitions, ...origin].sort((a, b) => String(a.name).localeCompare(String(b.name)))
+    )
+    expect(foreignKeys(sqlite)).toEqual(oldForeignKeys)
     sqlite.close()
   })
 
@@ -283,6 +318,14 @@ describe('migration 0048: the FD navaid columns on navdata_procedure_leg', () =>
       legRows(sqlite, ORIGIN_COLUMNS).every((row) => Object.values(row).every((value) => value === null))
     ).toBe(true)
     expect(fdLegsLackNavaid(db, 'EGCC')).toBe(true)
+    // The sync version (twins refuse to sync when it differs) equals a fresh v2 database's, though this one holds a migration row 1.7.2 added and v2 left out.
+    const fresh = createDb(join(dir, 'fresh.db'))
+    migrate(fresh.db, { migrationsFolder: REAL_DIR })
+    expect(localSyncVersion(db)).toEqual(localSyncVersion(fresh.db))
+    expect(sqlite.prepare('SELECT count(*) AS n FROM __drizzle_migrations').get()).not.toEqual(
+      fresh.sqlite.prepare('SELECT count(*) AS n FROM __drizzle_migrations').get()
+    )
+    fresh.sqlite.close()
     sqlite.close()
   })
 

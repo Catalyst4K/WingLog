@@ -13,7 +13,11 @@ export const SYNC_PROTOCOL_VERSION = 2
 /** What one computer reports of itself. */
 export interface SyncVersion {
   protocol: number
-  /** How many migrations its database has applied: two builds with the same number have the same tables. */
+  /**
+   * The time of the newest migration its database has applied (Drizzle's own `created_at`, the number its migrator goes by): two builds with the same number
+   * have the same tables. Not a count of rows: a 1.7.2 database that upgrades has one row 1.7.2 added and v2 left out of its journal (the FD navaid
+   * migration, redone as 0048), so it counts one more than a fresh v2 database with the same tables.
+   */
   schema: number
 }
 
@@ -25,8 +29,10 @@ export type VersionVerdict = 'same' | 'update-this-computer' | 'update-sim-pc'
  * @returns This computer's protocol and database version.
  */
 export function localSyncVersion(db: WingLogDb): SyncVersion {
-  const row = db.get<{ n: number }>(sql`SELECT count(*) AS n FROM __drizzle_migrations`)
-  return { protocol: SYNC_PROTOCOL_VERSION, schema: row.n }
+  const row = db.get<{ newest: number | null }>(
+    sql`SELECT max(created_at) AS newest FROM __drizzle_migrations`
+  )
+  return { protocol: SYNC_PROTOCOL_VERSION, schema: row.newest ?? 0 }
 }
 
 /**
