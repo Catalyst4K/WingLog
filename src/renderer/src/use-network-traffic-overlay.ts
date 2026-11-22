@@ -271,7 +271,8 @@ function useWholeNetwork({
   const [whole, setWhole] = useState(readWholeChoice)
   const [wholeTraffic, setWholeTraffic] = useState<NetworkTraffic | null>(null)
   const wholeReceivedAtRef = useRef(0)
-  const asksWhole = asks && whole && traffic?.whole !== true
+  // Only once the pushed set for the layer as it is now has arrived (the layers topic can come first, with the old set still held).
+  const asksWhole = asks && whole && traffic?.state === 'shown' && traffic.whole !== true
   useEffect(() => {
     if (!asksWhole) return
     let current = true

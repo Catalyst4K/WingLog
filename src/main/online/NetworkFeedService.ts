@@ -324,8 +324,8 @@ export class NetworkFeedService {
 
   /**
    * The whole network's traffic (at most 3,000 aircraft) for a screen set to "Whole network": the same states as `networkTraffic`, but
-   * never limited to the aircraft's surroundings. Built once for each feed read and kept, so many screens asking cost one build; the
-   * ages are those of the build, a few seconds old at most for a screen that asks as each read lands.
+   * never limited to the aircraft's surroundings. Built once for each feed read and kept, so many screens asking cost one build; each
+   * answer's ages are the build's plus the time since the build, so a screen's glide carries on from where the build's did.
    *
    * @returns The traffic: aircraft only in the 'shown' state.
    */
