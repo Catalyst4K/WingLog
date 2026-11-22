@@ -92,6 +92,8 @@ function setup(
   opts: {
     phase?: ActiveTracking['phase']
     outcomes?: AltitudeRequestOutcome[]
+    /** The labels BeyondATC is offering. */
+    actions?: string[]
     ofp?: string
     /** BeyondATC's InfoBoxes, read on every tick. */
     boxes?: () => BeyondAtcInfoBox[]
@@ -107,7 +109,11 @@ function setup(
   }))
   const session = {
     getStatus: () => ({ state: 'connected' as const, lastError: null }),
-    getState: (): BeyondAtcState => ({ ...EMPTY_BEYONDATC_STATE, infoBoxes: opts.boxes?.() ?? [] }),
+    getState: (): BeyondAtcState => ({
+      ...EMPTY_BEYONDATC_STATE,
+      actions: opts.actions ?? [],
+      infoBoxes: opts.boxes?.() ?? []
+    }),
     setAction: vi.fn(),
     on: vi.fn(),
     off: vi.fn()
@@ -198,6 +204,20 @@ describe('StepClimbController', () => {
     expect(request.mock.calls[0]![1]).toBe(35000)
     await flush()
     expect(statuses.at(-1)?.last).toMatchObject({ altitudeFt: 35000, outcome: 'granted', reason: 'simbrief' })
+  })
+
+  it('logs the menu BeyondATC was offering when it had no altitude request, so a label change shows in main.log', async () => {
+    const { controller, logs } = setup({
+      outcomes: ['unavailable'],
+      actions: ['Radio Check', 'Call Ready for Descent']
+    })
+    controller.setEnabled(true)
+
+    controller.onTelemetry(telemetry({ longitude: 29.9 })) // ~4 nm out, where it would ask
+    await flush()
+    expect(logs).toContain(
+      '[step-climb] BeyondATC offered no altitude request; its menu: Radio Check | Call Ready for Descent'
+    )
   })
 
   it('asks for nothing while the pilot is online, and carries on when they are not', async () => {

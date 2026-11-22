@@ -138,6 +138,11 @@ export class StepClimbController extends EventEmitter<{ status: [BeyondAtcStepCl
     this.request(session, target.altitudeFt)
       .then(({ outcome, stopWatching }) => {
         this.stopLateMenuWatch = stopWatching ?? null
+        // BeyondATC has changed its menu labels before, so say what it was offering: the next change then shows in main.log.
+        if (outcome === 'unavailable')
+          this.writeLog(
+            `BeyondATC offered no altitude request; its menu: ${session.getState().actions.join(' | ') || '(empty)'}`
+          )
         const result = settleRequest(this.state, {
           altitudeFt: target.altitudeFt,
           reason: target.reason,

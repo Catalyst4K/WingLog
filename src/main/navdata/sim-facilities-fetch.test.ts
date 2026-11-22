@@ -85,6 +85,10 @@ function legBuffer(fixIcao: string): RawBuffer {
     w.writeFloat32(6000)
     w.writeFloat32(4000)
     w.writeFloat32(250)
+    w.writeFloat32(0) // ROUTE_DISTANCE
+    w.writeString8('') // ORIGIN_ICAO
+    w.writeFloat64(0) // ORIGIN_LATITUDE
+    w.writeFloat64(0) // ORIGIN_LONGITUDE
   })
 }
 
