@@ -101,12 +101,14 @@ export class SimFacilitiesProvider implements NavdataProvider {
    * @param now The clock; injected so tests can step across an AIRAC cycle change.
    * @param signature What the sim's navigation data is. The default says nothing is known (the calendar alone), so a test never reads
    *   the machine's own Community folder; the app passes the real reader.
+   * @param onWrite Called after a flight's landings are corrected here, so a twin and the cloud hear of it (`scheduleBackgroundSync`).
    */
   constructor(
     private readonly db: WingLogDb,
     private readonly openSimConnect: OpenSimConnect = defaultOpen,
     private readonly now: () => Date = () => new Date(),
-    private readonly signature: () => NavdataSignature = () => ({ source: 'default' })
+    private readonly signature: () => NavdataSignature = () => ({ source: 'default' }),
+    private readonly onWrite: () => void = () => undefined
   ) {}
 
   /**
@@ -186,8 +188,10 @@ export class SimFacilitiesProvider implements NavdataProvider {
       replaceAirportNavdata(this.db, icao, fetched, this.now().toISOString())
       if (firstWithThresholds) {
         const corrected = correctLandingsForDisplacedThresholds(this.db, icao)
-        if (corrected > 0)
+        if (corrected > 0) {
           logger.info(`[navdata] ${icao}: ${corrected} landing(s) corrected for displaced thresholds`)
+          this.onWrite()
+        }
       }
       for (const listener of this.refreshedListeners) listener(icao)
     } finally {

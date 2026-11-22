@@ -14,6 +14,7 @@ import type {
 import i18n from './i18n'
 import { EMPTY_BEYONDATC_STATE } from '@shared/beyondatc-state'
 import { emptyProcedureSelection } from '@shared/procedure-selection'
+import { CapabilitiesContext } from './app/capabilities-context'
 import { TrackView } from './TrackView'
 
 // sonner's real toast has nothing to render into in these tests (no <Toaster/> mounted)
@@ -716,6 +717,21 @@ describe('TrackView', () => {
       renderTrack({ telemetry: makeTelemetry() })
       await user.click(await screen.findByText('Free flight'))
       expect(await screen.findByText('Start a free flight')).toBeInTheDocument()
+    })
+
+    it('offers no way to start a free flight on a client, whose sim is on the sim PC', async () => {
+      const api = setWinglog()
+      const selection = emptyProcedureSelection()
+      render(
+        <CapabilitiesContext.Provider value={{ runMode: 'client', canHostSim: false, multiDevice: true }}>
+          <TrackView telemetry={makeTelemetry()} selection={selection} onSelectionChange={vi.fn()} />
+        </CapabilitiesContext.Provider>
+      )
+      // The page has loaded once its planned-flight list has been read; the card and banner are never there.
+      await waitFor(() => expect(api.flightList).toHaveBeenCalled())
+      expect(screen.queryByText('Free flight')).not.toBeInTheDocument()
+      expect(screen.queryByText('Flying something already?')).not.toBeInTheDocument()
+      expect(screen.queryByText('Start a free flight')).not.toBeInTheDocument()
     })
 
     it('shows a toast instead of opening the dialog when the sim is not connected', async () => {

@@ -5,6 +5,9 @@
  */
 
 import type { ActiveTracking, FlightPhase, LanFlightSnapshot, TrackPoint } from '@shared/ipc'
+import type { PlannedRoute } from '@shared/live'
+import type { WingLogDb } from '../db/client'
+import { getLiveFlightIdByUuid } from '../db/flight-repo'
 
 /**
  * What a topic's mapper returns for a value that cannot be shown yet (its flight has not synced here). Not null: null is a real value
@@ -17,6 +20,8 @@ export class FlightMirror {
   private snapshot: LanFlightSnapshot | null = null
   private phase: FlightPhase | null = null
   private points: () => TrackPoint[] = () => []
+  /** The sim PC's route that could not be re-labelled yet because its flight has not synced here; tried again after each sync. */
+  private heldRoute: PlannedRoute | null = null
 
   /** @param localFlightId The id of the flight with this uuid in this computer's database, or undefined when it has not synced yet. */
   constructor(private readonly localFlightId: (uuid: string) => number | undefined) {}
@@ -36,6 +41,7 @@ export class FlightMirror {
     this.snapshot = null
     this.phase = null
     this.points = () => []
+    this.heldRoute = null
   }
 
   /**
@@ -44,7 +50,9 @@ export class FlightMirror {
    */
   localIdOf(hostFlightId: number): number | null {
     const flight = this.snapshot?.flight
-    if (!flight || flight.flightId !== hostFlightId || !flight.uuid) return null
+    // The snapshot is the sim PC's word and is not parsed: only a text uuid is looked up.
+    if (!flight || flight.flightId !== hostFlightId || typeof flight.uuid !== 'string' || !flight.uuid)
+      return null
     return this.localFlightId(flight.uuid) ?? null
   }
 
@@ -59,6 +67,32 @@ export class FlightMirror {
     if (flightId === null) return null
     this.phase = point.phase
     return { ...point, flightId }
+  }
+
+  /**
+   * Re-labels the planned route the sim PC sent with this computer's id for its flight, found by the uuid the route carries (the flight
+   * it shows may be one that is planned and not tracked, so the tracked flight's snapshot is no help). A route that cannot be placed yet
+   * is remembered, so `releaseHeldRoute` can place it once the flight's row has synced.
+   *
+   * @param route A route as the sim PC sent it.
+   * @returns The route for this computer, or null when its flight has not synced here (or the sim PC did not say which flight it is).
+   */
+  mapRoute(route: PlannedRoute): PlannedRoute | null {
+    // The uuid is the sim PC's word: only a text is looked up.
+    const flightId = typeof route.flightUuid === 'string' ? this.localFlightId(route.flightUuid) : undefined
+    this.heldRoute = flightId === undefined ? route : null
+    return flightId === undefined ? null : { ...route, flightId }
+  }
+
+  /** @returns The route held back earlier, re-labelled, now that its flight may have synced; null when none is held or it still cannot be placed. */
+  releaseHeldRoute(): PlannedRoute | null {
+    const held = this.heldRoute
+    return held ? this.mapRoute(held) : null
+  }
+
+  /** Forgets a route held back: the sim PC has cleared its route since. */
+  clearHeldRoute(): void {
+    this.heldRoute = null
   }
 
   /** @returns True while the sim PC is tracking a flight, whether or not that flight has synced to this computer yet. */
@@ -92,10 +126,19 @@ export class FlightMirror {
 }
 
 /**
+ * @param db This computer's database.
+ * @returns A mirror that finds this computer's id for a flight by uuid among its live flights: a flight deleted here is not the sim PC's
+ *   flight for a point, the tracked flight or a route.
+ */
+export function flightMirrorFor(db: WingLogDb): FlightMirror {
+  return new FlightMirror((uuid) => getLiveFlightIdByUuid(db, uuid))
+}
+
+/**
  * @param mirror The flight the sim PC is tracking, as this computer knows it.
  * @param topic A topic the sim PC published.
  * @param payload Its value.
- * @returns The value for this computer: a point with this computer's flight id, or HELD_BACK while that flight has not synced here yet. Other topics as they are, null included.
+ * @returns The value for this computer: a point or a planned route with this computer's flight id (while that flight has not synced here yet, a point is HELD_BACK and a route null). Other topics as they are, null included.
  */
 export function mapFlightTopic(mirror: FlightMirror, topic: string, payload: unknown): unknown {
   if (topic === 'trackingPoint') return mirror.mapPoint(payload as TrackPoint) ?? HELD_BACK
@@ -103,5 +146,10 @@ export function mapFlightTopic(mirror: FlightMirror, topic: string, payload: unk
     const points = (payload as TrackPoint[]).flatMap((point) => mirror.mapPoint(point) ?? [])
     return points.length > 0 ? points : HELD_BACK
   }
+  // A null is the sim PC clearing the route: it is a value, and drops any route held back.
+  // A route whose flight has not synced here is a null in the hub, not the route before it: that one is another flight's, and would be shown
+  // beside this flight's ATC until the next sync. The route comes once the flight has (`releaseHeldRoute`).
+  if (topic === 'plannedRoute' && payload !== null) return mirror.mapRoute(payload as PlannedRoute)
+  if (topic === 'plannedRoute') mirror.clearHeldRoute()
   return payload
 }

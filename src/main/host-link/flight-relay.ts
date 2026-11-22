@@ -27,6 +27,10 @@ export interface FlightRelayPort {
   finish(): Promise<void>
   stop(): Promise<void>
   cancel(flightId: number): Promise<void>
+  /** Sets the destination of the free flight the sim PC is tracking. A blank or null code means not set. */
+  setDestination(flightId: number, icao: string | null): Promise<void>
+  /** Sets the departure of the free flight the sim PC is tracking. A blank or null code means not set. */
+  setDeparture(flightId: number, icao: string | null): Promise<void>
 }
 
 /** Sends flight commands to the sim PC. */
@@ -64,6 +68,31 @@ export class FlightRelay implements FlightRelayPort {
 
   cancel(flightId: number): Promise<void> {
     return this.send('flight.cancel', flightId)
+  }
+
+  setDestination(flightId: number, icao: string | null): Promise<void> {
+    return this.setAirport('flight.setDestination', flightId, icao)
+  }
+
+  setDeparture(flightId: number, icao: string | null): Promise<void> {
+    return this.setAirport('flight.setDeparture', flightId, icao)
+  }
+
+  /**
+   * Has the sim PC set an airport of the free flight it is tracking. The flight is the sim PC's own, so there is nothing to bring over first.
+   *
+   * @param name The lookup.
+   * @param flightId The flight, as this computer knows it.
+   * @param icao The airport code, or null for none.
+   */
+  private async setAirport(name: string, flightId: number, icao: string | null): Promise<void> {
+    const { sync, ask } = this.connected()
+    const uuid = getFlightUuidById(this.db, flightId)
+    if (!uuid) throw new Error('Unknown flight')
+    await ask(name, uuid, icao)
+    // The sim PC wrote the airport on its row of the flight. Bringing this computer level now lets the screen that asks again see it
+    // (a failed sync is not a failed change, and it logs itself).
+    await sync.run()
   }
 
   /** @returns The link, or an error to show when there is none. */

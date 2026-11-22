@@ -18,7 +18,8 @@ import type { LanController } from './LanController'
 import { LAN_QUERY_KINDS, TWIN_ONLY_QUERIES } from '@shared/lan-queries'
 import { twinOrigin, twinSyncDeviceQueries, twinSyncQueries } from './twin-sync'
 import { twinFlightQueries } from './twin-flight'
-import { chooseProcedures, createLan, lanQueries } from './create-lan'
+import { chooseProcedures, createLan, lanQueries, twinReadQueries } from './create-lan'
+import { findQuery } from './find-query'
 import { certificatePin, makeHostCertificate } from './host-certificate'
 import type { HostIdentity, HostIdentityStore } from './host-identity-store'
 
@@ -65,6 +66,12 @@ function fakeSelection(): EventEmitter & { current: () => unknown; set: (selecti
   })
 }
 
+const TWIN_READS = {
+  tracking: () => ({ autoStart: true, autoFinish: false }),
+  onlineNetwork: () => 'vatsim' as const,
+  beyondAtcAtis: () => Promise.resolve({ state: 'shown', airports: [] })
+}
+
 const LOCAL = {
   display: () => ({ weightUnit: 'kg', altitudeUnit: 'ft', windSpeedUnit: 'kt', mapLanguage: 'en' }),
   addOns: () => ({ gsxRemote: true, beyondAtc: false }),
@@ -78,15 +85,43 @@ const FLIGHT_CONTROL = {
   start: () => undefined,
   finish: () => undefined,
   stop: () => undefined,
-  cancel: () => undefined
+  cancel: () => undefined,
+  setDestination: () => undefined,
+  setDeparture: () => undefined
 }
 const CREATE_DEPS = {
   navdata: NAVDATA,
   addOnCommands: {},
   userAgent: 'WingLog/test',
   atis: LOCAL.atis,
+  beyondAtcAtis: TWIN_READS.beyondAtcAtis,
   flightControl: FLIGHT_CONTROL
 }
+
+describe('twinReadQueries', () => {
+  const settings = twinReadQueries(TWIN_READS)
+
+  it('answers the PC’s automatic start and finish, which a twin shows read only', () => {
+    expect(settings['settings.tracking']()).toEqual({ autoStart: true, autoFinish: false })
+  })
+
+  it('says which online network the PC has chosen, and nothing else of its network settings', () => {
+    expect(settings['settings.onlineNetwork']()).toEqual({ network: 'vatsim' })
+  })
+
+  it('reads BeyondATC’s ATIS fresh for a twin’s BeyondATC page', async () => {
+    await expect(settings['beyondatc.atis']()).resolves.toEqual({ state: 'shown', airports: [] })
+  })
+
+  it('is for a twin only: a phone is refused both as if they did not exist', () => {
+    const tables = { queries: settings }
+    for (const name of Object.keys(settings)) {
+      expect(TWIN_ONLY_QUERIES).toContain(name)
+      expect(findQuery(tables, 'screen', 3, name), name).toBeNull()
+      expect(findQuery(tables, 'twin', 3, name), name).not.toBeNull()
+    }
+  })
+})
 
 describe('lanQueries', () => {
   const queries = lanQueries(NAVDATA, LOCAL)
@@ -114,7 +149,8 @@ describe('lanQueries', () => {
       Object.keys({
         ...twinSyncQueries({} as never),
         ...twinSyncDeviceQueries({} as never, ''),
-        ...twinFlightQueries(FLIGHT_CONTROL)
+        ...twinFlightQueries(FLIGHT_CONTROL),
+        ...twinReadQueries(TWIN_READS)
       }).sort()
     ).toEqual([...TWIN_ONLY_QUERIES].sort())
   })

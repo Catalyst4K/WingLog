@@ -51,6 +51,8 @@ export interface OnlineHandlerDeps {
   atcAreas: () => AreaData | null
   /** BeyondATC's ATIS, read fresh for each ask; 'off' while BeyondATC is not connected or hidden. */
   beyondAtcAtis: () => Promise<BeyondAtcAtisList>
+  /** Called after a flight row is written here (the network it was flown on), so a twin and the cloud hear of it (`scheduleBackgroundSync`). */
+  onWrite: () => void
 }
 
 /**
@@ -137,7 +139,10 @@ export function registerOnlineHandlers(
   // A flight flown online keeps the network and callsign it was seen with while airborne.
   trackingController.on('completed', (flightId: number) => {
     const seen = service.takeOnlineSeen()
-    if (seen) setFlightOnline(db, flightId, seen.network, seen.callsign)
+    if (seen) {
+      setFlightOnline(db, flightId, seen.network, seen.callsign)
+      deps.onWrite()
+    }
     service.refresh()
   })
 

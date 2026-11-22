@@ -92,6 +92,7 @@ interface AppWideSettings {
  */
 function InterfacePanel(props: AppWideSettings): React.JSX.Element {
   const { t } = useTranslation()
+  const isClient = useCapabilities().runMode === 'client'
   return (
     <>
       <SettingsCard title={t('settingsView.units.cardTitle')}>
@@ -138,7 +139,11 @@ function InterfacePanel(props: AppWideSettings): React.JSX.Element {
 
       <SettingsCard
         title={t('settingsView.tracking.cardTitle')}
-        description={t('settingsView.tracking.description', trackingLabels(t))}
+        description={
+          isClient
+            ? t('settingsView.tracking.clientDescription')
+            : t('settingsView.tracking.description', trackingLabels(t))
+        }
       >
         <TrackingFields />
       </SettingsCard>

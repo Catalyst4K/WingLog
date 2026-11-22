@@ -87,9 +87,44 @@ export class ProcedureSelectionStore extends EventEmitter<{ changed: [ProcedureS
       } else if (!same(selectionFromFlight(flight), this.shown.saved)) {
         // The row was written by another WingLog (a twin's push or a sync from the sim PC), not by this store: take its choice up.
         this.adopt(selectionFromFlight(flight), 'sync', flight)
+      } else {
+        // The same choice, but the row may carry other airports now (a changed arrival): the suggestion below must look at those.
+        const arrivalChanged =
+          arrivalAirport(this.shown.flight, this.shown.selection) !==
+          arrivalAirport(flight, this.shown.selection)
+        this.shown.flight = flight
+        if (arrivalChanged) this.clearProceduresOfOldAirport()
       }
       this.suggest()
     })
+  }
+
+  /**
+   * A new arrival airport on the same flight (a free flight's destination changed): the STAR, the approach and their transitions belonged to
+   * the airport being left, so they clear, whether the pilot chose them or this store suggested them, and a restart or a sync changes
+   * nothing about that. The clearing is saved and announced, and the suggestion that follows picks an approach for the new airport. It is
+   * the same as the Procedures dialog's switch to the alternate. The clearing is not the pilot's "None": it does not add the old airport to
+   * `cleared`, so the new airport still gets a suggestion, while an airport the pilot did set to "None" earlier stays without one when the
+   * flight comes back to it.
+   */
+  private clearProceduresOfOldAirport(): void {
+    const shown = this.shown
+    if (!shown) return
+    shown.suggested = null
+    const held = shown.selection
+    if (!held.starIdent && !held.starTransition && !held.approachIdent && !held.approachTransition) return
+    const selection = {
+      ...held,
+      starIdent: null,
+      starTransition: null,
+      approachIdent: null,
+      approachTransition: null
+    }
+    shown.selection = selection
+    this.deps.save(shown.flight.id, selection)
+    shown.saved = selection
+    logger.info(`[selection] flight ${shown.flight.id}: ${describe(selection)} (new arrival airport)`)
+    this.emit('changed', selection)
   }
 
   /**

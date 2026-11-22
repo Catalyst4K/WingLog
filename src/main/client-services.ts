@@ -4,18 +4,18 @@
  * this computer's fleet and logbook in step with the sim PC's.
  */
 import { hostname } from 'node:os'
-import { app, ipcMain, type BrowserWindow } from 'electron'
+import { app, ipcMain, shell, type BrowserWindow } from 'electron'
 import { IpcChannels } from '@shared/ipc'
 import type { WingLogDb } from './db/client'
 import { ownEpoch } from './db/sync-change-repo'
 import { runLogged } from './logging/run-logged'
 import type { LiveHub } from './live/LiveHub'
 import { HostLink } from './host-link/HostLink'
-import { followHostFlight, onSyncLanded } from './host-link/client-follow'
+import { followHostFlight, onSyncLanded, showHeldRoute } from './host-link/client-follow'
 import { mapFlightTopic, type FlightMirror } from './host-link/flight-mirror'
 import type { FlightRelay } from './host-link/flight-relay'
 import { registerHostLinkHandlers } from './host-link/client-ipc'
-import { registerRoutineQueries } from './ipc/gsx-remote-handlers'
+import { registerClientLocalHandlers } from './host-link/client-local-handlers'
 import { fileHostLinkStore } from './host-link/host-link-store'
 import { LanSyncClient } from './host-link/lan-sync-client'
 import { SYNC_AFTER_WRITE_MS, TwinSync } from './host-link/TwinSync'
@@ -82,8 +82,8 @@ export function startClientServices(deps: {
     handled,
     ownSelection: { store: selection, hostFlying: () => mirror.hostTracking() }
   })
-  // The GSX routines are rows in this computer's own database, synced with the sim PC's: listed, saved and deleted here.
-  registerRoutineQueries(ipcMain, db)
+  // Answered from this computer: the GSX routines (its own rows, synced) and filing on VATSIM or IVAO (its own browser).
+  registerClientLocalHandlers(ipcMain, { db, openExternal: (url) => shell.openExternal(url) })
   relay.bind(
     {
       run: () => sync.run(),
@@ -94,6 +94,7 @@ export function startClientServices(deps: {
   )
   // Each time a sync ends well the lists on screen can be read again, and the procedure store looks at its flight's row: rows may have come in.
   onSyncLanded(sync, () => {
+    showHeldRoute(mirror, liveHub)
     selection.refresh()
     if (!window.isDestroyed()) window.webContents.send(IpcChannels.dataChanged)
   })

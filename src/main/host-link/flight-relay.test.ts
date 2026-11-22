@@ -99,6 +99,27 @@ describe('FlightRelay', () => {
     expect(calls).toEqual(['sync'])
   })
 
+  it('has the sim PC set an airport of the free flight it tracks, then brings this computer level so the screen reads it back', async () => {
+    const relay = bound()
+    await relay.setDestination(flightId, 'EGCC')
+    await relay.setDeparture(flightId, null)
+    expect(calls).toEqual([
+      `flight.setDestination:${uuid},EGCC`,
+      'sync',
+      `flight.setDeparture:${uuid},`,
+      'sync'
+    ])
+  })
+
+  it('does not sync after an airport the sim PC refused, and passes the refusal on', async () => {
+    const run = vi.fn(() => Promise.resolve(true))
+    const relay = new FlightRelay(db)
+    relay.bind({ run, connected: () => true, refusal: () => '' }, () => Promise.reject(new Error('Not a valid airport code')))
+    await expect(relay.setDestination(flightId, 'x!')).rejects.toThrow('Not a valid airport code')
+    await expect(relay.setDeparture(9999, 'EGLL')).rejects.toThrow('Unknown flight')
+    expect(run).not.toHaveBeenCalled()
+  })
+
   it('refuses a flight it does not know, and everything before it is bound to a link', async () => {
     await expect(bound().fly(9999)).rejects.toThrow('Unknown flight')
     const unbound = new FlightRelay(db)

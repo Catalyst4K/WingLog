@@ -69,7 +69,10 @@
       "autoFinish": "自动结束航班",
       "autoFinishOff": "关闭：停机并关车后航班保持进行中，直到你点 {{finishAndSave}}。",
       "on": "开",
-      "off": "关"
+      "off": "关",
+      "setOnSimPc": "在模拟器电脑上设置",
+      "simPcUnavailable": "暂时无法获取",
+      "clientDescription": "这些是模拟器电脑的设置，此处仅供查看。请在模拟器电脑上的 WingLog 中修改。"
     },
     "theme": {
       "cardTitle": "主题",
@@ -797,8 +800,7 @@
       "stepClimb": "阶梯爬升至 {{altitude}}"
     },
     "flightInProgress": "进行中的航班",
-    "change": "更改",
-    "notConnectedSimPc": "未连接到模拟器电脑。"
+    "change": "更改"
   },
   "flightMap": {
     "stopCentering": "停止以飞机为中心",

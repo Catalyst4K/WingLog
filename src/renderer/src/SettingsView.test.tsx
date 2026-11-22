@@ -1,5 +1,5 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { toast } from 'sonner'
 import type {
@@ -325,6 +325,69 @@ describe('SettingsView', () => {
         await user.click(screen.getByRole('tab', { name: /Sim PC/ }))
         expect(await screen.findByRole('textbox', { name: 'Pairing code' })).toBeInTheDocument()
         expect(screen.getByRole('textbox', { name: 'Address' })).toBeInTheDocument()
+      })
+
+      it('shows the sim PC’s automatic start and finish read only on a client, with nothing to press', async () => {
+        const winglog = setWinglog({
+          appGetCapabilities: vi.fn().mockResolvedValue(CLIENT),
+          settingsGetTracking: vi.fn().mockResolvedValue({ autoStart: true, autoFinish: false })
+        })
+        renderSettings()
+        // A setting's row is its label's grandparent's parent: label, the line holding it, the column, the row.
+        const rowOf = (label: HTMLElement): HTMLElement => label.parentElement!.parentElement!.parentElement!
+        // The rows are the sim PC's once the run mode has arrived: the labels found before it are replaced.
+        await waitFor(() => expect(screen.getAllByText('Set on the sim PC')).toHaveLength(2))
+        const startRow = rowOf(screen.getByText('Start tracking automatically'))
+        const finishRow = rowOf(screen.getByText('Finish flights automatically'))
+        await waitFor(() => expect(within(startRow).getByText('On')).toBeInTheDocument())
+        expect(within(finishRow).getByText('Off')).toBeInTheDocument()
+        expect(screen.getAllByText('Set on the sim PC')).toHaveLength(2)
+        expect(
+          screen.getByText(
+            'These are the sim PC’s settings, shown here read only. Change them in WingLog on the sim PC.'
+          )
+        ).toBeInTheDocument()
+        // No switch to press and no "what off means" note: the Mac cannot change either.
+        expect(screen.queryByRole('group', { name: 'Start tracking automatically' })).not.toBeInTheDocument()
+        expect(screen.queryByText(/press Start tracking on Track yourself/)).not.toBeInTheDocument()
+        expect(winglog.settingsSetTracking).not.toHaveBeenCalled()
+      })
+
+      it('asks again for the sim PC’s automatic start and finish when the link comes up, having asked while it was down', async () => {
+        // Every screen that reads the link subscribes on its own.
+        const listeners: ((status: unknown) => void)[] = []
+        const linkChanged = (status: unknown): void => listeners.forEach((listener) => listener(status))
+        // Down until the link says "connected": every ask before it (the mount, the link's first status) is answered null.
+        let up = false
+        const settingsGetTracking = vi.fn(() =>
+          Promise.resolve(up ? { autoStart: false, autoFinish: true } : null)
+        )
+        setWinglog({
+          appGetCapabilities: vi.fn().mockResolvedValue(CLIENT),
+          hostLinkGetStatus: vi.fn().mockResolvedValue({ state: 'offline', address: null }),
+          onHostLinkStatus: vi.fn((listener: (status: unknown) => void) => {
+            listeners.push(listener)
+            return () => undefined
+          }),
+          settingsGetTracking
+        })
+        renderSettings()
+        expect(await screen.findAllByText('Not available right now')).toHaveLength(2)
+        const askedBefore = settingsGetTracking.mock.calls.length
+        up = true
+        act(() => linkChanged({ state: 'connected', address: '192.168.1.20:5051', hostSim: 'connected' }))
+        await waitFor(() => expect(screen.queryAllByText('Not available right now')).toHaveLength(0))
+        expect(settingsGetTracking.mock.calls.length).toBeGreaterThan(askedBefore)
+        expect(screen.getAllByText('On')).not.toHaveLength(0)
+      })
+
+      it('says the sim PC’s automatic start and finish are not available while it cannot be asked', async () => {
+        setWinglog({
+          appGetCapabilities: vi.fn().mockResolvedValue(CLIENT),
+          settingsGetTracking: vi.fn().mockResolvedValue(null)
+        })
+        renderSettings()
+        expect(await screen.findAllByText('Not available right now')).toHaveLength(2)
       })
 
       it.each([

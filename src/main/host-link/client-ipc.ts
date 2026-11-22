@@ -7,9 +7,10 @@ import type { IpcMain } from 'electron'
 import type { LiveCommand, LiveTopic } from '@shared/live'
 import { IpcChannels } from '@shared/ipc'
 import { EMPTY_BEYONDATC_STATE } from '@shared/beyondatc-state'
-import type { HostLinkStatus } from '@shared/ipc'
+import type { HostLinkStatus, OnlineNetwork, OnlineNetworkSettings, TrackingSettings } from '@shared/ipc'
 import { isCertificatePin } from '@shared/host-address'
 import { logger } from '../logging/logger'
+import { asOnlineNetwork } from '../online/prefile-url'
 import type { LiveHub } from '../live/LiveHub'
 import { parseProcedureSelection } from '../live/commands'
 import type { ProcedureSelectionStore } from '../procedures/ProcedureSelectionStore'
@@ -34,6 +35,32 @@ export const FORWARDED_COMMANDS: Partial<Record<LiveCommand, string>> = {
   'traffic.setNetworkOn': IpcChannels.trafficSetNetworkOn,
   'traffic.setSimOn': IpcChannels.trafficSetSimOn,
   'traffic.setAtcOn': IpcChannels.trafficSetAtcOn
+}
+
+/**
+ * @param value Anything.
+ * @returns Whether it is a plain object whose fields can be read.
+ */
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
+}
+
+/**
+ * @param network The network the sim PC has chosen, or null for none or when it cannot be asked.
+ * @returns The online settings as a client reads them: the network, and nothing else of the sim PC's (no member numbers).
+ */
+function clientOnlineSettings(network: OnlineNetwork | null): OnlineNetworkSettings {
+  return { network, vatsimCid: null, ivaoVid: null, keepBeyondAtcOnline: false, simTrafficButton: true }
+}
+
+/**
+ * @param value What the sim PC answered to `settings.tracking`.
+ * @returns Its two switches, or null when the answer is not two true/false values.
+ */
+function simPcTracking(value: unknown): TrackingSettings | null {
+  if (typeof value !== 'object' || value === null) return null
+  const { autoStart, autoFinish } = value as Record<string, unknown>
+  return typeof autoStart === 'boolean' && typeof autoFinish === 'boolean' ? { autoStart, autoFinish } : null
 }
 
 /** The "current value" query each topic has, answered from the hub (what the host last said). */
@@ -99,6 +126,15 @@ export const NAVDATA_LOOKUPS: readonly (readonly [channel: string, lookup: strin
   [IpcChannels.navdataHasTaxiNetwork, 'taxi.has', undefined],
   [IpcChannels.navdataGetTaxiNetwork, 'taxi.get', undefined],
   [IpcChannels.navdataGetStands, 'stands', []]
+]
+
+/**
+ * The ATIS a client shows (the weather panel's network ATIS and the BeyondATC page's), asked of the sim PC, which fetches them: the
+ * channel, the lookup, and what it reads as while the sim PC cannot be asked (nothing to show).
+ */
+export const ATIS_LOOKUPS: readonly (readonly [channel: string, lookup: string, fallback: unknown])[] = [
+  [IpcChannels.onlineAtisGet, 'online.atis', { network: null, airports: [] }],
+  [IpcChannels.beyondAtcGetAtis, 'beyondatc.atis', { state: 'unavailable', airports: [] }]
 ]
 
 /** Refreshing airport data needs the sim, so on a client it does nothing: the sim PC fetches the shown flight's airports itself. */
@@ -182,6 +218,19 @@ export function registerHostLinkHandlers(
     }
     ipcMain.handle(channel, (_event, ...args: unknown[]) => reply(...args))
   }
+  // Which network to file on is the sim PC's choice, read here and never changed from here. Nothing but its name is asked for: the member
+  // numbers stay on the sim PC, and the rest read as they do on a client with nothing chosen.
+  answer(IpcChannels.settingsGetOnlineNetwork, () =>
+    link.query('settings.onlineNetwork').then(
+      (value) => clientOnlineSettings(asOnlineNetwork(isRecord(value) ? value.network : null)),
+      () => clientOnlineSettings(null)
+    )
+  )
+  // Automatic start and finish are the sim PC's settings, shown here read only (a twin may not change the sim PC's settings). Null while
+  // the sim PC cannot be asked, or answers with something else.
+  answer(IpcChannels.settingsGetTracking, () =>
+    link.query('settings.tracking').then(simPcTracking, () => null)
+  )
   for (const [command, channel] of Object.entries(FORWARDED_COMMANDS)) {
     if (command === 'gsx.startRoutine') continue
     answer(channel, (...args) => link.command(command, args))
@@ -210,6 +259,9 @@ export function registerHostLinkHandlers(
         return fallback
       })
     )
+  }
+  for (const [channel, lookup, fallback] of ATIS_LOOKUPS) {
+    answer(channel, (...args) => link.query(lookup, ...args).catch(() => fallback))
   }
   for (const channel of NAVDATA_REFRESHES) answer(channel, () => undefined)
   answer(IpcChannels.navdataHasAirport, (icao) =>

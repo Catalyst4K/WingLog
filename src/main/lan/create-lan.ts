@@ -17,6 +17,7 @@ import {
   getAppLanguage,
   getBeyondAtcSettings,
   getGsxRemoteSettings,
+  getTrackingSettings,
   getLanSettings,
   getMapLanguage,
   getTheme,
@@ -25,7 +26,7 @@ import {
   setLanSettings
 } from '../db/settings-repo'
 import type { LiveHub } from '../live/LiveHub'
-import type { ProcedureSelection } from '@shared/ipc'
+import type { OnlineNetwork, ProcedureSelection, TrackingSettings } from '@shared/ipc'
 import type { ProcedureSelectionStore } from '../procedures/ProcedureSelectionStore'
 import type { TrackingController } from '../tracking/TrackingController'
 import { listAirfields } from '../airports/airfields'
@@ -37,6 +38,7 @@ import type { LiveCommand } from '@shared/live'
 import { fetchMetars } from '../weather/metar-client'
 import { LanController } from './LanController'
 import { clearDeferredRows } from '../db/sync-deferred-repo'
+import { getOnlineNetworkSettings } from '../online/online-settings'
 import { twinOrigin, twinSyncDeviceQueries, twinSyncQueries } from './twin-sync'
 import { twinFlightQueries, type FlightControl } from './twin-flight'
 import { onLocalWrite } from '../sync/local-write-hints'
@@ -77,6 +79,8 @@ export interface CreateLanDeps {
   addOnCommands: Partial<Record<LiveCommand, (...args: unknown[]) => void>>
   /** The live ATIS for the weather panel's airports, as the PC's own window asks for it (it checks the request). */
   atis: (requests: unknown) => Promise<unknown>
+  /** BeyondATC's ATIS read fresh, for the BeyondATC page's ATIS button on a twin. */
+  beyondAtcAtis: () => Promise<unknown>
   /** The User-Agent METAR lookups send. */
   userAgent: string
   /** Where METAR lookups go: the real service unless an end-to-end test says otherwise (an unpackaged build only; see index.ts). */
@@ -118,6 +122,16 @@ const PROCEDURE_KINDS = ['sid', 'star', 'approach'] as const
 /** The most airports one weather lookup may ask about. */
 const MAX_METAR_CODES = 6
 
+/** What of the PC's own only a twin reads (`twinReadQueries`): two settings and BeyondATC's ATIS. */
+export interface TwinReads {
+  /** Whether tracking starts and finishes a flight by itself on this PC. A twin shows both read only; only this PC changes them. */
+  tracking(): TrackingSettings
+  /** The online network chosen on this PC, or null for none. A twin reads it to offer filing on that network; it never changes it. */
+  onlineNetwork(): OnlineNetwork | null
+  /** BeyondATC's ATIS, read fresh, for the BeyondATC page's ATIS button on a twin (the PC's own button reads it the same way). */
+  beyondAtcAtis(): Promise<unknown>
+}
+
 /** The PC's own settings and weather a device's pages read, as lookups. */
 export interface LanLocalData {
   /** The unit and map-language settings, so the page shows figures as the PC does. */
@@ -130,6 +144,23 @@ export interface LanLocalData {
   metars(codes: unknown): Promise<unknown>
   /** The live ATIS for the weather panel's airports. Checks the request. */
   atis(requests: unknown): Promise<unknown>
+}
+
+/**
+ * The PC's own settings that only a twin reads, to show them (automatic start and finish) or to act on them (which network to file on).
+ * A phone has no use for them and is refused them as if they did not exist (`TWIN_ONLY_QUERIES`). Read only: a twin never changes them.
+ *
+ * @param local The PC's settings.
+ * @returns The queries table.
+ */
+export function twinReadQueries(local: TwinReads): Record<string, (...args: unknown[]) => unknown> {
+  return {
+    'settings.tracking': () => local.tracking(),
+    // Only the network's name: the member numbers stay on the PC.
+    'settings.onlineNetwork': () => ({ network: local.onlineNetwork() }),
+    // Read fresh each time, and held back by nothing: a phone must not read it while the pilot is online and BeyondATC is hidden.
+    'beyondatc.atis': () => local.beyondAtcAtis()
+  }
 }
 
 /**
@@ -267,6 +298,7 @@ export function createLan({
   navdata,
   addOnCommands,
   atis,
+  beyondAtcAtis,
   userAgent,
   metarUrl,
   systemLocale = () => 'en',
@@ -308,6 +340,11 @@ export function createLan({
     queries: {
       ...twinSyncQueries(db),
       ...twinFlightQueries(flightControl, onTwinChange),
+      ...twinReadQueries({
+        tracking: () => getTrackingSettings(db),
+        onlineNetwork: () => getOnlineNetworkSettings(db).network,
+        beyondAtcAtis: () => beyondAtcAtis()
+      }),
       ...lanQueries(navdata, {
         display: () => ({
           weightUnit: getWeightUnit(db),

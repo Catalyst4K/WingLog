@@ -70,7 +70,7 @@ function startGsxRemote(deps: {
 function startOnlineNetwork(
   deps: Pick<
     Parameters<typeof registerOnlineHandlers>[1],
-    'db' | 'liveHub' | 'sim' | 'trackingController'
+    'db' | 'liveHub' | 'sim' | 'trackingController' | 'onWrite'
   > & {
     beyondAtc: Pick<ReturnType<typeof registerBeyondAtcHandlers>, 'readAtis'>
   }
@@ -115,6 +115,7 @@ function startSecondScreen(
     | 'navdata'
     | 'addOnCommands'
     | 'atis'
+    | 'beyondAtcAtis'
   >
 ): void {
   const lan = createLan({
@@ -149,6 +150,8 @@ export function startHostServices(deps: {
   replayStreams: ReplayedCapture | undefined
   trackingController: TrackingController
   navdataProvider: SimFacilitiesProvider
+  /** Tells a twin and the cloud that a row was written here. */
+  scheduleBackgroundSync: () => void
   selection: Parameters<typeof startSecondScreen>[0]['selection']
 }): void {
   const { db, dbPath, liveHub, devDiagnostics, sim, replayStreams, trackingController, navdataProvider } =
@@ -165,7 +168,14 @@ export function startHostServices(deps: {
     port: e2eBeyondAtcPort(process.env.WINGLOG_E2E_BEYONDATC_PORT)
   })
   app.on('before-quit', () => beyondAtc.stop())
-  const onlineNetwork = startOnlineNetwork({ db, liveHub, sim, trackingController, beyondAtc })
+  const onlineNetwork = startOnlineNetwork({
+    db,
+    liveHub,
+    sim,
+    trackingController,
+    beyondAtc,
+    onWrite: deps.scheduleBackgroundSync
+  })
   startSecondScreen({
     db,
     dbPath,
@@ -176,6 +186,7 @@ export function startHostServices(deps: {
     selection: deps.selection,
     navdata: navdataProvider,
     addOnCommands: { ...beyondAtc.commands, ...gsxRemote.commands, ...onlineNetwork.commands },
-    atis: onlineNetwork.atisAt
+    atis: onlineNetwork.atisAt,
+    beyondAtcAtis: beyondAtc.readAtisNow
   })
 }

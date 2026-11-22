@@ -392,7 +392,8 @@ export interface WingLogApi {
    *  gsx-invoices entry) — snapshotted at completion, not read live from disk. Empty for
    *  any flight with no matched receipts, which is the normal case. */
   logbookListInvoices: (flightId: number) => Promise<FlightInvoice[]>
-  settingsGetTracking: () => Promise<TrackingSettings>
+  /** The tracking switches; on a client, the sim PC's (read only), or null while the sim PC cannot be asked. */
+  settingsGetTracking: () => Promise<TrackingSettings | null>
   settingsSetTracking: (settings: TrackingSettings) => Promise<void>
   settingsGetGsx: () => Promise<GsxSettings>
   settingsSetGsx: (settings: GsxSettings) => Promise<void>

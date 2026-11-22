@@ -4,6 +4,7 @@
  */
 import type { LanFlightSnapshot, TrackPoint } from '@shared/ipc'
 import type { ProcedureSelectionStore } from '../procedures/ProcedureSelectionStore'
+import type { LiveHub } from '../live/LiveHub'
 import type { TwinSyncPort } from './TwinSync'
 import type { FlightMirror } from './flight-mirror'
 
@@ -38,4 +39,19 @@ export function onSyncLanded(sync: Pick<TwinSyncPort, 'onChange' | 'status'>, la
     lastSeen = lastSyncedAt
     landed()
   })
+}
+
+/**
+ * Shows the sim PC's planned route once the flight it is for has synced: the route arrived first and was held back, since this computer
+ * had no id for the flight yet.
+ *
+ * @param mirror The flight the sim PC is tracking, as this computer knows it.
+ * @param hub This computer's hub.
+ */
+export function showHeldRoute(
+  mirror: Pick<FlightMirror, 'releaseHeldRoute'>,
+  hub: Pick<LiveHub, 'publish'>
+): void {
+  const route = mirror.releaseHeldRoute()
+  if (route) hub.publish('plannedRoute', route)
 }

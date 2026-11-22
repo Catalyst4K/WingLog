@@ -14,10 +14,9 @@ import { registerInertHandlers, trackHandledChannels } from './client-mode'
 import { registerRunModeHandlers } from './ipc/run-mode-handlers'
 import { startHostServices } from './host-services'
 import { startClientServices } from './client-services'
-import { FlightMirror } from './host-link/flight-mirror'
+import { flightMirrorFor } from './host-link/flight-mirror'
 import { FlightRelay } from './host-link/flight-relay'
 import { flightControl as makeFlightControl, type FlightControl } from './lan/twin-flight'
-import { getFlightIdByUuid } from './db/flight-repo'
 import { CloseGuard } from './window/CloseGuard'
 import { dataChangedNotifier } from './window/data-changed'
 import { keepWindowWhenClosed } from './window/WindowKeeper'
@@ -306,6 +305,29 @@ function registerTrackingAreas(
 }
 
 /**
+ * @param db The database.
+ * @param scheduleBackgroundSync Tells a twin and the cloud that a row was written here (landings corrected for displaced thresholds).
+ * @returns The navdata cache that fetches from the sim, and the reader of what the sim's navigation data is.
+ */
+function createNavdata(
+  db: WingLogDb,
+  scheduleBackgroundSync: () => void
+): {
+  navdataProvider: SimFacilitiesProvider
+  readNavdataSignature: ReturnType<typeof createNavdataSignatureReader>
+} {
+  const readNavdataSignature = createNavdataSignatureReader(signatureFilesFor(app.isPackaged, process.env))
+  const navdataProvider = new SimFacilitiesProvider(
+    db,
+    undefined,
+    undefined,
+    readNavdataSignature,
+    scheduleBackgroundSync
+  )
+  return { navdataProvider, readNavdataSignature }
+}
+
+/**
  * @param window The main window.
  * @param channel The channel to send on.
  * @param payload What to send.
@@ -346,7 +368,7 @@ function startApp(cloudSession: StoredSession | null): void {
 
   const { cloudSync, scheduleBackgroundSync } = startCloudSync(db, dbPath, cloudSession)
   // The flight the sim PC is tracking, as a client sees it (idle on a host).
-  const flightMirror = new FlightMirror((uuid) => getFlightIdByUuid(db, uuid))
+  const flightMirror = flightMirrorFor(db)
   const flightRelay = new FlightRelay(db)
 
   registerLogbookHandlers(ipcMain, {
@@ -377,10 +399,8 @@ function startApp(cloudSession: StoredSession | null): void {
     scheduleBackgroundSync
   )
 
-  // Navdata: its own short-lived SimConnect connection per refresh, separate from the live one (docs/navdata-notes.md). The services that
-  // follow the flight shown (its navdata, taxi line and procedure choice) run here, whichever screen is open.
-  const readNavdataSignature = createNavdataSignatureReader(signatureFilesFor(app.isPackaged, process.env))
-  const navdataProvider = new SimFacilitiesProvider(db, undefined, undefined, readNavdataSignature)
+  // Navdata (its own short-lived SimConnect connection per refresh) and the services that follow the flight shown, whichever screen is open.
+  const { navdataProvider, readNavdataSignature } = createNavdata(db, scheduleBackgroundSync)
   const flightServices = startFlightServices(ipcMain, {
     db,
     sim,
@@ -388,8 +408,8 @@ function startApp(cloudSession: StoredSession | null): void {
     trackingController,
     navdata: navdataProvider,
     onWrite: scheduleBackgroundSync,
-    hostFlying: isClient ? () => flightMirror.hostTracking() : undefined,
-    traceWorker: createTraceWorkerRunner()
+    client: isClient ? { hostFlying: () => flightMirror.hostTracking() } : undefined,
+    traceWorker: isClient ? undefined : createTraceWorkerRunner()
   })
   app.on('before-quit', flightServices.stop)
 
@@ -435,6 +455,7 @@ function startApp(cloudSession: StoredSession | null): void {
       replayStreams,
       trackingController,
       navdataProvider,
+      scheduleBackgroundSync,
       selection: flightServices.selection
     })
   }

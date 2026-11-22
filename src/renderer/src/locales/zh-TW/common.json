@@ -69,7 +69,10 @@
       "autoFinish": "自動結束航班",
       "autoFinishOff": "關閉：停機並關車後航班保持進行中，直到你按 {{finishAndSave}}。",
       "on": "開",
-      "off": "關"
+      "off": "關",
+      "setOnSimPc": "在模擬器電腦上設定",
+      "simPcUnavailable": "暫時無法取得",
+      "clientDescription": "這些是模擬器電腦的設定，此處僅供檢視。請在模擬器電腦上的 WingLog 中修改。"
     },
     "theme": {
       "cardTitle": "主題",
@@ -797,8 +800,7 @@
       "stepClimb": "階梯爬升至 {{altitude}}"
     },
     "flightInProgress": "進行中的航班",
-    "change": "變更",
-    "notConnectedSimPc": "未連線至模擬器電腦。"
+    "change": "變更"
   },
   "flightMap": {
     "stopCentering": "停止以飛機為中心",

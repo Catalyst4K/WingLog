@@ -71,7 +71,10 @@
       "autoFinish": "Flüge automatisch beenden",
       "autoFinishOff": "Aus: Der Flug bleibt nach dem Parken und Abschalten offen, bis du {{finishAndSave}} drückst.",
       "on": "An",
-      "off": "Aus"
+      "off": "Aus",
+      "setOnSimPc": "Auf dem Sim-PC eingestellt",
+      "simPcUnavailable": "Gerade nicht verfügbar",
+      "clientDescription": "Das sind die Einstellungen des Sim-PCs, hier nur zur Ansicht. Ändere sie in WingLog auf dem Sim-PC."
     },
     "theme": {
       "cardTitle": "Design",
@@ -308,8 +311,8 @@
       "connect": "Verbinden",
       "badAddress": "Gib die Adresse des Sim-PCs mit Port ein, eine Adresse in deinem Heimnetz, etwa 192.168.1.20:5051.",
       "versionProblem": {
-        "update-this-computer": "WingLog auf diesem Computer ist älter als das auf dem Sim-PC, deshalb werden Logbuch und Flotte nicht abgeglichen. Aktualisieren Sie WingLog auf diesem Computer.",
-        "update-sim-pc": "WingLog auf dem Sim-PC ist älter als das auf diesem Computer, deshalb werden Logbuch und Flotte nicht abgeglichen. Aktualisieren Sie WingLog auf dem Sim-PC."
+        "update-this-computer": "WingLog auf diesem Computer ist älter als das auf dem Sim-PC, deshalb werden Logbuch und Flotte nicht abgeglichen. Aktualisiere WingLog auf diesem Computer.",
+        "update-sim-pc": "WingLog auf dem Sim-PC ist älter als das auf diesem Computer, deshalb werden Logbuch und Flotte nicht abgeglichen. Aktualisiere WingLog auf dem Sim-PC."
       }
     },
     "twin": {
@@ -806,8 +809,7 @@
       "stepClimb": "Stufensteigflug auf {{altitude}}"
     },
     "flightInProgress": "Laufender Flug",
-    "change": "Ändern",
-    "notConnectedSimPc": "Nicht mit dem Sim-PC verbunden."
+    "change": "Ändern"
   },
   "flightMap": {
     "stopCentering": "Zentrierung auf Flugzeug stoppen",

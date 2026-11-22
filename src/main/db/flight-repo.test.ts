@@ -20,7 +20,9 @@ import {
   finalizeFuelOut,
   getFleetStats,
   getFlight,
+  getFlightUuidById,
   getLiveFlight,
+  getLiveFlightIdByUuid,
   getInProgressFlight,
   getLogbookStats,
   linkAircraftToFlight,
@@ -828,6 +830,22 @@ describe('flight repo', () => {
       const row = db.select().from(flightTable).where(eq(flightTable.id, id)).get()!
       expect(row).toMatchObject({ parkedStandIcao: 'VHHH', parkedStand: 'N32' })
       expect(row.updatedAt! > '2000-01-01').toBe(true)
+    })
+  })
+
+  describe('getLiveFlightIdByUuid', () => {
+    it('finds a live flight by its uuid, and nothing for an unknown uuid', () => {
+      const flight = createFlight(db, { aircraftId, depIcao: 'EGLL', arrIcao: 'EGCC' })
+      const uuid = getFlightUuidById(db, flight.id) as string
+      expect(getLiveFlightIdByUuid(db, uuid)).toBe(flight.id)
+      expect(getLiveFlightIdByUuid(db, 'no-such-uuid')).toBeUndefined()
+    })
+
+    it('finds nothing for a deleted flight, which a screen must not show as the sim PC’s flight', () => {
+      const flight = createFlight(db, { aircraftId, depIcao: 'EGLL', arrIcao: 'EGCC' })
+      const uuid = getFlightUuidById(db, flight.id) as string
+      deleteFlight(db, flight.id)
+      expect(getLiveFlightIdByUuid(db, uuid)).toBeUndefined()
     })
   })
 })

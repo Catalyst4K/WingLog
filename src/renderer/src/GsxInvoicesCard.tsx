@@ -8,6 +8,7 @@ import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
 import type { FlightInvoice, GsxNotailCandidate } from '@shared/ipc'
 import { Button } from '@/components/ui/button'
+import { useCapabilities } from './app/capabilities-context'
 import { asyncHandler, runAsync } from './report-error'
 import { SectionHeading } from '@/components/SectionHeading'
 
@@ -163,6 +164,7 @@ function InvoiceRow(props: {
  */
 export function GsxInvoicesCard(props: { flightId: number }): React.JSX.Element {
   const { t } = useTranslation()
+  const isClient = useCapabilities().runMode === 'client'
   const [invoices, setInvoices] = useState<FlightInvoice[]>([])
   const [notailCandidates, setNotailCandidates] = useState<GsxNotailCandidate[]>([])
   const [rescanning, setRescanning] = useState(false)
@@ -275,15 +277,18 @@ export function GsxInvoicesCard(props: { flightId: number }): React.JSX.Element 
             {invoices.length > 0 && hasAnyUsdTotal && (
               <span>{t('gsxInvoicesCard.summary', { count: invoices.length, total: formattedTotal })}</span>
             )}
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={asyncHandler('GsxInvoicesCard handleRescan', handleRescan)}
-              disabled={rescanning}
-            >
-              {rescanning ? t('gsxInvoicesCard.scanning') : t('gsxInvoicesCard.rescan')}
-            </Button>
+            {/* The receipts are files in this computer's GSX folder, which a client has none of: they arrive by sync. */}
+            {!isClient && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={asyncHandler('GsxInvoicesCard handleRescan', handleRescan)}
+                disabled={rescanning}
+              >
+                {rescanning ? t('gsxInvoicesCard.scanning') : t('gsxInvoicesCard.rescan')}
+              </Button>
+            )}
           </>
         }
       />

@@ -9,6 +9,8 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import type { OnlineNetwork } from '@shared/ipc'
 import { Button } from '@/components/ui/button'
+import { useCapabilities } from '../app/capabilities-context'
+import { useHostLinkStatus } from '../app/use-host-link'
 import { winglogApi } from '../data/winglog-api'
 import { asyncHandler, runAsync } from '../report-error'
 
@@ -24,14 +26,24 @@ export function PrefileButtons(props: {
   const { t } = useTranslation()
   const [network, setNetwork] = useState<OnlineNetwork | null>(null)
 
+  // On a client the network is the sim PC's, read through the link: asked again whenever the link changes state, since an answer given
+  // while it was down is "none chosen".
+  const isClient = useCapabilities().runMode === 'client'
+  const linkState = useHostLinkStatus(isClient)?.state
   useEffect(() => {
+    let current = true
     runAsync(
       'PrefileButtons settingsGetOnlineNetwork',
       winglogApi()
         .settingsGetOnlineNetwork()
-        .then((settings) => setNetwork(settings.network))
+        .then((settings) => {
+          if (current) setNetwork(settings.network)
+        })
     )
-  }, [])
+    return () => {
+      current = false
+    }
+  }, [linkState])
 
   if (!network) return null
   return (

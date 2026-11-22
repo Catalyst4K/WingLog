@@ -140,9 +140,7 @@ export function TrackView(props: {
 
   function handleOpenFreeFlight(): void {
     if (!props.telemetry) {
-      toast.error(
-        t(capabilities.runMode === 'client' ? 'trackView.notConnectedSimPc' : 'trackView.notConnected')
-      )
+      toast.error(t('trackView.notConnected'))
       return
     }
     setFreeFlightDialogOpen(true)
@@ -260,6 +258,7 @@ export function TrackView(props: {
           plannedFlights={plannedFlights}
           aircraft={aircraft}
           starting={starting}
+          canStartFreeFlight={capabilities.runMode !== 'client'}
           onOpenFreeFlight={handleOpenFreeFlight}
           onStart={handleStart}
           onCancelPlanned={handleCancelPlanned}
@@ -305,6 +304,7 @@ export function TrackView(props: {
 
       {confirmDialog}
 
+      {/* Opened only from the free-flight card and banner, which a client does not show. */}
       <StartFreeFlightDialog
         open={freeFlightDialogOpen}
         onOpenChange={setFreeFlightDialogOpen}

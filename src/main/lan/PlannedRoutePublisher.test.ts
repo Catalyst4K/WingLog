@@ -5,7 +5,7 @@ import type { PlannedRoute } from '@shared/live'
 import { emptyProcedureSelection } from '@shared/procedure-selection'
 import { createAircraft } from '../db/aircraft-repo'
 import { createDb } from '../db/client'
-import { createFlight, setSelectedProcedures, startFlight } from '../db/flight-repo'
+import { createFlight, getFlightUuidById, setSelectedProcedures, startFlight } from '../db/flight-repo'
 import { logger } from '../logging/logger'
 import { PlannedRoutePublisher } from './PlannedRoutePublisher'
 
@@ -110,6 +110,20 @@ describe('PlannedRoutePublisher', () => {
     expect(t.sent).toHaveLength(1)
     expect(t.sent[0]).toMatchObject({ revision: 1, selection: emptyProcedureSelection() })
     expect(idents(t.sent[0])).toEqual(['SIDFIX', 'CRUISE'])
+  })
+
+  it('names the flight by its uuid as well as its id, so a twin can find its own id for it', () => {
+    const t = build()
+    const flight = createFlight(t.db, {
+      aircraftId: t.aircraftId,
+      depIcao: 'EGLL',
+      arrIcao: 'KJFK',
+      ofpJson: OFP_JSON
+    })
+    t.publisher.refresh()
+    const uuid = getFlightUuidById(t.db, flight.id)
+    expect(uuid).toBeTruthy()
+    expect(t.sent[0]).toMatchObject({ flightId: flight.id, flightUuid: uuid })
   })
 
   it("uses the flight's saved choice when nothing has been chosen on a screen", () => {

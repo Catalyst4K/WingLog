@@ -7,8 +7,9 @@ import { createDb } from '../db/client'
 import { createFlight, getLiveFlight, setSelectedProcedures } from '../db/flight-repo'
 import { shownFlight } from '../lan/lan-flight'
 import { ProcedureSelectionStore } from '../procedures/ProcedureSelectionStore'
-import { followHostFlight, onSyncLanded } from './client-follow'
-import { FlightMirror } from './flight-mirror'
+import { LiveHub } from '../live/LiveHub'
+import { followHostFlight, onSyncLanded, showHeldRoute } from './client-follow'
+import { FlightMirror, HELD_BACK, mapFlightTopic } from './flight-mirror'
 
 vi.mock('../logging/logger', () => ({ logger: { info: vi.fn(), warn: vi.fn() } }))
 
@@ -110,5 +111,47 @@ describe('onSyncLanded', () => {
     // The pilot clears it here: it is a change, so it is saved.
     store.set({ ...withApproach, approachIdent: null }, 'window')
     expect(getLiveFlight(db, planned.id)?.selectedApproachIdent).toBeNull()
+  })
+})
+
+describe('showHeldRoute', () => {
+  const route = {
+    flightId: 445,
+    flightUuid: 'u',
+    revision: 1,
+    selection: emptyProcedureSelection(),
+    waypoints: []
+  }
+
+  it('puts the sim PC’s route in the hub once its flight has synced, and not before', () => {
+    const ids: { local?: number } = {}
+    const mirror = new FlightMirror(() => ids.local)
+    const hub = { publish: vi.fn() }
+    mapFlightTopic(mirror, 'plannedRoute', route)
+    showHeldRoute(mirror, hub)
+    expect(hub.publish).not.toHaveBeenCalled()
+    ids.local = 3
+    showHeldRoute(mirror, hub)
+    expect(hub.publish).toHaveBeenCalledWith('plannedRoute', expect.objectContaining({ flightId: 3 }))
+    showHeldRoute(mirror, hub)
+    expect(hub.publish).toHaveBeenCalledTimes(1)
+  })
+
+  it('shows another flight’s route no longer once the next flight’s route arrives before its row has synced', () => {
+    const synced = new Map([['uuid-a', 3]])
+    const mirror = new FlightMirror((uuid) => synced.get(uuid))
+    const hub = new LiveHub()
+    // What the link does with each topic the sim PC sends: re-label it, and publish what is not held back.
+    const received = (payload: unknown): void => {
+      const mapped = mapFlightTopic(mirror, 'plannedRoute', payload)
+      if (mapped !== HELD_BACK) hub.publish('plannedRoute', mapped as never)
+    }
+    received({ ...route, flightId: 445, flightUuid: 'uuid-a' })
+    expect(hub.snapshot().plannedRoute).toMatchObject({ flightId: 3 })
+    received({ ...route, flightId: 446, flightUuid: 'uuid-b' })
+    expect(hub.snapshot().plannedRoute).toBeNull()
+    synced.set('uuid-b', 4)
+    showHeldRoute(mirror, hub)
+    expect(hub.snapshot().plannedRoute).toMatchObject({ flightId: 4 })
   })
 })

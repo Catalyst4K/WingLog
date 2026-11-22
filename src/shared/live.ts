@@ -33,7 +33,10 @@ import type {
  * (winglog-backend's docs/plans/lan-sync.md). The screen draws it as it is.
  */
 export interface PlannedRoute {
+  /** The flight's id in the database of the computer that built the route; another computer finds its own id through `flightUuid`. */
   flightId: number
+  /** The flight's uuid, which is the same on every computer: a twin names its own id for the flight by it. Missing from a route built by an older sim PC. */
+  flightUuid?: string
   /** Goes up by one each time the PC publishes a different route or choice for this flight, and starts again at 1 for another flight. */
   revision: number
   /** The choice this route was built from. */

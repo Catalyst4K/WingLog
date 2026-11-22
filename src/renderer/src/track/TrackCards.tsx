@@ -223,6 +223,8 @@ export function NotTrackingCards(props: {
   plannedFlights: LogbookFlight[]
   aircraft: Aircraft[]
   starting: boolean
+  /** False on a client: a free flight is the sim's own aircraft as it is, so it is started on the sim PC, and no way to start one is offered. */
+  canStartFreeFlight: boolean
   onOpenFreeFlight: () => void
   onStart: (flightId: number) => Promise<void>
   onCancelPlanned: (flightId: number, label: string) => Promise<void>
@@ -231,7 +233,7 @@ export function NotTrackingCards(props: {
   const aircraftName = props.telemetry?.atcId || t('trackView.anAircraft')
   return (
     <div className="flex flex-col gap-2">
-      {props.banner.show && !props.banner.dismissed && (
+      {props.canStartFreeFlight && props.banner.show && !props.banner.dismissed && (
         <Card className="border-primary/50 bg-primary/5">
           <CardContent className="flex items-center justify-between gap-4">
             <p className="text-sm text-foreground">
@@ -251,7 +253,7 @@ export function NotTrackingCards(props: {
         </Card>
       )}
 
-      {props.plannedFlights.length === 0 && (
+      {props.canStartFreeFlight && props.plannedFlights.length === 0 && (
         <Card>
           <CardContent className="flex items-center justify-between gap-4">
             <div>

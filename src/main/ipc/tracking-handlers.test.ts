@@ -142,13 +142,38 @@ describe('tracking and flight IPC handlers', () => {
     expect(register()(IpcChannels.trackingGetActive)).toEqual({ flightId: 9, phase: 'taxi' })
   })
 
+  it('tells the procedure store the flight changed after the sim PC’s own window sets an airport, so it suggests for the new one', () => {
+    deps = { ...deps, onFlightsChanged: flightsChanged }
+    const invoke = register()
+    flightsChanged.mockClear()
+    invoke(IpcChannels.trackingSetDestination, 'EGCC')
+    expect(tracking.setDestination).toHaveBeenCalledWith('EGCC')
+    expect(flightsChanged).toHaveBeenCalledTimes(1)
+    invoke(IpcChannels.trackingSetDeparture, 'EGLL')
+    expect(tracking.setDeparture).toHaveBeenCalledWith('EGLL')
+    expect(flightsChanged).toHaveBeenCalledTimes(2)
+  })
+
+  it('does not tell it when the controller refuses the airport', () => {
+    deps = { ...deps, onFlightsChanged: flightsChanged }
+    tracking.setDestination.mockImplementationOnce(() => {
+      throw new Error('Not a valid airport code')
+    })
+    const invoke = register()
+    flightsChanged.mockClear()
+    expect(() => invoke(IpcChannels.trackingSetDestination, 'x!')).toThrow('Not a valid airport code')
+    expect(flightsChanged).not.toHaveBeenCalled()
+  })
+
   describe('on a client, which sends flight commands to the sim PC', () => {
     const relay = {
       fly: vi.fn(() => Promise.resolve()),
       start: vi.fn(() => Promise.resolve()),
       finish: vi.fn(() => Promise.resolve()),
       stop: vi.fn(() => Promise.resolve()),
-      cancel: vi.fn(() => Promise.resolve())
+      cancel: vi.fn(() => Promise.resolve()),
+      setDestination: vi.fn(() => Promise.resolve()),
+      setDeparture: vi.fn(() => Promise.resolve())
     }
 
     function registerWithRelay(): ReturnType<typeof fakeIpc>['invoke'] {
@@ -167,6 +192,24 @@ describe('tracking and flight IPC handlers', () => {
       expect(tracking.start).not.toHaveBeenCalled()
       expect(tracking.finish).not.toHaveBeenCalled()
       expect(autoStartDetector.disarm).not.toHaveBeenCalled()
+    })
+
+    it('sends the airports of a free flight to the sim PC, for the flight it mirrors, and sets nothing here', async () => {
+      deps = { ...deps, mirroredActive: () => ({ flightId: 3, phase: 'cruise' }) }
+      const invoke = registerWithRelay()
+      await invoke(IpcChannels.trackingSetDestination, 'EGCC')
+      await invoke(IpcChannels.trackingSetDeparture, null)
+      expect(relay.setDestination).toHaveBeenCalledWith(3, 'EGCC')
+      expect(relay.setDeparture).toHaveBeenCalledWith(3, null)
+      expect(tracking.setDestination).not.toHaveBeenCalled()
+      expect(tracking.setDeparture).not.toHaveBeenCalled()
+      expect(() => invoke(IpcChannels.trackingSetDestination, 5)).toThrow()
+    })
+
+    it('refuses to set an airport when the sim PC is tracking nothing this computer knows', () => {
+      const invoke = registerWithRelay()
+      expect(() => invoke(IpcChannels.trackingSetDestination, 'EGCC')).toThrow()
+      expect(relay.setDestination).not.toHaveBeenCalled()
     })
 
     it('plans a flight here and has the sim PC fly it, and cancels it there too', async () => {

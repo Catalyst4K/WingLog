@@ -22,11 +22,15 @@ export const LAN_QUERY_KINDS: Record<string, LanQueryKind> = {
   'settings.display': FAST,
   'settings.gsxRemote': FAST,
   'settings.beyondAtc': FAST,
+  'settings.tracking': FAST,
+  'settings.onlineNetwork': FAST,
   'gsx.routines': FAST,
   // Reaches the internet.
   'weather.metars': SLOW,
   // Waits for a read of the network's feed when the PC's is too old.
   'online.atis': SLOW,
+  // Waits up to a few seconds for BeyondATC to answer. Twin only.
+  'beyondatc.atis': SLOW,
   'taxi.has': FAST,
   // Does nothing now: the PC fetches the shown flight's chart itself (flight-navdata-fetcher.ts). Kept, and left in this lane,
   // for pages that still ask.
@@ -53,7 +57,10 @@ export const LAN_QUERY_KINDS: Record<string, LanQueryKind> = {
   'flight.start': FAST,
   'flight.finish': FAST,
   'flight.stop': FAST,
-  'flight.cancel': FAST
+  'flight.cancel': FAST,
+  // The airports of the free flight being tracked: flight data, not settings, so a twin may set them.
+  'flight.setDestination': FAST,
+  'flight.setDeparture': FAST
 }
 
 /** The lookups only a twin (another WingLog) may ask: a phone or tablet is refused them as if they did not exist. */
@@ -63,11 +70,16 @@ export const TWIN_ONLY_QUERIES: readonly string[] = [
   'sync.push',
   'sync.trackedFlights',
   'sync.trackPoints',
+  'settings.tracking',
+  'settings.onlineNetwork',
+  'beyondatc.atis',
   'flight.fly',
   'flight.start',
   'flight.finish',
   'flight.stop',
-  'flight.cancel'
+  'flight.cancel',
+  'flight.setDestination',
+  'flight.setDeparture'
 ]
 
 /**

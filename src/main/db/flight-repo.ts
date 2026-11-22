@@ -830,6 +830,22 @@ export function getFlightIdByUuid(db: WingLogDb, uuid: string): number | undefin
   return db.select({ id: flight.id }).from(flight).where(eq(flight.uuid, uuid)).get()?.id
 }
 
+/**
+ * Like getFlightIdByUuid, but only for a flight that has not been deleted: a screen shows a flight the sim PC names only while it is one
+ * of this computer's own live flights.
+ *
+ * @param db The database.
+ * @param uuid The flight's sync uuid.
+ * @returns The local id, or undefined when there is no such flight or it is deleted.
+ */
+export function getLiveFlightIdByUuid(db: WingLogDb, uuid: string): number | undefined {
+  return db
+    .select({ id: flight.id })
+    .from(flight)
+    .where(and(eq(flight.uuid, uuid), isNull(flight.deletedAt)))
+    .get()?.id
+}
+
 /** The reverse of getFlightIdByUuid — sync-engine.ts's push side needs a flight's uuid
  *  (not its local id, meaningless remotely) to serialize landing/flightInvoice's flightId.
  *

@@ -5,7 +5,13 @@ import { IpcChannels, type ProcedureSelection } from '@shared/ipc'
 import { fakeIpc } from '../ipc/fake-ipc'
 import { LiveHub } from '../live/LiveHub'
 import type { HostLink } from './HostLink'
-import { FORWARDED_COMMANDS, NAVDATA_LOOKUPS, registerHostLinkHandlers, TOPIC_GETTERS } from './client-ipc'
+import {
+  ATIS_LOOKUPS,
+  FORWARDED_COMMANDS,
+  NAVDATA_LOOKUPS,
+  registerHostLinkHandlers,
+  TOPIC_GETTERS
+} from './client-ipc'
 
 function setup(own?: { hostFlying: boolean }) {
   const hub = new LiveHub()
@@ -207,6 +213,32 @@ describe('a client IPC handlers', () => {
     expect(await invoke(IpcChannels.settingsGetBeyondAtc)).toMatchObject({ enabled: false })
   })
 
+  it('reads the sim PC’s automatic start and finish for the Settings page, and null while it cannot say', async () => {
+    const { invoke, link } = setup()
+    link.query.mockResolvedValueOnce({ autoStart: true, autoFinish: false })
+    expect(await invoke(IpcChannels.settingsGetTracking)).toEqual({ autoStart: true, autoFinish: false })
+    expect(link.query).toHaveBeenLastCalledWith('settings.tracking')
+    // Anything but two true/false values is not an answer, and a refusal or a dropped link is not one either.
+    for (const odd of [null, 'on', { autoStart: 1, autoFinish: true }, { autoStart: true }]) {
+      link.query.mockResolvedValueOnce(odd)
+      expect(await invoke(IpcChannels.settingsGetTracking), JSON.stringify(odd)).toBeNull()
+    }
+    link.query.mockRejectedValueOnce(new Error('Not connected'))
+    expect(await invoke(IpcChannels.settingsGetTracking)).toBeNull()
+  })
+
+  it('takes the tracking lookup over from the local settings handler, which a client must not answer from its own database', async () => {
+    const ipc = fakeIpc()
+    ipc.ipcMain.handle(IpcChannels.settingsGetTracking, () => ({ autoStart: false, autoFinish: false }))
+    const link = { query: vi.fn().mockResolvedValue({ autoStart: true, autoFinish: true }) }
+    registerHostLinkHandlers(ipc.ipcMain, {
+      link: link as unknown as HostLink,
+      hub: new LiveHub(),
+      handled: new Set([IpcChannels.settingsGetTracking])
+    })
+    expect(await ipc.invoke(IpcChannels.settingsGetTracking)).toEqual({ autoStart: true, autoFinish: true })
+  })
+
   it('asks the sim PC for runways, procedures, the taxi chart and stands, with the arguments the screen gave', async () => {
     const { invoke, link } = setup()
     link.query.mockResolvedValue([{ ident: '07L' }])
@@ -230,6 +262,43 @@ describe('a client IPC handlers', () => {
     await invoke(IpcChannels.navdataGetStands, 'VHHH')
     expect(link.query).toHaveBeenLastCalledWith('stands', 'VHHH')
     expect(NAVDATA_LOOKUPS).toHaveLength(8)
+  })
+
+  it('reads the online network the sim PC has chosen, so the Mac can offer filing on it, with no member numbers', async () => {
+    const { invoke, link } = setup()
+    link.query.mockResolvedValueOnce({ network: 'ivao', ivaoVid: '123456' })
+    expect(await invoke(IpcChannels.settingsGetOnlineNetwork)).toEqual({
+      network: 'ivao',
+      vatsimCid: null,
+      ivaoVid: null,
+      keepBeyondAtcOnline: false,
+      simTrafficButton: true
+    })
+    expect(link.query).toHaveBeenLastCalledWith('settings.onlineNetwork')
+    // A network that is not one WingLog knows, a malformed answer and a dropped link all read as none chosen.
+    for (const odd of [{ network: 'pilotedge' }, null, 'vatsim']) {
+      link.query.mockResolvedValueOnce(odd)
+      expect(await invoke(IpcChannels.settingsGetOnlineNetwork), JSON.stringify(odd)).toMatchObject({
+        network: null
+      })
+    }
+    link.query.mockRejectedValueOnce(new Error('Not connected'))
+    expect(await invoke(IpcChannels.settingsGetOnlineNetwork)).toMatchObject({ network: null })
+  })
+
+  it('asks the sim PC for the weather panel’s ATIS and BeyondATC’s, and reads them as nothing to show while it cannot be asked', async () => {
+    const { invoke, link } = setup()
+    const requests = [{ icao: 'EGLL', slot: 'departure' }]
+    link.query.mockResolvedValueOnce({ network: 'vatsim', airports: [] })
+    expect(await invoke(IpcChannels.onlineAtisGet, requests)).toEqual({ network: 'vatsim', airports: [] })
+    expect(link.query).toHaveBeenLastCalledWith('online.atis', requests)
+    link.query.mockResolvedValueOnce({ state: 'shown', airports: [] })
+    expect(await invoke(IpcChannels.beyondAtcGetAtis)).toEqual({ state: 'shown', airports: [] })
+    expect(link.query).toHaveBeenLastCalledWith('beyondatc.atis')
+    link.query.mockRejectedValue(new Error('Not connected'))
+    expect(await invoke(IpcChannels.onlineAtisGet, requests)).toEqual({ network: null, airports: [] })
+    expect(await invoke(IpcChannels.beyondAtcGetAtis)).toEqual({ state: 'unavailable', airports: [] })
+    expect(ATIS_LOOKUPS).toHaveLength(2)
   })
 
   it('reads the lists as empty while the sim PC cannot be asked, but lets the taxi chart fail so it is not remembered as empty', async () => {
