@@ -1,6 +1,6 @@
 /**
  * Reads the chosen network's public feed while anything needs it, and publishes from each download: the aircraft near the pilot, or the
- * whole network while there is no position (`networkTraffic`), which traffic layers draw (`trafficLayers`), the pilot's own online status
+ * whole network while there is no position (`networkTraffic`; a screen set to "Whole network" asks for the whole set with `wholeTraffic`), which traffic layers draw (`trafficLayers`), the pilot's own online status
  * (`onlineStatus`), and who is online at the flight's airports (`networkControllers`).
  *
  * A thin wrapper: when to fetch is `feed-poll-step.ts`'s pure step, what a feed means is the two parsers, what draws is
@@ -115,6 +115,10 @@ export class NetworkFeedService {
   private lastState: NetworkTraffic['state'] | null = null
   /** Whether the last traffic shown was around a position (else the whole network, or none yet). */
   private lastCentred = false
+  /** Whether the feed has been failing past the time the last aircraft are kept (it has no snapshot). */
+  private feedUnavailable = false
+  /** The whole-network set built for the snapshot held, so any number of requests between two reads cost one build. */
+  private wholeCache: { key: string; snapshot: FeedSnapshot; traffic: NetworkTraffic } | null = null
   private status: OnlineStatus = unknownStatus(null)
   /** The last controllers payload published, as text, so only a change is published. */
   private lastControllers = ''
@@ -177,17 +181,6 @@ export class NetworkFeedService {
    */
   setAtcOn(on: boolean): void {
     this.deps.saveSwitches({ ...this.deps.switches(), atcOn: on })
-    this.refresh()
-  }
-
-  /**
-   * Chooses what the network's traffic layer shows, for every screen, and remembers it: the whole network (at most 3,000 aircraft), or
-   * the aircraft near the pilot ("Nearby").
-   *
-   * @param whole True for the whole network.
-   */
-  setNetworkWhole(whole: boolean): void {
-    this.deps.saveSwitches({ ...this.deps.switches(), networkWhole: whole })
     this.refresh()
   }
 
@@ -292,11 +285,21 @@ export class NetworkFeedService {
     this.seen = null
   }
 
-  /** Call when the aircraft's position may have changed: traffic shown for the whole network narrows to it at once. */
-  onPositionChanged(): void {
+  /**
+   * Call when the aircraft's position may have changed: traffic shown for the whole network narrows to it at once.
+   *
+   * @param republish True for the first tick after the sim connects: the traffic is drawn again even when it was already around a
+   *   position, since that position was the last flight's.
+   */
+  onPositionChanged(republish = false): void {
     // Online at the last look, and now in the air: the flight was flown online, however soon the next look is.
     this.noteSeen(this.status)
-    if (this.lastState === 'shown' && !this.lastCentred && this.snapshot && this.trafficCentre() !== null) {
+    if (
+      this.lastState === 'shown' &&
+      (republish || !this.lastCentred) &&
+      this.snapshot &&
+      this.deps.centre() !== null
+    ) {
       this.publishTraffic()
     }
   }
@@ -311,9 +314,31 @@ export class NetworkFeedService {
     if (this.lastState === 'shown' && this.snapshot) this.publishTraffic()
   }
 
-  /** @returns Where the traffic is centred: null (the whole network) when that is chosen, else the aircraft or flight shown, if known. */
-  private trafficCentre(): LatLon | null {
-    return this.layers().networkWhole ? null : this.deps.centre()
+  /**
+   * The whole network's traffic (at most 3,000 aircraft) for a screen set to "Whole network": the same states as `networkTraffic`, but
+   * never limited to the aircraft's surroundings. Built once for each feed read and kept, so many screens asking cost one build; the
+   * ages are those of the build, a few seconds old at most for a screen that asks as each read lands.
+   *
+   * @returns The traffic: aircraft only in the 'shown' state.
+   */
+  wholeTraffic(): NetworkTraffic {
+    const settings = this.deps.settings()
+    const network = settings.network
+    if (network === null) return { network, state: 'noNetwork', aircraft: [] }
+    if (network === 'ivao' && settings.ivaoVid === null) return { network, state: 'needsVid', aircraft: [] }
+    if (!this.layers().networkOn) return { network, state: 'off', aircraft: [] }
+    if (!this.snapshot)
+      return { network, state: this.feedUnavailable ? 'unavailable' : 'shown', aircraft: [] }
+    const key = `${network}|${settings.vatsimCid}|${settings.ivaoVid}|${this.ownCallsign}`
+    if (this.wholeCache?.snapshot === this.snapshot && this.wholeCache.key === key)
+      return this.wholeCache.traffic
+    const traffic: NetworkTraffic = {
+      network,
+      state: 'shown',
+      aircraft: this.toShow(this.snapshot, null, settings)
+    }
+    this.wholeCache = { key, snapshot: this.snapshot, traffic }
+    return traffic
   }
 
   /** @returns Which layers draw now. */
@@ -326,8 +351,7 @@ export class NetworkFeedService {
       network: settings.network,
       ivaoVidSet: settings.ivaoVid !== null,
       simOffered: settings.simTrafficButton,
-      atcOn: switches.atcOn,
-      networkWhole: switches.networkWhole
+      atcOn: switches.atcOn
     })
   }
 
@@ -449,6 +473,7 @@ export class NetworkFeedService {
   /** @param snapshot A good feed. */
   private onSuccess(snapshot: FeedSnapshot): void {
     this.snapshot = snapshot
+    this.feedUnavailable = false
     this.lastOkMs = this.deps.now()
     this.poll = pollFinished(this.poll, true, this.deps.now())
     this.clearStaleTimer()
@@ -533,6 +558,7 @@ export class NetworkFeedService {
   private markUnavailable(): void {
     this.staleTimer = null
     this.snapshot = null
+    this.feedUnavailable = true
     this.publishTraffic(true)
     this.publishAtc(true)
   }
@@ -588,7 +614,7 @@ export class NetworkFeedService {
     else if (unavailable) traffic = { network, state: 'unavailable', aircraft: [] }
     else if (this.snapshot) {
       // Around the aircraft (or the flight's departure) when known, otherwise the whole network: the button always shows traffic.
-      const centre = this.trafficCentre()
+      const centre = this.deps.centre()
       centred = centre !== null
       traffic = { network, state: 'shown', aircraft: this.toShow(this.snapshot, centre, settings) }
     } else {

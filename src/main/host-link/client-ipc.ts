@@ -33,8 +33,7 @@ export const FORWARDED_COMMANDS: Partial<Record<LiveCommand, string>> = {
   'gsx.cancelRoutine': IpcChannels.gsxRoutineCancel,
   'traffic.setNetworkOn': IpcChannels.trafficSetNetworkOn,
   'traffic.setSimOn': IpcChannels.trafficSetSimOn,
-  'traffic.setAtcOn': IpcChannels.trafficSetAtcOn,
-  'traffic.setNetworkWhole': IpcChannels.trafficSetNetworkWhole
+  'traffic.setAtcOn': IpcChannels.trafficSetAtcOn
 }
 
 /** The "current value" query each topic has, answered from the hub (what the host last said). */
@@ -183,6 +182,8 @@ export function registerHostLinkHandlers(
     }
     ipcMain.handle(channel, (_event, ...args: unknown[]) => reply(...args))
   }
+  // A map view, not a sim-PC setting: this computer's own choice of "Whole network" asks the sim PC for the set (it has no feed of its own).
+  answer(IpcChannels.networkTrafficWholeGet, () => link.query('online.trafficWhole'))
   for (const [command, channel] of Object.entries(FORWARDED_COMMANDS)) {
     if (command === 'gsx.startRoutine') continue
     answer(channel, (...args) => link.command(command, args))

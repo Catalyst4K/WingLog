@@ -176,6 +176,7 @@ const api: WingLogApi = {
     return () => ipcRenderer.removeListener(IpcChannels.plannedRoute, handler)
   },
   getNetworkTraffic: () => ipcRenderer.invoke(IpcChannels.networkTrafficGet),
+  getNetworkTrafficWhole: () => ipcRenderer.invoke(IpcChannels.networkTrafficWholeGet),
   onNetworkTraffic: (listener: (traffic: NetworkTraffic) => void) => {
     const handler = (_event: Electron.IpcRendererEvent, traffic: NetworkTraffic): void => listener(traffic)
     ipcRenderer.on(IpcChannels.networkTraffic, handler)
@@ -222,7 +223,6 @@ const api: WingLogApi = {
   trafficSetNetworkOn: (on: boolean) => ipcRenderer.invoke(IpcChannels.trafficSetNetworkOn, on),
   trafficSetSimOn: (on: boolean) => ipcRenderer.invoke(IpcChannels.trafficSetSimOn, on),
   trafficSetAtcOn: (on: boolean) => ipcRenderer.invoke(IpcChannels.trafficSetAtcOn, on),
-  trafficSetNetworkWhole: (whole: boolean) => ipcRenderer.invoke(IpcChannels.trafficSetNetworkWhole, whole),
   logbookListCompletedFlights: () => ipcRenderer.invoke(IpcChannels.logbookListCompletedFlights),
   logbookGetFlight: (id: number) => ipcRenderer.invoke(IpcChannels.logbookGetFlight, id),
   logbookGetStats: () => ipcRenderer.invoke(IpcChannels.logbookGetStats),

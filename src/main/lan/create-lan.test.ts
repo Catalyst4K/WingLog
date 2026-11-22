@@ -70,7 +70,8 @@ const LOCAL = {
   addOns: () => ({ gsxRemote: true, beyondAtc: false }),
   routines: () => [{ id: 'builtin-arrival', name: 'Arrival' }],
   metars: (codes: unknown) => Promise.resolve([{ asked: codes }]),
-  atis: (requests: unknown) => Promise.resolve({ network: 'vatsim', asked: requests })
+  atis: (requests: unknown) => Promise.resolve({ network: 'vatsim', asked: requests }),
+  trafficWhole: () => ({ network: 'vatsim', state: 'shown', aircraft: [] })
 }
 
 const FLIGHT_CONTROL = {
@@ -85,6 +86,7 @@ const CREATE_DEPS = {
   addOnCommands: {},
   userAgent: 'WingLog/test',
   atis: LOCAL.atis,
+  trafficWhole: LOCAL.trafficWhole,
   flightControl: FLIGHT_CONTROL
 }
 
@@ -128,6 +130,10 @@ describe('lanQueries', () => {
   it('hands the weather panel’s ATIS request to the PC’s own lookup, which does the checking', async () => {
     const asked = [{ icao: 'EGLL', slot: 'departure' }]
     await expect(queries['online.atis'](asked)).resolves.toEqual({ network: 'vatsim', asked })
+  })
+
+  it('answers the whole network’s traffic from the PC’s own held feed, taking no arguments', () => {
+    expect(queries['online.trafficWhole']()).toEqual({ network: 'vatsim', state: 'shown', aircraft: [] })
   })
 
   it('answers the taxi chart, stands and refresh for an airport code', async () => {

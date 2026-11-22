@@ -7,8 +7,7 @@ const base: TrafficLayerInput = {
   network: null,
   ivaoVidSet: false,
   simOffered: true,
-  atcOn: false,
-  networkWhole: false
+  atcOn: false
 }
 
 describe('decideTrafficLayers', () => {
@@ -18,16 +17,10 @@ describe('decideTrafficLayers', () => {
       simOn: false,
       simOffered: true,
       atcOn: false,
-      networkWhole: false,
       drawNetwork: false,
       drawSim: false,
       drawAtc: false
     })
-  })
-
-  it('carries the area choice through, whether or not the layer draws', () => {
-    expect(decideTrafficLayers({ ...base, network: 'vatsim', networkWhole: true }).networkWhole).toBe(true)
-    expect(decideTrafficLayers({ ...base, network: 'vatsim', networkOn: true }).networkWhole).toBe(false)
   })
 
   describe('the ATC layer', () => {

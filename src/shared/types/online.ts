@@ -216,8 +216,6 @@ export interface TrafficLayers {
   simOffered: boolean
   /** The ATC layer's switch: it does not touch the two traffic switches, so traffic and ATC can show together. */
   atcOn: boolean
-  /** The network traffic's area: true is the whole network, false the 250 nm around the aircraft ("Nearby"). Shared by every screen. */
-  networkWhole: boolean
   /** What each screen draws now. */
   drawNetwork: boolean
   drawSim: boolean

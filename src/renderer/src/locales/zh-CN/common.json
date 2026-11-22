@@ -817,7 +817,7 @@
     "simTrafficUnavailable": "模拟器交通不可用",
     "showAtc": "显示 {{network}} 管制",
     "hideAtc": "隐藏 {{network}} 管制",
-    "showWholeNetwork": "显示整个网络",
+    "showWholeNetwork": "显示整个网络的交通",
     "showNearbyTraffic": "仅显示飞机附近的交通",
     "atcNeedsVid": "请在设置中输入你的 IVAO VID 以查看 IVAO 管制",
     "atcUnavailable": "{{network}} 管制不可用",

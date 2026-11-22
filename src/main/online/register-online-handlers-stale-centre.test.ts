@@ -19,7 +19,7 @@ vi.mock('./sim-traffic-link', () => ({
 
 const busy = readFileSync(join(__dirname, '__fixtures__', 'vatsim-busy.json'), 'utf8')
 
-// Sanya (ZJSY): where flight 445 ended. The busy fixture's pilots are all around London, so a map centred here has nobody within 250 nm.
+// Sanya (ZJSY) airport: the busy fixture's pilots are all around London, so a map centred here has nobody within 250 nm.
 const SANYA_GATE = { latitude: 18.3029, longitude: 109.4122, onGround: true } as SimTelemetry
 
 describe('where the network traffic is centred once the sim has gone', () => {
@@ -86,21 +86,15 @@ describe('where the network traffic is centred once the sim has gone', () => {
     expect((invoke(IpcChannels.networkTrafficGet) as NetworkTraffic).aircraft).toEqual([])
   })
 
-  it('shows the whole network while the sim is connected when the whole-network choice is on, and the window again when it is off', async () => {
-    const { invoke } = showTraffic()
-    await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(1))
-    await vi.waitFor(() => expect(invoke(IpcChannels.networkTrafficGet)).toMatchObject({ state: 'shown' }))
-    expect((invoke(IpcChannels.networkTrafficGet) as NetworkTraffic).aircraft).toEqual([])
-    invoke(IpcChannels.trafficSetNetworkWhole, true)
-    expect((invoke(IpcChannels.networkTrafficGet) as NetworkTraffic).aircraft.length).toBeGreaterThan(0)
-    invoke(IpcChannels.trafficSetNetworkWhole, false)
-    expect((invoke(IpcChannels.networkTrafficGet) as NetworkTraffic).aircraft).toEqual([])
-  })
-
   it('widens to the whole network the moment the sim disconnects, without waiting for the next feed read', async () => {
     const { invoke } = showTraffic()
     await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(1))
     await vi.waitFor(() => expect(invoke(IpcChannels.networkTrafficGet)).toMatchObject({ state: 'shown' }))
+    await vi.waitFor(() =>
+      expect((invoke(IpcChannels.networkTrafficWholeGet) as NetworkTraffic).aircraft.length).toBeGreaterThan(
+        0
+      )
+    )
     status = { state: 'disconnected' }
     sim.emit('status', status)
     expect((invoke(IpcChannels.networkTrafficGet) as NetworkTraffic).aircraft.length).toBeGreaterThan(0)
@@ -118,6 +112,83 @@ describe('where the network traffic is centred once the sim has gone', () => {
     expect((invoke(IpcChannels.networkTrafficGet) as NetworkTraffic).aircraft.length).toBeGreaterThan(0)
     sim.emit('telemetry', SANYA_GATE)
     expect((invoke(IpcChannels.networkTrafficGet) as NetworkTraffic).aircraft).toEqual([])
+  })
+
+  it("keeps the whole network for anything that redraws the map between a reconnect and its first tick (the kept tick is the old flight's)", async () => {
+    status = { state: 'disconnected' }
+    const { invoke } = showTraffic()
+    await vi.waitFor(() =>
+      expect((invoke(IpcChannels.networkTrafficGet) as NetworkTraffic).aircraft.length).toBeGreaterThan(0)
+    )
+    status = { state: 'connected' }
+    sim.emit('status', status)
+    // A switch press redraws from the feed held, as each feed read does.
+    invoke(IpcChannels.trafficSetNetworkOn, false)
+    invoke(IpcChannels.trafficSetNetworkOn, true)
+    expect((invoke(IpcChannels.networkTrafficGet) as NetworkTraffic).aircraft.length).toBeGreaterThan(0)
+    sim.emit('telemetry', SANYA_GATE)
+    expect((invoke(IpcChannels.networkTrafficGet) as NetworkTraffic).aircraft).toEqual([])
+  })
+
+  it("narrows once, on the first tick, even when the map was already around a position (the old flight's)", async () => {
+    const { invoke } = showTraffic()
+    await vi.waitFor(() => expect(invoke(IpcChannels.networkTrafficGet)).toMatchObject({ state: 'shown' }))
+    await vi.waitFor(() =>
+      expect((invoke(IpcChannels.networkTrafficWholeGet) as NetworkTraffic).aircraft.length).toBeGreaterThan(
+        0
+      )
+    )
+    status = { state: 'disconnected' }
+    sim.emit('status', status)
+    status = { state: 'connected' }
+    sim.emit('status', status)
+    const publish = vi.spyOn(liveHub, 'publish')
+    sim.emit('telemetry', SANYA_GATE)
+    sim.emit('telemetry', SANYA_GATE)
+    expect(publish.mock.calls.filter(([topic]) => topic === 'networkTraffic')).toHaveLength(1)
+  })
+
+  it('leaves the map alone for the reconnect attempts while the sim is closed', async () => {
+    status = { state: 'disconnected' }
+    const { invoke } = showTraffic()
+    await vi.waitFor(() =>
+      expect((invoke(IpcChannels.networkTrafficGet) as NetworkTraffic).aircraft.length).toBeGreaterThan(0)
+    )
+    const publish = vi.spyOn(liveHub, 'publish')
+    for (const state of ['connecting', 'disconnected', 'connecting', 'disconnected']) {
+      status = { state }
+      sim.emit('status', status)
+    }
+    expect(publish.mock.calls.filter(([topic]) => topic === 'networkTraffic')).toEqual([])
+  })
+
+  it('publishes once when the sim drops, whatever states follow', async () => {
+    const { invoke } = showTraffic()
+    await vi.waitFor(() => expect(invoke(IpcChannels.networkTrafficGet)).toMatchObject({ state: 'shown' }))
+    await vi.waitFor(() =>
+      expect((invoke(IpcChannels.networkTrafficWholeGet) as NetworkTraffic).aircraft.length).toBeGreaterThan(
+        0
+      )
+    )
+    const publish = vi.spyOn(liveHub, 'publish')
+    for (const state of ['disconnected', 'connecting', 'disconnected']) {
+      status = { state }
+      sim.emit('status', status)
+    }
+    expect(publish.mock.calls.filter(([topic]) => topic === 'networkTraffic')).toHaveLength(1)
+  })
+
+  it('answers a screen set to Whole network with the whole set while the pushed set stays around the aircraft', async () => {
+    const { invoke } = showTraffic()
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(1))
+    await vi.waitFor(() => expect(invoke(IpcChannels.networkTrafficGet)).toMatchObject({ state: 'shown' }))
+    expect((invoke(IpcChannels.networkTrafficGet) as NetworkTraffic).aircraft).toEqual([])
+    const whole = invoke(IpcChannels.networkTrafficWholeGet) as NetworkTraffic
+    expect(whole.state).toBe('shown')
+    expect(whole.aircraft.length).toBeGreaterThan(0)
+    // Built once for each feed read: another screen's request is the same build.
+    expect(invoke(IpcChannels.networkTrafficWholeGet)).toBe(whole)
+    expect(fetch).toHaveBeenCalledTimes(1)
   })
 
   it('shows the whole network, as designed for "no sim position", once the sim has quit, not a window around where the last flight ended', async () => {

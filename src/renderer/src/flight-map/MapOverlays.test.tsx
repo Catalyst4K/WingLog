@@ -9,7 +9,6 @@ const LAYERS_OFF: TrafficLayers = {
   simOn: false,
   simOffered: true,
   atcOn: false,
-  networkWhole: false,
   drawNetwork: false,
   drawSim: false,
   drawAtc: false
@@ -24,10 +23,11 @@ type TrafficProp = NonNullable<Parameters<typeof MapControls>[0]['networkTraffic
 
 function controls(
   networkTraffic:
-    | (Omit<TrafficProp, 'onToggleSim' | 'onToggleAtc' | 'onToggleWhole' | 'atc'> & {
+    | (Omit<TrafficProp, 'onToggleSim' | 'onToggleAtc' | 'onToggleWhole' | 'whole' | 'atc'> & {
         onToggleSim?: () => void
         onToggleAtc?: () => void
         onToggleWhole?: () => void
+        whole?: boolean
         atc?: NetworkAtc | null
       })
     | undefined,
@@ -45,6 +45,7 @@ function controls(
           onToggleSim: () => {},
           onToggleAtc: () => {},
           onToggleWhole: () => {},
+          whole: false,
           atc: null,
           ...networkTraffic
         }
@@ -255,13 +256,14 @@ describe('the network traffic area button', () => {
       onToggle: () => {},
       onToggleWhole
     })
-    await userEvent.click(screen.getByRole('button', { name: 'Show the whole network' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Show traffic on the whole network' }))
     expect(onToggleWhole).toHaveBeenCalledTimes(1)
   })
 
   it('offers going back to the aircraft’s surroundings while the whole network is shown', () => {
     controls({
-      layers: { ...LAYERS_ON, networkWhole: true },
+      layers: LAYERS_ON,
+      whole: true,
       traffic: traffic('vatsim', 'shown'),
       onToggle: () => {}
     })
@@ -437,6 +439,7 @@ describe('the layers on a small screen (the phone)', () => {
           onToggle: () => {},
           onToggleSim: () => {},
           onToggleAtc: () => {},
+          whole: false,
           onToggleWhole: () => {}
         }}
         taxiChartEnabled={false}

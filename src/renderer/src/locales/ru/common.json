@@ -855,7 +855,7 @@
     "simTrafficUnavailable": "Трафик симулятора недоступен",
     "showAtc": "Показать диспетчеров {{network}}",
     "hideAtc": "Скрыть диспетчеров {{network}}",
-    "showWholeNetwork": "Показать всю сеть",
+    "showWholeNetwork": "Показать трафик всей сети",
     "showNearbyTraffic": "Показать только трафик рядом с самолётом",
     "atcNeedsVid": "Введите свой IVAO VID в настройках, чтобы видеть диспетчеров IVAO",
     "atcUnavailable": "Диспетчеры {{network}} недоступны",

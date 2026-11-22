@@ -240,28 +240,13 @@ describe('traffic switches', () => {
   })
 
   it('are all off by default', () => {
-    expect(getTrafficSwitches(db)).toEqual({
-      networkOn: false,
-      simOn: false,
-      atcOn: false,
-      networkWhole: false
-    })
+    expect(getTrafficSwitches(db)).toEqual({ networkOn: false, simOn: false, atcOn: false })
   })
 
   it('are remembered', () => {
-    setTrafficSwitches(db, { networkOn: true, simOn: false, atcOn: false, networkWhole: false })
-    expect(getTrafficSwitches(db)).toEqual({
-      networkOn: true,
-      simOn: false,
-      atcOn: false,
-      networkWhole: false
-    })
-    setTrafficSwitches(db, { networkOn: false, simOn: true, atcOn: true, networkWhole: false })
-    expect(getTrafficSwitches(db)).toEqual({
-      networkOn: false,
-      simOn: true,
-      atcOn: true,
-      networkWhole: false
-    })
+    setTrafficSwitches(db, { networkOn: true, simOn: false, atcOn: false })
+    expect(getTrafficSwitches(db)).toEqual({ networkOn: true, simOn: false, atcOn: false })
+    setTrafficSwitches(db, { networkOn: false, simOn: true, atcOn: true })
+    expect(getTrafficSwitches(db)).toEqual({ networkOn: false, simOn: true, atcOn: true })
   })
 })

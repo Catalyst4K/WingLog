@@ -74,7 +74,7 @@ function startOnlineNetwork(
   > & {
     beyondAtc: Pick<ReturnType<typeof registerBeyondAtcHandlers>, 'readAtis'>
   }
-): Pick<ReturnType<typeof registerOnlineHandlers>, 'commands' | 'atisAt'> {
+): Pick<ReturnType<typeof registerOnlineHandlers>, 'commands' | 'atisAt' | 'trafficWhole'> {
   const areas = registerAtcAreas(ipcMain, {
     db: deps.db,
     userDataDir: app.getPath('userData'),
@@ -94,7 +94,7 @@ function startOnlineNetwork(
     areas.stop()
   })
   registerPrefileHandlers(ipcMain, { db: deps.db, openExternal: (url) => shell.openExternal(url) })
-  return { commands: online.commands, atisAt: online.atisAt }
+  return { commands: online.commands, atisAt: online.atisAt, trafficWhole: online.trafficWhole }
 }
 
 /**
@@ -115,6 +115,7 @@ function startSecondScreen(
     | 'navdata'
     | 'addOnCommands'
     | 'atis'
+    | 'trafficWhole'
   >
 ): void {
   const lan = createLan({
@@ -176,6 +177,7 @@ export function startHostServices(deps: {
     selection: deps.selection,
     navdata: navdataProvider,
     addOnCommands: { ...beyondAtc.commands, ...gsxRemote.commands, ...onlineNetwork.commands },
-    atis: onlineNetwork.atisAt
+    atis: onlineNetwork.atisAt,
+    trafficWhole: onlineNetwork.trafficWhole
   })
 }

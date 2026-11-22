@@ -315,6 +315,8 @@ export interface WingLogApi {
   onPlannedRoute: (listener: (route: PlannedRoute | null) => void) => () => void
   /** The chosen network's traffic near the aircraft, for a window that opens mid-flight. */
   getNetworkTraffic: () => Promise<NetworkTraffic>
+  /** The whole network's traffic (at most 3,000 aircraft), asked for by a screen set to "Whole network"; the pushed topic stays the nearby set. */
+  getNetworkTrafficWhole: () => Promise<NetworkTraffic>
   /** Pushed each time main has a new set of aircraft (or a new state). */
   onNetworkTraffic: (listener: (traffic: NetworkTraffic) => void) => () => void
   /** The aircraft the sim lists around the pilot, for a window that opens mid-flight. */
@@ -356,8 +358,6 @@ export interface WingLogApi {
   trafficSetSimOn: (on: boolean) => Promise<void>
   /** Turns the ATC layer on or off, for every screen. It leaves the two traffic switches as they are. */
   trafficSetAtcOn: (on: boolean) => Promise<void>
-  /** Chooses the network traffic's area for every screen: true the whole network, false the aircraft's surroundings. */
-  trafficSetNetworkWhole: (whole: boolean) => Promise<void>
   /** Manually re-runs the resume-cleanup pass for one already-completed flight — the
    *  Logbook detail page's "Clean up track" button, alongside the automatic live/
    *  completion-time pass TrackingController already runs on its own. Useful for a flight

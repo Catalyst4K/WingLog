@@ -138,19 +138,21 @@ function NetworkTrafficButton(props: {
 }
 
 /**
- * The shared switch for the network traffic's area, beside the traffic button and only while that layer draws: the whole network (on),
- * or the aircraft near the pilot (off, "Nearby"). Main holds the choice for every screen, so this only shows it and sends the press.
+ * The switch for the network traffic's area, beside the traffic button and only while that layer draws: the whole network (on),
+ * or the aircraft near the pilot (off, "Nearby"). The choice is this screen's own, remembered on this device: `whole` and the press come
+ * from the map's traffic hook.
  *
- * @param props The layers (the choice) and the toggle.
+ * @param props The layers, this screen's choice and the toggle.
  * @returns The element, or nothing while the network's traffic is not drawn.
  */
 function NetworkAreaButton(props: {
   layers: TrafficLayers | null
+  whole: boolean
   onToggle: () => void
 }): React.JSX.Element | null {
   const { t } = useTranslation()
   if (props.layers?.drawNetwork !== true) return null
-  const whole = props.layers.networkWhole
+  const whole = props.whole
   const label = whole ? t('flightMap.showNearbyTraffic') : t('flightMap.showWholeNetwork')
   return (
     <ToggleControl on={whole} label={label} title={label} onClick={props.onToggle}>
@@ -222,6 +224,8 @@ interface LayerControlProps {
     onToggle: () => void
     onToggleSim: () => void
     onToggleAtc: () => void
+    /** Whether this screen shows the whole network. */
+    whole: boolean
     onToggleWhole: () => void
   }
   taxiChartEnabled: boolean
@@ -253,6 +257,7 @@ function LayerControls(props: LayerControlProps): React.JSX.Element {
           <NetworkTrafficButton {...props.networkTraffic} />
           <NetworkAreaButton
             layers={props.networkTraffic.layers}
+            whole={props.networkTraffic.whole}
             onToggle={props.networkTraffic.onToggleWhole}
           />
           {/* Offered unless switched off in Settings; like the network's button, not before the topics arrive. */}
@@ -333,6 +338,8 @@ export function MapControls(props: {
     onToggle: () => void
     onToggleSim: () => void
     onToggleAtc: () => void
+    /** Whether this screen shows the whole network. */
+    whole: boolean
     onToggleWhole: () => void
   }
   taxiChartEnabled: boolean

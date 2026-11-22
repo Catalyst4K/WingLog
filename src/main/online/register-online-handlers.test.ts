@@ -156,24 +156,7 @@ describe('online network handlers', () => {
     dispatchCommand(commands, 'traffic.setNetworkOn', [true])
     expect(getTrafficSwitches(db).networkOn).toBe(true)
     expect(invoke(IpcChannels.trafficLayersGet)).toMatchObject({ networkOn: true })
-    expect(Object.keys(commands)).toEqual([
-      'traffic.setNetworkOn',
-      'traffic.setSimOn',
-      'traffic.setAtcOn',
-      'traffic.setNetworkWhole'
-    ])
-  })
-
-  it('chooses the traffic area from the window or a second screen, remembers it, and refuses anything but a boolean', () => {
-    const { commands, invoke } = register()
-    invoke(IpcChannels.trafficSetNetworkWhole, true)
-    expect(getTrafficSwitches(db).networkWhole).toBe(true)
-    expect(invoke(IpcChannels.trafficLayersGet)).toMatchObject({ networkWhole: true })
-    dispatchCommand(commands, 'traffic.setNetworkWhole', [false])
-    expect(getTrafficSwitches(db).networkWhole).toBe(false)
-    expect(() => invoke(IpcChannels.trafficSetNetworkWhole, 'yes')).toThrow('Invalid traffic switch')
-    expect(() => invoke(IpcChannels.trafficSetNetworkWhole)).toThrow('Invalid traffic switch')
-    expect(getTrafficSwitches(db).networkWhole).toBe(false)
+    expect(Object.keys(commands)).toEqual(['traffic.setNetworkOn', 'traffic.setSimOn', 'traffic.setAtcOn'])
   })
 
   it('turns the ATC layer on from the window or a second screen, remembers it, and leaves the traffic switches alone', () => {
@@ -185,21 +168,11 @@ describe('online network handlers', () => {
       airports: []
     })
     invoke(IpcChannels.trafficSetAtcOn, true)
-    expect(getTrafficSwitches(db)).toEqual({
-      networkOn: false,
-      simOn: false,
-      atcOn: true,
-      networkWhole: false
-    })
+    expect(getTrafficSwitches(db)).toEqual({ networkOn: false, simOn: false, atcOn: true })
     expect(invoke(IpcChannels.trafficLayersGet)).toMatchObject({ atcOn: true, drawAtc: false })
     dispatchCommand(commands, 'traffic.setNetworkOn', [true])
     dispatchCommand(commands, 'traffic.setAtcOn', [false])
-    expect(getTrafficSwitches(db)).toEqual({
-      networkOn: true,
-      simOn: false,
-      atcOn: false,
-      networkWhole: false
-    })
+    expect(getTrafficSwitches(db)).toEqual({ networkOn: true, simOn: false, atcOn: false })
     expect(() => invoke(IpcChannels.trafficSetAtcOn, 'yes')).toThrow('Invalid traffic switch')
   })
 
@@ -265,19 +238,9 @@ describe('online network handlers', () => {
       simOn: false,
       drawSim: false
     })
-    expect(getTrafficSwitches(db)).toEqual({
-      networkOn: true,
-      simOn: false,
-      atcOn: false,
-      networkWhole: false
-    })
+    expect(getTrafficSwitches(db)).toEqual({ networkOn: true, simOn: false, atcOn: false })
     invoke(IpcChannels.trafficSetSimOn, true)
-    expect(getTrafficSwitches(db)).toEqual({
-      networkOn: false,
-      simOn: true,
-      atcOn: false,
-      networkWhole: false
-    })
+    expect(getTrafficSwitches(db)).toEqual({ networkOn: false, simOn: true, atcOn: false })
   })
 
   it('shows the whole network without a position, and narrows to the aircraft when the sim reports one', async () => {
@@ -352,6 +315,37 @@ describe('online network handlers', () => {
       )
       tracking.emit('completed', flightId)
       expect(getFlight(db, flightId)).toMatchObject({ onlineNetwork: null, onlineCallsign: null })
+    })
+
+    it('is not recorded from the last tick the sim kept after it disconnected', async () => {
+      sim.getLastTelemetry = () =>
+        ({ latitude: 51.4706, longitude: -0.4619, onGround: false }) as SimTelemetry
+      sim.getStatus = () => ({ state: 'disconnected' })
+      const { flightId } = trackPlannedPilot()
+      const { invoke } = register()
+      await vi.waitFor(() =>
+        expect((invoke(IpcChannels.onlineStatusGet) as { state: string }).state).toBe('online')
+      )
+      sim.emit('telemetry', {})
+      tracking.emit('completed', flightId)
+      expect(getFlight(db, flightId)).toMatchObject({ onlineNetwork: null, onlineCallsign: null })
+    })
+
+    it('is not recorded from the old flight’s tick between a reconnect and the first new one, but is from that tick on', async () => {
+      sim.getLastTelemetry = () =>
+        ({ latitude: 51.4706, longitude: -0.4619, onGround: false }) as SimTelemetry
+      const { flightId, callsign } = trackPlannedPilot()
+      const { invoke } = register()
+      sim.emit('status', { state: 'disconnected' })
+      sim.emit('status', { state: 'connected' })
+      await vi.waitFor(() =>
+        expect((invoke(IpcChannels.onlineStatusGet) as { state: string }).state).toBe('online')
+      )
+      tracking.emit('completed', flightId)
+      expect(getFlight(db, flightId)).toMatchObject({ onlineNetwork: null, onlineCallsign: null })
+      sim.emit('telemetry', {})
+      tracking.emit('completed', flightId)
+      expect(getFlight(db, flightId)).toMatchObject({ onlineNetwork: 'vatsim', onlineCallsign: callsign })
     })
 
     it('forgets what was seen when the flight is dropped or a new one starts', async () => {

@@ -27,7 +27,8 @@ vi.mock('maplibre-gl', () => ({
   }
 }))
 
-const { useNetworkTrafficOverlay, GLIDE_INTERVAL_MS } = await import('./use-network-traffic-overlay')
+const { useNetworkTrafficOverlay, GLIDE_INTERVAL_MS, WHOLE_NETWORK_STORAGE_KEY } =
+  await import('./use-network-traffic-overlay')
 
 interface FakeLayer {
   id: string
@@ -74,7 +75,6 @@ const LAYERS_OFF: TrafficLayers = {
   simOn: false,
   simOffered: true,
   atcOn: false,
-  networkWhole: false,
   drawNetwork: false,
   drawSim: false,
   drawAtc: false
@@ -105,7 +105,7 @@ function shown(...list: TrafficAircraft[]): NetworkTraffic {
 
 /** A live client the test pushes topics through. */
 function fakeClient(initial: { traffic?: NetworkTraffic; layers?: TrafficLayers; sim?: SimTraffic }) {
-  const listeners = new Map<LiveTopic, (payload: never) => void>()
+  const listeners = new Map<LiveTopic, Set<(payload: never) => void>>()
   const client: LiveClient = {
     get: vi.fn((topic: LiveTopic) =>
       Promise.resolve(
@@ -119,13 +119,16 @@ function fakeClient(initial: { traffic?: NetworkTraffic; layers?: TrafficLayers;
       )
     ) as LiveClient['get'],
     subscribe: vi.fn((topic: LiveTopic, listener: (payload: never) => void) => {
-      listeners.set(topic, listener)
-      return () => listeners.delete(topic)
+      listeners.set(topic, (listeners.get(topic) ?? new Set()).add(listener))
+      return () => {
+        listeners.get(topic)?.delete(listener)
+        if (listeners.get(topic)?.size === 0) listeners.delete(topic)
+      }
     }) as LiveClient['subscribe'],
     command: vi.fn().mockResolvedValue(undefined)
   }
   const push = <T extends LiveTopic>(topic: T, payload: LiveTopics[T]): void =>
-    listeners.get(topic)?.(payload as never)
+    listeners.get(topic)?.forEach((listener) => listener(payload as never))
   return { client, push, listeners }
 }
 
@@ -155,6 +158,89 @@ function lastFeatures(
   const calls = fake.sources.get(sourceId)?.setData.mock.calls ?? []
   return (calls.at(-1)?.[0] as { features: never[] } | undefined)?.features ?? []
 }
+
+describe('the Nearby / Whole network choice on this screen', () => {
+  const whole = vi.fn()
+
+  beforeEach(() => {
+    popups.length = 0
+    vi.useFakeTimers()
+    whole.mockReset()
+    window.localStorage.clear()
+    Object.defineProperty(window, 'winglog', {
+      value: { getNetworkTrafficWhole: whole },
+      configurable: true
+    })
+  })
+  afterEach(() => {
+    vi.useRealTimers()
+    window.localStorage.clear()
+  })
+
+  it('never asks for the whole network while set to Nearby, and draws the pushed set', async () => {
+    const fake = fakeMap()
+    const { client } = fakeClient({ traffic: shown(aircraft('NEAR')), layers: LAYERS_ON })
+    const view = await mount(client, fake)
+    expect(view.result.current.whole).toBe(false)
+    expect(whole).not.toHaveBeenCalled()
+    expect(lastFeatures(fake).map((f) => f.properties.callsign)).toEqual(['NEAR'])
+  })
+
+  it('asks the sim PC for the whole set when set to it, draws that, and asks again with each pushed read', async () => {
+    window.localStorage.setItem(WHOLE_NETWORK_STORAGE_KEY, '1')
+    whole.mockResolvedValue(shown(aircraft('NEAR'), aircraft('FAR', { longitude: 100 })))
+    const fake = fakeMap()
+    const { client, push } = fakeClient({ traffic: shown(aircraft('NEAR')), layers: LAYERS_ON })
+    const view = await mount(client, fake)
+    expect(view.result.current.whole).toBe(true)
+    expect(whole).toHaveBeenCalledTimes(1)
+    expect(lastFeatures(fake).map((f) => f.properties.callsign)).toEqual(['NEAR', 'FAR'])
+    expect(view.result.current.traffic?.aircraft).toHaveLength(2)
+    await act(async () => push('networkTraffic', shown(aircraft('NEAR'))))
+    expect(whole).toHaveBeenCalledTimes(2)
+  })
+
+  it('does not ask while the network layer is not drawn', async () => {
+    window.localStorage.setItem(WHOLE_NETWORK_STORAGE_KEY, '1')
+    const fake = fakeMap()
+    const { client } = fakeClient({ traffic: shown(), layers: LAYERS_OFF })
+    await mount(client, fake)
+    expect(whole).not.toHaveBeenCalled()
+  })
+
+  it('remembers the choice on this device, and starts asking when it is switched to Whole network', async () => {
+    whole.mockResolvedValue(shown(aircraft('FAR')))
+    const fake = fakeMap()
+    const { client } = fakeClient({ traffic: shown(aircraft('NEAR')), layers: LAYERS_ON })
+    const view = await mount(client, fake)
+    await act(async () => view.result.current.toggleWhole())
+    expect(view.result.current.whole).toBe(true)
+    expect(window.localStorage.getItem(WHOLE_NETWORK_STORAGE_KEY)).toBe('1')
+    expect(whole).toHaveBeenCalledTimes(1)
+    view.unmount()
+    const again = await mount(client, fakeMap())
+    expect(again.result.current.whole).toBe(true)
+    await act(async () => again.result.current.toggleWhole())
+    expect(window.localStorage.getItem(WHOLE_NETWORK_STORAGE_KEY)).toBe('0')
+  })
+
+  it('still works when storage cannot be read or written', async () => {
+    const getItem = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new Error('blocked')
+    })
+    const setItem = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('blocked')
+    })
+    const { client } = fakeClient({ traffic: shown(aircraft('NEAR')), layers: LAYERS_ON })
+    const view = await mount(client, fakeMap())
+    expect(view.result.current.whole).toBe(false)
+    whole.mockResolvedValue(shown())
+    await act(async () => view.result.current.toggleWhole())
+    expect(view.result.current.whole).toBe(true)
+    getItem.mockRestore()
+    setItem.mockRestore()
+  })
+})
 
 describe('useNetworkTrafficOverlay', () => {
   beforeEach(() => {
@@ -391,7 +477,7 @@ describe('useNetworkTrafficOverlay', () => {
       command: vi.fn()
     }
     const view = await mount(client, fake)
-    expect(view.result.current).toEqual({ layers: null, traffic: null, simTraffic: null })
+    expect(view.result.current).toMatchObject({ layers: null, traffic: null, simTraffic: null, whole: false })
     expect(fake.map.addSource).not.toHaveBeenCalled()
   })
 
@@ -457,6 +543,6 @@ describe('useNetworkTrafficOverlay', () => {
     const { client } = fakeClient({})
     ;(client.get as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('gone'))
     const view = await mount(client, fake)
-    expect(view.result.current).toEqual({ layers: null, traffic: null, simTraffic: null })
+    expect(view.result.current).toMatchObject({ layers: null, traffic: null, simTraffic: null, whole: false })
   })
 })

@@ -114,7 +114,6 @@ const LAYERS_OFF: TrafficLayers = {
   simOn: false,
   simOffered: true,
   atcOn: false,
-  networkWhole: false,
   drawNetwork: false,
   drawSim: false,
   drawAtc: false

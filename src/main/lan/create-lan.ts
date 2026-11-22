@@ -77,6 +77,8 @@ export interface CreateLanDeps {
   addOnCommands: Partial<Record<LiveCommand, (...args: unknown[]) => void>>
   /** The live ATIS for the weather panel's airports, as the PC's own window asks for it (it checks the request). */
   atis: (requests: unknown) => Promise<unknown>
+  /** The whole network's traffic, from the feed held (cached per feed read). */
+  trafficWhole: () => unknown
   /** The User-Agent METAR lookups send. */
   userAgent: string
   /** Where METAR lookups go: the real service unless an end-to-end test says otherwise (an unpackaged build only; see index.ts). */
@@ -130,6 +132,8 @@ export interface LanLocalData {
   metars(codes: unknown): Promise<unknown>
   /** The live ATIS for the weather panel's airports. Checks the request. */
   atis(requests: unknown): Promise<unknown>
+  /** The whole network's traffic for a screen set to "Whole network". */
+  trafficWhole(): unknown
 }
 
 /**
@@ -156,6 +160,7 @@ export function lanQueries(
       return local.metars(codes)
     },
     'online.atis': (requests) => local.atis(requests),
+    'online.trafficWhole': () => local.trafficWhole(),
     'taxi.has': (icao) => navdata.hasTaxiNetwork(icaoArg(icao)),
     // The PC fetches the shown flight's navdata itself (FlightNavdataFetcher); a device never makes it open a sim connection. The
     // lookups stay, answering at once, for pages that still ask.
@@ -267,6 +272,7 @@ export function createLan({
   navdata,
   addOnCommands,
   atis,
+  trafficWhole,
   userAgent,
   metarUrl,
   systemLocale = () => 'en',
@@ -324,7 +330,8 @@ export function createLan({
         }),
         routines: () => allRoutines(listOwnRoutines(db).routines, listHiddenBuiltIns(db)),
         metars: (codes) => fetchMetars(codes, userAgent, metarUrl),
-        atis: (requests) => atis(requests)
+        atis: (requests) => atis(requests),
+        trafficWhole: () => trafficWhole()
       })
     },
     flightKey: () => lanFlightKey(db, trackingController.getActive()?.flightId),

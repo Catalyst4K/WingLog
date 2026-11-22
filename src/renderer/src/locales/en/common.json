@@ -826,7 +826,7 @@
     "simTrafficUnavailable": "Sim traffic unavailable",
     "showAtc": "Show {{network}} ATC",
     "hideAtc": "Hide {{network}} ATC",
-    "showWholeNetwork": "Show the whole network",
+    "showWholeNetwork": "Show traffic on the whole network",
     "showNearbyTraffic": "Show only traffic near the aircraft",
     "atcNeedsVid": "Enter your IVAO VID in Settings to see IVAO ATC",
     "atcUnavailable": "{{network}} ATC unavailable",
