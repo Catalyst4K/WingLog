@@ -93,27 +93,33 @@ export class ProcedureSelectionStore extends EventEmitter<{ changed: [ProcedureS
           arrivalAirport(this.shown.flight, this.shown.selection) !==
           arrivalAirport(flight, this.shown.selection)
         this.shown.flight = flight
-        if (arrivalChanged) this.dropApproachNotAtNewAirport()
+        if (arrivalChanged) this.clearProceduresOfOldAirport()
       }
       this.suggest()
     })
   }
 
   /**
-   * A new arrival airport: the approach held is kept only if the new airport has an approach of that name (read from its approach list, not
-   * from what this store remembers of its own suggestions, which a restart or a sync forgets); otherwise it is dropped, saved and announced,
-   * and the suggestion that follows picks one for the new airport. An approach set to "None" stays so for an airport it was cleared for.
+   * A new arrival airport on the same flight (a free flight's destination changed): the STAR, the approach and their transitions belonged to
+   * the airport being left, so they clear, whether the pilot chose them or this store suggested them, and a restart or a sync changes
+   * nothing about that. The clearing is saved and announced, and the suggestion that follows picks an approach for the new airport. It is
+   * the same as the Procedures dialog's switch to the alternate. The clearing is not the pilot's "None": it does not add the old airport to
+   * `cleared`, so the new airport still gets a suggestion, while an airport the pilot did set to "None" earlier stays without one when the
+   * flight comes back to it.
    */
-  private dropApproachNotAtNewAirport(): void {
+  private clearProceduresOfOldAirport(): void {
     const shown = this.shown
     if (!shown) return
     shown.suggested = null
-    const { approachIdent } = shown.selection
-    if (!approachIdent) return
-    const arrIcao = arrivalAirport(shown.flight, shown.selection)
-    if (this.deps.navdata.listApproaches(arrIcao, null).some((option) => option.identifier === approachIdent))
-      return
-    const selection = { ...shown.selection, approachIdent: null, approachTransition: null }
+    const held = shown.selection
+    if (!held.starIdent && !held.starTransition && !held.approachIdent && !held.approachTransition) return
+    const selection = {
+      ...held,
+      starIdent: null,
+      starTransition: null,
+      approachIdent: null,
+      approachTransition: null
+    }
     shown.selection = selection
     this.deps.save(shown.flight.id, selection)
     shown.saved = selection
