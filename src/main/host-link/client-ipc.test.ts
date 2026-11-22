@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 vi.mock('../logging/logger', () => ({ logger: { warn: vi.fn(), info: vi.fn(), error: vi.fn() } }))
 import { IpcChannels, type ProcedureSelection } from '@shared/ipc'
+import { HandledChannels } from '../client-mode'
 import { fakeIpc } from '../ipc/fake-ipc'
 import { LiveHub } from '../live/LiveHub'
 import type { HostLink } from './HostLink'
@@ -27,7 +28,7 @@ function setup(own?: { hostFlying: boolean }) {
   registerHostLinkHandlers(ipc.ipcMain, {
     link: link as unknown as HostLink,
     hub,
-    handled: new Set(),
+    handled: new HandledChannels(),
     ...(own && { ownSelection: { store, hostFlying: () => own.hostFlying } })
   })
   return { hub, link, store, ...ipc }
@@ -159,7 +160,7 @@ describe('a client IPC handlers', () => {
     registerHostLinkHandlers(ipc.ipcMain, {
       link: link as unknown as HostLink,
       hub,
-      handled: new Set([IpcChannels.taxiRouteGet, IpcChannels.gsxRemotePickMenu])
+      handled: new HandledChannels([IpcChannels.taxiRouteGet, IpcChannels.gsxRemotePickMenu])
     })
     expect(remove.mock.calls.map((call) => call[0]).sort()).toEqual(
       [IpcChannels.taxiRouteGet, IpcChannels.gsxRemotePickMenu].sort()
@@ -188,7 +189,7 @@ describe('a client IPC handlers', () => {
     registerHostLinkHandlers(ipc.ipcMain, {
       link: link as unknown as HostLink,
       hub: new LiveHub(),
-      handled: new Set()
+      handled: new HandledChannels()
     })
     await ipc.invoke(IpcChannels.gsxRoutineStart, 'my-routine-id')
     expect(order).toEqual(['after-sync gsx.startRoutine ["my-routine-id"]'])
@@ -242,7 +243,7 @@ describe('a client IPC handlers', () => {
     registerHostLinkHandlers(ipc.ipcMain, {
       link: link as unknown as HostLink,
       hub: new LiveHub(),
-      handled: new Set([IpcChannels.settingsGetTracking])
+      handled: new HandledChannels([IpcChannels.settingsGetTracking])
     })
     expect(await ipc.invoke(IpcChannels.settingsGetTracking)).toEqual({ autoStart: true, autoFinish: true })
   })
@@ -339,7 +340,7 @@ describe('a client IPC handlers', () => {
     registerHostLinkHandlers(ipc.ipcMain, {
       link: { query: vi.fn() } as unknown as HostLink,
       hub: new LiveHub(),
-      handled: new Set(channels)
+      handled: new HandledChannels(channels)
     })
     expect(remove.mock.calls.map((call) => call[0])).toEqual(expect.arrayContaining(channels))
   })

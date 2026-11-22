@@ -10,6 +10,7 @@ import { EMPTY_BEYONDATC_STATE } from '@shared/beyondatc-state'
 import type { HostLinkStatus, OnlineNetwork, OnlineNetworkSettings, TrackingSettings } from '@shared/ipc'
 import { isCertificatePin } from '@shared/host-address'
 import { logger } from '../logging/logger'
+import type { HandledChannels } from '../client-mode'
 import { asOnlineNetwork } from '../online/prefile-url'
 import type { LiveHub } from '../live/LiveHub'
 import { parseProcedureSelection } from '../live/commands'
@@ -172,7 +173,8 @@ function checkedPin(value: unknown): string | null {
  * @param deps The link to the host and this computer's hub.
  * @param deps.link The link to the sim PC's WingLog.
  * @param deps.hub The hub the link republishes into.
- * @param deps.handled The channels something else already answers: a client takes them over (a second handler for a channel throws).
+ * @param deps.handled The channels registered so far. A client takes over the ones it answers: one a local service registered is replaced,
+ *   and one that service registers later is left out (a second handler for a channel throws, so the order must not matter).
  * @param deps.ownSelection This computer's own procedure store, and whether the sim PC is flying a flight: the window's choice for that flight
  *   goes to the sim PC (the phone's command), which owns it. Left out, the choice channels stay as they were.
  */
@@ -186,7 +188,7 @@ export function registerHostLinkHandlers(
   }: {
     link: HostLink
     hub: LiveHub
-    handled: ReadonlySet<string>
+    handled: HandledChannels
     ownSelection?: {
       store: Pick<ProcedureSelectionStore, 'set' | 'current'>
       hostFlying: () => boolean
@@ -217,6 +219,8 @@ export function registerHostLinkHandlers(
       taken.push(channel)
     }
     ipcMain.handle(channel, (_event, ...args: unknown[]) => reply(...args))
+    // From here on a local service that registers the channel is left out (client-mode.ts), whichever of them starts first.
+    handled.claimed.add(channel)
   }
   // Which network to file on is the sim PC's choice, read here and never changed from here. Nothing but its name is asked for: the member
   // numbers stay on the sim PC, and the rest read as they do on a client with nothing chosen.

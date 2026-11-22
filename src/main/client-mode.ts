@@ -6,17 +6,32 @@
  */
 import type { IpcMain } from 'electron'
 import { IpcChannels } from '@shared/ipc'
+import { logger } from './logging/logger'
+
+/**
+ * The channels a handler is registered for, and the ones the sim PC's link has taken over (the "claimed" ones). Electron throws on a second
+ * handler for a channel, so a claimed channel is never registered again: whatever local service registers it later is left out, and the
+ * sim PC's answer stays. That makes the order a client registers its handlers in not matter.
+ */
+export class HandledChannels extends Set<string> {
+  /** The channels a client answers from the sim PC. */
+  readonly claimed = new Set<string>()
+}
 
 /**
  * Remembers every channel a handler is registered for, from now on.
  *
  * @param ipcMain Electron's IPC; its `handle` is wrapped, so everything registered after this call is seen.
- * @returns The set of channel names, which grows as handlers are registered.
+ * @returns The channel names, which grow as handlers are registered.
  */
-export function trackHandledChannels(ipcMain: IpcMain): Set<string> {
-  const handled = new Set<string>()
+export function trackHandledChannels(ipcMain: IpcMain): HandledChannels {
+  const handled = new HandledChannels()
   const original = ipcMain.handle.bind(ipcMain)
   ipcMain.handle = (channel, listener) => {
+    if (handled.claimed.has(channel)) {
+      logger.info('[client] left out a local handler for', channel, 'because the sim PC answers it')
+      return
+    }
     handled.add(channel)
     original(channel, listener)
   }

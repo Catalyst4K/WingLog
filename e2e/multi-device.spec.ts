@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { expect, test } from '@playwright/test'
 import { launchApp } from './launch-app'
+import { skipWithoutMultiDevice } from './multi-device-build'
 
 // Part 1 of winglog-backend's docs/plans/multi-device.md: a client starts none of the host's services. Needs a build with the multi-device
 // flag (`npm run test:e2e:multi`); in a release-style build the run mode cannot be chosen and the test skips itself.
@@ -12,7 +13,7 @@ test('a client starts none of the host services and offers none of their setting
     const first = await launchApp({ userDataDir })
     try {
       const capabilities = await first.window.evaluate(() => window.winglog.appGetCapabilities())
-      test.skip(!capabilities.multiDevice, 'needs a build with WINGLOG_MULTI_DEVICE=1')
+      skipWithoutMultiDevice(capabilities.multiDevice)
       expect(capabilities.runMode).toBe('host')
       // The host answers its own services' channels for real.
       expect(await first.window.evaluate(() => window.winglog.lanGetStatus())).toMatchObject({
@@ -34,6 +35,8 @@ test('a client starts none of the host services and offers none of their setting
       await expect(client.window.getByText(/^Sim: /)).toHaveCount(0)
       // Nothing started the second screen: its channel is answered with nothing, not a status.
       expect(await client.window.evaluate(() => window.winglog.lanGetStatus())).toBeUndefined()
+      // A channel the link takes over from the settings handlers answers from the link (nothing while no sim PC is paired), and the app started.
+      expect(await client.window.evaluate(() => window.winglog.settingsGetTracking())).toBeNull()
       expect(await client.window.evaluate(() => window.winglog.settingsGetGsxRemote())).toMatchObject({
         enabled: false
       })

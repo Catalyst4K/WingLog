@@ -6,6 +6,7 @@ import { freePort } from './lan-device'
 import { FakeGsxRemoteServer } from './gsx-remote-server'
 import { ScriptedGsx } from './gsx-routine-session'
 import { launchApp } from './launch-app'
+import { skipWithoutMultiDevice } from './multi-device-build'
 
 // Findings F2, F5 and F6 of winglog-backend's docs/plans/multi-device.md: a page that is open on the client must follow the host's live data
 // without the pilot leaving the page and coming back. Two real apps on loopback, as in multi-device-link.spec.ts (needs the multi-device
@@ -20,7 +21,7 @@ test('a GSX routine started on the client shows as running on the client page wi
     const setup = await launchApp({ userDataDir: clientDir })
     try {
       const capabilities = await setup.window.evaluate(() => window.winglog.appGetCapabilities())
-      test.skip(!capabilities.multiDevice, 'needs a build with WINGLOG_MULTI_DEVICE=1')
+      skipWithoutMultiDevice(capabilities.multiDevice)
       await setup.window.evaluate(() => window.winglog.settingsSetRunMode('client'))
     } finally {
       await setup.cleanup()
