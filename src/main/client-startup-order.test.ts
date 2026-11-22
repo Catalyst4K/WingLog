@@ -42,7 +42,9 @@ describe('a client registers its handlers in any order', () => {
       registerHostLinkHandlers(ipc.ipcMain, {
         link: link as unknown as HostLink,
         hub: new LiveHub(),
-        handled
+        handled,
+        // As startApp gives a client: its own procedure store, so the selection channels are answered too.
+        ownSelection: { store: { set: vi.fn(), current: vi.fn() }, hostFlying: () => false }
       })
     return { ipc, handled, settings, client }
   }
@@ -60,6 +62,36 @@ describe('a client registers its handlers in any order', () => {
     settings()
     expect(client).not.toThrow()
     expect(await ipc.invoke(IpcChannels.settingsGetTracking)).toEqual(SIM_PC_TRACKING)
+  })
+
+  it('answers every channel it takes over exactly once, whichever local handlers were there first or come after', async () => {
+    // The link's own channels and the two add-on settings are plain registrations a host's services make and a client never does.
+    const notLocal: string[] = [
+      IpcChannels.hostLinkGetStatus,
+      IpcChannels.hostLinkPair,
+      IpcChannels.hostLinkForget,
+      IpcChannels.settingsGetGsxRemote,
+      IpcChannels.settingsGetBeyondAtc
+    ]
+    const everyChannel = Object.values(IpcChannels).filter((channel) => !notLocal.includes(channel))
+    for (const localFirst of [true, false]) {
+      const { ipc, client } = start()
+      const local = () => {
+        for (const channel of everyChannel) if (!ipc.has(channel)) ipc.ipcMain.handle(channel, () => 'local')
+      }
+      if (localFirst) local()
+      expect(client).not.toThrow()
+      if (!localFirst) expect(local).not.toThrow()
+      // The sim PC's lookup answers, never the local `'local'` stand-in, and none of the channels it took over lost its handler.
+      expect(await ipc.invoke(IpcChannels.settingsGetTracking)).toEqual(SIM_PC_TRACKING)
+      expect(await ipc.invoke(IpcChannels.trafficLayersGet)).not.toBe('local')
+      for (const channel of [
+        IpcChannels.navdataListRunways,
+        IpcChannels.trafficSetAtcOn,
+        IpcChannels.gsxRoutineStart
+      ])
+        expect(ipc.has(channel)).toBe(true)
+    }
   })
 
   it('keeps the settings handlers that the link does not take over', () => {

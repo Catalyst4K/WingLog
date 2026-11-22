@@ -213,6 +213,9 @@ export function registerHostLinkHandlers(
   )
   const taken: string[] = []
   const answer = (channel: string, reply: (...args: unknown[]) => unknown): void => {
+    // A channel answered twice would lose its handler (the second is left out as a local one would be), so it is refused where it is written.
+    if (handled.claimed.has(channel))
+      throw new Error(`The sim PC's answer for '${channel}' is registered twice`)
     // Electron refuses a second handler for a channel, so one a local service already answers is replaced: a client's answer is the sim PC's.
     if (handled.has(channel)) {
       ipcMain.removeHandler(channel)
