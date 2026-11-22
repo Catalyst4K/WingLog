@@ -17,12 +17,13 @@ import {
   listCachedRunways,
   listCachedStands,
   listCachedTaxiSegments,
+  fdLegsLackNavaid,
   replaceAirportNavdata,
   replaceAirportStands,
   replaceAirportTaxiSegments,
   runwaysLackDisplacedThresholds
 } from './navdata-repo'
-import { navdataTaxiSegment } from './schema'
+import { navdataProcedureLeg, navdataTaxiSegment } from './schema'
 
 function leg(fixIdent: string, overrides: Partial<ParsedLeg> = {}): ParsedLeg {
   return {
@@ -37,6 +38,9 @@ function leg(fixIdent: string, overrides: Partial<ParsedLeg> = {}): ParsedLeg {
     altitude2: 0,
     speedLimit: 250,
     routeDistanceM: 0,
+    originIdent: null,
+    originLatitude: null,
+    originLongitude: null,
     ...overrides
   }
 }
@@ -133,6 +137,60 @@ describe("navdata repo: the sim's displaced thresholds", () => {
     expect(runwaysLackDisplacedThresholds(db, 'EGLL')).toBe(true)
     replaceAirportNavdata(db, 'EGLL', withThresholds(0, 0), '2026-10-17T11:00:00.000Z')
     expect(runwaysLackDisplacedThresholds(db, 'EGLL')).toBe(false)
+  })
+})
+
+describe("navdata repo: an FD leg's recommended navaid", () => {
+  let db: WingLogDb
+
+  beforeEach(() => {
+    const created = createDb(':memory:')
+    migrate(created.db, { migrationsFolder: 'drizzle' })
+    db = created.db
+  })
+
+  // EGCC DESI1S 05L, as the sim gives it (docs/navdata-notes.md): D051L is a waypoint and the leg's 14 DME is measured from the Manchester VOR.
+  const MCT = { originIdent: 'MCT', originLatitude: 53.357, originLongitude: -2.2623 }
+  const desi = (fd: Partial<ParsedLeg>): FetchedAirportNavdata =>
+    fetched({
+      icao: 'EGCC',
+      departures: [
+        procedure({
+          name: 'DESI1S',
+          runwayTransitions: [
+            {
+              runwayIdent: '05L',
+              legs: [leg('D051L', { type: 10, courseDeg: 51, routeDistanceM: 25928, ...fd }), leg('DESIG')]
+            }
+          ]
+        })
+      ]
+    })
+
+  it('stores the navaid and reads it back with its position', () => {
+    replaceAirportNavdata(db, 'EGCC', desi(MCT), '2026-11-22T12:00:00.000Z')
+    const legs = listCachedProcedureLegs(db, 'EGCC', 'sid', 'DESI1S', '05L', null)
+    expect(legs[0]!.recommendedNavaid).toEqual({ ident: 'MCT', latitude: 53.357, longitude: -2.2623 })
+    expect(legs[1]!.recommendedNavaid).toBeNull()
+  })
+
+  it('wants an airport fetched again while a cached FD leg was never read for its navaid, and not otherwise', () => {
+    expect(fdLegsLackNavaid(db, 'EGCC')).toBe(false)
+    replaceAirportNavdata(db, 'EGCC', desi(MCT), '2026-11-22T12:00:00.000Z')
+    expect(fdLegsLackNavaid(db, 'EGCC')).toBe(false)
+    expect(fdLegsLackNavaid(db, 'EGLL')).toBe(false)
+    // A row cached before the columns existed.
+    db.update(navdataProcedureLeg)
+      .set({ originIdent: null, originLatitude: null, originLongitude: null })
+      .run()
+    expect(fdLegsLackNavaid(db, 'EGCC')).toBe(true)
+  })
+
+  it('does not want it fetched again when the sim named no navaid: the fetch did read it, and has none to give', () => {
+    replaceAirportNavdata(db, 'EGCC', desi({}), '2026-11-22T12:00:00.000Z')
+    expect(fdLegsLackNavaid(db, 'EGCC')).toBe(false)
+    const legs = listCachedProcedureLegs(db, 'EGCC', 'sid', 'DESI1S', '05L', null)
+    expect(legs[0]!.recommendedNavaid).toBeNull()
   })
 })
 

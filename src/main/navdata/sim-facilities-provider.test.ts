@@ -7,6 +7,7 @@ import {
   listCachedRunways,
   listCachedTaxiSegments
 } from '../db/navdata-repo'
+import { navdataProcedureLeg } from '../db/schema'
 import type { ParsedLeg } from '../sim/facility-fields'
 import type { FetchedAirportNavdata, FetchedTaxiNetwork } from './sim-facilities-fetch'
 import { SimFacilitiesProvider, unplacedFixes, type OpenSimConnect } from './sim-facilities-provider'
@@ -93,6 +94,77 @@ describe('SimFacilitiesProvider', () => {
     expect(hasCachedAirport(db, 'EGLL')).toBe(false)
   })
 
+  describe('an airport cached with FD legs that lack their navaid', () => {
+    const fdLeg = (originIdent: string | null): ParsedLeg => ({
+      type: 10,
+      fixIdent: 'D051L',
+      fixType: 'W',
+      fixLatitude: 53.4824,
+      fixLongitude: -2.0021,
+      turnDirection: 0,
+      courseDeg: 51,
+      altitude1: 0,
+      altitude2: 0,
+      speedLimit: -1,
+      routeDistanceM: 25928,
+      originIdent,
+      originLatitude: originIdent === null ? null : 53.357,
+      originLongitude: originIdent === null ? null : -2.2623
+    })
+    const cachedWith = async (
+      originIdent: string | null,
+      cachedBeforeNavaidsWereRead = false
+    ): Promise<SimFacilitiesProvider> => {
+      const { fetchAirportNavdata } = await import('./sim-facilities-fetch')
+      vi.mocked(fetchAirportNavdata).mockResolvedValue({
+        ...FETCHED,
+        icao: 'EGCC',
+        runways: [{ ...FETCHED.runways[0]!, primaryDisplacedM: 0, secondaryDisplacedM: 0 }],
+        departures: [
+          {
+            name: 'DESI1S',
+            runwayTransitions: [{ runwayIdent: '05L', legs: [fdLeg(originIdent)] }],
+            enrouteTransitions: [],
+            commonLegs: [],
+            expected: { runwayTransitions: 1, enrouteTransitions: 0, approachLegs: 0 }
+          }
+        ]
+      })
+      const provider = new SimFacilitiesProvider(db, openSimConnect)
+      await provider.refreshAirport('EGCC')
+      if (cachedBeforeNavaidsWereRead) {
+        db.update(navdataProcedureLeg)
+          .set({ originIdent: null, originLatitude: null, originLongitude: null })
+          .run()
+      }
+      vi.mocked(fetchAirportNavdata).mockClear()
+      return provider
+    }
+
+    it('fetches it again in the background, whatever the cycle, the next time it is used', async () => {
+      const { fetchAirportNavdata } = await import('./sim-facilities-fetch')
+      const provider = await cachedWith(null, true)
+      provider.listSids('EGCC')
+      await vi.waitFor(() => expect(fetchAirportNavdata).toHaveBeenCalledTimes(1))
+    })
+
+    it('leaves it alone when the sim named no navaid for them: it was read, and there is none', async () => {
+      const { fetchAirportNavdata } = await import('./sim-facilities-fetch')
+      const provider = await cachedWith(null)
+      provider.listSids('EGCC')
+      await new Promise((resolve) => setTimeout(resolve, 20))
+      expect(fetchAirportNavdata).not.toHaveBeenCalled()
+    })
+
+    it('leaves it alone once its FD legs have theirs', async () => {
+      const { fetchAirportNavdata } = await import('./sim-facilities-fetch')
+      const provider = await cachedWith('MCT')
+      provider.listSids('EGCC')
+      await new Promise((resolve) => setTimeout(resolve, 20))
+      expect(fetchAirportNavdata).not.toHaveBeenCalled()
+    })
+  })
+
   it('reports no cached airport before any refresh', () => {
     const provider = new SimFacilitiesProvider(db, openSimConnect)
     expect(provider.hasAirport('EGLL')).toBe(false)
@@ -126,7 +198,10 @@ describe('SimFacilitiesProvider', () => {
       altitude1: 914.4,
       altitude2: 0,
       speedLimit: -1,
-      routeDistanceM: 0
+      routeDistanceM: 0,
+      originIdent: null,
+      originLatitude: null,
+      originLongitude: null
     })
     const ils05r = (cf05r: ParsedLeg): FetchedAirportNavdata['approaches'][number] => ({
       identifier: 'ILS 05R',
