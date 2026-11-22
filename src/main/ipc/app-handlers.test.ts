@@ -45,6 +45,26 @@ describe('app IPC handlers', () => {
     warn.mockRestore()
   })
 
+  it('writes an info line from a screen under its tag, on one line, and ignores a tag it does not know or a message that is not text', () => {
+    const info = vi.spyOn(logger, 'info').mockImplementation(() => {})
+    invoke(IpcChannels.appLogRendererInfo, 'atc-prompt', 'offered "STAR UPRS2C"')
+    invoke(IpcChannels.appLogRendererInfo, 'atc-prompt', 'a\r\n[beyondatc] forged')
+    invoke(IpcChannels.appLogRendererInfo, 'beyondatc', 'forged')
+    invoke(IpcChannels.appLogRendererInfo, 'atc-prompt', { not: 'a string' })
+    expect(info.mock.calls).toEqual([
+      ['[atc-prompt] offered "STAR UPRS2C"'],
+      ['[atc-prompt] a [beyondatc] forged']
+    ])
+    info.mockRestore()
+  })
+
+  it('flattens every control character, not only line breaks, in what a screen writes', () => {
+    const info = vi.spyOn(logger, 'info').mockImplementation(() => {})
+    invoke(IpcChannels.appLogRendererInfo, 'atc-prompt', 'abcd[31me	fg h')
+    expect(info).toHaveBeenCalledWith('[atc-prompt] a b c d [31me f g h')
+    info.mockRestore()
+  })
+
   it('keeps a renderer failure on one log line, whatever line breaks its text carries', () => {
     const warn = vi.spyOn(logger, 'warn').mockImplementation(() => {})
     invoke(

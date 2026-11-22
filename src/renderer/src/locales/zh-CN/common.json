@@ -280,7 +280,7 @@
     },
     "hostLink": {
       "cardTitle": "模拟器电脑",
-      "description": "将这台电脑连接到运行模拟器的电脑上的 WingLog。在那台电脑上打开“第二屏幕”（设置 → 数据），输入它显示的地址和配对码。",
+      "description": "将这台电脑连接到运行模拟器的电脑上的 WingLog。在那台电脑上打开“设置 → 模拟器电脑”，开启“允许其他 WingLog”，选择“配对另一个 WingLog”。然后在这里粘贴它显示的配对文本，或输入它的地址和配对码。",
       "states": {
         "connected": "已连接",
         "connecting": "连接中…",
@@ -317,7 +317,7 @@
       "address": "地址",
       "pairButton": "配对另一个 WingLog",
       "pairingCode": "配对码",
-      "pairingNote": "在另一个 WingLog 中打开 设置 → 模拟器电脑，粘贴配对文本，或输入地址和此配对码。",
+      "pairingNote": "在另一个 WingLog 中打开“设置 → 模拟器电脑”，粘贴配对文本，或输入地址和此配对码。",
       "copy": "复制配对文本",
       "copied": "已复制",
       "close": "关闭",

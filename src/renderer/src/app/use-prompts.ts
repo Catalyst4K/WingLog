@@ -9,14 +9,33 @@ import type { BeyondAtcState, GsxRemoteMenuState, ProcedureSelection } from '@sh
 import { gsxPromptState } from '../gsx-remote-importance'
 import { useLiveClient } from '../live/LiveClient'
 import { useBeyondAtcHidden } from '../live/use-online-status'
-import { runAsync } from '../report-error'
+import { logInfo, runAsync } from '../report-error'
 import { applyClearance } from '@shared/procedure-selection'
+import { parseAtcBoxClearance } from '@shared/atc-info-boxes'
 import {
   clearanceDiffers,
+  describeClearance,
+  describeSelection,
+  explainAtcClearance,
   readNewInfoBoxes,
-  resolveAtcClearance,
   type PendingAtcClearance
 } from './atc-clearance'
+
+/**
+ * Writes one line about the clearance prompt to main.log (`[atc-prompt] ...`), so a flight where nobody saw a prompt can say what it did.
+ * Only box sets that carry a clearance are logged. On the phone's page this does nothing: it has no way to log to the PC.
+ *
+ * Building the line is inside the try too: a log line must never stop the prompt.
+ *
+ * @param message What happened, or a function that makes the line.
+ */
+function logPrompt(message: string | (() => string)): void {
+  try {
+    logInfo('atc-prompt', typeof message === 'function' ? message() : message)
+  } catch {
+    // Nothing left to tell: the prompt goes on.
+  }
+}
 
 /** How long the procedure-update pop-up waits for an answer before it gives way to the line on the BeyondATC page (D5). */
 export const ATC_CLEARANCE_POPUP_MS = 60_000
@@ -54,21 +73,40 @@ export function useAtcClearancePrompt(
   // message, so this tells a genuinely new set apart from one already considered (and
   // possibly dismissed).
   const lastAtcBoxesKey = useRef('')
+  // The sets of boxes already logged as "not offered" for being online or read before, so each is said once however often BeyondATC repeats it.
+  const loggedSkipKey = useRef('')
+  // The clearance the user answered, and the one shown last render, so a clearance that goes away unanswered can be logged.
+  const answered = useRef<PendingAtcClearance | null>(null)
+  const previous = useRef<PendingAtcClearance | null>(null)
   const client = useLiveClient()
   // Online, the network's controllers are the only voice: no clearance is offered, and one already offered is withdrawn.
   const hidden = useBeyondAtcHidden()
 
   useEffect(() => {
     return client.subscribe('beyondAtcState', (state: BeyondAtcState) => {
-      if (hidden) return
+      if (hidden) {
+        logSkipped(state.infoBoxes, 'online, BeyondATC is hidden', loggedSkipKey)
+        return
+      }
       const read = readNewInfoBoxes(lastAtcBoxesKey.current, state, Date.now())
-      if (!read) return
+      if (!read) {
+        logSkipped(state.infoBoxes, 'this set of boxes was already read', loggedSkipKey)
+        return
+      }
       lastAtcBoxesKey.current = read.key
-      if (!read.candidate) return
+      const candidate = read.candidate
+      if (!candidate) return
+      logPrompt(() => `read ${describeClearance(candidate)}; selection: ${describeSelection(selection)}`)
       runAsync(
         'atc clearance offer',
-        resolveAtcClearance(read.candidate, selection).then((offer) => {
-          if (offer) setPending(offer)
+        explainAtcClearance(candidate, selection).then((outcome) => {
+          if (!outcome.offer) {
+            logPrompt(`no prompt for "${candidate.summary}": ${outcome.reason}`)
+            return
+          }
+          const offer = outcome.offer
+          logPrompt(() => `offered ${describeClearance(offer)}`)
+          setPending(offer)
         })
       )
     })
@@ -76,9 +114,24 @@ export function useAtcClearancePrompt(
 
   useEffect(() => {
     if (!pending || popupMs === null) return
-    const timer = setTimeout(() => setMovedOn(pending), popupMs)
+    const timer = setTimeout(() => {
+      logPrompt(`no answer in ${popupMs / 1000} s: "${pending.summary}" moved to the BeyondATC page`)
+      setMovedOn(pending)
+    }, popupMs)
     return () => clearTimeout(timer)
   }, [pending, popupMs])
+
+  // A clearance that is gone and was not answered here was replaced by a newer one, or withdrawn (below).
+  useEffect(() => {
+    const before = previous.current
+    previous.current = pending
+    if (!before || before === pending || before === answered.current) return
+    logPrompt(
+      pending
+        ? `"${before.summary}" replaced by a newer clearance`
+        : `"${before.summary}" withdrawn: ${hidden ? 'online' : 'the selection already holds it (answered on another screen)'}`
+    )
+  }, [pending, hidden])
 
   // The other screen answered it (the phone pressed Update, or the desktop did): the selection already holds what this one would
   // apply, so there is nothing left to ask, and a stale Update here must not be pressable. Adjusted while rendering, React's
@@ -91,11 +144,34 @@ export function useAtcClearancePrompt(
     popupOpen: pending !== null && movedOn !== pending,
     onAccept: () => {
       if (!pending) return
+      logPrompt(`accepted "${pending.summary}"`)
+      answered.current = pending
       setSelection((prev) => applyClearance(prev, pending.fields))
       setPending(null)
     },
-    onDismiss: () => setPending(null)
+    onDismiss: () => {
+      if (pending) logPrompt(`dismissed "${pending.summary}"`)
+      answered.current = pending
+      setPending(null)
+    }
   }
+}
+
+/**
+ * Says once per set of boxes why a clearance in it was not offered, when it carries one.
+ *
+ * @param boxes The BeyondATC InfoBoxes just pushed.
+ * @param why Why they are not offered.
+ * @param lastKey The key of the set last said, updated here.
+ * @param lastKey.current The ref's value.
+ */
+function logSkipped(boxes: BeyondAtcState['infoBoxes'], why: string, lastKey: { current: string }): void {
+  const key = `${why}|${JSON.stringify(boxes)}`
+  if (key === lastKey.current) return
+  const clearance = parseAtcBoxClearance(boxes)
+  if (!clearance) return
+  lastKey.current = key
+  logPrompt(`no prompt for "${clearance.summary}": ${why}`)
 }
 
 /**

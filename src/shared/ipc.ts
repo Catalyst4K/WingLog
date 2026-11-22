@@ -137,6 +137,12 @@ export type { AppCapabilities, RunMode } from './run-mode'
 /** What saving a routine answers: the list as it is now, or why the routine was refused. */
 export type GsxRoutinesResult = { ok: true; routines: GsxRoutine[] } | { ok: false; reason: string }
 
+/** The tags a screen may write an info line to main.log under (`appLogRendererInfo`); anything else is dropped by main. */
+export const RENDERER_INFO_TAGS = ['atc-prompt'] as const
+
+/** One of `RENDERER_INFO_TAGS`. */
+export type RendererInfoTag = (typeof RENDERER_INFO_TAGS)[number]
+
 export interface WingLogApi {
   aircraftList: () => Promise<Aircraft[]>
   aircraftCreate: (aircraft: NewAircraft) => Promise<Aircraft>
@@ -516,6 +522,9 @@ export interface WingLogApi {
   /** Writes a renderer failure to main.log as a warning: what was being done, and the error's
    *  message. The renderer has no log of its own (coding-standards.md §6). */
   appLogRendererError: (context: string, message: string) => Promise<void>
+  /** Writes one line to main.log at info level under a fixed tag (`[atc-prompt] ...`), for what a screen decided and nobody saw. The tag
+   *  must be one of `RENDERER_INFO_TAGS`; main drops anything else, and drops lines past a small rate. */
+  appLogRendererInfo: (tag: RendererInfoTag, message: string) => Promise<void>
   /** Dev build only: one line to `diag.log` (category 'map', etc.). Does nothing in a normal
    *  build; validated in main like every other channel. */
   diagLog: (category: string, message: string) => Promise<void>

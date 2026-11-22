@@ -4,6 +4,8 @@
  * no log of its own, and a promise left floating only ever reached the devtools console.
  */
 
+import type { RendererInfoTag } from '@shared/ipc'
+
 /**
  * Writes a failure to main.log. Never throws and never rejects: reporting must not become a
  * second failure.
@@ -15,6 +17,21 @@ export function reportError(context: string, error: unknown): void {
   const message = error instanceof Error ? error.message : String(error)
   try {
     window.winglog.appLogRendererError(context, message).catch(() => undefined) // the log itself failed: nothing left to tell
+  } catch {
+    // No IPC (a test without it, or the window closing): nothing left to tell.
+  }
+}
+
+/**
+ * Writes one info line to main.log under a tag, for what a screen decided and nobody saw (the ATC clearance prompt). Never throws and
+ * never rejects. Does nothing on the phone's page, which has no way to log to the PC.
+ *
+ * @param tag The line's tag, one main accepts.
+ * @param message What happened, on one line.
+ */
+export function logInfo(tag: RendererInfoTag, message: string): void {
+  try {
+    window.winglog.appLogRendererInfo(tag, message).catch(() => undefined) // the log itself failed: nothing left to tell
   } catch {
     // No IPC (a test without it, or the window closing): nothing left to tell.
   }

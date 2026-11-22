@@ -8,6 +8,7 @@ import type { UpdateService } from '../updates/update-check'
 import { manualPath } from '../manual-path'
 import { existsSync } from 'node:fs'
 import { logger } from '../logging/logger'
+import { RendererInfoLog } from '../logging/renderer-info-log'
 
 /** The longest renderer context or message written to main.log, in characters. */
 const MAX_RENDERER_LOG_CHARS = 2_000
@@ -16,10 +17,11 @@ const MAX_RENDERER_LOG_CHARS = 2_000
  * Cuts a renderer string to length and puts it on one line, so it can't add log lines of its own.
  *
  * @param text The renderer's text.
- * @returns At most MAX_RENDERER_LOG_CHARS characters, with every line break replaced by a space.
+ * @returns At most MAX_RENDERER_LOG_CHARS characters, with every control character (line breaks, NEL, tabs, escapes) and the Unicode line and paragraph separators replaced by a space.
  */
 function oneLine(text: string): string {
-  return text.slice(0, MAX_RENDERER_LOG_CHARS).replace(/[\r\n\u2028\u2029]+/g, ' ')
+  // eslint-disable-next-line no-control-regex -- control characters are exactly what is being removed
+  return text.slice(0, MAX_RENDERER_LOG_CHARS).replace(/[\u0000-\u001f\u007f-\u009f\u2028\u2029]+/g, ' ')
 }
 
 /**
@@ -52,6 +54,13 @@ export function registerAppHandlers(
   ipcMain.handle(IpcChannels.appLogRendererError, (_event, context: unknown, message: unknown) => {
     if (typeof context !== 'string' || typeof message !== 'string') return
     logger.warn(`[renderer] ${oneLine(context)}: ${oneLine(message)}`)
+  })
+
+  // What a screen decided and nobody saw (the ATC clearance prompt), at info level under a tag main checks: renderer text is data, so it is
+  // cut to one line, and the rate is capped so a loop in a screen cannot fill the log.
+  const rendererInfo = new RendererInfoLog((line) => logger.info(line), Date.now)
+  ipcMain.handle(IpcChannels.appLogRendererInfo, (_event, tag: unknown, message: unknown) => {
+    if (typeof message === 'string') rendererInfo.write(tag, oneLine(message))
   })
 
   ipcMain.handle(IpcChannels.updatesGetStatus, () => updateService.getStatus())

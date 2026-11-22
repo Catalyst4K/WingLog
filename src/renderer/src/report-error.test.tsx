@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { WingLogApi } from '@shared/ipc'
-import { asyncHandler, reportError, runAsync } from './report-error'
+import { asyncHandler, logInfo, reportError, runAsync } from './report-error'
 
 const settle = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0))
 
@@ -16,6 +16,21 @@ describe('report-error', () => {
     reportError('fleet: lookup', 'plain string')
     expect(appLogRendererError).toHaveBeenNthCalledWith(1, 'settings: load theme', 'IPC closed')
     expect(appLogRendererError).toHaveBeenNthCalledWith(2, 'fleet: lookup', 'plain string')
+  })
+
+  it('writes an info line under its tag, and never throws or rejects, with no IPC, no info call (the phone) or a failing log', async () => {
+    expect(() => logInfo('atc-prompt', 'x')).not.toThrow()
+    window.winglog = { appLogRendererError: vi.fn() } as unknown as WingLogApi
+    expect(() => logInfo('atc-prompt', 'x')).not.toThrow()
+    window.winglog = {
+      appLogRendererInfo: vi.fn().mockRejectedValue(new Error('log failed'))
+    } as unknown as WingLogApi
+    logInfo('atc-prompt', 'x')
+    await settle()
+    const appLogRendererInfo = vi.fn().mockResolvedValue(undefined)
+    window.winglog = { appLogRendererInfo } as unknown as WingLogApi
+    logInfo('atc-prompt', 'offered "STAR LOGA2H"')
+    expect(appLogRendererInfo).toHaveBeenCalledWith('atc-prompt', 'offered "STAR LOGA2H"')
   })
 
   it('never throws or rejects itself, even with no IPC or a failing log', async () => {

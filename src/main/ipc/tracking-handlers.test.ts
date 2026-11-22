@@ -239,7 +239,7 @@ describe('tracking and flight IPC handlers', () => {
           arrIcao: 'EGCC',
           flightNumber: null
         })
-      ).toThrow()
+      ).toThrow('Free flights are started on the sim PC.')
       expect(tracking.startFree).not.toHaveBeenCalled()
     })
   })

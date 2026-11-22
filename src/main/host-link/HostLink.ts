@@ -11,6 +11,7 @@ import type { LiveTopic, LiveTopics } from '@shared/live'
 import { LanConnection, type LanLinkState, type LinkSocket, type TokenStore } from '@shared/lan-connection'
 import { parseHostAddress } from '@shared/host-address'
 import type { HostLinkState, HostLinkStatus, LanFlightSnapshot, TrackPoint } from '@shared/ipc'
+import { t } from '../i18n'
 import { logger } from '../logging/logger'
 import { LAN_TOPICS } from '../lan/LanServer'
 import type { LiveHub } from '../live/LiveHub'
@@ -74,6 +75,8 @@ export class HostLink {
   /** A pairing from before the link was encrypted: it has a token but no pin, so nothing is opened until the pilot pairs again. */
   private pairAgain = false
   private hostSim: HostLinkStatus['hostSim'] = null
+  /** The state last written to the log. */
+  private loggedState: HostLinkState | null = null
   private unsubscribers: (() => void)[] = []
 
   /** @param deps The hub to follow into, where the link is kept, how to open a socket, and who to tell of changes. */
@@ -177,8 +180,13 @@ export class HostLink {
    * @throws When the link is not up.
    */
   command(name: string, args: unknown[]): void {
-    if (!this.connection) throw new Error('Not connected to the sim PC')
-    this.connection.command(name, ...args)
+    const connection = this.connection
+    if (!connection) throw new Error(this.refusalText())
+    try {
+      connection.command(name, ...args)
+    } catch (error) {
+      throw this.translated(error)
+    }
   }
 
   /**
@@ -189,7 +197,7 @@ export class HostLink {
    * @throws When the link is not up.
    */
   async commandAfterSync(name: string, args: unknown[]): Promise<void> {
-    if (!this.connection) throw new Error('Not connected to the sim PC')
+    if (!this.connection) throw new Error(this.refusalText())
     await this.deps.sync?.run()
     this.command(name, args)
   }
@@ -202,8 +210,34 @@ export class HostLink {
    * @returns The host's answer.
    */
   query(name: string, ...args: unknown[]): Promise<unknown> {
-    if (!this.connection) return Promise.reject(new Error('Not connected to the sim PC'))
-    return this.connection.query(name, ...args)
+    // Only a computer with no sim PC refuses up front: the connection itself answers from what it kept while the link is down, which the
+    // procedure picker and the taxi chart rely on through a short drop.
+    if (!this.connection) return Promise.reject(new Error(this.refusalText()))
+    return this.connection.query(name, ...args).catch((error: unknown) => {
+      throw this.translated(error)
+    })
+  }
+
+  /**
+   * @returns What to tell the pilot when the link cannot do what was asked, in their language, from where the link stands: connecting,
+   *   offline (and connected, for a lookup that failed anyway) read "may be reconnecting, try again"; a refused certificate or a sim PC
+   *   that is not secure read "the connection was refused, see Settings", since this computer is paired and pairing again does not help
+   *   the second; no sim PC, a pairing to redo, a wrong code or a denied token read "pair this computer with the sim PC in Settings".
+   */
+  refusalText(): string {
+    const state = this.getStatus().state
+    if (state === 'certificate-changed' || state === 'not-secure') return t('errors.simPcRefused')
+    const waiting = state === 'connecting' || state === 'offline' || state === 'connected'
+    return t(waiting ? 'errors.simPcNotConnected' : 'errors.simPcNotPaired')
+  }
+
+  /**
+   * @param error What a connection threw or rejected with.
+   * @returns The same error, or, for the connection's own English "Not connected" (a command sent while it is down, a lookup it gave up on
+   *   after being down too long), the refusal in the pilot's language.
+   */
+  private translated(error: unknown): unknown {
+    return error instanceof Error && error.message === 'Not connected' ? new Error(this.refusalText()) : error
   }
 
   /** Closes the link for good (the app is quitting). */
@@ -309,7 +343,16 @@ export class HostLink {
     this.emit()
   }
 
+  /** Says in main.log when the link's state changes (connected, offline, a refusal), once per change, so a quiet log can be told from a dropped link. */
+  private logState(): void {
+    const state = this.getStatus().state
+    if (state === this.loggedState) return
+    this.loggedState = state
+    logger.info(`[host-link] link to the sim PC: ${state}`)
+  }
+
   private emit(): void {
+    this.logState()
     this.deps.onStatus(this.getStatus())
   }
 }

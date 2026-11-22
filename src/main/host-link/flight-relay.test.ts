@@ -5,6 +5,14 @@ import { createAircraft } from '../db/aircraft-repo'
 import { createFlight, getFlightUuidById } from '../db/flight-repo'
 import { FlightRelay } from './flight-relay'
 
+/** The refusal's English wording, as a user sees it: the link is down or reconnecting, so try again. */
+const NOT_CONNECTED =
+  "The sim PC isn't connected right now (the link may be reconnecting). Try again in a moment."
+
+/** The refusal when the link is up but the two WingLogs could not be brought level. */
+const SYNC_FAILED =
+  "Couldn't bring this computer up to date with the sim PC. Try again, or check Settings → Sim PC."
+
 describe('FlightRelay', () => {
   let db: WingLogDb
   let flightId: number
@@ -20,14 +28,24 @@ describe('FlightRelay', () => {
     calls.length = 0
   })
 
-  function bound(syncOk = true): FlightRelay {
+  /** @param syncOk Whether the sync ends well. @param connected Whether the link is up before the sync; `linkAfterSync` is whether it is after. */
+  function bound(
+    syncOk = true,
+    connected = true,
+    linkAfterSync = connected,
+    refusal = NOT_CONNECTED
+  ): FlightRelay {
+    let up = connected
     const relay = new FlightRelay(db)
     relay.bind(
       {
         run: () => {
           calls.push('sync')
+          up = linkAfterSync
           return Promise.resolve(syncOk)
-        }
+        },
+        connected: () => up,
+        refusal: () => (up ? '' : refusal)
       },
       (name, ...args) => {
         calls.push(`${name}:${args.join(',')}`)
@@ -59,16 +77,33 @@ describe('FlightRelay', () => {
     expect(calls).toEqual(['flight.finish:', 'flight.stop:'])
   })
 
-  it('says so when the sim PC could not be brought level, and sends nothing', async () => {
-    await expect(bound(false).start(flightId)).rejects.toThrow('not connected')
+  it('refuses Cancel and Start with the reconnecting message while the link is down, without trying to sync', async () => {
+    await expect(bound(false, false).cancel(flightId)).rejects.toThrow(NOT_CONNECTED)
+    await expect(bound(false, false).start(flightId)).rejects.toThrow(NOT_CONNECTED)
+    expect(calls).toEqual([])
+  })
+
+  it('says the link may be reconnecting when it drops during the sync', async () => {
+    await expect(bound(false, true, false).start(flightId)).rejects.toThrow(NOT_CONNECTED)
+    expect(calls).toEqual(['sync'])
+  })
+
+  it('tells the pilot what the link says, so after Forget every button says to pair', async () => {
+    const NOT_PAIRED = "This computer isn't paired with a sim PC. Pair it in Settings → Sim PC."
+    await expect(bound(false, false, false, NOT_PAIRED).cancel(flightId)).rejects.toThrow(NOT_PAIRED)
+    await expect(bound(false, true, false, NOT_PAIRED).start(flightId)).rejects.toThrow(NOT_PAIRED)
+  })
+
+  it('says the sync failed, not that the link is reconnecting, when the link is up when the sync ends badly (also if it dropped and came back during it)', async () => {
+    await expect(bound(false, true, true).cancel(flightId)).rejects.toThrow(SYNC_FAILED)
     expect(calls).toEqual(['sync'])
   })
 
   it('refuses a flight it does not know, and everything before it is bound to a link', async () => {
     await expect(bound().fly(9999)).rejects.toThrow('Unknown flight')
     const unbound = new FlightRelay(db)
-    await expect(unbound.fly(flightId)).rejects.toThrow('Not connected to the sim PC')
-    await expect(unbound.finish()).rejects.toThrow('Not connected to the sim PC')
+    await expect(unbound.fly(flightId)).rejects.toThrow(NOT_CONNECTED)
+    await expect(unbound.finish()).rejects.toThrow(NOT_CONNECTED)
     expect(vi.isMockFunction(unbound.stop)).toBe(false)
   })
 })

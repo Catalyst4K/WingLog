@@ -285,7 +285,7 @@
     },
     "hostLink": {
       "cardTitle": "Sim PC",
-      "description": "Connect this computer to WingLog on the PC the sim runs on. There, turn on Second screen (Settings → Data) and enter the address and pairing code it shows.",
+      "description": "Connect this computer to WingLog on the PC the sim runs on. There, open Settings → Sim PC, turn on “Allow other WingLogs” and choose “Pair another WingLog”. Then paste the pairing text it shows here, or enter its address and pairing code.",
       "states": {
         "connected": "Connected",
         "connecting": "Connecting…",

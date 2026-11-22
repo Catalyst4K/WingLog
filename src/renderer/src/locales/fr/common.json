@@ -287,7 +287,7 @@
     },
     "hostLink": {
       "cardTitle": "PC du simulateur",
-      "description": "Connectez cet ordinateur à WingLog sur le PC où tourne le simulateur. Là-bas, activez Deuxième écran (Réglages → Données) et saisissez l’adresse et le code d’appairage affichés.",
+      "description": "Connectez cet ordinateur à WingLog sur le PC où tourne le simulateur. Là-bas, ouvrez Paramètres → PC du simulateur, activez « Autoriser d’autres WingLog » et choisissez « Appairer un autre WingLog ». Collez ensuite ici le texte d’appairage affiché, ou saisissez son adresse et son code d’appairage.",
       "states": {
         "connected": "Connecté",
         "connecting": "Connexion…",
@@ -325,7 +325,7 @@
       "address": "Adresse",
       "pairButton": "Appairer un autre WingLog",
       "pairingCode": "Code d’appairage",
-      "pairingNote": "Sur l’autre WingLog, ouvrez Réglages → PC du simulateur et collez le texte d’appairage, ou saisissez l’adresse et ce code.",
+      "pairingNote": "Sur l’autre WingLog, ouvrez Paramètres → PC du simulateur et collez le texte d’appairage, ou saisissez l’adresse et ce code.",
       "copy": "Copier le texte d’appairage",
       "copied": "Copié",
       "close": "Fermer",

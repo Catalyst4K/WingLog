@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import type { ProcedureSelection } from '@shared/ipc'
-import { clearanceDiffers, readNewInfoBoxes, resolveAtcClearance } from './atc-clearance'
+import {
+  clearanceDiffers,
+  describeClearance,
+  describeFields,
+  describeSelection,
+  explainAtcClearance,
+  readNewInfoBoxes,
+  resolveAtcClearance
+} from './atc-clearance'
 
 // VHHH departure, as SimBrief planned it.
 const selection: ProcedureSelection = {
@@ -85,5 +93,58 @@ describe('readNewInfoBoxes', () => {
     const noise = [{ title: 'Center Frequency', info: '132.205' }]
     const read = readNewInfoBoxes('', { infoBoxes: noise, infoBoxesAt: 1 }, 2)
     expect(read).toEqual({ key: JSON.stringify(noise), candidate: null })
+  })
+})
+
+describe('explainAtcClearance', () => {
+  const sidClearance = (sidIdent: string) => ({
+    fields: { sidIdent },
+    summary: `SID ${sidIdent}`,
+    sourceTs: 5
+  })
+
+  it('gives the offer and no reason when something changes', async () => {
+    const outcome = await explainAtcClearance(sidClearance('BEKOL3B'), selection)
+    expect(outcome.reason).toBeNull()
+    expect(outcome.offer?.fields).toEqual({ sidIdent: 'BEKOL3B' })
+  })
+
+  it('says it matches the selection, naming the fields, when nothing changes', async () => {
+    expect(await explainAtcClearance(sidClearance('OCEAN2B'), selection)).toEqual({
+      offer: null,
+      reason: 'it matches the selection (sidIdent=OCEAN2B)'
+    })
+  })
+})
+
+describe('the log descriptions', () => {
+  it('lists the fields that are set and says none when there are none', () => {
+    expect(describeFields({ starIdent: 'UPRS2C', approachIdent: null, sidIdent: undefined })).toBe(
+      'starIdent=UPRS2C'
+    )
+    expect(describeFields({})).toBe('none')
+  })
+
+  it('describes the selection by the fields a clearance can change and the arrival airport', () => {
+    expect(describeSelection(selection)).toBe('arrivalIcao=WSSS departureRunway=07R sidIdent=OCEAN2B')
+  })
+
+  it('prints a time it cannot format as it came, instead of throwing', () => {
+    const clearance = { fields: { starIdent: 'UPRS2C' }, summary: 'STAR UPRS2C', sourceTs: Number.NaN }
+    expect(describeClearance(clearance)).toBe('"STAR UPRS2C" (starIdent=UPRS2C) from boxes at NaN')
+    expect(describeClearance({ ...clearance, sourceTs: 1e300 })).toContain('from boxes at 1e+300')
+  })
+
+  it('describes a clearance with its runway, fields and the time its boxes came', () => {
+    expect(
+      describeClearance({
+        fields: { starIdent: 'UPRS2C' },
+        summary: 'STAR UPRS2C, runway 08',
+        arrivalRunway: '08',
+        sourceTs: Date.UTC(2026, 10, 21, 12, 50, 38)
+      })
+    ).toBe(
+      '"STAR UPRS2C, runway 08" (starIdent=UPRS2C arrivalRunway=08) from boxes at 2026-11-21T12:50:38.000Z'
+    )
   })
 })
