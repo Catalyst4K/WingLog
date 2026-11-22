@@ -104,6 +104,8 @@ docs/           User-facing content only, or empty — see the note at the top o
 - SimVar names, units, and per-aircraft-type overrides live only in
   `src/main/sim/simvars.ts`. Don't scatter SimVar strings through the codebase.
 - Every schema change is a Drizzle migration, generated via `npm run db:generate`.
+  While v2 is unreleased, a migration on the 1.7.x line (`fixes`/`develop`) is hand-dated and redone v2-safe when merged into
+  v2: `winglog-backend`'s `CLAUDE.md`, branching section (2026-11-22), binding here.
   Never hand-edit `winglog.db` or a migration file after it's been applied. **Any migration
   that recreates a table** (SQLite can't `ALTER COLUMN` — loosening a `NOT NULL`, changing
   a type, etc. all go through drizzle-kit's `CREATE __new_x` / copy / `DROP TABLE x` /

@@ -234,6 +234,31 @@ describe('the Nearby / Whole network choice on this screen', () => {
     expect(view.result.current.traffic?.aircraft.map((a) => a.callsign)).toEqual(['NEAR'])
   })
 
+  it('keeps asking after an ask was rejected', async () => {
+    window.localStorage.setItem(WHOLE_NETWORK_STORAGE_KEY, '1')
+    whole.mockRejectedValueOnce(new Error('gone'))
+    whole.mockResolvedValue(shown(aircraft('LATER')))
+    const { client, push } = fakeClient({ traffic: shown(aircraft('NEAR')), layers: LAYERS_ON })
+    await mount(client, fakeMap())
+    expect(whole).toHaveBeenCalledTimes(1)
+    await act(async () => push('networkTraffic', shown(aircraft('NEAR'))))
+    expect(whole).toHaveBeenCalledTimes(2)
+  })
+
+  it('does not ask when the layer is turned on until the pushed set for it has arrived', async () => {
+    window.localStorage.setItem(WHOLE_NETWORK_STORAGE_KEY, '1')
+    whole.mockResolvedValue(shown(aircraft('FAR')))
+    const { client, push } = fakeClient({
+      traffic: { network: 'vatsim', state: 'off', aircraft: [] },
+      layers: LAYERS_OFF
+    })
+    await mount(client, fakeMap())
+    await act(async () => push('trafficLayers', LAYERS_ON))
+    expect(whole).not.toHaveBeenCalled()
+    await act(async () => push('networkTraffic', shown(aircraft('NEAR'))))
+    expect(whole).toHaveBeenCalledTimes(1)
+  })
+
   it('keeps one ask in flight, answering a push that came meanwhile once it returns', async () => {
     window.localStorage.setItem(WHOLE_NETWORK_STORAGE_KEY, '1')
     let release: (value: NetworkTraffic) => void = () => {}
