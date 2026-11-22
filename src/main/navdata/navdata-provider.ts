@@ -4,7 +4,7 @@
  * provider is a swap, not a rewrite, per that plan's Decision. `SimFacilitiesProvider`
  * (sim-facilities-provider.ts) is the only implementation today.
  */
-import type { NavdataRunway, NavdataStand } from '@shared/ipc'
+import type { NavdataLeg, NavdataRunway, NavdataStand } from '@shared/ipc'
 
 // Lives in src/shared so host-side code (the runway check) can use it without importing navdata.
 export type { NavdataRunway } from '@shared/ipc'
@@ -14,19 +14,7 @@ export interface NavdataProcedureOption {
   transition: string | null
 }
 
-export interface NavdataLeg {
-  type: number
-  fixIdent: string | null
-  fixType: string | null
-  fixLatitude: number
-  fixLongitude: number
-  turnDirection: number
-  courseDeg: number
-  altitude1: number
-  altitude2: number
-  speedLimit: number
-  routeDistanceM: number
-}
+export type { NavdataLeg } from '@shared/ipc'
 
 export type ProcedureKind = 'sid' | 'star' | 'approach'
 
