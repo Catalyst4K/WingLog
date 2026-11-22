@@ -11,6 +11,11 @@ import { createDb } from '../../src/main/db/client'
 import { createFlight } from '../../src/main/db/flight-repo'
 import { WSSS_ARRIVAL, WSSS_RUNWAYS, seedApproaches, seedRunways } from '../scenarios/bases'
 
+// The leg columns every shape of the source database has (its origin columns are newer, and the table's column order changed in migration 0048), named so
+// the copy does not go by position.
+const LEG_COLUMNS =
+  'id, procedure_id, runway_ident, transition_name, seq, type, fix_ident, fix_type, fix_latitude, fix_longitude, turn_direction, course_deg, altitude1, altitude2, speed_limit, route_distance_m'
+
 const outputPath = process.env.WINGLOG_SHOTS_DB_PATH
 
 it.skipIf(!outputPath)('writes the screenshots database', () => {
@@ -45,7 +50,7 @@ it.skipIf(!outputPath)('writes the screenshots database', () => {
         .run(...own)
       sqlite
         .prepare(
-          'INSERT INTO navdata_procedure_leg SELECT * FROM source.navdata_procedure_leg WHERE procedure_id IN (SELECT id FROM source.navdata_procedure WHERE icao = ?)'
+          `INSERT INTO navdata_procedure_leg (${LEG_COLUMNS}) SELECT ${LEG_COLUMNS} FROM source.navdata_procedure_leg WHERE procedure_id IN (SELECT id FROM source.navdata_procedure WHERE icao = ?)`
         )
         .run(...own)
       sqlite

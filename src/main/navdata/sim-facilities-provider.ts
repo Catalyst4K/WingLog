@@ -18,6 +18,7 @@ import {
   listCachedStands,
   listCachedTaxiSegments,
   navdataFetchTimes,
+  fdLegsLackNavaid,
   runwaysLackDisplacedThresholds,
   replaceAirportNavdata,
   replaceAirportStands,
@@ -130,10 +131,13 @@ export class SimFacilitiesProvider implements NavdataProvider {
     if (seen && seen.cutoffMs === cutoffMs && nowMs < seen.retryAtMs) return
     const times = navdataFetchTimes(this.db, icao)
     const stale = {
-      // Runways cached before the sim's displaced thresholds were read are fetched again whatever the cycle.
+      // Runways cached before the sim's displaced thresholds were read, and FD legs cached before their navaid was, are fetched
+      // again whatever the cycle.
       airport:
         times.airport !== null &&
-        (fetchedBefore(times.airport, cutoffMs) || runwaysLackDisplacedThresholds(this.db, icao)),
+        (fetchedBefore(times.airport, cutoffMs) ||
+          runwaysLackDisplacedThresholds(this.db, icao) ||
+          fdLegsLackNavaid(this.db, icao)),
       taxi: times.taxi !== null && fetchedBefore(times.taxi, cutoffMs),
       stands: times.stands !== null && fetchedBefore(times.stands, cutoffMs)
     }

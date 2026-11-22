@@ -12,6 +12,7 @@ import type {
   ProcedureKind
 } from '../navdata/navdata-provider'
 import { runwayEndsFromCentre } from '../navdata/runway-geometry'
+import { FD_LEG_TYPE } from '@shared/route'
 import { visualApproachRunway } from '@shared/visual-approach'
 import { visualApproachLegs, visualApproachOptions } from '../navdata/visual-approach'
 import type { NavdataStand } from '@shared/ipc'
@@ -147,7 +148,11 @@ function legInserter(
         altitude1: leg.altitude1,
         altitude2: leg.altitude2,
         speedLimit: leg.speedLimit,
-        routeDistanceM: leg.routeDistanceM
+        routeDistanceM: leg.routeDistanceM,
+        // Empty when the sim names none, so that "read, none" differs from the null of a row cached before it was read.
+        originIdent: leg.originIdent ?? '',
+        originLatitude: leg.originLatitude,
+        originLongitude: leg.originLongitude
       })
       .run()
   }
@@ -315,6 +320,30 @@ export function listCachedRunways(db: WingLogDb, icao: string): NavdataRunway[] 
 }
 
 /**
+ * Whether an airport's cached FD legs were fetched before their recommended navaid was read, so they must be fetched again.
+ *
+ * @param db The database.
+ * @param icao The airport.
+ * @returns True when any of its cached FD legs has no navaid.
+ */
+export function fdLegsLackNavaid(db: WingLogDb, icao: string): boolean {
+  return (
+    db
+      .select({ id: navdataProcedureLeg.id })
+      .from(navdataProcedureLeg)
+      .innerJoin(navdataProcedure, eq(navdataProcedure.id, navdataProcedureLeg.procedureId))
+      .where(
+        and(
+          eq(navdataProcedure.icao, icao),
+          eq(navdataProcedureLeg.type, FD_LEG_TYPE),
+          isNull(navdataProcedureLeg.originIdent)
+        )
+      )
+      .get() !== undefined
+  )
+}
+
+/**
  * Whether an airport's cached runways were fetched before the sim's displaced thresholds were read, so they must be fetched again.
  *
  * @param db The database.
@@ -389,7 +418,14 @@ function toNavdataLeg(row: typeof navdataProcedureLeg.$inferSelect): NavdataLeg 
     altitude1: row.altitude1,
     altitude2: row.altitude2,
     speedLimit: row.speedLimit,
-    routeDistanceM: row.routeDistanceM
+    routeDistanceM: row.routeDistanceM,
+    recommendedNavaid:
+      row.originIdent !== null &&
+      row.originIdent !== '' &&
+      row.originLatitude !== null &&
+      row.originLongitude !== null
+        ? { ident: row.originIdent, latitude: row.originLatitude, longitude: row.originLongitude }
+        : null
   }
 }
 

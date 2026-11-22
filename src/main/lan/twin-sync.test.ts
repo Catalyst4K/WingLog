@@ -319,7 +319,7 @@ describe('a twin’s sync lookups on the host', () => {
   it('answers the host’s protocol and database version', () => {
     expect(queries['sync.version']()).toEqual(localSyncVersion(db))
     expect(localSyncVersion(db)).toMatchObject({ protocol: 2 })
-    expect(localSyncVersion(db).schema).toBeGreaterThan(40)
+    expect(localSyncVersion(db).schema).toBeGreaterThan(1_790_000_000_000)
   })
 
   it('tells the window when a push stored rows, and not when it stored none', async () => {

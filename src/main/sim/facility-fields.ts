@@ -16,7 +16,7 @@
  * common and enroute-transition legs).
  */
 import { type RawBuffer } from 'node-simconnect'
-import { offsetBy } from '@shared/geo'
+import { isPlacedPosition, offsetBy } from '@shared/geo'
 import { letterOfNameCode } from '@shared/stands'
 
 export const enum NavdataDefId {
@@ -219,10 +219,17 @@ export interface ParsedLeg {
   altitude1: number
   altitude2: number
   speedLimit: number
-  /** ROUTE_DISTANCE, metres. Only meaningful for distance-terminated legs, FC (type 9) and FD (type 10), where
-   *  `fixIdent` is the navaid the leg is anchored to and this is how far along `courseDeg` it runs (EGLL's LAM
-   *  transition FC leg: 20372 m = 11.0 nm, the FMC's "LAM/11"). 0 for every other leg type. */
+  /** ROUTE_DISTANCE, metres. Meaningful for FC (type 9), where `fixIdent` is the navaid and this is how far along
+   *  `courseDeg` the leg runs (EGLL's LAM transition FC leg: 20372 m = 11.0 nm, the FMC's "LAM/11"), and for FD (type 10),
+   *  where it is the DME distance from `originIdent`, which is the fix itself or another navaid. TF and CF legs carry a
+   *  published whole-nautical-mile figure that is not their length; nothing reads it there. 0 for other leg types. */
   routeDistanceM: number
+  /** ORIGIN_ICAO: the leg's recommended navaid (the one an FD leg's DME is measured from), or null when the sim names none. */
+  originIdent: string | null
+  /** ORIGIN_LATITUDE, degrees; null with no `originIdent`. */
+  originLatitude: number | null
+  /** ORIGIN_LONGITUDE, degrees; null with no `originIdent`. */
+  originLongitude: number | null
 }
 
 const FIX_TYPE_CODES: Record<number, ParsedLeg['fixType']> = { 87: 'W', 86: 'V', 78: 'N', 82: 'R' }
@@ -245,6 +252,9 @@ export function addLegFields(addField: (name: string) => void): void {
   addField('ALTITUDE2')
   addField('SPEED_LIMIT')
   addField('ROUTE_DISTANCE')
+  addField('ORIGIN_ICAO')
+  addField('ORIGIN_LATITUDE')
+  addField('ORIGIN_LONGITUDE')
 }
 
 /**
@@ -265,6 +275,10 @@ export function parseLeg(d: RawBuffer): ParsedLeg {
   const altitude2 = d.readFloat32()
   const speedLimit = d.readFloat32()
   const routeDistanceM = d.readFloat32()
+  const originIcaoRaw = d.readString8()
+  const originLatitude = d.readFloat64()
+  const originLongitude = d.readFloat64()
+  const hasOrigin = originIcaoRaw.trim() !== '' && isPlacedPosition(originLatitude, originLongitude)
   return {
     type,
     fixIdent: fixIcaoRaw.trim() === '' ? null : fixIcaoRaw,
@@ -276,7 +290,10 @@ export function parseLeg(d: RawBuffer): ParsedLeg {
     altitude1,
     altitude2,
     speedLimit,
-    routeDistanceM
+    routeDistanceM,
+    originIdent: hasOrigin ? originIcaoRaw : null,
+    originLatitude: hasOrigin ? originLatitude : null,
+    originLongitude: hasOrigin ? originLongitude : null
   }
 }
 
