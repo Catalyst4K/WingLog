@@ -328,6 +328,7 @@
       "renameNamed": "Rename {{name}}",
       "nameLabel": "Name",
       "save": "Save",
+      "renameFailed": "That name couldn’t be saved. Use up to 40 letters, numbers and symbols.",
       "networkTitle": "On your home network",
       "computers": "Computers",
       "computersHint": "Other WingLogs keep their logbook and fleet in step with this PC and show its sim live.",

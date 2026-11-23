@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { act, render, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { AppCapabilities, HostLinkStatus, LanDevice, LanSettings, LanStatus } from '@shared/ipc'
 import { CapabilitiesProvider } from '../app/capabilities'
@@ -202,6 +202,31 @@ describe('DevicesPage on the sim PC', () => {
     await user.type(screen.getByRole('textbox', { name: 'Name' }), '{Enter}')
     expect(api.lanRenameDevice).not.toHaveBeenCalled()
     expect(screen.getByText('iPad')).toBeInTheDocument()
+  })
+
+  it('takes control characters out of a new name before sending it', async () => {
+    const user = userEvent.setup()
+    const { api } = setup()
+    renderPage()
+    await user.click(await screen.findByRole('button', { name: 'Rename iPad' }))
+    const field = screen.getByRole('textbox', { name: 'Name' })
+    // A bell and a right-to-left override, as a paste might bring them.
+    fireEvent.change(field, {
+      target: { value: 'Kitchen' + String.fromCharCode(7) + ' iPad' + String.fromCharCode(0x202e) }
+    })
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    expect(api.lanRenameDevice).toHaveBeenCalledWith(2, 'Kitchen iPad')
+  })
+
+  it('says so on the row when the PC refuses a name, and keeps the old one', async () => {
+    const user = userEvent.setup()
+    const { api } = setup()
+    api.lanRenameDevice.mockRejectedValueOnce(new Error('Invalid device name'))
+    renderPage()
+    await user.click(await screen.findByRole('button', { name: 'Rename iPad' }))
+    await user.type(screen.getByRole('textbox', { name: 'Name' }), ' mini{Enter}')
+    expect(await screen.findByRole('alert')).toHaveTextContent('That name couldn’t be saved.')
+    expect(rowOf('iPad')).toBeInTheDocument()
   })
 
   it('keeps a name to 40 characters', async () => {

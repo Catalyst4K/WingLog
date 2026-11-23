@@ -6,6 +6,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { LanDevice, LanStatus } from '@shared/ipc'
+import { MAX_DEVICE_NAME, withoutControlCharacters } from '@shared/device-name'
 import { StatusLight } from '@/components/StatusLight'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -29,11 +30,9 @@ function deviceState(
     : t('lan.settings.neverSeen')
 }
 
-/** The longest name a device can be given, in characters (the main process refuses longer). */
-const MAX_NAME_CHARS = 40
-
 /**
- * The name being edited: a text field with Save and Cancel. Enter saves and Escape cancels; an empty or unchanged name sends nothing.
+ * The name being edited: a text field with Save and Cancel. Enter saves and Escape cancels. Control characters are taken out before it is
+ * sent; an empty or unchanged name sends nothing.
  *
  * @param props The name now, and what saving a new one and cancelling do.
  * @returns The field and its buttons.
@@ -46,7 +45,7 @@ function NameEditor(props: {
   const { t } = useTranslation()
   const [value, setValue] = useState(props.name)
   function save(): void {
-    const name = value.trim()
+    const name = withoutControlCharacters(value).trim()
     if (name === '' || name === props.name) props.onCancel()
     else props.onSave(name)
   }
@@ -55,7 +54,7 @@ function NameEditor(props: {
       <Input
         aria-label={t('settingsView.devices.nameLabel')}
         value={value}
-        maxLength={MAX_NAME_CHARS}
+        maxLength={MAX_DEVICE_NAME}
         autoFocus
         onChange={(event) => setValue(event.target.value)}
         onKeyDown={(event) => {
@@ -81,17 +80,18 @@ function NameEditor(props: {
 /**
  * One paired device: its light (green while connected, a hollow ring otherwise), its name and kind, its state and its actions.
  *
- * @param props The device, and what saving a new name and pressing Remove do.
+ * @param props The device, and what saving a new name (resolving false when the PC refused it) and pressing Remove do.
  * @returns The row.
  */
 function DeviceRow(props: {
   device: LanDevice
-  onRename: (name: string) => void
+  onRename: (name: string) => Promise<boolean>
   onRemove: () => void
 }): React.JSX.Element {
   const { t } = useTranslation()
   const { device } = props
   const [editing, setEditing] = useState(false)
+  const [refused, setRefused] = useState(false)
   return (
     <div className="flex min-h-16 flex-wrap items-center gap-x-4 gap-y-2">
       <StatusLight state={device.connected ? 'green' : 'off'} hollow />
@@ -100,7 +100,11 @@ function DeviceRow(props: {
           name={device.name}
           onSave={(name) => {
             setEditing(false)
-            props.onRename(name)
+            setRefused(false)
+            runAsync(
+              'DevicesPage lanRenameDevice',
+              props.onRename(name).then((saved) => setRefused(!saved))
+            )
           }}
           onCancel={() => setEditing(false)}
         />
@@ -135,6 +139,11 @@ function DeviceRow(props: {
           </Button>
         </span>
       )}
+      {refused && (
+        <p role="alert" className="m-0 basis-full text-sm text-destructive">
+          {t('settingsView.devices.renameFailed')}
+        </p>
+      )}
     </div>
   )
 }
@@ -162,11 +171,15 @@ export function DeviceList(props: {
       })
       if (ok) props.onStatus(await winglogApi().lanRevokeDevice(device.id))
     })
-  const rename = (device: LanDevice, name: string): void =>
-    runAsync(
-      'DevicesPage lanRenameDevice',
-      winglogApi().lanRenameDevice(device.id, name).then(props.onStatus)
-    )
+  // The PC refuses a name it cannot keep; the row says so rather than the name silently staying as it was.
+  const rename = (device: LanDevice, name: string): Promise<boolean> =>
+    winglogApi()
+      .lanRenameDevice(device.id, name)
+      .then((status) => {
+        props.onStatus(status)
+        return true
+      })
+      .catch(() => false)
   const { devices } = props.status
   return (
     <>
