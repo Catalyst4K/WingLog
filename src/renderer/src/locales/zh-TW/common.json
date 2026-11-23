@@ -32,15 +32,14 @@
     "title": "設定",
     "categories": {
       "general": "一般",
-      "secondScreen": "第二螢幕",
+      "devices": "裝置",
       "accounts": "SimBrief 和 Navigraph",
       "gsx": "GSX",
       "beyondAtc": "ATC",
       "online": "線上網路",
       "navdata": "導航資料",
       "data": "匯入和匯出",
-      "about": "關於和更新",
-      "simPc": "模擬器電腦"
+      "about": "關於和更新"
     },
     "units": {
       "cardTitle": "單位",
@@ -257,33 +256,27 @@
     },
     "pageLede": {
       "general": "單位、語言、WingLog 的外觀與記錄方式。",
-      "secondScreen": "在同一網路的手機或平板上顯示地圖和航班。",
       "accounts": "你的 SimBrief 使用者名稱，以及用於程序的 Navigraph。",
       "gsx": "在 WingLog 中使用地勤服務，並把 GSX 收據附到航班上。",
       "beyondAtc": "在 WingLog 中讀取 BeyondATC 的指令。",
       "online": "在 VATSIM 或 IVAO 上飛行：附近誰在線，以及提交飛行計畫。",
       "navdata": "WingLog 為程序讀取的模擬器導航資料。",
       "data": "備份、遷移或清除機隊和飛行日誌。",
-      "about": "版本、手冊和更新。",
-      "simPc": "哪台電腦執行模擬器，以及與它配對。"
+      "about": "版本、手冊和更新。"
     },
     "status": {
-      "devices_one": "{{count}} 支手機",
-      "devices_other": "{{count}} 支手機",
-      "updateReady": "更新已就緒"
+      "updateReady": "更新已就緒",
+      "connected_one": "{{count}} 台已連線",
+      "connected_other": "{{count}} 台已連線"
     },
     "pagePicker": "設定頁面",
     "runMode": {
-      "cardTitle": "模擬器執行的位置",
       "label": "模擬器執行於",
       "host": "這台電腦",
       "client": "另一台電腦",
-      "description": "在連線至模擬器電腦上 WingLog 的電腦上，選擇「另一台電腦」。",
       "restart": "下次啟動 WingLog 時生效。"
     },
     "hostLink": {
-      "cardTitle": "模擬器電腦",
-      "description": "將這台電腦連線到執行模擬器的電腦上的 WingLog。在那台電腦上開啟「設定 → 模擬器電腦」，啟用「允許其他 WingLog」，選擇「配對另一個 WingLog」。然後在這裡貼上它顯示的配對文字，或輸入它的位址與配對碼。",
       "states": {
         "connected": "已連線",
         "connecting": "連線中…",
@@ -299,11 +292,6 @@
         "certificate-changed": "自這台電腦配對以來，模擬器電腦的安全憑證已變更。若模擬器電腦上的 WingLog 已重新安裝或資料已重設，請重新配對。否則，您網路中的某個裝置可能正在冒充模擬器電腦。",
         "not-secure": "模擬器電腦未以加密連線回應。請更新模擬器電腦上的 WingLog。"
       },
-      "pairedWith": "已與 {{address}} 配對",
-      "forget": "忘記這台模擬器電腦",
-      "addressLabel": "位址",
-      "codeLabel": "配對碼",
-      "connect": "連線",
       "badAddress": "請輸入模擬器電腦的位址與連接埠，需為家用網路中的位址，例如 192.168.1.20:5051。",
       "versionProblem": {
         "update-this-computer": "此電腦上的 WingLog 比模擬器電腦上的舊，因此飛行日誌和機隊無法保持同步。請更新此電腦上的 WingLog。",
@@ -311,21 +299,71 @@
       }
     },
     "twin": {
-      "cardTitle": "其他 WingLog",
-      "description": "讓您家用網路中另一台電腦上的 WingLog 作為本機的孿生運作：它的飛行日誌與機隊會與本電腦保持同步，並即時顯示本電腦的模擬器。",
-      "enable": "允許其他 WingLog",
-      "paired_other": "已配對 {{count}} 個",
       "notReachable": "在您的家用網路中無法連線。",
-      "noCertificate": "其他 WingLog 無法連線，因為這台電腦無法安全保存其安全憑證。",
+      "noCertificate": "其他電腦無法連線，因為這台電腦無法安全保存其安全憑證。"
+    },
+    "devices": {
+      "ledeHost": "使用這台電腦模擬器的其他電腦和手機。每台裝置只需配對一次。",
+      "ledePhones": "顯示這台電腦航班的手機和平板。每台裝置只需配對一次。",
+      "ledeClient": "這台電腦使用另一台電腦上的模擬器。它的飛行日誌與機隊會與那台電腦保持同步。",
+      "add": "新增裝置",
+      "pairedTitle": "已與這台電腦配對",
+      "nothingPaired": "尚未配對任何裝置。",
+      "kind": {
+        "twin": "電腦",
+        "screen": "手機或平板"
+      },
+      "connected": "已連線",
+      "remove": "移除",
+      "removeNamed": "移除 {{name}}",
+      "removeTitle": "移除 {{name}}？",
+      "removeBody": "之後需要重新配對。",
+      "cancel": "取消",
+      "rename": "重新命名",
+      "renameNamed": "重新命名 {{name}}",
+      "nameLabel": "名稱",
+      "save": "儲存",
+      "networkTitle": "在您的家用網路中",
+      "computers": "電腦",
+      "computersHint": "其他 WingLog 的飛行日誌與機隊會與這台電腦保持同步，並即時顯示它的模擬器。",
+      "phones": "手機和平板",
+      "phonesHint": "在瀏覽器中顯示即時地圖。每台裝置用配對碼配對。",
+      "portHint": "僅在其他應用程式佔用時才變更。",
       "address": "位址",
-      "pairButton": "配對另一個 WingLog",
+      "addressHint": "家用網路中的裝置透過此位址連線到這台電腦。",
+      "thisComputer": "這台電腦",
+      "simPcTitle": "模擬器電腦",
+      "simPcName": "模擬器電腦",
+      "forget": "忘記",
+      "phonesPairWithSimPc": "手機和平板是與模擬器電腦配對，而不是與這台電腦配對：請在模擬器電腦上開啟「設定 → 裝置 → 新增裝置」。"
+    },
+    "addDevice": {
+      "title": "新增裝置",
+      "question": "您想新增什麼？",
+      "phone": "手機或平板",
+      "phoneHint": "在其瀏覽器中顯示即時地圖，無需安裝任何東西。",
+      "computer": "另一台裝有 WingLog 的電腦",
+      "computerHint": "它的飛行日誌與機隊會與這台電腦保持同步，並即時顯示此模擬器。",
+      "homeOnly": "僅限您的家用網路。",
+      "phonesOn": "手機和平板現已開啟。",
+      "computersOn": "電腦現已開啟。",
+      "phoneTitle": "配對手機或平板",
+      "scanOrOpen": "掃描 QR 碼，或在裝置上開啟此位址：",
+      "typeCode": "然後在那裡輸入此代碼：",
+      "once": "代碼只能使用一次，5 分鐘後失效。",
+      "waitingDevice": "正在等待裝置",
+      "computerTitle": "配對另一台電腦",
+      "computerStep1": "在另一台電腦上開啟 WingLog，然後開啟「設定 → 裝置」。",
+      "computerStep2": "選擇「新增裝置」，再選擇「連線至模擬器電腦」，然後輸入：",
       "pairingCode": "配對碼",
-      "pairingNote": "在另一個 WingLog 中開啟「設定 → 模擬器電腦」，貼上配對文字，或輸入位址與此配對碼。",
-      "copy": "複製配對文字",
-      "copied": "已複製",
-      "close": "關閉",
-      "devices": "已配對的 WingLog",
-      "noDevices": "沒有已配對的其他 WingLog。"
+      "waitingComputer": "正在等待電腦",
+      "connectTitle": "連線至模擬器電腦",
+      "connectHint": "在模擬器電腦上選擇「新增裝置」，再選擇「另一台裝有 WingLog 的電腦」。",
+      "connect": "連線",
+      "paired": "{{name}} 已配對",
+      "connectedToSimPc": "已連線至模擬器電腦",
+      "done": "完成",
+      "close": "關閉"
     }
   },
   "app": {
@@ -388,7 +426,7 @@
       "update": "更新",
       "dismiss": "忽略"
     },
-    "whatsNew": "WingLog 1.5 新功能：適用於手機或平板的第二螢幕、一鍵更新、磁碟空間不足提醒，以及更準確的滑行線。在「設定 → 第二螢幕」中開啟第二螢幕。"
+    "whatsNew": "WingLog 1.5 新功能：適用於手機或平板的第二螢幕、一鍵更新、磁碟空間不足提醒，以及更準確的滑行線。在「設定 → 裝置」中開啟第二螢幕。"
   },
   "fleetView": {
     "atStand": "機位 {{stand}}",
@@ -1302,7 +1340,7 @@
   "lanPage": {
     "connecting": "正在連線到 WingLog…",
     "pairTitle": "與 WingLog 配對",
-    "pairHelp": "在電腦上開啟「設定」，然後選擇「第二螢幕」，再選擇「配對裝置」。輸入顯示的 6 位數代碼。",
+    "pairHelp": "在電腦上開啟「設定 → 裝置」，選擇「新增裝置」，再選擇「手機或平板」。輸入顯示的 6 位數代碼。",
     "codeLabel": "配對碼",
     "pair": "配對",
     "wrongCode": "這個代碼無效。請確認電腦上正在顯示代碼，然後再試一次。",
@@ -1314,31 +1352,18 @@
   },
   "lan": {
     "settings": {
-      "title": "第二螢幕",
-      "description": "在家庭網路中的手機或平板上顯示即時地圖。開啟前保持關閉；每台裝置都要用代碼配對。",
-      "enable": "第二螢幕",
       "on": "開",
       "off": "關",
       "port": "連接埠",
-      "open": "在手機或平板上開啟此位址：",
-      "connected_other": "目前已連線 {{count}} 台裝置",
-      "pairButton": "配對裝置",
-      "pairingCode": "在裝置上輸入此代碼：",
-      "pairingNote": "代碼只能使用一次，5 分鐘後失效。",
-      "pairingClose": "關閉",
-      "devices": "已配對的裝置",
-      "noDevices": "尚未配對任何裝置。",
       "lastSeen": "上次連線：{{when}}",
       "neverSeen": "從未連線",
-      "revoke": "撤銷",
-      "help": "無法連線？手機和這台電腦必須在同一 Wi-Fi（不能是訪客網路），電腦的網路設為「私人」，並在防火牆中允許 WingLog。",
+      "help": "無法連線？裝置和這台電腦必須在同一 Wi-Fi（不能是訪客網路），電腦的網路設為「私人」，並在防火牆中允許 WingLog。",
       "problem": {
         "noAdapter": "這台電腦沒有可供監聽的家用網路連線。",
         "portInUse": "該連接埠已被使用，請換一個。",
-        "failed": "第二螢幕無法啟動。"
+        "failed": "裝置連線無法啟動。"
       },
-      "qrLabel": "第二螢幕位址的 QR 碼",
-      "qrHintPairing": "用手機掃描即可開啟頁面並配對。代碼每 5 分鐘更換一次。"
+      "qrLabel": "第二螢幕位址的 QR 碼"
     }
   },
   "online": {

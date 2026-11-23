@@ -62,10 +62,10 @@ const IDLE = { state: 'idle', lastSyncedAt: null, problem: null } as const
 const PIN = 'p'.repeat(43)
 
 /** The refusal's English wording when there is no sim PC to reach: pair this computer with one. */
-const NOT_PAIRED = "This computer isn't paired with a sim PC. Pair it in Settings → Sim PC."
+const NOT_PAIRED = "This computer isn't paired with a sim PC. Pair it in Settings → Devices."
 
 /** The refusal's English wording when the sim PC's connection was refused (its certificate changed, or it is not secure). */
-const REFUSED = "This computer refused the sim PC's connection. See Settings → Sim PC."
+const REFUSED = "This computer refused the sim PC's connection. See Settings → Devices."
 
 /** The refusal's English wording when the link is down or reconnecting: try again. */
 const NOT_CONNECTED =

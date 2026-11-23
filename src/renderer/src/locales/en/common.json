@@ -35,15 +35,13 @@
     "categories": {
       "general": "General",
       "devices": "Devices",
-      "secondScreen": "Second screen",
       "accounts": "SimBrief and Navigraph",
       "gsx": "GSX",
       "beyondAtc": "ATC",
       "online": "Online network",
       "navdata": "Navdata",
       "data": "Import and export",
-      "about": "About and updates",
-      "simPc": "Sim PC"
+      "about": "About and updates"
     },
     "units": {
       "cardTitle": "Units",
@@ -263,35 +261,27 @@
     },
     "pageLede": {
       "general": "Units, language, how WingLog looks, and how it tracks.",
-      "secondScreen": "Show the map and flight on a phone or tablet on your network.",
       "accounts": "Your SimBrief name, and Navigraph for procedures.",
       "gsx": "Ground services from WingLog, and GSX receipts on your flights.",
       "beyondAtc": "BeyondATC’s instructions, read into WingLog.",
       "online": "Fly on VATSIM or IVAO: who is online around you, and filing your plan.",
       "navdata": "The sim’s navigation data that WingLog reads for procedures.",
       "data": "Back up, move or clear your fleet and logbook.",
-      "about": "Version, the manual, and updates.",
-      "simPc": "Which computer runs the sim, and pairing with it."
+      "about": "Version, the manual, and updates."
     },
     "status": {
-      "devices_one": "{{count}} phone",
-      "devices_other": "{{count}} phones",
       "updateReady": "Update ready",
       "connected_one": "{{count}} connected",
       "connected_other": "{{count}} connected"
     },
     "pagePicker": "Settings page",
     "runMode": {
-      "cardTitle": "Where the sim runs",
       "label": "The sim runs on",
       "host": "This PC",
       "client": "Another PC",
-      "description": "On a computer that connects to WingLog on the sim PC, choose “Another PC”.",
       "restart": "Takes effect the next time WingLog starts."
     },
     "hostLink": {
-      "cardTitle": "Sim PC",
-      "description": "Connect this computer to WingLog on the PC the sim runs on. There, open Settings → Sim PC, turn on “Allow other WingLogs” and choose “Pair another WingLog”. Then paste the pairing text it shows here, or enter its address and pairing code.",
       "states": {
         "connected": "Connected",
         "connecting": "Connecting…",
@@ -307,11 +297,6 @@
         "certificate-changed": "The sim PC’s security certificate has changed since this computer paired. If WingLog on the sim PC was reinstalled or its data reset, pair again. If not, something on your network may be pretending to be the sim PC.",
         "not-secure": "The sim PC did not answer with an encrypted connection. Update WingLog on the sim PC."
       },
-      "pairedWith": "Paired with {{address}}",
-      "forget": "Forget this sim PC",
-      "addressLabel": "Address",
-      "codeLabel": "Pairing code",
-      "connect": "Connect",
       "badAddress": "Enter the sim PC’s address with its port, an address on your home network, such as 192.168.1.20:5051.",
       "versionProblem": {
         "update-this-computer": "This computer’s WingLog is older than the sim PC’s, so the logbook and fleet are not being kept in step. Update WingLog on this computer.",
@@ -319,22 +304,8 @@
       }
     },
     "twin": {
-      "cardTitle": "Other WingLogs",
-      "description": "Let WingLog on another computer on your home network work as a twin of this one: its logbook and fleet are kept in step with this PC's, and it shows this PC's sim live.",
-      "enable": "Allow other WingLogs",
-      "paired_one": "{{count}} paired",
-      "paired_other": "{{count}} paired",
       "notReachable": "Not reachable on your home network.",
-      "noCertificate": "Other WingLogs can’t connect because this PC can’t store its security certificate safely.",
-      "address": "Address",
-      "pairButton": "Pair another WingLog",
-      "pairingCode": "Pairing code",
-      "pairingNote": "On the other WingLog, open Settings → Sim PC and paste the pairing text, or enter the address and this code.",
-      "copy": "Copy pairing text",
-      "copied": "Copied",
-      "close": "Close",
-      "devices": "Paired WingLogs",
-      "noDevices": "No other WingLog is paired."
+      "noCertificate": "Other computers can’t connect because this PC can’t store its security certificate safely."
     },
     "devices": {
       "ledeHost": "Other computers and phones that use this PC’s sim. Each one is paired once.",
@@ -460,7 +431,7 @@
       "update": "Update",
       "dismiss": "Dismiss"
     },
-    "whatsNew": "New in WingLog 1.5: a second screen for your phone or tablet, one-click updates, a low disk space warning and a more accurate taxi line. Turn the second screen on in Settings → Second screen."
+    "whatsNew": "New in WingLog 1.5: a second screen for your phone or tablet, one-click updates, a low disk space warning and a more accurate taxi line. Turn the second screen on in Settings → Devices."
   },
   "fleetView": {
     "atStand": "stand {{stand}}",
@@ -1379,7 +1350,7 @@
   "lanPage": {
     "connecting": "Connecting to WingLog…",
     "pairTitle": "Pair with WingLog",
-    "pairHelp": "On the PC, open Settings, then Second screen, then Pair a device. Type the 6-digit code it shows.",
+    "pairHelp": "On the PC, open Settings → Devices, choose Add a device, then A phone or tablet. Type the 6-digit code it shows.",
     "codeLabel": "Pairing code",
     "pair": "Pair",
     "wrongCode": "That code didn't work. Check the PC is showing a code, then try again.",
@@ -1391,32 +1362,18 @@
   },
   "lan": {
     "settings": {
-      "title": "Second screen",
-      "description": "Show the live map on a phone or tablet on your home network. Off until you turn it on; each device is paired with a code.",
-      "enable": "Second screen",
       "on": "On",
       "off": "Off",
       "port": "Port",
-      "open": "Open this address on the phone or tablet:",
-      "connected_one": "{{count}} device connected now",
-      "connected_other": "{{count}} devices connected now",
-      "pairButton": "Pair a device",
-      "pairingCode": "On the device, type this code:",
-      "pairingNote": "The code works once and closes after 5 minutes.",
-      "pairingClose": "Close",
-      "devices": "Paired devices",
-      "noDevices": "No devices paired yet.",
       "lastSeen": "Last seen {{when}}",
       "neverSeen": "Never connected",
-      "revoke": "Revoke",
-      "help": "Can’t connect? The phone and this PC must be on the same Wi-Fi (not a guest network), the PC’s network set to Private, and WingLog allowed through the firewall.",
+      "help": "Can’t connect? The device and this PC must be on the same Wi-Fi (not a guest network), the PC’s network set to Private, and WingLog allowed through the firewall.",
       "problem": {
         "noAdapter": "This PC has no home-network connection to listen on.",
         "portInUse": "That port is already in use. Choose another.",
-        "failed": "The second screen could not start."
+        "failed": "The connection for devices could not start."
       },
-      "qrLabel": "QR code for the second-screen address",
-      "qrHintPairing": "Scan it with the phone to open the page and pair. The code changes every 5 minutes."
+      "qrLabel": "QR code for the second-screen address"
     }
   },
   "online": {

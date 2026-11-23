@@ -34,15 +34,14 @@
     "title": "Einstellungen",
     "categories": {
       "general": "Allgemein",
-      "secondScreen": "Zweiter Bildschirm",
+      "devices": "Geräte",
       "accounts": "SimBrief und Navigraph",
       "gsx": "GSX",
       "beyondAtc": "ATC",
       "online": "Online-Netzwerk",
       "navdata": "Navdaten",
       "data": "Import und Export",
-      "about": "Info und Updates",
-      "simPc": "Sim-PC"
+      "about": "Info und Updates"
     },
     "units": {
       "cardTitle": "Einheiten",
@@ -262,33 +261,27 @@
     },
     "pageLede": {
       "general": "Einheiten, Sprache, Aussehen von WingLog und Aufzeichnung.",
-      "secondScreen": "Karte und Flug auf einem Handy oder Tablet im Netzwerk anzeigen.",
       "accounts": "Der SimBrief-Name und Navigraph für Verfahren.",
       "gsx": "Bodendienste aus WingLog und GSX-Belege zu den Flügen.",
       "beyondAtc": "Die Anweisungen von BeyondATC in WingLog.",
       "online": "Auf VATSIM oder IVAO fliegen: wer in der Nähe online ist, und den Flugplan aufgeben.",
       "navdata": "Die Navigationsdaten des Simulators, die WingLog für Verfahren liest.",
       "data": "Flotte und Logbuch sichern, verschieben oder löschen.",
-      "about": "Version, Handbuch und Updates.",
-      "simPc": "Welcher Computer den Simulator betreibt, und die Kopplung mit ihm."
+      "about": "Version, Handbuch und Updates."
     },
     "status": {
-      "devices_one": "{{count}} Handy",
-      "devices_other": "{{count}} Handys",
-      "updateReady": "Update bereit"
+      "updateReady": "Update bereit",
+      "connected_one": "{{count}} verbunden",
+      "connected_other": "{{count}} verbunden"
     },
     "pagePicker": "Einstellungsseite",
     "runMode": {
-      "cardTitle": "Wo der Simulator läuft",
       "label": "Der Simulator läuft auf",
       "host": "Diesem PC",
       "client": "Einem anderen PC",
-      "description": "Auf einem Computer, der sich mit WingLog auf dem Sim-PC verbindet, „Einem anderen PC“ wählen.",
       "restart": "Gilt ab dem nächsten Start von WingLog."
     },
     "hostLink": {
-      "cardTitle": "Sim-PC",
-      "description": "Verbinde diesen Computer mit WingLog auf dem PC, auf dem der Simulator läuft. Öffne dort Einstellungen → Sim-PC, schalte „Weitere WingLogs zulassen“ ein und wähle „Weiteres WingLog koppeln“. Füge dann hier den angezeigten Kopplungstext ein oder gib seine Adresse und den Kopplungscode ein.",
       "states": {
         "connected": "Verbunden",
         "connecting": "Verbinde …",
@@ -304,11 +297,6 @@
         "certificate-changed": "Das Sicherheitszertifikat des Sim-PCs hat sich geändert, seit dieser Computer gekoppelt wurde. Wurde WingLog auf dem Sim-PC neu installiert oder wurden seine Daten zurückgesetzt, kopple erneut. Andernfalls gibt sich womöglich etwas in deinem Netzwerk als Sim-PC aus.",
         "not-secure": "Der Sim-PC hat nicht mit einer verschlüsselten Verbindung geantwortet. Aktualisiere WingLog auf dem Sim-PC."
       },
-      "pairedWith": "Gekoppelt mit {{address}}",
-      "forget": "Diesen Sim-PC vergessen",
-      "addressLabel": "Adresse",
-      "codeLabel": "Kopplungscode",
-      "connect": "Verbinden",
       "badAddress": "Gib die Adresse des Sim-PCs mit Port ein, eine Adresse in deinem Heimnetz, etwa 192.168.1.20:5051.",
       "versionProblem": {
         "update-this-computer": "WingLog auf diesem Computer ist älter als das auf dem Sim-PC, deshalb werden Logbuch und Flotte nicht abgeglichen. Aktualisiere WingLog auf diesem Computer.",
@@ -316,22 +304,71 @@
       }
     },
     "twin": {
-      "cardTitle": "Weitere WingLogs",
-      "description": "Lass WingLog auf einem anderen Computer in deinem Heimnetz als Zwilling dieses WingLogs arbeiten: Logbuch und Flotte werden mit diesem PC abgeglichen, und es zeigt den Simulator dieses PCs live.",
-      "enable": "Weitere WingLogs zulassen",
-      "paired_one": "{{count}} gekoppelt",
-      "paired_other": "{{count}} gekoppelt",
       "notReachable": "In deinem Heimnetz nicht erreichbar.",
-      "noCertificate": "Weitere WingLogs können sich nicht verbinden, weil dieser PC sein Sicherheitszertifikat nicht sicher speichern kann.",
+      "noCertificate": "Andere Computer können sich nicht verbinden, weil dieser PC sein Sicherheitszertifikat nicht sicher speichern kann."
+    },
+    "devices": {
+      "ledeHost": "Andere Computer und Handys, die den Simulator dieses PCs nutzen. Jedes Gerät wird einmal gekoppelt.",
+      "ledePhones": "Handys und Tablets, die den Flug dieses PCs zeigen. Jedes Gerät wird einmal gekoppelt.",
+      "ledeClient": "Dieser Computer nutzt den Simulator auf einem anderen PC. Logbuch und Flotte werden mit diesem PC abgeglichen.",
+      "add": "Gerät hinzufügen",
+      "pairedTitle": "Mit diesem PC gekoppelt",
+      "nothingPaired": "Noch nichts gekoppelt.",
+      "kind": {
+        "twin": "Computer",
+        "screen": "Handy oder Tablet"
+      },
+      "connected": "Verbunden",
+      "remove": "Entfernen",
+      "removeNamed": "{{name}} entfernen",
+      "removeTitle": "{{name}} entfernen?",
+      "removeBody": "Es muss danach neu gekoppelt werden.",
+      "cancel": "Abbrechen",
+      "rename": "Umbenennen",
+      "renameNamed": "{{name}} umbenennen",
+      "nameLabel": "Name",
+      "save": "Speichern",
+      "networkTitle": "In deinem Heimnetz",
+      "computers": "Computer",
+      "computersHint": "Andere WingLogs gleichen Logbuch und Flotte mit diesem PC ab und zeigen seinen Simulator live.",
+      "phones": "Handys und Tablets",
+      "phonesHint": "Die Live-Karte im Browser. Jedes Gerät wird mit einem Code gekoppelt.",
+      "portHint": "Nur ändern, wenn eine andere App ihn nutzt.",
       "address": "Adresse",
-      "pairButton": "Weiteres WingLog koppeln",
+      "addressHint": "Hier erreichen Geräte in deinem Heimnetz diesen PC.",
+      "thisComputer": "Dieser Computer",
+      "simPcTitle": "Sim-PC",
+      "simPcName": "Sim-PC",
+      "forget": "Vergessen",
+      "phonesPairWithSimPc": "Handys und Tablets werden mit dem Sim-PC gekoppelt, nicht mit diesem Computer: Öffne am Sim-PC Einstellungen → Geräte → Gerät hinzufügen."
+    },
+    "addDevice": {
+      "title": "Gerät hinzufügen",
+      "question": "Was möchtest du hinzufügen?",
+      "phone": "Ein Handy oder Tablet",
+      "phoneHint": "Zeigt die Live-Karte im Browser. Nichts zu installieren.",
+      "computer": "Einen anderen Computer mit WingLog",
+      "computerHint": "Logbuch und Flotte werden mit diesem PC abgeglichen, und er zeigt diesen Simulator live.",
+      "homeOnly": "Nur in deinem Heimnetz.",
+      "phonesOn": "Handys und Tablets sind jetzt eingeschaltet.",
+      "computersOn": "Computer sind jetzt eingeschaltet.",
+      "phoneTitle": "Handy oder Tablet koppeln",
+      "scanOrOpen": "Scanne ihn oder öffne diese Adresse auf dem Gerät:",
+      "typeCode": "Gib dann dort diesen Code ein:",
+      "once": "Er gilt nur einmal und läuft nach 5 Minuten ab.",
+      "waitingDevice": "Warte auf das Gerät",
+      "computerTitle": "Anderen Computer koppeln",
+      "computerStep1": "Öffne auf dem anderen Computer WingLog, dann Einstellungen → Geräte.",
+      "computerStep2": "Wähle Gerät hinzufügen, dann Mit einem Sim-PC verbinden, und gib ein:",
       "pairingCode": "Kopplungscode",
-      "pairingNote": "Öffne im anderen WingLog Einstellungen → Sim-PC und füge den Kopplungstext ein, oder gib die Adresse und diesen Code ein.",
-      "copy": "Kopplungstext kopieren",
-      "copied": "Kopiert",
-      "close": "Schließen",
-      "devices": "Gekoppelte WingLogs",
-      "noDevices": "Kein weiteres WingLog gekoppelt."
+      "waitingComputer": "Warte auf den Computer",
+      "connectTitle": "Mit einem Sim-PC verbinden",
+      "connectHint": "Wähle am Sim-PC Gerät hinzufügen, dann Einen anderen Computer.",
+      "connect": "Verbinden",
+      "paired": "{{name}} ist gekoppelt",
+      "connectedToSimPc": "Mit dem Sim-PC verbunden",
+      "done": "Fertig",
+      "close": "Schließen"
     }
   },
   "app": {
@@ -394,7 +431,7 @@
       "update": "Aktualisieren",
       "dismiss": "Verwerfen"
     },
-    "whatsNew": "Neu in WingLog 1.5: ein zweiter Bildschirm für Handy oder Tablet, Updates mit einem Klick, eine Warnung bei wenig Speicherplatz und eine genauere Rollroute. Den zweiten Bildschirm aktivierst du unter Einstellungen → Zweiter Bildschirm."
+    "whatsNew": "Neu in WingLog 1.5: ein zweiter Bildschirm für Handy oder Tablet, Updates mit einem Klick, eine Warnung bei wenig Speicherplatz und eine genauere Rollroute. Den zweiten Bildschirm aktivierst du unter Einstellungen → Geräte."
   },
   "fleetView": {
     "atStand": "Position {{stand}}",
@@ -1313,7 +1350,7 @@
   "lanPage": {
     "connecting": "Verbindung zu WingLog wird hergestellt…",
     "pairTitle": "Mit WingLog koppeln",
-    "pairHelp": "Öffne am PC Einstellungen, dann Zweiter Bildschirm, dann Gerät koppeln. Gib den angezeigten 6-stelligen Code ein.",
+    "pairHelp": "Öffne am PC Einstellungen → Geräte, wähle Gerät hinzufügen, dann Ein Handy oder Tablet. Gib den angezeigten 6-stelligen Code ein.",
     "codeLabel": "Kopplungscode",
     "pair": "Koppeln",
     "wrongCode": "Dieser Code hat nicht funktioniert. Prüfe, ob der PC einen Code anzeigt, und versuche es erneut.",
@@ -1325,32 +1362,18 @@
   },
   "lan": {
     "settings": {
-      "title": "Zweiter Bildschirm",
-      "description": "Zeigt die Live-Karte auf Handy oder Tablet in deinem Heimnetz. Aus, bis du es einschaltest; jedes Gerät wird mit einem Code gekoppelt.",
-      "enable": "Zweiter Bildschirm",
       "on": "An",
       "off": "Aus",
       "port": "Port",
-      "open": "Öffne diese Adresse auf dem Smartphone oder Tablet:",
-      "connected_one": "{{count}} Gerät derzeit verbunden",
-      "connected_other": "{{count}} Geräte derzeit verbunden",
-      "pairButton": "Gerät koppeln",
-      "pairingCode": "Gib auf dem Gerät diesen Code ein:",
-      "pairingNote": "Der Code gilt nur einmal und läuft nach 5 Minuten ab.",
-      "pairingClose": "Schließen",
-      "devices": "Gekoppelte Geräte",
-      "noDevices": "Noch kein Gerät gekoppelt.",
       "lastSeen": "Zuletzt gesehen {{when}}",
       "neverSeen": "Noch nie verbunden",
-      "revoke": "Entfernen",
-      "help": "Keine Verbindung? Handy und PC müssen im selben WLAN sein (nicht im Gastnetz), das Netzwerk des PCs auf Privat stehen und WingLog durch die Firewall erlaubt sein.",
+      "help": "Keine Verbindung? Gerät und PC müssen im selben WLAN sein (nicht im Gastnetz), das Netzwerk des PCs auf Privat stehen und WingLog durch die Firewall erlaubt sein.",
       "problem": {
         "noAdapter": "Dieser PC hat keine Heimnetzwerk-Verbindung, auf der gelauscht werden kann.",
         "portInUse": "Dieser Port wird bereits verwendet. Wähle einen anderen.",
-        "failed": "Der zweite Bildschirm konnte nicht gestartet werden."
+        "failed": "Die Verbindung für Geräte konnte nicht gestartet werden."
       },
-      "qrLabel": "QR-Code für die Adresse des zweiten Bildschirms",
-      "qrHintPairing": "Mit dem Smartphone scannen, um die Seite zu öffnen und zu koppeln. Der Code ändert sich alle 5 Minuten."
+      "qrLabel": "QR-Code für die Adresse des zweiten Bildschirms"
     }
   },
   "online": {

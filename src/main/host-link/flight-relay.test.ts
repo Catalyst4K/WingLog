@@ -11,7 +11,7 @@ const NOT_CONNECTED =
 
 /** The refusal when the link is up but the two WingLogs could not be brought level. */
 const SYNC_FAILED =
-  "Couldn't bring this computer up to date with the sim PC. Try again, or check Settings → Sim PC."
+  "Couldn't bring this computer up to date with the sim PC. Try again, or check Settings → Devices."
 
 describe('FlightRelay', () => {
   let db: WingLogDb
@@ -89,7 +89,7 @@ describe('FlightRelay', () => {
   })
 
   it('tells the pilot what the link says, so after Forget every button says to pair', async () => {
-    const NOT_PAIRED = "This computer isn't paired with a sim PC. Pair it in Settings → Sim PC."
+    const NOT_PAIRED = "This computer isn't paired with a sim PC. Pair it in Settings → Devices."
     await expect(bound(false, false, false, NOT_PAIRED).cancel(flightId)).rejects.toThrow(NOT_PAIRED)
     await expect(bound(false, true, false, NOT_PAIRED).start(flightId)).rejects.toThrow(NOT_PAIRED)
   })

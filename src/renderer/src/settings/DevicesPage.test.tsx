@@ -269,7 +269,7 @@ describe('DevicesPage on the sim PC', () => {
     [{ url: null, listening: false }, 'Not reachable on your home network.'],
     [
       { twinCertificate: null },
-      'Other WingLogs can’t connect because this PC can’t store its security certificate safely.'
+      'Other computers can’t connect because this PC can’t store its security certificate safely.'
     ]
   ])('says why devices cannot connect: %o', async (patch, line) => {
     setup({ lan: { ...ON, ...patch } })
