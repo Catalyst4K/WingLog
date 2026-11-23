@@ -21,6 +21,8 @@ export interface LanDevice {
   name: string
   createdAt: string
   lastSeenAt: string | null
+  /** Whether the device has an open connection to this PC right now. */
+  connected: boolean
 }
 
 /** An open pairing window: the code to type on the device. */

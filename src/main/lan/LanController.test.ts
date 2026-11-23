@@ -21,6 +21,7 @@ const THIS_PC = { Ethernet: [ipv4('192.168.1.136')], 'vEthernet (WSLCore)': [ipv
 class FakeServer implements LanServerPort {
   listening = false
   connectionCount = 0
+  connectedDeviceIds = new Set<number>()
   certificatePin: string | null = null
   starts: [string, number][] = []
   stops = 0
@@ -68,7 +69,9 @@ function setup(
   let network = interfaces
   let route: string | null = null
   let clock = 1_000_000
-  const devices: LanDevice[] = [{ id: 1, kind: 'screen', name: 'iPad', createdAt: 'x', lastSeenAt: null }]
+  const devices: Omit<LanDevice, 'connected'>[] = [
+    { id: 1, kind: 'screen', name: 'iPad', createdAt: 'x', lastSeenAt: null }
+  ]
   const revoke = vi.fn((id: number) => devices.some((d) => d.id === id))
   const forget = vi.fn<(id: number) => void>()
   const controller = new LanController({
@@ -82,6 +85,7 @@ function setup(
   return {
     server,
     controller,
+    devices,
     revoke,
     forget,
     settings: () => settings,
@@ -239,6 +243,24 @@ describe('LanController', () => {
   })
 
   describe('devices', () => {
+    it('marks each device with whether it is connected now', () => {
+      const { controller, server, devices } = setup()
+      devices.push({
+        id: 2,
+        kind: 'twin',
+        name: 'MacBook Air',
+        createdAt: 'y',
+        lastSeenAt: '2026-11-21T10:00:00Z'
+      })
+      server.connectedDeviceIds = new Set([2])
+      expect(controller.getStatus().devices.map((d) => [d.id, d.connected])).toEqual([
+        [1, false],
+        [2, true]
+      ])
+      server.connectedDeviceIds = new Set()
+      expect(controller.getStatus().devices.every((d) => !d.connected)).toBe(true)
+    })
+
     it('revokes a device and drops its connections', () => {
       const { controller, server, revoke } = setup({ enabled: true })
       controller.revokeDevice(1)

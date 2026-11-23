@@ -126,7 +126,8 @@ describe('LanCard', () => {
         kind: 'screen' as const,
         name: 'Phone',
         createdAt: 'x',
-        lastSeenAt: null
+        lastSeenAt: null,
+        connected: false
       })),
       pairing: open && Date.now() < open.expiresAt ? open : null
     })
@@ -246,7 +247,8 @@ describe('LanCard', () => {
           kind: 'screen',
           name: "Callum's iPad (Safari)",
           createdAt: '2026-10-12T10:00:00.000Z',
-          lastSeenAt: null
+          lastSeenAt: null,
+          connected: false
         }
       ]
     })
@@ -262,8 +264,8 @@ describe('LanCard', () => {
     setup({
       ...ON,
       devices: [
-        { id: 1, kind: 'screen', name: 'Phone', createdAt: 'x', lastSeenAt: null },
-        { id: 2, kind: 'twin', name: 'WingLog on MAC', createdAt: 'x', lastSeenAt: null }
+        { id: 1, kind: 'screen', name: 'Phone', createdAt: 'x', lastSeenAt: null, connected: false },
+        { id: 2, kind: 'twin', name: 'WingLog on MAC', createdAt: 'x', lastSeenAt: null, connected: false }
       ]
     })
     render(<LanCard />)
@@ -280,7 +282,8 @@ describe('LanCard', () => {
           kind: 'screen',
           name: 'Phone',
           createdAt: '2026-10-12T10:00:00.000Z',
-          lastSeenAt: '2026-10-12T12:30:00.000Z'
+          lastSeenAt: '2026-10-12T12:30:00.000Z',
+          connected: false
         }
       ]
     })

@@ -16,6 +16,8 @@ export const ADDRESS_CHECK_MS = 15_000
 export interface LanServerPort {
   readonly listening: boolean
   readonly connectionCount: number
+  /** The ids of the paired devices connected right now. */
+  readonly connectedDeviceIds: Set<number>
   /** The pin of the certificate shown to twins, or null while running without one. */
   readonly certificatePin: string | null
   /** Whether a kind's pairing window is still open (a used code is not). */
@@ -37,7 +39,7 @@ export interface LanControllerDeps {
   addresses(): LanAddress[]
   /** The local address of the default route (`defaultRouteAddress`), or null when the PC has no route. */
   routeAddress(): Promise<string | null>
-  devices: { list(): LanDevice[]; revoke(id: number): boolean; forget(id: number): void }
+  devices: { list(): Omit<LanDevice, 'connected'>[]; revoke(id: number): boolean; forget(id: number): void }
   now(): number
 }
 
@@ -118,8 +120,14 @@ export class LanController {
       pairing: server.listening ? this.pairings.screen : null,
       twinPairing: server.listening ? this.pairings.twin : null,
       twinCertificate: server.certificatePin,
-      devices: this.deps.devices.list()
+      devices: this.listDevices()
     }
+  }
+
+  /** @returns The paired devices, each marked with whether it is connected now. */
+  private listDevices(): LanDevice[] {
+    const connected = this.deps.server.connectedDeviceIds
+    return this.deps.devices.list().map((device) => ({ ...device, connected: connected.has(device.id) }))
   }
 
   /**

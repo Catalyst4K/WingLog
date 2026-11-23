@@ -183,6 +183,13 @@ export class LanServer {
     return this.clients.size
   }
 
+  /** @returns The ids of the paired devices with an open, authenticated connection right now. */
+  get connectedDeviceIds(): Set<number> {
+    const ids = new Set<number>()
+    for (const client of this.clients) if (client.deviceId !== null) ids.add(client.deviceId)
+    return ids
+  }
+
   /**
    * Starts listening on one address. Never `0.0.0.0`: the caller passes an address from `adapters.ts`.
    *

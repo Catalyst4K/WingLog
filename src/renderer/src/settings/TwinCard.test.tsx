@@ -110,8 +110,8 @@ describe('TwinCard', () => {
     const api = setup({
       ...ON,
       devices: [
-        { id: 1, kind: 'screen', name: 'iPad', createdAt: 'x', lastSeenAt: null },
-        { id: 2, kind: 'twin', name: 'WingLog on MAC', createdAt: 'x', lastSeenAt: null }
+        { id: 1, kind: 'screen', name: 'iPad', createdAt: 'x', lastSeenAt: null, connected: false },
+        { id: 2, kind: 'twin', name: 'WingLog on MAC', createdAt: 'x', lastSeenAt: null, connected: false }
       ]
     })
     render(<TwinCard />)
