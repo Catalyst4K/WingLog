@@ -19,16 +19,13 @@ import type {
 import { LanguageRows, SegmentedRow, TrackingFields, UnitRows } from './SettingsFields'
 import { trackingLabels } from './tracking-labels'
 import { UpdatesCard } from './UpdatesCard'
-import { LanCard } from './settings/LanCard'
 import { WindowCard } from './settings/WindowCard'
-import { SettingsCard } from './settings/ui/SettingsCard'
+import { SettingsCard, SettingsPageHeader } from './settings/ui/SettingsCard'
 import type { LightState } from '@/components/StatusLight'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent } from '@/components/ui/tabs'
 import { SettingsNav, type SettingsCategory } from './settings/SettingsNav'
-import { HostLinkCard } from './settings/HostLinkCard'
-import { TwinCard } from './settings/TwinCard'
-import { RunModeCard } from './settings/RunModeCard'
+import { DevicesPage } from './settings/DevicesPage'
 import { useCapabilities } from './app/capabilities-context'
 import { simReachLight } from '@/components/sim-reach'
 import { useHostLinkStatus } from './app/use-host-link'
@@ -157,18 +154,17 @@ function InterfacePanel(props: AppWideSettings): React.JSX.Element {
  * @param props The page and its sections.
  * @returns The element.
  */
-function SettingsPage(props: { category: SettingsCategory; children: React.ReactNode }): React.JSX.Element {
+function SettingsPage(props: {
+  category: Exclude<SettingsCategory, 'devices'>
+  children: React.ReactNode
+}): React.JSX.Element {
   const { t } = useTranslation()
   return (
     <div className={PANEL}>
-      <header className="max-w-[760px]">
-        <h2 className="m-0 font-display text-[34px] leading-[1.1] font-bold tracking-[-0.02em]">
-          {t(`settingsView.categories.${props.category}`)}
-        </h2>
-        <p className="m-0 mt-1 text-sm text-muted-foreground">
-          {t(`settingsView.pageLede.${props.category}`)}
-        </p>
-      </header>
+      <SettingsPageHeader
+        title={t(`settingsView.categories.${props.category}`)}
+        lede={t(`settingsView.pageLede.${props.category}`)}
+      />
       <div className={`${PANEL} mt-[26px]`}>{props.children}</div>
     </div>
   )
@@ -245,8 +241,8 @@ export function SettingsView(
   }
 ): React.JSX.Element {
   const { t } = useTranslation()
-  // A client is not the sim's host: the pages of what only the sim PC runs are not offered, and a Sim PC page pairs it (multi-device builds).
-  const { runMode, multiDevice } = useCapabilities()
+  // A client is not the sim's host: the pages of what only the sim PC runs are not offered, and its Devices page pairs it (multi-device builds).
+  const { runMode } = useCapabilities()
   const isClient = runMode === 'client'
   const hostLink = useHostLinkStatus(isClient)
   // Called in the order the settings used to load in, so the IPC calls go out in that order.
@@ -256,7 +252,7 @@ export function SettingsView(
   const beyondAtc = useBeyondAtcSettings(props.onBeyondAtcEnabledChange)
   const sync = useCloudSync()
   const data = useDataTransfer()
-  const navStatus = useSettingsNavStatus()
+  const navStatus = useSettingsNavStatus(!isClient)
   const [appVersion, setAppVersion] = useState('')
   // Purely transient UI state, not persisted — this app has no routing beyond the top tab
   // bar, no reason to add any for a sub-navigation within one of its pages.
@@ -283,13 +279,15 @@ export function SettingsView(
           status={{
             gsxRemote: addonLight(gsxRemote.settings.enabled, gsxRemote.status.state),
             beyondAtc: addonLight(beyondAtc.settings.enabled, beyondAtc.status.state),
-            ...navStatus,
-            simPc:
-              isClient && hostLink
+            about: navStatus.about,
+            // On a client the page's light is how far the sim can be reached; on the sim PC, whether a paired device is connected.
+            devices: isClient
+              ? hostLink
                 ? { light: simReachLight(hostLink.state, hostLink.hostSim ?? undefined) }
                 : {}
+              : navStatus.devices
           }}
-          mode={{ multiDevice, isClient }}
+          mode={{ isClient }}
         />
 
         <TabsContent value="general" className={PAGE}>
@@ -298,17 +296,8 @@ export function SettingsView(
           </SettingsPage>
         </TabsContent>
 
-        <TabsContent value="simPc" className={PAGE}>
-          <SettingsPage category="simPc">
-            {isClient ? <HostLinkCard /> : <TwinCard />}
-            <RunModeCard />
-          </SettingsPage>
-        </TabsContent>
-
-        <TabsContent value="secondScreen" className={PAGE}>
-          <SettingsPage category="secondScreen">
-            <LanCard />
-          </SettingsPage>
+        <TabsContent value="devices" className={PAGE}>
+          <DevicesPage />
         </TabsContent>
 
         <TabsContent value="accounts" className={PAGE}>

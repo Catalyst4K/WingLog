@@ -34,6 +34,7 @@
     "title": "Settings",
     "categories": {
       "general": "General",
+      "devices": "Devices",
       "secondScreen": "Second screen",
       "accounts": "SimBrief and Navigraph",
       "gsx": "GSX",
@@ -275,7 +276,9 @@
     "status": {
       "devices_one": "{{count}} phone",
       "devices_other": "{{count}} phones",
-      "updateReady": "Update ready"
+      "updateReady": "Update ready",
+      "connected_one": "{{count}} connected",
+      "connected_other": "{{count}} connected"
     },
     "pagePicker": "Settings page",
     "runMode": {
@@ -332,6 +335,69 @@
       "close": "Close",
       "devices": "Paired WingLogs",
       "noDevices": "No other WingLog is paired."
+    },
+    "devices": {
+      "ledeHost": "Other computers and phones that use this PC’s sim. Each one is paired once.",
+      "ledePhones": "Phones and tablets that show this PC’s flight. Each one is paired once.",
+      "ledeClient": "This computer uses the sim on another PC. Its logbook and fleet are kept in step with that PC’s.",
+      "add": "Add a device",
+      "pairedTitle": "Paired with this PC",
+      "nothingPaired": "Nothing paired yet.",
+      "kind": {
+        "twin": "Computer",
+        "screen": "Phone or tablet"
+      },
+      "connected": "Connected",
+      "remove": "Remove",
+      "removeNamed": "Remove {{name}}",
+      "removeTitle": "Remove {{name}}?",
+      "removeBody": "It will need to pair again.",
+      "cancel": "Cancel",
+      "rename": "Rename",
+      "renameNamed": "Rename {{name}}",
+      "nameLabel": "Name",
+      "save": "Save",
+      "networkTitle": "On your home network",
+      "computers": "Computers",
+      "computersHint": "Other WingLogs keep their logbook and fleet in step with this PC and show its sim live.",
+      "phones": "Phones and tablets",
+      "phonesHint": "The live map in a browser. Each device is paired with a code.",
+      "portHint": "Change it only if another app uses it.",
+      "address": "Address",
+      "addressHint": "Where devices on your home network reach this PC.",
+      "thisComputer": "This computer",
+      "simPcTitle": "Sim PC",
+      "simPcName": "Sim PC",
+      "forget": "Forget",
+      "phonesPairWithSimPc": "Phones and tablets pair with the sim PC, not with this computer: on the sim PC, open Settings → Devices → Add a device."
+    },
+    "addDevice": {
+      "title": "Add a device",
+      "question": "What would you like to add?",
+      "phone": "A phone or tablet",
+      "phoneHint": "Shows the live map in its browser. Nothing to install.",
+      "computer": "Another computer with WingLog",
+      "computerHint": "Its logbook and fleet are kept in step with this PC’s, and it shows this sim live.",
+      "homeOnly": "Only on your home network.",
+      "phonesOn": "Phones and tablets are now on.",
+      "computersOn": "Computers are now on.",
+      "phoneTitle": "Pair a phone or tablet",
+      "scanOrOpen": "Scan it, or open this address on the device:",
+      "typeCode": "Then type this code there:",
+      "once": "It works once and closes after 5 minutes.",
+      "waitingDevice": "Waiting for the device",
+      "computerTitle": "Pair another computer",
+      "computerStep1": "On the other computer, open WingLog, then Settings → Devices.",
+      "computerStep2": "Choose Add a device, then Connect to a sim PC, and type:",
+      "pairingCode": "Pairing code",
+      "waitingComputer": "Waiting for the computer",
+      "connectTitle": "Connect to a sim PC",
+      "connectHint": "On the sim PC, choose Add a device, then Another computer.",
+      "connect": "Connect",
+      "paired": "{{name}} is paired",
+      "connectedToSimPc": "Connected to the sim PC",
+      "done": "Done",
+      "close": "Close"
     }
   },
   "app": {

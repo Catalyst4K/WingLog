@@ -267,7 +267,7 @@ describe('SettingsView', () => {
       expect(screen.queryByText('Credentials')).not.toBeInTheDocument()
       expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual([
         'General',
-        'Second screen',
+        'Devices',
         'SimBrief and Navigraph',
         'GSX',
         'ATC',
@@ -284,15 +284,14 @@ describe('SettingsView', () => {
       const HOST = { runMode: 'host', canHostSim: true, multiDevice: true }
       const CLIENT = { runMode: 'client', canHostSim: false, multiDevice: true }
 
-      it('adds a Sim PC page after General on a host, where the run mode is chosen', async () => {
+      it('has one Devices page after General on a host, where the run mode is chosen', async () => {
         setWinglog({ appGetCapabilities: vi.fn().mockResolvedValue(HOST) })
         const user = userEvent.setup()
         renderSettings()
-        const tab = await screen.findByRole('tab', { name: 'Sim PC' })
+        const tab = await screen.findByRole('tab', { name: 'Devices' })
         expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual([
           'General',
-          'Sim PC',
-          'Second screen',
+          'Devices',
           'SimBrief and Navigraph',
           'GSX',
           'ATC',
@@ -302,29 +301,30 @@ describe('SettingsView', () => {
           'About and updates'
         ])
         await user.click(tab)
-        expect(await screen.findByRole('heading', { name: 'Sim PC' })).toBeInTheDocument()
-        expect(screen.getByText('Which computer runs the sim, and pairing with it.')).toBeInTheDocument()
-        expect(screen.getByText('Where the sim runs')).toBeInTheDocument()
-        expect(screen.queryByText('Pairing code')).not.toBeInTheDocument()
+        expect(await screen.findByRole('heading', { name: 'Devices' })).toBeInTheDocument()
+        expect(
+          screen.getByText('Other computers and phones that use this PC’s sim. Each one is paired once.')
+        ).toBeInTheDocument()
+        expect(await screen.findByRole('heading', { name: 'This computer' })).toBeInTheDocument()
       })
 
-      it('leaves out the pages of what only the sim PC runs on a client, and pairs on the Sim PC page', async () => {
+      it('leaves out the pages of what only the sim PC runs on a client, and shows its sim PC on the Devices page', async () => {
         setWinglog({ appGetCapabilities: vi.fn().mockResolvedValue(CLIENT) })
         const user = userEvent.setup()
         renderSettings()
-        await screen.findByRole('tab', { name: /Sim PC/ })
+        await screen.findByRole('tab', { name: /Devices/ })
         await waitFor(() =>
           expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual([
             'General',
-            'Sim PC',
+            'Devices',
             'SimBrief and Navigraph',
             'Import and export',
             'About and updates'
           ])
         )
-        await user.click(screen.getByRole('tab', { name: /Sim PC/ }))
-        expect(await screen.findByRole('textbox', { name: 'Pairing code' })).toBeInTheDocument()
-        expect(screen.getByRole('textbox', { name: 'Address' })).toBeInTheDocument()
+        await user.click(screen.getByRole('tab', { name: /Devices/ }))
+        expect(await screen.findByRole('heading', { name: 'Sim PC' })).toBeInTheDocument()
+        expect(screen.getByText(/^Phones and tablets pair with the sim PC/)).toBeInTheDocument()
       })
 
       it('shows the sim PC’s automatic start and finish read only on a client, with nothing to press', async () => {
@@ -396,7 +396,7 @@ describe('SettingsView', () => {
         ['disconnected', 'amber'],
         [null, 'amber']
       ])(
-        'lights the Sim PC page by how far the sim is reached: connected to the sim PC with its sim %s is %s',
+        'lights the Devices page on a client by how far the sim is reached: connected to the sim PC with its sim %s is %s',
         async (hostSim, light) => {
           setWinglog({
             appGetCapabilities: vi.fn().mockResolvedValue(CLIENT),
@@ -408,14 +408,14 @@ describe('SettingsView', () => {
             })
           })
           renderSettings()
-          const tab = await screen.findByRole('tab', { name: /Sim PC/ })
+          const tab = await screen.findByRole('tab', { name: /Devices/ })
           await waitFor(() =>
             expect(tab.querySelector('[data-slot="status-light"]')).toHaveAttribute('data-state', light)
           )
         }
       )
 
-      it('lights the Sim PC page red when the link is not connected, whatever the sim last said', async () => {
+      it('lights the Devices page red on a client when the link is not connected, whatever the sim last said', async () => {
         setWinglog({
           appGetCapabilities: vi.fn().mockResolvedValue(CLIENT),
           hostLinkGetStatus: vi.fn().mockResolvedValue({
@@ -426,17 +426,20 @@ describe('SettingsView', () => {
           })
         })
         renderSettings()
-        const tab = await screen.findByRole('tab', { name: /Sim PC/ })
+        const tab = await screen.findByRole('tab', { name: /Devices/ })
         await waitFor(() =>
           expect(tab.querySelector('[data-slot="status-light"]')).toHaveAttribute('data-state', 'red')
         )
       })
     })
 
-    it('shows no Sim PC page in a release build', async () => {
+    it('has the Devices page in a release build too, with phones and tablets only', async () => {
+      const user = userEvent.setup()
       renderSettings()
-      await screen.findByText('Units')
-      expect(screen.queryByRole('tab', { name: 'Sim PC' })).not.toBeInTheDocument()
+      await user.click(await screen.findByRole('tab', { name: 'Devices' }))
+      expect(
+        await screen.findByText('Phones and tablets that show this PC’s flight. Each one is paired once.')
+      ).toBeInTheDocument()
     })
 
     it('lights GSX and ATC by their connection: green connected, amber turned on but not connected, off when turned off', async () => {
@@ -480,11 +483,11 @@ describe('SettingsView', () => {
       expect(await screen.findByText('BeyondATC')).toBeInTheDocument()
     })
 
-    it('puts the second screen, the online network and navdata on their own pages', async () => {
+    it('puts the devices, the online network and navdata on their own pages', async () => {
       const user = userEvent.setup()
       renderSettings()
       for (const [name, title] of [
-        ['Second screen', 'Second screen'],
+        ['Devices', 'Devices'],
         ['Online network', 'Online network'],
         ['Navdata', 'Navigation data']
       ]) {
@@ -560,25 +563,54 @@ describe('SettingsView', () => {
   })
 
   describe('the list of pages', () => {
-    it('says how many phones are paired beside Second screen, with a light while one is connected', async () => {
+    it('says how many paired devices, computers and phones, are connected beside Devices, with a green light', async () => {
+      const device = (id: number, kind: string, connected: boolean) => ({
+        id,
+        kind,
+        name: 'Device ' + id,
+        createdAt: '2026-11-06T10:00:00Z',
+        lastSeenAt: null,
+        connected
+      })
       setWinglog({
         lanGetStatus: vi.fn().mockResolvedValue({
-          settings: { enabled: true, port: 8765 },
-          addresses: [],
+          settings: { enabled: true, port: 8765, twinEnabled: true },
           listening: true,
           url: 'http://192.168.1.2:8765/',
           problem: null,
-          connections: 1,
+          connections: 2,
           pairing: null,
+          twinPairing: null,
+          twinCertificate: null,
+          devices: [device(1, 'screen', true), device(2, 'twin', true), device(3, 'screen', false)]
+        })
+      })
+      renderSettings()
+      const tab = screen.getByRole('tab', { name: /Devices/ })
+      expect(await within(tab).findByText('2 connected')).toBeInTheDocument()
+      expect(tab.querySelector('[data-state="green"]')).not.toBeNull()
+    })
+
+    it('leaves the Devices light off, with no words, while paired devices are not connected', async () => {
+      setWinglog({
+        lanGetStatus: vi.fn().mockResolvedValue({
+          settings: { enabled: true, port: 8765, twinEnabled: false },
+          listening: true,
+          url: 'http://192.168.1.2:8765/',
+          problem: null,
+          connections: 0,
+          pairing: null,
+          twinPairing: null,
+          twinCertificate: null,
           devices: [
-            { id: 1, kind: 'screen', name: 'Phone', pairedAt: '2026-11-06T10:00:00Z', lastSeenAt: null }
+            { id: 1, kind: 'screen', name: 'Phone', createdAt: 'x', lastSeenAt: null, connected: false }
           ]
         })
       })
       renderSettings()
-      const tab = screen.getByRole('tab', { name: /Second screen/ })
-      expect(await within(tab).findByText('1 phone')).toBeInTheDocument()
-      expect(tab.querySelector('[data-state="green"]')).not.toBeNull()
+      const tab = screen.getByRole('tab', { name: /Devices/ })
+      await waitFor(() => expect(tab.querySelector('[data-state="off"]')).not.toBeNull())
+      expect(tab).toHaveTextContent(/^Devices$/)
     })
 
     it('says an update is ready beside About, with an amber light', async () => {

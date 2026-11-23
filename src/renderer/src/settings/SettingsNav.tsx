@@ -18,16 +18,7 @@ import {
 import { TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 export type SettingsCategory =
-  | 'general'
-  | 'simPc'
-  | 'secondScreen'
-  | 'accounts'
-  | 'gsx'
-  | 'beyondAtc'
-  | 'online'
-  | 'navdata'
-  | 'data'
-  | 'about'
+  'general' | 'devices' | 'accounts' | 'gsx' | 'beyondAtc' | 'online' | 'navdata' | 'data' | 'about'
 
 /** A page in the list: its light, and a few quiet words beside it. */
 interface SettingsPage {
@@ -43,22 +34,20 @@ interface SettingsPage {
 export interface SettingsNavStatus {
   gsxRemote: LightState
   beyondAtc: LightState
-  secondScreen: { light?: LightState; status?: string }
-  /** The Sim PC page's light (multi-device builds): the link to the sim PC on a client. */
-  simPc: { light?: LightState; status?: string }
+  /** The Devices page: how many paired devices are connected on the sim PC, how far the sim is reached on a client. */
+  devices: { light?: LightState; status?: string }
   about: { light?: LightState; status?: string }
 }
 
-/** Which pages the list leaves out: the Sim PC page unless multi-device is built in, and on a client the pages of what only the sim PC runs. */
+/** Which pages the list leaves out: on a client, the pages of what only the sim PC runs. */
 export interface SettingsNavMode {
-  multiDevice: boolean
   isClient: boolean
 }
 
 /**
  * @param t The translation function.
  * @param status The lights and status words.
- * @param mode Whether multi-device is built in and whether this is a client.
+ * @param mode Whether this is a client.
  * @returns The pages, in their three groups.
  */
 function settingsGroups(
@@ -72,12 +61,7 @@ function settingsGroups(
       label: t('settingsView.groups.app'),
       pages: [
         { value: 'general', label: t('settingsView.categories.general') },
-        ...(mode.multiDevice
-          ? [{ value: 'simPc' as const, label: t('settingsView.categories.simPc'), ...status.simPc }]
-          : []),
-        ...hostPages([
-          { value: 'secondScreen', label: t('settingsView.categories.secondScreen'), ...status.secondScreen }
-        ])
+        { value: 'devices', label: t('settingsView.categories.devices'), ...status.devices }
       ]
     },
     {
