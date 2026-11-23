@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import type { AppCapabilities, HostLinkStatus, LanDeviceKind, LanSettings, LanStatus } from '@shared/ipc'
 import { CapabilitiesProvider } from '../app/capabilities'
 import { DevicesPage } from './DevicesPage'
+import { QrCode } from './QrCode'
 
 const HOST: AppCapabilities = { runMode: 'host', canHostSim: true, multiDevice: true }
 const MAC: AppCapabilities = { runMode: 'client', canHostSim: false, multiDevice: true }
@@ -143,9 +144,13 @@ describe('Add a device on the sim PC', () => {
     expect(await within(dialog).findByRole('heading', { name: 'Pair a phone or tablet' })).toBeInTheDocument()
     expect(api.lanStartPairing).toHaveBeenCalledWith('screen')
     expect(api.lanSetSettings).not.toHaveBeenCalled()
-    expect(
-      within(dialog).getByRole('img', { name: 'QR code for the second-screen address' })
-    ).toBeInTheDocument()
+    // The QR code opens the page with the code already in it.
+    const image = within(dialog).getByRole('img', { name: 'QR code for the second-screen address' })
+    const expected = render(<QrCode text="http://192.168.1.20:5051/#code=100001" label="expected" />)
+    expect(image.querySelector('path')?.getAttribute('d')).toBe(
+      expected.container.querySelector('path')?.getAttribute('d')
+    )
+    expected.unmount()
     expect(within(dialog).getByText('http://192.168.1.20:5051/')).toBeInTheDocument()
     expect(within(dialog).getByLabelText('100001')).toBeInTheDocument()
     expect(within(dialog).getByText('It works once and closes after 5 minutes.')).toBeInTheDocument()

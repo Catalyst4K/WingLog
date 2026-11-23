@@ -241,10 +241,11 @@ describe('DevicesPage on the sim PC', () => {
     expect(api.lanSetSettings).not.toHaveBeenCalled()
   })
 
-  it('shows the address devices reach this PC on, read only, and the help line', async () => {
+  it('shows the address devices reach this PC on, read only, and the help line, with no alert while all is well', async () => {
     setup()
     renderPage()
     expect(await screen.findByText('http://192.168.1.20:5051/')).toBeInTheDocument()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
     expect(screen.getByText(/^Can’t connect\?/)).toBeInTheDocument()
     expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
   })
@@ -285,6 +286,16 @@ describe('DevicesPage on the sim PC', () => {
     expect(screen.getByText('Takes effect the next time WingLog starts.')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Another PC' }))
     expect(api.settingsSetRunMode).toHaveBeenCalledWith('client')
+  })
+
+  it('shows a run mode chosen for the next launch', async () => {
+    const { api } = setup()
+    api.settingsGetRunMode.mockResolvedValue('client' as never)
+    renderPage()
+    await screen.findByRole('heading', { name: 'This computer' })
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Another PC' })).toHaveAttribute('aria-pressed', 'true')
+    )
   })
 
   it('in a build without multi-device: phones and tablets only, no Computers switch and no run mode', async () => {
@@ -328,6 +339,7 @@ describe('DevicesPage on a client', () => {
         'Phones and tablets pair with the sim PC, not with this computer: on the sim PC, open Settings → Devices → Add a device.'
       )
     ).toBeInTheDocument()
+    expect(within(list).queryByRole('alert')).not.toBeInTheDocument()
     await user.click(within(list).getByRole('button', { name: 'Forget' }))
     expect(api.hostLinkForget).toHaveBeenCalled()
     // A client runs no server, so it has no network section.
