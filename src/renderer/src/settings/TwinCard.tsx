@@ -7,10 +7,9 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { LanDevice, LanPairing, LanStatus } from '@shared/ipc'
-import { formatPairingText } from '@shared/host-address'
 import { Button } from '@/components/ui/button'
 import { winglogApi } from '../data/winglog-api'
-import { asyncHandler, runAsync } from '../report-error'
+import { runAsync } from '../report-error'
 import { OnOffControl, SettingRow, SettingsCard, SettingsSection, StatusBadge } from './ui/SettingsCard'
 
 /** How often the card re-reads the status, for the pairing countdown and the paired list. */
@@ -25,7 +24,7 @@ function hostPort(url: string): string {
 }
 
 /**
- * The address, and the pairing code with its Copy and Close buttons, or the button that opens a code.
+ * The address, and the pairing code with its Close button, or the button that opens a code.
  *
  * @param props The address, the open code if there is one, and what to do with the status a call comes back with.
  * @returns The rows.
@@ -33,19 +32,10 @@ function hostPort(url: string): string {
 function TwinPairing(props: {
   address: string
   pairing: LanPairing | null
-  /** The pin of this PC's certificate, which the pairing text carries. */
-  pin: string
   onStatus: (status: LanStatus) => void
 }): React.JSX.Element {
   const { t } = useTranslation()
-  const [copied, setCopied] = useState(false)
-  const { address, pairing, pin } = props
-  const copy = asyncHandler('TwinCard copy pairing text', async () => {
-    if (!pairing) return
-    await navigator.clipboard.writeText(formatPairingText(address, pairing.code, pin))
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  })
+  const { address, pairing } = props
   return (
     <>
       <SettingRow label={t('settingsView.twin.address')}>
@@ -62,9 +52,6 @@ function TwinPairing(props: {
               {pairing.code}
             </span>
             <div className="flex flex-wrap items-center gap-2">
-              <Button type="button" size="sm" onClick={copy}>
-                {copied ? t('settingsView.twin.copied') : t('settingsView.twin.copy')}
-              </Button>
               <Button
                 type="button"
                 size="sm"
@@ -206,12 +193,7 @@ export function TwinCard(): React.JSX.Element {
         </p>
       )}
       {twinEnabled && address && status.twinCertificate && (
-        <TwinPairing
-          address={address}
-          pairing={status.twinPairing}
-          pin={status.twinCertificate}
-          onStatus={setStatus}
-        />
+        <TwinPairing address={address} pairing={status.twinPairing} onStatus={setStatus} />
       )}
       {twinEnabled && <TwinDevices twins={twins} onStatus={setStatus} />}
     </SettingsCard>

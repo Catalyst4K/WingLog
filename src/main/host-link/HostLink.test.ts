@@ -131,7 +131,7 @@ describe('HostLink', () => {
   it('pairs with the code, keeps the token it is given and follows the host topics into the hub', () => {
     const store = memoryStore()
     const link = make(store)
-    link.pair('http://192.168.1.20:5051/', '123456', null)
+    link.pair('http://192.168.1.20:5051/', '123456')
     expect(sockets[0]?.url).toBe('wss://192.168.1.20:5051/live')
     sockets[0]?.open()
     expect(sockets[0]?.sent[0]).toEqual({ t: 'pair', code: '123456', name: 'WingLog on MAC', kind: 'twin' })
@@ -156,7 +156,7 @@ describe('HostLink', () => {
 
   it('follows each later topic the host publishes', () => {
     const link = make(memoryStore())
-    link.pair('192.168.1.20:5051', '123456', null)
+    link.pair('192.168.1.20:5051', '123456')
     sockets[0]?.open()
     sockets[0]?.hear({ t: 'paired', token: 't' })
     sockets[0]?.hear({ t: 'snapshot', topics: {}, flight: null })
@@ -170,7 +170,7 @@ describe('HostLink', () => {
 
   it('follows a topic the host clears to null, not only the values it sets: the finished GSX routine is gone from the twin too (flight 436)', () => {
     const link = make(memoryStore())
-    link.pair('192.168.1.20:5051', '123456', null)
+    link.pair('192.168.1.20:5051', '123456')
     sockets[0]?.open()
     sockets[0]?.hear({ t: 'paired', token: 't' })
     sockets[0]?.hear({ t: 'snapshot', topics: {}, flight: null })
@@ -184,7 +184,7 @@ describe('HostLink', () => {
 
   it('takes a null from the host in its snapshot after a reconnect, replacing the value held from before the link dropped', () => {
     const link = make(memoryStore())
-    link.pair('192.168.1.20:5051', '123456', null)
+    link.pair('192.168.1.20:5051', '123456')
     sockets[0]?.open()
     sockets[0]?.hear({ t: 'paired', token: 't' })
     sockets[0]?.hear({ t: 'snapshot', topics: {}, flight: null })
@@ -211,7 +211,7 @@ describe('HostLink', () => {
 
   it('says so when the code is wrong', () => {
     const link = make(memoryStore())
-    link.pair('192.168.1.20:5051', '000000', null)
+    link.pair('192.168.1.20:5051', '000000')
     sockets[0]?.open()
     sockets[0]?.hear({ t: 'denied' })
     expect(link.getStatus().state).toBe('wrong-code')
@@ -219,8 +219,8 @@ describe('HostLink', () => {
 
   it('refuses an address that is not on the home network, and opens nothing', () => {
     const link = make(memoryStore())
-    expect(() => link.pair('example.com:5051', '123456', null)).toThrow('address')
-    expect(() => link.pair('8.8.8.8:5051', '123456', null)).toThrow('address')
+    expect(() => link.pair('example.com:5051', '123456')).toThrow('address')
+    expect(() => link.pair('8.8.8.8:5051', '123456')).toThrow('address')
     expect(sockets).toHaveLength(0)
     expect(link.getStatus().state).toBe('unpaired')
   })
@@ -229,7 +229,7 @@ describe('HostLink', () => {
     const link = make(memoryStore())
     expect(() => link.command('atc.setAction', ['Request Taxi'])).toThrow(NOT_PAIRED)
     await expect(link.query('stands', 'EGLL')).rejects.toThrow(NOT_PAIRED)
-    link.pair('192.168.1.20:5051', '123456', null)
+    link.pair('192.168.1.20:5051', '123456')
     sockets[0]?.open()
     sockets[0]?.hear({ t: 'paired', token: 't' })
     sockets[0]?.hear({ t: 'snapshot', topics: {}, flight: null })
@@ -239,7 +239,7 @@ describe('HostLink', () => {
 
   it('says the link may be reconnecting for a paired link that is down, for a command, a command after a sync and a lookup, and for Finish and Stop', async () => {
     const link = make(memoryStore())
-    link.pair('192.168.1.20:5051', '123456', null)
+    link.pair('192.168.1.20:5051', '123456')
     sockets[0]?.open()
     sockets[0]?.hear({ t: 'paired', token: 't' })
     sockets[0]?.hear({ t: 'snapshot', topics: {}, flight: null })
@@ -260,7 +260,7 @@ describe('HostLink', () => {
   /** A link that is up with the sim PC's answer to one lookup kept, then dropped. */
   function pairedAndUp(): HostLink {
     const link = make(memoryStore())
-    link.pair('192.168.1.20:5051', '123456', null)
+    link.pair('192.168.1.20:5051', '123456')
     sockets[0]?.open()
     sockets[0]?.hear({ t: 'paired', token: 't' })
     sockets[0]?.hear({ t: 'snapshot', topics: {}, flight: null })
@@ -305,21 +305,21 @@ describe('HostLink', () => {
     await expect(denied.query('stands', 'EGLL')).rejects.toThrow(NOT_PAIRED)
 
     const wrong = make(memoryStore())
-    wrong.pair('192.168.1.20:5051', '000000', null)
+    wrong.pair('192.168.1.20:5051', '000000')
     sockets.at(-1)?.open()
     sockets.at(-1)?.hear({ t: 'denied' })
     expect(wrong.getStatus().state).toBe('wrong-code')
     expect(() => wrong.command('atc.setAction', ['x'])).toThrow(NOT_PAIRED)
 
     const changed = make(memoryStore())
-    changed.pair('192.168.1.20:5051', '123456', null)
+    changed.pair('192.168.1.20:5051', '123456')
     pins.at(-1)?.onRefused?.('certificate-changed')
     expect(changed.getStatus().state).toBe('certificate-changed')
     expect(() => changed.command('atc.setAction', ['x'])).toThrow(REFUSED)
     await expect(changed.commandAfterSync('gsx.startRoutine', ['r'])).rejects.toThrow(REFUSED)
 
     const insecure = make(memoryStore())
-    insecure.pair('192.168.1.20:5051', '123456', null)
+    insecure.pair('192.168.1.20:5051', '123456')
     pins.at(-1)?.onRefused?.('not-secure')
     expect(insecure.getStatus().state).toBe('not-secure')
     expect(() => insecure.command('atc.setAction', ['x'])).toThrow(REFUSED)
@@ -343,12 +343,12 @@ describe('HostLink', () => {
   it('writes one main.log line for each change of the link state, including connecting again after a drop', () => {
     vi.mocked(logger.info).mockClear()
     const link = make(memoryStore())
-    link.pair('192.168.1.20:5051', '123456', null)
+    link.pair('192.168.1.20:5051', '123456')
     sockets[0]?.open()
     sockets[0]?.hear({ t: 'paired', token: 't' })
     sockets[0]?.hear({ t: 'snapshot', topics: {}, flight: null })
     sockets[0]?.drop()
-    link.pair('192.168.1.20:5051', '123456', null)
+    link.pair('192.168.1.20:5051', '123456')
     const lines = vi
       .mocked(logger.info)
       .mock.calls.map((call) => String(call[0]))
@@ -391,7 +391,7 @@ describe('HostLink', () => {
       }
     })
     await expect(link.commandAfterSync('gsx.startRoutine', ['my-routine'])).rejects.toThrow(NOT_PAIRED)
-    link.pair('192.168.1.20:5051', '123456', null)
+    link.pair('192.168.1.20:5051', '123456')
     sockets[0]?.open()
     sockets[0]?.hear({ t: 'paired', token: 't' })
     sockets[0]?.hear({ t: 'snapshot', topics: {}, flight: null })
@@ -409,7 +409,7 @@ describe('HostLink', () => {
   it('marks the host sim disconnected when the link drops, so stale telemetry is not shown as live', () => {
     vi.useFakeTimers()
     const link = make(memoryStore())
-    link.pair('192.168.1.20:5051', '123456', null)
+    link.pair('192.168.1.20:5051', '123456')
     sockets[0]?.open()
     sockets[0]?.hear({ t: 'paired', token: 't' })
     sockets[0]?.hear(SNAPSHOT)
@@ -446,7 +446,7 @@ describe('HostLink', () => {
         onChange: () => undefined
       }
     })
-    link.pair('192.168.1.20:5051', '123456', null)
+    link.pair('192.168.1.20:5051', '123456')
     expect(events).toEqual(['forget cursors', 'socket'])
     link.forget()
     expect(events).toEqual(['forget cursors', 'socket', 'forget cursors'])
@@ -455,7 +455,7 @@ describe('HostLink', () => {
   it('forgets the sim PC: closes the link, deletes the stored token and goes back to unpaired', () => {
     const store = memoryStore()
     const link = make(store)
-    link.pair('192.168.1.20:5051', '123456', null)
+    link.pair('192.168.1.20:5051', '123456')
     sockets[0]?.open()
     link.forget()
     expect(sockets[0]?.closed).toBe(true)
@@ -485,7 +485,7 @@ describe('HostLink', () => {
         onChange: (listener) => (changed = listener)
       }
     })
-    link.pair('192.168.1.20:5051', '123456', null)
+    link.pair('192.168.1.20:5051', '123456')
     sockets[0]?.open()
     sockets[0]?.hear({ t: 'paired', token: 't' })
     expect(asked).toEqual([])
@@ -518,7 +518,7 @@ describe('HostLink', () => {
             : HELD_BACK
           : payload
     })
-    link.pair('192.168.1.20:5051', '123456', null)
+    link.pair('192.168.1.20:5051', '123456')
     sockets[0]?.open()
     sockets[0]?.hear({ t: 'paired', token: 't' })
     sockets[0]?.hear({ t: 'snapshot', topics: {}, flight: null })
@@ -548,7 +548,7 @@ describe('HostLink', () => {
         expect(points()).toEqual([])
       }
     })
-    link.pair('192.168.1.20:5051', '123456', null)
+    link.pair('192.168.1.20:5051', '123456')
     sockets[0]?.open()
     sockets[0]?.hear({ t: 'paired', token: 't' })
     sockets[0]?.hear({ t: 'snapshot', topics: {}, flight: { flight: { flightId: 7 }, trackPoints: [] } })
@@ -560,7 +560,7 @@ describe('HostLink', () => {
   it('stays paired when the token could not be stored, and says so in the log', async () => {
     const store = { ...memoryStore(), save: () => Promise.reject(new Error('keychain locked')) }
     const link = make(store)
-    link.pair('192.168.1.20:5051', '123456', null)
+    link.pair('192.168.1.20:5051', '123456')
     sockets[0]?.open()
     pins[0]?.onCertificate(PIN)
     sockets[0]?.hear({ t: 'paired', token: 't' })
@@ -579,12 +579,13 @@ describe('HostLink', () => {
       return { link, store }
     }
 
-    it('checks the pin from pasted pairing text, stores it with the token, and does not look at the certificate shown', () => {
+    it('takes the certificate the sim PC shows on a pairing by address and code, and stores its pin with the token', () => {
       const store = memoryStore()
       const link = make(store)
-      link.pair('192.168.1.20:5051', '123456', PIN)
-      expect(pins[0]?.expected).toBe(PIN)
+      link.pair('192.168.1.20:5051', '123456')
+      expect(pins[0]?.expected).toBeNull()
       sockets[0]?.open()
+      pins[0]?.onCertificate(PIN)
       sockets[0]?.hear({ t: 'paired', token: 'tok-1' })
       sockets[0]?.hear(SNAPSHOT)
       expect(store.saved).toEqual([{ address: '192.168.1.20:5051', token: 'tok-1', pin: PIN }])
@@ -601,7 +602,7 @@ describe('HostLink', () => {
     it('checks the stored pin, never a certificate it has not been told, on every later connection', async () => {
       vi.useFakeTimers()
       const link = make(memoryStore())
-      link.pair('192.168.1.20:5051', '123456', null)
+      link.pair('192.168.1.20:5051', '123456')
       sockets[0]?.open()
       pins[0]?.onCertificate(PIN)
       sockets[0]?.hear({ t: 'paired', token: 't' })
@@ -636,7 +637,7 @@ describe('HostLink', () => {
       expect(statuses.at(-1)?.state).toBe('pair-again')
       expect(store.cleared).toBe(0)
       // Pairing again clears it, and forgetting does too.
-      link.pair('192.168.1.20:5051', '123456', null)
+      link.pair('192.168.1.20:5051', '123456')
       expect(link.getStatus().state).toBe('connecting')
       const other = make(store)
       await other.start()
@@ -678,7 +679,7 @@ describe('HostLink', () => {
         const { link } = await stored()
         pins[0]?.onRefused(reason)
         expect(link.getStatus().state).toBe(reason)
-        link.pair('192.168.1.20:5051', '123456', PIN)
+        link.pair('192.168.1.20:5051', '123456')
         expect(link.getStatus().state).toBe('connecting')
         pins[1]?.onRefused(reason)
         expect(link.getStatus().state).toBe(reason)
@@ -686,18 +687,6 @@ describe('HostLink', () => {
         expect(link.getStatus().state).toBe('unpaired')
       })
     }
-
-    it('refuses a pairing whose pasted pin is not the certificate shown, without sending the code and without storing anything', () => {
-      const store = memoryStore()
-      const link = make(store)
-      link.pair('192.168.1.20:5051', '123456', PIN)
-      // The check refuses it at the handshake, so the socket never opens and the code is never sent.
-      pins[0]?.onRefused('certificate-changed')
-      sockets[0]?.drop()
-      expect(sockets[0]?.sent).toEqual([])
-      expect(link.getStatus().state).toBe('certificate-changed')
-      expect(store.saved).toEqual([])
-    })
   })
 
   it('forgets a token the host no longer accepts', async () => {

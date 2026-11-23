@@ -4,7 +4,6 @@ import { useId, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { parsePairingText } from '@shared/host-address'
 import { useHostLinkStatus } from '../app/use-host-link'
 import { winglogApi } from '../data/winglog-api'
 import { runAsync } from '../report-error'
@@ -43,8 +42,6 @@ export function HostLinkCard(): React.JSX.Element {
   const status = useHostLinkStatus(true)
   const [address, setAddress] = useState('')
   const [code, setCode] = useState('')
-  /** The pin of the sim PC's certificate, from pasted pairing text; not shown. Null when the address and code were typed. */
-  const [pin, setPin] = useState<string | null>(null)
   const [problem, setProblem] = useState(false)
   const addressId = useId()
   const codeId = useId()
@@ -54,32 +51,11 @@ export function HostLinkCard(): React.JSX.Element {
   /** The card offers the address and code again when there is no link, or the link cannot go on without pairing. */
   const offersPairing = !paired || state === 'wrong-code' || isRefused(state)
 
-  /**
-   * Takes what was typed or pasted. The host's pairing text carries its address, the code and the pin of its certificate, so one paste
-   * fills both fields and keeps the pin. An address edited by hand is not the one the pin belongs to, so the pin is dropped.
-   *
-   * @param value The field's new text.
-   */
-  function enterAddress(value: string): void {
-    const parsed = parsePairingText(value)
-    if (parsed?.code) {
-      setAddress(parsed.address)
-      setCode(parsed.code)
-      setPin(parsed.pin)
-    } else {
-      setAddress(value)
-      setPin(null)
-    }
-  }
-
   function connect(): void {
     setProblem(false)
     winglogApi()
-      .hostLinkPair(address, code.trim(), pin)
-      .then(() => {
-        setCode('')
-        setPin(null)
-      })
+      .hostLinkPair(address, code.trim())
+      .then(() => setCode(''))
       .catch(() => setProblem(true))
   }
 
@@ -119,7 +95,7 @@ export function HostLinkCard(): React.JSX.Element {
               value={address}
               placeholder="192.168.1.20:5051"
               inputMode="url"
-              onChange={(event) => enterAddress(event.target.value)}
+              onChange={(event) => setAddress(event.target.value)}
               className="w-56 font-mono"
             />
           </SettingRow>

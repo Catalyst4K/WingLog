@@ -469,8 +469,8 @@ const api: WingLogApi = {
   setupComplete: () => ipcRenderer.invoke(IpcChannels.setupComplete),
   lanGetStatus: () => ipcRenderer.invoke(IpcChannels.lanGetStatus),
   hostLinkGetStatus: () => ipcRenderer.invoke(IpcChannels.hostLinkGetStatus),
-  hostLinkPair: (address: string, code: string, pin?: string | null) =>
-    ipcRenderer.invoke(IpcChannels.hostLinkPair, address, code, pin),
+  hostLinkPair: (address: string, code: string) =>
+    ipcRenderer.invoke(IpcChannels.hostLinkPair, address, code),
   hostLinkForget: () => ipcRenderer.invoke(IpcChannels.hostLinkForget),
   onDataChanged: (listener: () => void) => {
     const handler = (): void => listener()

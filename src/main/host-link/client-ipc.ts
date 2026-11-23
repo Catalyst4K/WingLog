@@ -8,7 +8,6 @@ import type { LiveCommand, LiveTopic } from '@shared/live'
 import { IpcChannels } from '@shared/ipc'
 import { EMPTY_BEYONDATC_STATE } from '@shared/beyondatc-state'
 import type { HostLinkStatus, OnlineNetwork, OnlineNetworkSettings, TrackingSettings } from '@shared/ipc'
-import { isCertificatePin } from '@shared/host-address'
 import { logger } from '../logging/logger'
 import type { HandledChannels } from '../client-mode'
 import { asOnlineNetwork } from '../online/prefile-url'
@@ -156,17 +155,6 @@ function shortText(value: unknown): string {
 }
 
 /**
- * @param value A pin from the renderer.
- * @returns The pin, or null when there is none (a typed pairing).
- * @throws When it is there and is not a certificate pin: it is refused, never read as "no pin", which would check nothing.
- */
-function checkedPin(value: unknown): string | null {
-  if (value === undefined || value === null) return null
-  if (!isCertificatePin(value)) throw new Error('Invalid certificate pin')
-  return value
-}
-
-/**
  * Registers the channels a client answers itself.
  *
  * @param ipcMain Electron's IPC.
@@ -196,13 +184,10 @@ export function registerHostLinkHandlers(
   }
 ): void {
   ipcMain.handle(IpcChannels.hostLinkGetStatus, (): HostLinkStatus => link.getStatus())
-  ipcMain.handle(
-    IpcChannels.hostLinkPair,
-    (_event, address: unknown, code: unknown, pin: unknown): HostLinkStatus => {
-      link.pair(shortText(address), shortText(code), checkedPin(pin))
-      return link.getStatus()
-    }
-  )
+  ipcMain.handle(IpcChannels.hostLinkPair, (_event, address: unknown, code: unknown): HostLinkStatus => {
+    link.pair(shortText(address), shortText(code))
+    return link.getStatus()
+  })
   ipcMain.handle(IpcChannels.hostLinkForget, () => link.forget())
   const taken: string[] = []
   const answer = (channel: string, reply: (...args: unknown[]) => unknown): void => {

@@ -66,21 +66,10 @@ describe('TwinCard', () => {
     expect(await screen.findByLabelText('482913')).toBeInTheDocument()
   })
 
-  it('copies the pairing text, which carries the address and the code in one line', async () => {
-    const writeText = vi.fn(() => Promise.resolve())
-    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
-    setup({ ...ON, twinPairing: { code: '482913', expiresAt: Date.now() + 300_000 } })
-    render(<TwinCard />)
-    await userEvent.click(await screen.findByRole('button', { name: 'Copy pairing text' }))
-    expect(writeText).toHaveBeenCalledWith(`winglog-pair://192.168.1.136:8765/482913/${PIN}`)
-    expect(await screen.findByRole('button', { name: 'Copied' })).toBeInTheDocument()
-  })
-
-  it('offers no pairing text, and says why, when this PC cannot keep its certificate: other WingLogs could not connect', async () => {
+  it('offers no pairing code, and says why, when this PC cannot keep its certificate: other WingLogs could not connect', async () => {
     setup({ ...ON, twinCertificate: null, twinPairing: { code: '482913', expiresAt: Date.now() + 300_000 } })
     render(<TwinCard />)
     expect(await screen.findByRole('alert')).toHaveTextContent(/can’t connect.*security certificate/)
-    expect(screen.queryByRole('button', { name: 'Copy pairing text' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Pair another WingLog' })).not.toBeInTheDocument()
     expect(screen.queryByLabelText('482913')).not.toBeInTheDocument()
   })
