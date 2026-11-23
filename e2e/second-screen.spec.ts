@@ -1,115 +1,15 @@
-import { expect, test, type Page } from '@playwright/test'
-import { Device, freePort } from './lan-device'
+import { expect, test } from '@playwright/test'
+import { Device, freePort, openPhoneCode, switchPhonesOn } from './lan-device'
 import { launchApp } from './launch-app'
 import { FakeGsxRemoteServer, VHHH_BOOT_SNAPSHOT } from './gsx-remote-server'
 
 /**
- * The second screen (winglog-backend's docs/plans/lan-web-viewer.md) through a real launched app: switching it on in Settings, pairing a
- * device with the code the PC shows, the page it serves, and revoking the device. The server listens on loopback here (the app's
+ * The second screen (winglog-backend's docs/plans/lan-web-viewer.md) through a real launched app: the procedure choice both ways, and the
+ * page a phone opens pairing with the code Settings → Devices shows (switching on, pairing and removing a device are in devices.spec.ts). The server listens on loopback here (the app's
  * WINGLOG_E2E_LAN_ADDRESS, honoured by an unpackaged build only), so no real network or firewall is touched.
  */
 
-/**
- * Switches the second screen on in Settings, on a free port.
- *
- * @param page The app window.
- * @param port The port to listen on.
- * @returns The card.
- */
-async function switchOn(page: Page, port: number) {
-  await page.getByRole('tab', { name: 'Settings' }).click()
-  await page.getByRole('tab', { name: 'Second screen' }).click()
-  const card = page.locator('[data-slot="card"]').filter({ hasText: 'Second screen' })
-  await card.getByRole('button', { name: 'On', exact: true }).click()
-  const portBox = card.getByRole('textbox', { name: 'Port' })
-  await portBox.fill(String(port))
-  await portBox.blur()
-  await expect(card.getByRole('button', { name: 'Pair a device' })).toBeVisible()
-  return card
-}
-
 test.describe('Second screen', () => {
-  test('is off until switched on, then serves the page and pairs a device with the code', async () => {
-    const port = await freePort()
-    const { window: page, cleanup } = await launchApp({ env: { WINGLOG_E2E_LAN_ADDRESS: '127.0.0.1' } })
-    try {
-      await page.getByRole('tab', { name: 'Settings' }).click()
-      await page.getByRole('tab', { name: 'Second screen' }).click()
-      const card = page.locator('[data-slot="card"]').filter({ hasText: 'Second screen' })
-      await expect(card.getByRole('button', { name: 'Off', exact: true })).toHaveAttribute(
-        'aria-pressed',
-        'true'
-      )
-      await expect(card.getByText('Pair a device')).toHaveCount(0)
-      await expect(card.getByRole('img')).toHaveCount(0)
-
-      await switchOn(page, port)
-
-      // No QR code to scan until a pairing code is asked for: only a blurred placeholder that is hidden from assistive tech.
-      await expect(card.getByRole('img', { name: 'QR code for the second-screen address' })).toHaveCount(0)
-      await expect(card.locator('svg.blur-md')).toHaveCount(1)
-
-      // The page itself carries no data, and anything else is not found.
-      const html = await fetch(`http://127.0.0.1:${port}/`)
-      expect(html.status).toBe(200)
-      expect(await html.text()).toContain('<div id="root">')
-      expect((await fetch(`http://127.0.0.1:${port}/etc/passwd`)).status).toBe(404)
-
-      // Pairing: the code on the PC, typed on the device.
-      await card.getByRole('button', { name: 'Pair a device' }).click()
-      const code =
-        (await card
-          .locator('[aria-label]')
-          .filter({ hasText: /^\d{6}$/ })
-          .textContent()) ?? ''
-      expect(code).toMatch(/^\d{6}$/)
-
-      // Asking for the code reveals a sharp QR code that holds it.
-      const qr = card.getByRole('img', { name: 'QR code for the second-screen address' })
-      await expect(qr).toBeVisible()
-      expect(await qr.locator('path').getAttribute('d')).toMatch(/^M\d+ \d+h\d+v1/)
-      await expect(card.locator('svg.blur-md')).toHaveCount(0)
-
-      const wrong = new Device(port)
-      await wrong.opened()
-      wrong.send({ t: 'pair', code: code === '000000' ? '111111' : '000000', name: 'Other' })
-      await wrong.message('denied')
-
-      const device = new Device(port)
-      await device.opened()
-      device.send({ t: 'pair', code, name: "Callum's iPad (Safari)" })
-      const paired = await device.message('paired')
-      expect(paired.token).toMatch(/^[A-Za-z0-9_-]{43}$/)
-      await device.message('snapshot')
-
-      await expect(card.getByText("Callum's iPad (Safari)")).toBeVisible()
-      await expect(card.getByText('1 device connected now')).toBeVisible()
-
-      // A second device cannot use the same code.
-      const reuse = new Device(port)
-      await reuse.opened()
-      reuse.send({ t: 'pair', code, name: 'Copy' })
-      await reuse.message('denied')
-
-      // Reconnecting with the token works; revoking stops it at once.
-      const again = new Device(port)
-      await again.opened()
-      again.send({ t: 'hello', token: paired.token })
-      await again.message('snapshot')
-      await card.getByRole('button', { name: "Revoke Callum's iPad (Safari)" }).click()
-      await expect.poll(() => again.closed).toBe(true)
-      await expect(card.getByText('No devices paired yet.')).toBeVisible()
-
-      const revoked = new Device(port)
-      await revoked.opened()
-      revoked.send({ t: 'hello', token: paired.token })
-      await revoked.message('denied')
-      for (const d of [wrong, device, reuse, again, revoked]) d.close()
-    } finally {
-      await cleanup()
-    }
-  })
-
   test('procedures chosen on a paired device reach the app\x27s window, and ones chosen in the window reach the device', async () => {
     const port = await freePort()
     const { window: page, cleanup } = await launchApp({ env: { WINGLOG_E2E_LAN_ADDRESS: '127.0.0.1' } })
@@ -230,13 +130,8 @@ test.describe('Second screen', () => {
     const port = await freePort()
     const { app, window: page, cleanup } = await launchApp({ env: { WINGLOG_E2E_LAN_ADDRESS: '127.0.0.1' } })
     try {
-      const card = await switchOn(page, port)
-      await card.getByRole('button', { name: 'Pair a device' }).click()
-      const code =
-        (await card
-          .locator('[aria-label]')
-          .filter({ hasText: /^\d{6}$/ })
-          .textContent()) ?? ''
+      await switchPhonesOn(page, port)
+      const { dialog, code } = await openPhoneCode(page)
 
       // The real built page, in a hidden window of the same Chromium: nothing is shown or focused.
       const known = app.windows().length
@@ -256,7 +151,9 @@ test.describe('Second screen', () => {
       await phone.getByRole('button', { name: 'Pair' }).click()
       // Paired: no flight is being tracked, so the page says so, over the map.
       await expect(phone.getByText('No flight is being tracked on the PC yet.')).toBeVisible()
-      await expect(card.getByText(/Chrome|Electron|Windows PC|Linux PC|Mac|Browser/).first()).toBeVisible()
+      await expect(
+        dialog.getByText(/(Chrome|Electron|Windows PC|Linux PC|Mac|Browser).* is paired$/)
+      ).toBeVisible()
 
       // A reload keeps the pairing: the token is remembered, the code is not asked for again.
       await phone.reload()
@@ -270,13 +167,8 @@ test.describe('Second screen', () => {
     const port = await freePort()
     const { app, window: page, cleanup } = await launchApp({ env: { WINGLOG_E2E_LAN_ADDRESS: '127.0.0.1' } })
     try {
-      const card = await switchOn(page, port)
-      await card.getByRole('button', { name: 'Pair a device' }).click()
-      const code =
-        (await card
-          .locator('[aria-label]')
-          .filter({ hasText: /^\d{6}$/ })
-          .textContent()) ?? ''
+      await switchPhonesOn(page, port)
+      const { dialog, code } = await openPhoneCode(page)
 
       const known = app.windows().length
       await app.evaluate(async ({ BrowserWindow }, url) => {
@@ -290,12 +182,7 @@ test.describe('Second screen', () => {
       await expect(phone.getByRole('navigation')).toBeVisible()
       await expect(phone.getByLabel('Pairing code')).toHaveCount(0)
       expect(phone.url()).toBe(`http://127.0.0.1:${port}/`)
-      await expect(
-        card
-          .getByText('Phone', { exact: false })
-          .or(card.getByText(/Chrome|Electron|Windows PC|Linux PC|Mac|Browser/))
-          .first()
-      ).toBeVisible()
+      await expect(dialog.getByText(/ is paired$/)).toBeVisible()
     } finally {
       await cleanup()
     }

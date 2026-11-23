@@ -143,7 +143,7 @@ test('fleet, logbook and settings on a seeded profile', async () => {
     for (const [tab, name] of [
       ['GSX', 'settings-gsx'],
       ['Online network', 'settings-online'],
-      ['Second screen', 'settings-second-screen']
+      ['Devices', 'settings-devices']
     ] as const) {
       await page.getByRole('tab', { name: tab, exact: true }).click()
       await shot(page, name)

@@ -43,13 +43,19 @@ test('a client starts none of the host services and offers none of their setting
       // A wide window, so Settings lists its pages down the side (a narrow one has a picker instead).
       await client.window.setViewportSize({ width: 1400, height: 900 })
       await client.window.getByRole('tab', { name: 'Settings' }).click()
-      // The pages of what only the sim PC runs are not in the list; the client's own are, and so is the page that pairs it.
+      // The pages of what only the sim PC runs are not in the list; the client's own are, and so is Devices, which pairs it.
       await expect(client.window.getByRole('tab', { name: 'SimBrief and Navigraph' })).toBeVisible()
-      for (const name of ['GSX', 'ATC', 'Online network', 'Navdata', 'Second screen'])
+      for (const name of ['GSX', 'ATC', 'Online network', 'Navdata'])
         await expect(client.window.getByRole('tab', { name, exact: true })).toHaveCount(0)
-      await client.window.getByRole('tab', { name: /Sim PC/ }).click()
-      await expect(client.window.getByText('Where the sim runs')).toBeVisible()
-      await expect(client.window.getByRole('textbox', { name: 'Pairing code' })).toBeVisible()
+      await client.window.getByRole('tab', { name: /^Devices/ }).click()
+      await expect(client.window.getByRole('heading', { name: 'This computer' })).toBeVisible()
+      await expect(client.window.getByRole('heading', { name: 'On your home network' })).toHaveCount(0)
+      await client.window.getByRole('button', { name: 'Add a device' }).click()
+      const connect = client.window.getByRole('dialog')
+      await expect(connect.getByRole('heading', { name: 'Connect to a sim PC' })).toBeVisible()
+      await expect(connect.getByRole('textbox', { name: 'Pairing code' })).toBeVisible()
+      await client.window.keyboard.press('Escape')
+      await expect(connect).toHaveCount(0)
       // Fleet, Logbook and Dispatch are the client's own and work as ever.
       await client.window.getByRole('tab', { name: 'Fleet' }).click()
       await expect(client.window.getByRole('heading', { name: 'Fleet' })).toBeVisible()
