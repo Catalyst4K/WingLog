@@ -32,29 +32,35 @@ test('a client pins the sim PC’s certificate when it pairs by address and code
       await setup.cleanup()
     }
 
-    const client = await launchApp({ userDataDir: clientDir })
+    const address = `127.0.0.1:${port}`
+    // The client closes before the sim PC each time: a sim PC closed while a twin is still connected leaves its data folder locked.
+    const host = await launchApp({ env: { WINGLOG_E2E_LAN_ADDRESS: '127.0.0.1' } })
     try {
-      await expect(client.window.getByText('No sim PC paired')).toBeAttached()
-      const address = `127.0.0.1:${port}`
-
-      const host = await launchApp({ env: { WINGLOG_E2E_LAN_ADDRESS: '127.0.0.1' } })
+      const { pin, code } = await openTwinPairing(host.window)
+      expect(pin).toMatch(/^[A-Za-z0-9_-]{43}$/)
+      expect(code).toMatch(/^\d{6}$/)
+      const client = await launchApp({ userDataDir: clientDir })
       try {
-        const { pin, code } = await openTwinPairing(host.window)
-        expect(pin).toMatch(/^[A-Za-z0-9_-]{43}$/)
-        expect(code).toMatch(/^\d{6}$/)
+        await expect(client.window.getByText('No sim PC paired')).toBeAttached()
         await client.window.evaluate(([a, c]) => window.winglog.hostLinkPair(a, c), [address, code] as const)
         await expect(client.window.getByText(/^Connected to the sim PC/)).toBeAttached({ timeout: 15_000 })
         const paired = await host.window.evaluate(() => window.winglog.lanGetStatus())
         expect(paired.devices).toHaveLength(1)
         expect(paired.devices[0]).toMatchObject({ kind: 'twin', connected: true })
       } finally {
-        await host.cleanup()
+        await client.cleanup()
       }
+    } finally {
+      await host.cleanup()
+    }
 
-      // Another WingLog (its own data folder, so its own certificate) on the same address: the client refuses it before sending its token.
-      const impostor = await launchApp({ env: { WINGLOG_E2E_LAN_ADDRESS: '127.0.0.1' } })
+    // Another WingLog (its own data folder, so its own certificate) on the same address: the client, started again with the pin it stored,
+    // refuses it before sending its token.
+    const impostor = await launchApp({ env: { WINGLOG_E2E_LAN_ADDRESS: '127.0.0.1' } })
+    try {
+      await openTwinPairing(impostor.window)
+      const client = await launchApp({ userDataDir: clientDir })
       try {
-        await openTwinPairing(impostor.window)
         await expect
           .poll(() => client.window.evaluate(async () => (await window.winglog.hostLinkGetStatus()).state), {
             timeout: 30_000
@@ -65,10 +71,10 @@ test('a client pins the sim PC’s certificate when it pairs by address and code
         const refused = await impostor.window.evaluate(() => window.winglog.lanGetStatus())
         expect(refused.devices).toEqual([])
       } finally {
-        await impostor.cleanup()
+        await client.cleanup()
       }
     } finally {
-      await client.cleanup()
+      await impostor.cleanup()
     }
   } finally {
     rmSync(clientDir, { recursive: true, force: true })
