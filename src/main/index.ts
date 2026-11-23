@@ -250,7 +250,14 @@ function registerAppAreas(deps: {
     }
   })
   registerAppHandlers(ipcMain, { updateService })
-  registerRunModeHandlers(ipcMain, { db, capabilities })
+  registerRunModeHandlers(ipcMain, {
+    db,
+    capabilities,
+    relaunch: () => {
+      app.relaunch()
+      app.exit(0)
+    }
+  })
 }
 
 /**

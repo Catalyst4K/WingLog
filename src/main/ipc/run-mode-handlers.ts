@@ -6,18 +6,19 @@ import type { IpcMain } from 'electron'
 import { IpcChannels } from '@shared/ipc'
 import { parseRunMode, type AppCapabilities } from '@shared/run-mode'
 import type { WingLogDb } from '../db/client'
-import { getRunMode, setRunMode } from '../db/settings-repo'
+import { getRunMode, setOpenConnectOnStart, setRunMode, takeOpenConnectOnStart } from '../db/settings-repo'
 
 /**
  * Registers the run mode channels.
  *
  * @param ipcMain Electron's IPC.
- * @param deps The database and what this run was started as.
+ * @param deps The database, what this run was started as, and how to start the app again.
  * @param deps.capabilities What this run is, decided at startup (see `appCapabilities`).
+ * @param deps.relaunch Starts the app again and ends this run (`app.relaunch()` then `app.exit()`).
  */
 export function registerRunModeHandlers(
   ipcMain: IpcMain,
-  { db, capabilities }: { db: WingLogDb; capabilities: AppCapabilities }
+  { db, capabilities, relaunch }: { db: WingLogDb; capabilities: AppCapabilities; relaunch: () => void }
 ): void {
   ipcMain.handle(IpcChannels.appGetCapabilities, () => capabilities)
   ipcMain.handle(IpcChannels.settingsGetRunMode, () => getRunMode(db))
@@ -30,4 +31,19 @@ export function registerRunModeHandlers(
     if (mode === 'host' && !capabilities.canHostSim) throw new Error('This computer cannot be the sim host')
     setRunMode(db, mode)
   })
+  // Add a device → "Use another PC's sim", on a sim PC that could be a client instead (devices-page.md, 2026-11-23).
+  ipcMain.handle(IpcChannels.settingsUseAnotherPcSim, () => {
+    if (!capabilities.multiDevice || capabilities.runMode !== 'host')
+      throw new Error('Only a sim PC in a multi-device build can switch to another PC’s sim')
+    setRunMode(db, 'client')
+    setOpenConnectOnStart(db)
+  })
+  // A restart is allowed only when it is needed: the run mode chosen for the next launch is not this run's.
+  ipcMain.handle(IpcChannels.appRestartForRunMode, () => {
+    const chosen = getRunMode(db)
+    if (!capabilities.multiDevice || chosen === null || chosen === capabilities.runMode)
+      throw new Error('No run mode change is waiting for a restart')
+    relaunch()
+  })
+  ipcMain.handle(IpcChannels.appTakeOpenConnectOnStart, () => takeOpenConnectOnStart(db))
 }

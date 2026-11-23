@@ -134,6 +134,9 @@ const api: WingLogApi = {
   settingsSetTheme: (theme: Theme) => ipcRenderer.invoke(IpcChannels.settingsSetTheme, theme),
   settingsGetRunMode: () => ipcRenderer.invoke(IpcChannels.settingsGetRunMode),
   settingsSetRunMode: (mode: RunMode) => ipcRenderer.invoke(IpcChannels.settingsSetRunMode, mode),
+  settingsUseAnotherPcSim: () => ipcRenderer.invoke(IpcChannels.settingsUseAnotherPcSim),
+  appRestartForRunMode: () => ipcRenderer.invoke(IpcChannels.appRestartForRunMode),
+  appTakeOpenConnectOnStart: () => ipcRenderer.invoke(IpcChannels.appTakeOpenConnectOnStart),
   trackingStart: (flightId: number) => ipcRenderer.invoke(IpcChannels.trackingStart, flightId),
   trackingStartFree: (input: StartFreeFlightInput) =>
     ipcRenderer.invoke(IpcChannels.trackingStartFree, input),

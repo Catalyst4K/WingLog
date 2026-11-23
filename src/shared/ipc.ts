@@ -280,6 +280,12 @@ export interface WingLogApi {
   settingsGetRunMode: () => Promise<RunMode | null>
   /** Chooses the run mode for the next launch. Refused when multi-device is not built in. */
   settingsSetRunMode: (mode: RunMode) => Promise<void>
+  /** A sim PC chooses to use another PC's sim: the run mode becomes client, and the next launch opens Connect to a sim PC. */
+  settingsUseAnotherPcSim: () => Promise<void>
+  /** Starts WingLog again so a run mode chosen for the next launch applies. Refused when no change is waiting. */
+  appRestartForRunMode: () => Promise<void>
+  /** Whether this launch should open Settings → Devices on Connect to a sim PC; true once, then false. */
+  appTakeOpenConnectOnStart: () => Promise<boolean>
   /** Begins tracking a planned flight. Throws if the sim isn't connected or another flight is already tracked. */
   trackingStart: (flightId: number) => Promise<void>
   /** Creates and starts tracking a free flight (free-flight-tracking.md) — no planned
