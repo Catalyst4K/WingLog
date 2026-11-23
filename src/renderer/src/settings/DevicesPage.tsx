@@ -4,10 +4,14 @@
  * "This computer". On a client: its sim PC, and "This computer". In a build without multi-device: phones and tablets only.
  */
 
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { Button } from '@/components/ui/button'
 import { useCapabilities } from '../app/capabilities-context'
 import { useHostLinkStatus } from '../app/use-host-link'
+import { AddDeviceDialog } from './AddDeviceDialog'
 import { DeviceList } from './DeviceList'
+import { offersPairing } from './host-link-pairing'
 import { DevicesNetwork } from './DevicesNetwork'
 import { SimPcLink } from './SimPcLink'
 import { ThisComputer } from './ThisComputer'
@@ -35,16 +39,6 @@ function HostDevices(props: { multiDevice: boolean }): React.JSX.Element | null 
 }
 
 /**
- * The client's part of the page: its sim PC.
- *
- * @returns The section.
- */
-function ClientDevices(): React.JSX.Element {
-  const status = useHostLinkStatus(true)
-  return <SimPcLink status={status} />
-}
-
-/**
  * The Devices page.
  *
  * @returns The element.
@@ -53,6 +47,10 @@ export function DevicesPage(): React.JSX.Element {
   const { t } = useTranslation()
   const { runMode, multiDevice } = useCapabilities()
   const isClient = runMode === 'client'
+  const link = useHostLinkStatus(isClient)
+  const [adding, setAdding] = useState(false)
+  // A client adds only its one sim PC: the button shows while none is paired or the link needs pairing again.
+  const canAdd = !isClient || offersPairing(link)
   const lede = isClient
     ? t('settingsView.devices.ledeClient')
     : multiDevice
@@ -60,11 +58,24 @@ export function DevicesPage(): React.JSX.Element {
       : t('settingsView.devices.ledePhones')
   return (
     <div className={COLUMN}>
-      <SettingsPageHeader title={t('settingsView.categories.devices')} lede={lede} />
+      <SettingsPageHeader
+        title={t('settingsView.categories.devices')}
+        lede={lede}
+        action={
+          canAdd && (
+            <Button type="button" onClick={() => setAdding(true)}>
+              {t('settingsView.devices.add')}
+            </Button>
+          )
+        }
+      />
       <div className={`${COLUMN} mt-[26px]`}>
-        {isClient ? <ClientDevices /> : <HostDevices multiDevice={multiDevice} />}
+        {isClient ? <SimPcLink status={link} /> : <HostDevices multiDevice={multiDevice} />}
         <ThisComputer />
       </div>
+      {adding && (
+        <AddDeviceDialog isClient={isClient} multiDevice={multiDevice} onClose={() => setAdding(false)} />
+      )}
     </div>
   )
 }

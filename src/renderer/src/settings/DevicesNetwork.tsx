@@ -9,18 +9,12 @@ import type { LanSettings, LanStatus } from '@shared/ipc'
 import { Input } from '@/components/ui/input'
 import { winglogApi } from '../data/winglog-api'
 import { runAsync } from '../report-error'
+import { LAN_PROBLEM_KEY } from './lan-problem'
 import { OnOffControl, SettingRow, SettingsCard } from './ui/SettingsCard'
 
 /** The lowest and highest port the server may use: above the privileged ones (the main process checks the same). */
 const MIN_PORT = 1024
 const MAX_PORT = 65535
-
-/** The locale key under `lan.settings.problem` for each problem. */
-const PROBLEM_KEY = {
-  'no-adapter': 'noAdapter',
-  'port-in-use': 'portInUse',
-  failed: 'failed'
-} as const
 
 /**
  * The port field: digits only, saved when it loses focus if it is a good port, put back to the saved one if it is not. Keyed by the saved
@@ -63,7 +57,7 @@ function NetworkProblems(props: { status: LanStatus }): React.JSX.Element | null
   const { t } = useTranslation()
   const { settings, url, problem, twinCertificate } = props.status
   const lines: string[] = []
-  if (problem) lines.push(t(`lan.settings.problem.${PROBLEM_KEY[problem]}`))
+  if (problem) lines.push(t(`lan.settings.problem.${LAN_PROBLEM_KEY[problem]}`))
   else if (settings.twinEnabled && !url) lines.push(t('settingsView.twin.notReachable'))
   if (settings.twinEnabled && url && !twinCertificate) lines.push(t('settingsView.twin.noCertificate'))
   if (lines.length === 0) return null
