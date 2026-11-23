@@ -185,9 +185,7 @@ export class LanServer {
 
   /** @returns The ids of the paired devices with an open, authenticated connection right now. */
   get connectedDeviceIds(): Set<number> {
-    const ids = new Set<number>()
-    for (const client of this.clients) if (client.deviceId !== null) ids.add(client.deviceId)
-    return ids
+    return new Set([...this.clients].flatMap((client) => (client.deviceId === null ? [] : [client.deviceId])))
   }
 
   /**
@@ -322,11 +320,9 @@ export class LanServer {
    * @param deviceId The device.
    */
   disconnectDevice(deviceId: number): void {
-    for (const client of this.clients) {
-      if (client.deviceId === deviceId) {
-        this.send(client, { t: 'denied' })
-        client.socket.close()
-      }
+    for (const client of [...this.clients].filter((open) => open.deviceId === deviceId)) {
+      this.send(client, { t: 'denied' })
+      client.socket.close()
     }
   }
 
