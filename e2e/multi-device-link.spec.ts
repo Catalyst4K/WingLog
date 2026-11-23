@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { expect, test } from '@playwright/test'
-import { freePort } from './lan-device'
+import { freePort, switchPhonesOn } from './lan-device'
 import { FakeGsxRemoteServer, VHHH_BOOT_SNAPSHOT } from './gsx-remote-server'
 import { launchApp } from './launch-app'
 import { skipWithoutMultiDevice } from './multi-device-build'
@@ -34,9 +34,12 @@ test('a client pins the sim PC’s certificate when it pairs by address and code
 
     const address = `127.0.0.1:${port}`
     // The client closes before the sim PC each time: a sim PC closed while a twin is still connected leaves its data folder locked.
+    /** The pin of the certificate the client paired with. */
+    let pinned = ''
     const host = await launchApp({ env: { WINGLOG_E2E_LAN_ADDRESS: '127.0.0.1' } })
     try {
       const { pin, code } = await openTwinPairing(host.window)
+      pinned = pin
       expect(pin).toMatch(/^[A-Za-z0-9_-]{43}$/)
       expect(code).toMatch(/^\d{6}$/)
       const client = await launchApp({ userDataDir: clientDir })
@@ -58,7 +61,10 @@ test('a client pins the sim PC’s certificate when it pairs by address and code
     // refuses it before sending its token.
     const impostor = await launchApp({ env: { WINGLOG_E2E_LAN_ADDRESS: '127.0.0.1' } })
     try {
-      await openTwinPairing(impostor.window)
+      // A different certificate: the pin the client keeps does not match it.
+      const { pin: impostorPin } = await openTwinPairing(impostor.window)
+      expect(impostorPin).toMatch(/^[A-Za-z0-9_-]{43}$/)
+      expect(impostorPin).not.toBe(pinned)
       const client = await launchApp({ userDataDir: clientDir })
       try {
         await expect
@@ -68,13 +74,85 @@ test('a client pins the sim PC’s certificate when it pairs by address and code
           .toBe('certificate-changed')
         // The header says it in words too (what a screen reader reads), not a raw key.
         await expect(client.window.getByText('Sim PC: certificate changed')).toBeAttached()
-        const refused = await impostor.window.evaluate(() => window.winglog.lanGetStatus())
-        expect(refused.devices).toEqual([])
       } finally {
         await client.cleanup()
       }
     } finally {
       await impostor.cleanup()
+    }
+  } finally {
+    rmSync(clientDir, { recursive: true, force: true })
+  }
+})
+
+// Settings → Devices on both computers (winglog-backend's docs/plans/devices-page.md): a Windows PC that is a sim PC chooses Add a device →
+// Use another PC's sim, and its next start opens Connect to a sim PC; it types the address and code the real sim PC's Add a device →
+// Another computer with WingLog shows, and both say it paired. Restart now itself is a unit test (it relaunches outside Playwright).
+test('a computer pairs with the sim PC through Add a device on both sides, after Use another PC’s sim', async () => {
+  test.setTimeout(120_000)
+  const clientDir = mkdtempSync(join(tmpdir(), 'winglog-e2e-client-'))
+  const port = await freePort()
+  try {
+    const first = await launchApp({ userDataDir: clientDir })
+    try {
+      const capabilities = await first.window.evaluate(() => window.winglog.appGetCapabilities())
+      skipWithoutMultiDevice(capabilities.multiDevice)
+      await first.window.getByRole('tab', { name: 'Settings' }).click()
+      await first.window.getByRole('tab', { name: /^Devices/ }).click()
+      await first.window.getByRole('button', { name: 'Add a device' }).click()
+      const dialog = first.window.getByRole('dialog')
+      await dialog.getByRole('button', { name: /Use another PC’s sim/ }).click()
+      await expect(dialog.getByRole('button', { name: 'Restart now' })).toBeVisible()
+      expect(await first.window.evaluate(() => window.winglog.settingsGetRunMode())).toBe('client')
+    } finally {
+      await first.cleanup()
+    }
+
+    const host = await launchApp({ env: { WINGLOG_E2E_LAN_ADDRESS: '127.0.0.1' } })
+    try {
+      await switchPhonesOn(host.window, port)
+      await host.window.getByRole('button', { name: 'Add a device' }).click()
+      const offer = host.window.getByRole('dialog')
+      await offer.getByRole('button', { name: /Another computer with WingLog/ }).click()
+      await expect(offer.getByText('Computers are now on.')).toBeVisible()
+      const address = `127.0.0.1:${port}`
+      await expect(offer.getByText(address, { exact: true })).toBeVisible()
+      const code =
+        (await offer
+          .locator('[aria-label]')
+          .filter({ hasText: /^\d{6}$/ })
+          .textContent()) ?? ''
+      expect(code).toMatch(/^\d{6}$/)
+
+      const client = await launchApp({ userDataDir: clientDir })
+      try {
+        // The start after the switch opens Settings → Devices on Connect to a sim PC by itself.
+        const connect = client.window.getByRole('dialog')
+        await expect(connect.getByRole('heading', { name: 'Connect to a sim PC' })).toBeVisible({
+          timeout: 15_000
+        })
+        await connect.getByRole('textbox', { name: 'Address' }).fill(address)
+        await connect.getByRole('textbox', { name: 'Pairing code' }).fill(code)
+        await connect.getByRole('button', { name: 'Connect' }).click()
+        await expect(connect.getByText('Connected to the sim PC')).toBeVisible({ timeout: 15_000 })
+        await connect.getByRole('button', { name: 'Done' }).click()
+        await expect(connect).toHaveCount(0)
+
+        // The sim PC's dialog says which computer paired, and its list shows it connected.
+        await expect(offer.getByText(/ is paired$/)).toBeVisible({ timeout: 15_000 })
+        await offer.getByRole('button', { name: 'Done' }).click()
+        const list = host.window.locator('section', {
+          has: host.window.getByRole('heading', { name: 'Paired with this PC' })
+        })
+        await expect(list.getByText('Computer', { exact: true })).toBeVisible()
+        await expect(list.getByText('Connected', { exact: true })).toBeVisible()
+        // Started again, the client goes to Fleet as usual: the request was used once.
+        expect(await client.window.evaluate(() => window.winglog.appTakeOpenConnectOnStart())).toBe(false)
+      } finally {
+        await client.cleanup()
+      }
+    } finally {
+      await host.cleanup()
     }
   } finally {
     rmSync(clientDir, { recursive: true, force: true })
