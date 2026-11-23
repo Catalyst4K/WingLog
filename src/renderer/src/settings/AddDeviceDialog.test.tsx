@@ -258,6 +258,19 @@ describe('Add a device on the sim PC', () => {
     expect(within(dialog).queryByText('Waiting for the computer')).not.toBeInTheDocument()
   })
 
+  it.each([
+    [{ problem: 'port-in-use' as const }, 'That port is already in use. Choose another.'],
+    [{ url: null, listening: false }, 'Not reachable on your home network.']
+  ])('says why there is no code for a phone when the PC cannot listen: %o', async (patch, line) => {
+    const user = userEvent.setup()
+    setup({ lan: { ...BASE, ...patch } })
+    renderPage()
+    const dialog = await openAdd(user)
+    await user.click(within(dialog).getByRole('button', { name: /A phone or tablet/ }))
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent(line)
+    expect(within(dialog).queryByText('Waiting for the device')).not.toBeInTheDocument()
+  })
+
   it('closes the open code when the dialog is closed with Escape', async () => {
     const user = userEvent.setup()
     const { api } = setup()
