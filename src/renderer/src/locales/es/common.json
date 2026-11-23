@@ -312,7 +312,7 @@
     "devices": {
       "ledeHost": "Otros ordenadores y móviles que usan el simulador de este PC. Cada uno se vincula una sola vez.",
       "ledePhones": "Móviles y tabletas que muestran el vuelo de este PC. Cada uno se vincula una sola vez.",
-      "ledeClient": "Este ordenador usa el simulador de otro PC. Su cuaderno de vuelos y su flota se mantienen al día con los de ese PC.",
+      "ledeClient": "Este ordenador usa el simulador de otro PC. Su bitácora y su flota se mantienen al día con las de ese PC.",
       "add": "Añadir un dispositivo",
       "pairedTitle": "Vinculados con este PC",
       "nothingPaired": "Aún no hay nada vinculado.",
@@ -330,9 +330,10 @@
       "renameNamed": "Cambiar el nombre de {{name}}",
       "nameLabel": "Nombre",
       "save": "Guardar",
+      "renameFailed": "No se pudo guardar el nombre. Usa hasta 40 letras, números y símbolos.",
       "networkTitle": "En tu red doméstica",
       "computers": "Ordenadores",
-      "computersHint": "Otros WingLog mantienen su cuaderno de vuelos y su flota al día con este PC y muestran su simulador en directo.",
+      "computersHint": "Otros WingLog mantienen su bitácora y su flota al día con este PC y muestran el simulador de este PC en directo.",
       "phones": "Móviles y tabletas",
       "phonesHint": "El mapa en directo en un navegador. Cada dispositivo se vincula con un código.",
       "portHint": "Cámbialo solo si otra aplicación lo usa.",
@@ -342,6 +343,8 @@
       "simPcTitle": "PC del simulador",
       "simPcName": "PC del simulador",
       "forget": "Olvidar",
+      "forgetTitle": "¿Olvidar el PC del simulador?",
+      "forgetBody": "Este ordenador tendrá que vincularse de nuevo.",
       "phonesPairWithSimPc": "Los móviles y tabletas se vinculan con el PC del simulador, no con este ordenador: en el PC del simulador, abre Ajustes → Dispositivos → Añadir un dispositivo."
     },
     "addDevice": {
@@ -350,7 +353,11 @@
       "phone": "Un móvil o una tableta",
       "phoneHint": "Muestra el mapa en directo en su navegador. No hay que instalar nada.",
       "computer": "Otro ordenador con WingLog",
-      "computerHint": "Su cuaderno de vuelos y su flota se mantienen al día con los de este PC, y muestra este simulador en directo.",
+      "computerHint": "Su bitácora y su flota se mantienen al día con las de este PC, y muestra el simulador de este PC en directo.",
+      "useAnother": "Usar el simulador de otro PC",
+      "useAnotherHint": "Este PC deja de ejecutar el simulador y trabaja con el simulador de otro PC.",
+      "restartNeeded": "WingLog tiene que reiniciarse para usar el simulador de otro PC. Después, escribe la dirección y el código de ese PC.",
+      "restartNow": "Reiniciar ahora",
       "homeOnly": "Solo en tu red doméstica.",
       "phonesOn": "Los móviles y tabletas ya están activados.",
       "computersOn": "Los ordenadores ya están activados.",
@@ -358,14 +365,16 @@
       "scanOrOpen": "Escanéalo o abre esta dirección en el dispositivo:",
       "typeCode": "Después escribe allí este código:",
       "once": "Sirve una sola vez y caduca a los 5 minutos.",
+      "codeClosed": "Este código ya no sirve.",
+      "newCode": "Nuevo código",
       "waitingDevice": "Esperando al dispositivo",
       "computerTitle": "Vincular otro ordenador",
-      "computerStep1": "En el otro ordenador, abre WingLog y luego Ajustes → Dispositivos.",
-      "computerStep2": "Elige Añadir un dispositivo, luego Conectar con un PC del simulador, y escribe:",
+      "computerStep1": "En el otro ordenador, abre WingLog, luego Ajustes → Dispositivos, y elige «Añadir un dispositivo». En un PC con Windows, elige antes «Usar el simulador de otro PC»: WingLog se reinicia allí y pide la dirección y el código.",
+      "computerStep2": "Después escribe:",
       "pairingCode": "Código de vinculación",
       "waitingComputer": "Esperando al ordenador",
       "connectTitle": "Conectar con un PC del simulador",
-      "connectHint": "En el PC del simulador, elige Añadir un dispositivo y luego Otro ordenador.",
+      "connectHint": "En el PC del simulador, elige «Añadir un dispositivo» y luego «Otro ordenador con WingLog».",
       "connect": "Conectar",
       "paired": "{{name}} está vinculado",
       "connectedToSimPc": "Conectado al PC del simulador",
@@ -1352,7 +1361,7 @@
   "lanPage": {
     "connecting": "Conectando con WingLog…",
     "pairTitle": "Vincular con WingLog",
-    "pairHelp": "En el PC, abre Ajustes → Dispositivos, elige Añadir un dispositivo y luego Un móvil o una tableta. Escribe el código de 6 dígitos que aparece.",
+    "pairHelp": "En el PC, abre Ajustes → Dispositivos, elige «Añadir un dispositivo» y luego «Un móvil o una tableta». Escribe el código de 6 dígitos que aparece.",
     "codeLabel": "Código de vinculación",
     "pair": "Vincular",
     "wrongCode": "Ese código no ha funcionado. Comprueba que el PC muestra un código e inténtalo de nuevo.",
@@ -1373,7 +1382,7 @@
       "problem": {
         "noAdapter": "Este PC no tiene ninguna conexión de red doméstica en la que escuchar.",
         "portInUse": "Ese puerto ya está en uso. Elige otro.",
-        "failed": "No se pudo iniciar la conexión para los dispositivos."
+        "failed": "Los dispositivos no pueden conectarse ahora mismo. Reinicia WingLog o elige otro puerto."
       },
       "qrLabel": "Código QR de la dirección de la segunda pantalla"
     }

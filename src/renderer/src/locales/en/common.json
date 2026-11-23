@@ -351,7 +351,7 @@
       "phone": "A phone or tablet",
       "phoneHint": "Shows the live map in its browser. Nothing to install.",
       "computer": "Another computer with WingLog",
-      "computerHint": "Its logbook and fleet are kept in step with this PC’s, and it shows this sim live.",
+      "computerHint": "Its logbook and fleet are kept in step with this PC’s, and it shows this PC’s sim live.",
       "useAnother": "Use another PC’s sim",
       "useAnotherHint": "This PC stops running the sim and works with the sim on another PC.",
       "restartNeeded": "WingLog needs to restart to use another PC’s sim. After it restarts, type that PC’s address and code.",
@@ -367,12 +367,12 @@
       "newCode": "New code",
       "waitingDevice": "Waiting for the device",
       "computerTitle": "Pair another computer",
-      "computerStep1": "On the other computer, open WingLog, then Settings → Devices.",
-      "computerStep2": "Choose Add a device, then Connect to a sim PC, and type:",
+      "computerStep1": "On the other computer, open WingLog, then Settings → Devices, and choose “Add a device”. On a Windows PC, choose “Use another PC’s sim” first: WingLog restarts there and asks for the address and code.",
+      "computerStep2": "Then type:",
       "pairingCode": "Pairing code",
       "waitingComputer": "Waiting for the computer",
       "connectTitle": "Connect to a sim PC",
-      "connectHint": "On the sim PC, choose Add a device, then Another computer.",
+      "connectHint": "On the sim PC, choose “Add a device”, then “Another computer with WingLog”.",
       "connect": "Connect",
       "paired": "{{name}} is paired",
       "connectedToSimPc": "Connected to the sim PC",
@@ -1359,7 +1359,7 @@
   "lanPage": {
     "connecting": "Connecting to WingLog…",
     "pairTitle": "Pair with WingLog",
-    "pairHelp": "On the PC, open Settings → Devices, choose Add a device, then A phone or tablet. Type the 6-digit code it shows.",
+    "pairHelp": "On the PC, open Settings → Devices, choose “Add a device”, then “A phone or tablet”. Type the 6-digit code it shows.",
     "codeLabel": "Pairing code",
     "pair": "Pair",
     "wrongCode": "That code didn't work. Check the PC is showing a code, then try again.",
@@ -1380,7 +1380,7 @@
       "problem": {
         "noAdapter": "This PC has no home-network connection to listen on.",
         "portInUse": "That port is already in use. Choose another.",
-        "failed": "The connection for devices could not start."
+        "failed": "Devices can’t connect right now. Restart WingLog, or choose another port."
       },
       "qrLabel": "QR code for the second-screen address"
     }

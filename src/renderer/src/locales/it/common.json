@@ -301,8 +301,8 @@
       },
       "badAddress": "Inserisci l’indirizzo del PC del simulatore con la porta, un indirizzo della tua rete domestica, ad esempio 192.168.1.20:5051.",
       "versionProblem": {
-        "update-this-computer": "WingLog su questo computer è più vecchio di quello sul PC del simulatore, quindi registro di volo e flotta non vengono allineati. Aggiorna WingLog su questo computer.",
-        "update-sim-pc": "WingLog sul PC del simulatore è più vecchio di quello su questo computer, quindi registro di volo e flotta non vengono allineati. Aggiorna WingLog sul PC del simulatore."
+        "update-this-computer": "WingLog su questo computer è più vecchio di quello sul PC del simulatore, quindi libretto e flotta non vengono allineati. Aggiorna WingLog su questo computer.",
+        "update-sim-pc": "WingLog sul PC del simulatore è più vecchio di quello su questo computer, quindi libretto e flotta non vengono allineati. Aggiorna WingLog sul PC del simulatore."
       }
     },
     "twin": {
@@ -312,7 +312,7 @@
     "devices": {
       "ledeHost": "Altri computer e telefoni che usano il simulatore di questo PC. Ognuno si associa una sola volta.",
       "ledePhones": "Telefoni e tablet che mostrano il volo di questo PC. Ognuno si associa una sola volta.",
-      "ledeClient": "Questo computer usa il simulatore di un altro PC. Registro di volo e flotta restano allineati con quelli di quel PC.",
+      "ledeClient": "Questo computer usa il simulatore di un altro PC. Libretto e flotta restano allineati con quelli di quel PC.",
       "add": "Aggiungi un dispositivo",
       "pairedTitle": "Associati a questo PC",
       "nothingPaired": "Ancora nulla di associato.",
@@ -330,9 +330,10 @@
       "renameNamed": "Rinomina {{name}}",
       "nameLabel": "Nome",
       "save": "Salva",
+      "renameFailed": "Impossibile salvare il nome. Usa fino a 40 lettere, numeri e simboli.",
       "networkTitle": "Sulla tua rete domestica",
       "computers": "Computer",
-      "computersHint": "Altri WingLog tengono registro di volo e flotta allineati con questo PC e mostrano il suo simulatore in diretta.",
+      "computersHint": "Altri WingLog tengono libretto e flotta allineati con questo PC e mostrano il simulatore di questo PC in diretta.",
       "phones": "Telefoni e tablet",
       "phonesHint": "La mappa in diretta in un browser. Ogni dispositivo si associa con un codice.",
       "portHint": "Cambiala solo se un’altra app la usa.",
@@ -342,6 +343,8 @@
       "simPcTitle": "PC del simulatore",
       "simPcName": "PC del simulatore",
       "forget": "Dimentica",
+      "forgetTitle": "Dimenticare il PC del simulatore?",
+      "forgetBody": "Questo computer dovrà essere associato di nuovo.",
       "phonesPairWithSimPc": "Telefoni e tablet si associano al PC del simulatore, non a questo computer: sul PC del simulatore apri Impostazioni → Dispositivi → Aggiungi un dispositivo."
     },
     "addDevice": {
@@ -350,22 +353,28 @@
       "phone": "Un telefono o un tablet",
       "phoneHint": "Mostra la mappa in diretta nel suo browser. Niente da installare.",
       "computer": "Un altro computer con WingLog",
-      "computerHint": "Registro di volo e flotta restano allineati con quelli di questo PC, e mostra questo simulatore in diretta.",
+      "computerHint": "Libretto e flotta restano allineati con quelli di questo PC, e mostra il simulatore di questo PC in diretta.",
+      "useAnother": "Usa il simulatore di un altro PC",
+      "useAnotherHint": "Questo PC smette di far girare il simulatore e lavora con il simulatore di un altro PC.",
+      "restartNeeded": "WingLog deve riavviarsi per usare il simulatore di un altro PC. Dopo il riavvio, digita l’indirizzo e il codice di quel PC.",
+      "restartNow": "Riavvia ora",
       "homeOnly": "Solo sulla tua rete domestica.",
-      "phonesOn": "Telefoni e tablet ora sono attivi.",
-      "computersOn": "I computer ora sono attivi.",
+      "phonesOn": "Telefoni e tablet ora sono consentiti.",
+      "computersOn": "I computer ora sono consentiti.",
       "phoneTitle": "Associa un telefono o un tablet",
       "scanOrOpen": "Inquadralo, oppure apri questo indirizzo sul dispositivo:",
       "typeCode": "Poi digita lì questo codice:",
       "once": "Vale una sola volta e scade dopo 5 minuti.",
+      "codeClosed": "Questo codice non è più valido.",
+      "newCode": "Nuovo codice",
       "waitingDevice": "In attesa del dispositivo",
       "computerTitle": "Associa un altro computer",
-      "computerStep1": "Sull’altro computer apri WingLog, poi Impostazioni → Dispositivi.",
-      "computerStep2": "Scegli Aggiungi un dispositivo, poi Connetti a un PC del simulatore, e digita:",
+      "computerStep1": "Sull’altro computer apri WingLog, poi Impostazioni → Dispositivi, e scegli «Aggiungi un dispositivo». Su un PC Windows scegli prima «Usa il simulatore di un altro PC»: WingLog lì si riavvia e chiede indirizzo e codice.",
+      "computerStep2": "Poi digita:",
       "pairingCode": "Codice di associazione",
       "waitingComputer": "In attesa del computer",
       "connectTitle": "Connetti a un PC del simulatore",
-      "connectHint": "Sul PC del simulatore scegli Aggiungi un dispositivo, poi Un altro computer.",
+      "connectHint": "Sul PC del simulatore scegli «Aggiungi un dispositivo», poi «Un altro computer con WingLog».",
       "connect": "Connetti",
       "paired": "{{name}} è associato",
       "connectedToSimPc": "Connesso al PC del simulatore",
@@ -1352,7 +1361,7 @@
   "lanPage": {
     "connecting": "Connessione a WingLog…",
     "pairTitle": "Associa con WingLog",
-    "pairHelp": "Sul PC apri Impostazioni → Dispositivi, scegli Aggiungi un dispositivo, poi Un telefono o un tablet. Digita il codice a 6 cifre mostrato.",
+    "pairHelp": "Sul PC apri Impostazioni → Dispositivi, scegli «Aggiungi un dispositivo», poi «Un telefono o un tablet». Digita il codice a 6 cifre mostrato.",
     "codeLabel": "Codice di associazione",
     "pair": "Associa",
     "wrongCode": "Quel codice non ha funzionato. Controlla che il PC mostri un codice e riprova.",
@@ -1373,7 +1382,7 @@
       "problem": {
         "noAdapter": "Questo PC non ha nessuna connessione alla rete domestica su cui ascoltare.",
         "portInUse": "Quella porta è già in uso. Scegline un’altra.",
-        "failed": "Impossibile avviare la connessione per i dispositivi."
+        "failed": "I dispositivi non possono connettersi in questo momento. Riavvia WingLog o scegli un’altra porta."
       },
       "qrLabel": "Codice QR dell’indirizzo del secondo schermo"
     }

@@ -282,7 +282,9 @@ describe('Add a device on the sim PC', () => {
     expect(api.lanStartPairing).toHaveBeenCalledWith('twin')
     expect(within(dialog).getByText('Computers are now on.')).toBeInTheDocument()
     expect(
-      within(dialog).getByText('On the other computer, open WingLog, then Settings → Devices.')
+      within(dialog).getByText(
+        /^On the other computer, open WingLog, then Settings → Devices, and choose “Add a device”. On a Windows PC, choose “Use another PC’s sim” first/
+      )
     ).toBeInTheDocument()
     expect(within(dialog).getByText('192.168.1.20:5051')).toBeInTheDocument()
     expect(within(dialog).getByLabelText('100001')).toBeInTheDocument()
@@ -379,7 +381,7 @@ describe('Add a device on a client: Connect to a sim PC', () => {
     const dialog = await openAdd(user)
     expect(within(dialog).getByRole('heading', { name: 'Connect to a sim PC' })).toBeInTheDocument()
     expect(
-      within(dialog).getByText('On the sim PC, choose Add a device, then Another computer.')
+      within(dialog).getByText('On the sim PC, choose “Add a device”, then “Another computer with WingLog”.')
     ).toBeInTheDocument()
     const connect = within(dialog).getByRole('button', { name: 'Connect' })
     expect(connect).toBeDisabled()

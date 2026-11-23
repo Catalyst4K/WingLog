@@ -312,7 +312,7 @@
     "devices": {
       "ledeHost": "Les autres ordinateurs et téléphones qui utilisent le simulateur de ce PC. Chacun est appairé une seule fois.",
       "ledePhones": "Les téléphones et tablettes qui affichent le vol de ce PC. Chacun est appairé une seule fois.",
-      "ledeClient": "Cet ordinateur utilise le simulateur d’un autre PC. Son carnet de vol et sa flotte restent synchronisés avec ceux de ce PC.",
+      "ledeClient": "Cet ordinateur utilise le simulateur d’un autre PC. Son carnet de vol et sa flotte restent synchronisés avec ceux du PC du simulateur.",
       "add": "Ajouter un appareil",
       "pairedTitle": "Appairés à ce PC",
       "nothingPaired": "Rien n’est encore appairé.",
@@ -330,6 +330,7 @@
       "renameNamed": "Renommer {{name}}",
       "nameLabel": "Nom",
       "save": "Enregistrer",
+      "renameFailed": "Ce nom n’a pas pu être enregistré. Utilisez jusqu’à 40 lettres, chiffres et symboles.",
       "networkTitle": "Sur votre réseau domestique",
       "computers": "Ordinateurs",
       "computersHint": "Les autres WingLog gardent leur carnet de vol et leur flotte synchronisés avec ce PC et affichent son simulateur en direct.",
@@ -342,6 +343,8 @@
       "simPcTitle": "PC du simulateur",
       "simPcName": "PC du simulateur",
       "forget": "Oublier",
+      "forgetTitle": "Oublier le PC du simulateur ?",
+      "forgetBody": "Il faudra appairer à nouveau cet ordinateur.",
       "phonesPairWithSimPc": "Les téléphones et tablettes s’appairent au PC du simulateur, pas à cet ordinateur : sur le PC du simulateur, ouvrez Paramètres → Appareils → Ajouter un appareil."
     },
     "addDevice": {
@@ -350,7 +353,11 @@
       "phone": "Un téléphone ou une tablette",
       "phoneHint": "Affiche la carte en direct dans son navigateur. Rien à installer.",
       "computer": "Un autre ordinateur avec WingLog",
-      "computerHint": "Son carnet de vol et sa flotte restent synchronisés avec ceux de ce PC, et il affiche ce simulateur en direct.",
+      "computerHint": "Son carnet de vol et sa flotte restent synchronisés avec ceux de ce PC, et il affiche en direct le simulateur de ce PC.",
+      "useAnother": "Utiliser le simulateur d’un autre PC",
+      "useAnotherHint": "Ce PC n’exécute plus le simulateur et fonctionne avec celui d’un autre PC.",
+      "restartNeeded": "WingLog doit redémarrer pour utiliser le simulateur d’un autre PC. Après le redémarrage, saisissez l’adresse et le code de ce PC.",
+      "restartNow": "Redémarrer maintenant",
       "homeOnly": "Uniquement sur votre réseau domestique.",
       "phonesOn": "Les téléphones et tablettes sont maintenant activés.",
       "computersOn": "Les ordinateurs sont maintenant activés.",
@@ -358,14 +365,16 @@
       "scanOrOpen": "Scannez-le, ou ouvrez cette adresse sur l’appareil :",
       "typeCode": "Puis saisissez-y ce code :",
       "once": "Il ne sert qu’une fois et expire au bout de 5 minutes.",
+      "codeClosed": "Ce code n’est plus valable.",
+      "newCode": "Nouveau code",
       "waitingDevice": "En attente de l’appareil",
       "computerTitle": "Appairer un autre ordinateur",
-      "computerStep1": "Sur l’autre ordinateur, ouvrez WingLog, puis Paramètres → Appareils.",
-      "computerStep2": "Choisissez Ajouter un appareil, puis Se connecter à un PC du simulateur, et saisissez :",
+      "computerStep1": "Sur l’autre ordinateur, ouvrez WingLog, puis Paramètres → Appareils, et choisissez « Ajouter un appareil ». Sur un PC Windows, choisissez d’abord « Utiliser le simulateur d’un autre PC » : WingLog y redémarre et demande l’adresse et le code.",
+      "computerStep2": "Puis saisissez :",
       "pairingCode": "Code d’appairage",
       "waitingComputer": "En attente de l’ordinateur",
       "connectTitle": "Se connecter à un PC du simulateur",
-      "connectHint": "Sur le PC du simulateur, choisissez Ajouter un appareil, puis Un autre ordinateur.",
+      "connectHint": "Sur le PC du simulateur, choisissez « Ajouter un appareil », puis « Un autre ordinateur avec WingLog ».",
       "connect": "Se connecter",
       "paired": "{{name}} est appairé",
       "connectedToSimPc": "Connecté au PC du simulateur",
@@ -1351,10 +1360,10 @@
   },
   "lanPage": {
     "connecting": "Connexion à WingLog…",
-    "pairTitle": "Associer avec WingLog",
-    "pairHelp": "Sur le PC, ouvrez Paramètres → Appareils, choisissez Ajouter un appareil, puis Un téléphone ou une tablette. Saisissez le code à 6 chiffres affiché.",
-    "codeLabel": "Code d'association",
-    "pair": "Associer",
+    "pairTitle": "Appairer avec WingLog",
+    "pairHelp": "Sur le PC, ouvrez Paramètres → Appareils, choisissez « Ajouter un appareil », puis « Un téléphone ou une tablette ». Saisissez le code à 6 chiffres affiché.",
+    "codeLabel": "Code d’appairage",
+    "pair": "Appairer",
     "wrongCode": "Ce code n'a pas fonctionné. Vérifiez que le PC affiche un code, puis réessayez.",
     "offline": "Impossible de joindre le PC. Nouvelle tentative…",
     "noFlight": "Aucun vol n'est encore suivi sur le PC.",
@@ -1373,7 +1382,7 @@
       "problem": {
         "noAdapter": "Ce PC n'a aucune connexion au réseau domestique sur laquelle écouter.",
         "portInUse": "Ce port est déjà utilisé. Choisissez-en un autre.",
-        "failed": "La connexion des appareils n’a pas pu démarrer."
+        "failed": "Les appareils ne peuvent pas se connecter pour le moment. Redémarrez WingLog, ou choisissez un autre port."
       },
       "qrLabel": "Code QR de l'adresse du deuxième écran"
     }

@@ -266,8 +266,8 @@
     },
     "status": {
       "updateReady": "更新已就绪",
-      "connected_one": "{{count}} 台已连接",
-      "connected_other": "{{count}} 台已连接"
+      "connected_one": "已连接 {{count}} 台",
+      "connected_other": "已连接 {{count}} 台"
     },
     "pagePicker": "设置页面",
     "runMode": {
@@ -303,7 +303,7 @@
       "noCertificate": "其他电脑无法连接，因为这台电脑无法安全保存其证书。"
     },
     "devices": {
-      "ledeHost": "使用这台电脑模拟器的其他电脑和手机。每台设备只需配对一次。",
+      "ledeHost": "使用这台电脑上模拟器的其他电脑和手机。每台设备只需配对一次。",
       "ledePhones": "显示这台电脑上航班的手机和平板。每台设备只需配对一次。",
       "ledeClient": "这台电脑使用另一台电脑上的模拟器。它的飞行日志和机队与那台电脑保持同步。",
       "add": "添加设备",
@@ -323,7 +323,8 @@
       "renameNamed": "重命名 {{name}}",
       "nameLabel": "名称",
       "save": "保存",
-      "networkTitle": "在您的家庭网络中",
+      "renameFailed": "无法保存该名称。最多使用 40 个字母、数字和符号。",
+      "networkTitle": "在你的家庭网络中",
       "computers": "电脑",
       "computersHint": "其他 WingLog 的飞行日志和机队与这台电脑保持同步，并实时显示它的模拟器。",
       "phones": "手机和平板",
@@ -335,26 +336,34 @@
       "simPcTitle": "模拟器电脑",
       "simPcName": "模拟器电脑",
       "forget": "忘记",
+      "forgetTitle": "忘记模拟器电脑？",
+      "forgetBody": "之后这台电脑需要重新配对。",
       "phonesPairWithSimPc": "手机和平板与模拟器电脑配对，而不是与这台电脑配对：请在模拟器电脑上打开“设置 → 设备 → 添加设备”。"
     },
     "addDevice": {
       "title": "添加设备",
-      "question": "您想添加什么？",
+      "question": "你想添加什么？",
       "phone": "手机或平板",
       "phoneHint": "在其浏览器中显示实时地图，无需安装任何东西。",
       "computer": "另一台装有 WingLog 的电脑",
-      "computerHint": "它的飞行日志和机队与这台电脑保持同步，并实时显示此模拟器。",
-      "homeOnly": "仅限您的家庭网络。",
-      "phonesOn": "手机和平板现已开启。",
-      "computersOn": "电脑现已开启。",
+      "computerHint": "它的飞行日志和机队与这台电脑保持同步，并实时显示这台电脑上的模拟器。",
+      "useAnother": "使用另一台电脑的模拟器",
+      "useAnotherHint": "这台电脑不再运行模拟器，改为使用另一台电脑上的模拟器。",
+      "restartNeeded": "要使用另一台电脑的模拟器，需要重新启动 WingLog。重启后，输入那台电脑的地址和代码。",
+      "restartNow": "立即重启",
+      "homeOnly": "仅限你的家庭网络。",
+      "phonesOn": "已开启“手机和平板”。",
+      "computersOn": "已开启“电脑”。",
       "phoneTitle": "配对手机或平板",
       "scanOrOpen": "扫描二维码，或在设备上打开此地址：",
-      "typeCode": "然后在那里输入此代码：",
+      "typeCode": "然后在该设备上输入此代码：",
       "once": "代码只能使用一次，5 分钟后失效。",
+      "codeClosed": "此代码已失效。",
+      "newCode": "新代码",
       "waitingDevice": "正在等待设备",
       "computerTitle": "配对另一台电脑",
-      "computerStep1": "在另一台电脑上打开 WingLog，然后打开“设置 → 设备”。",
-      "computerStep2": "选择“添加设备”，再选择“连接到模拟器电脑”，然后输入：",
+      "computerStep1": "在另一台电脑上打开 WingLog，然后打开“设置 → 设备”，选择“添加设备”。如果是 Windows 电脑，先选择“使用另一台电脑的模拟器”：WingLog 会在那台电脑上重启并询问地址和代码。",
+      "computerStep2": "然后输入：",
       "pairingCode": "配对码",
       "waitingComputer": "正在等待电脑",
       "connectTitle": "连接到模拟器电脑",
@@ -1361,7 +1370,7 @@
       "problem": {
         "noAdapter": "这台电脑没有可供监听的家庭网络连接。",
         "portInUse": "该端口已被占用，请换一个。",
-        "failed": "设备连接无法启动。"
+        "failed": "设备暂时无法连接。请重启 WingLog，或选择其他端口。"
       },
       "qrLabel": "第二屏幕地址的二维码"
     }
