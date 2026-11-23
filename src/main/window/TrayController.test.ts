@@ -43,10 +43,11 @@ describe('TrayController', () => {
   let flightActive: boolean
   let actions: TrayActions
   const setToolTip = vi.fn()
+  const setIcon = vi.fn()
   const destroyTray = vi.fn()
   const createTray = vi.fn((a: TrayActions) => {
     actions = a
-    return { setToolTip, destroy: destroyTray }
+    return { setToolTip, setIcon, destroy: destroyTray }
   })
   const quit = vi.fn()
 

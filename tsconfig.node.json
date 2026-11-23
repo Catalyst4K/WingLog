@@ -15,6 +15,7 @@
     "skipLibCheck": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
+    "allowImportingTsExtensions": true,
     "baseUrl": ".",
     "paths": {
       "@shared/*": ["src/shared/*"]

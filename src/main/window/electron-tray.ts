@@ -18,8 +18,7 @@ const TRAY_ICON_SIZE_PX = 32
  * @returns The icon, to retitle and remove.
  */
 export function createElectronTray(iconPath: string, actions: TrayActions): TrayHandle {
-  const icon = nativeImage.createFromPath(iconPath).resize({ width: TRAY_ICON_SIZE_PX })
-  const tray = new Tray(icon)
+  const tray = new Tray(trayImage(iconPath))
   tray.on('click', actions.onOpen)
   tray.on('double-click', actions.onOpen)
   // Built at the moment it is shown, so it is in the language chosen now.
@@ -32,5 +31,17 @@ export function createElectronTray(iconPath: string, actions: TrayActions): Tray
       ])
     )
   })
-  return tray
+  return {
+    setToolTip: (text) => tray.setToolTip(text),
+    setIcon: (path) => tray.setImage(trayImage(path)),
+    destroy: () => tray.destroy()
+  }
+}
+
+/**
+ * @param path The icon picture's path.
+ * @returns The picture, at the tray's size.
+ */
+function trayImage(path: string): Electron.NativeImage {
+  return nativeImage.createFromPath(path).resize({ width: TRAY_ICON_SIZE_PX })
 }
