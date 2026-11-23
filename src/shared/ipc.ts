@@ -726,7 +726,7 @@ export interface WingLogApi {
   setupGetContext: () => Promise<SetupContext>
   /** Finished or closed: never shown again unless reopened from Settings → About. */
   setupComplete: () => Promise<void>
-  /** The second-screen server (Settings → Second screen). Each call returns the new status. */
+  /** The device server (Settings → Devices). Each call returns the new status. */
   lanGetStatus: () => Promise<LanStatus>
   /** Changes the server's settings; a field left out keeps its stored value, so each card changes only its own switch. */
   lanSetSettings: (settings: Partial<LanSettings>) => Promise<LanStatus>

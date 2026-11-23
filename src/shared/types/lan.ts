@@ -1,13 +1,13 @@
-/** The second-screen server (winglog-backend's docs/plans/lan-web-viewer.md): its settings, status and paired devices. */
+/** The device server (winglog-backend's docs/plans/lan-web-viewer.md and devices-page.md): its settings, status and paired devices. */
 
 import type { LiveSnapshot, LiveTopic } from '../live'
 import type { ProcedureSelection, TrackPoint } from './flight'
 
-/** What the pilot sets in Settings → Second screen. */
+/** What the pilot sets in Settings → Devices. */
 export interface LanSettings {
   enabled: boolean
   port: number
-  /** Whether another WingLog (a twin) may pair and connect; its own switch, on the Sim PC page. The server runs while either is on. */
+  /** Whether another WingLog (a twin) may pair and connect: the Computers switch on the Devices page. The server runs while either is on. */
   twinEnabled: boolean
 }
 

@@ -255,8 +255,8 @@ function kindOf(value: unknown): LanDeviceKind {
 }
 
 /**
- * Reads the settings from the window. A field left out keeps its stored value, so the Second screen card and the Sim PC page can each
- * change their own switch without knowing the other's.
+ * Reads the settings from the window. A field left out keeps its stored value, so the Devices page's two switches can each change their own
+ * setting without knowing the other's.
  *
  * @param value Settings from the window.
  * @param current The stored settings.
