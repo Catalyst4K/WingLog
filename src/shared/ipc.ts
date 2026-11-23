@@ -734,4 +734,6 @@ export interface WingLogApi {
   lanStartPairing: (kind?: LanDeviceKind) => Promise<LanStatus>
   lanStopPairing: (kind?: LanDeviceKind) => Promise<LanStatus>
   lanRevokeDevice: (id: number) => Promise<LanStatus>
+  /** Renames a paired device (trimmed, 1 to 40 characters, no control characters; refused otherwise). */
+  lanRenameDevice: (id: number, name: string) => Promise<LanStatus>
 }

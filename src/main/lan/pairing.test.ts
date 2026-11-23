@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  checkedDeviceName,
   cleanDeviceName,
   hashToken,
   MAX_WRONG_CODES,
@@ -56,6 +57,29 @@ describe('device tokens', () => {
     expect(hashToken('abc')).toBe('ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad')
     expect(hashToken('abc')).toBe(hashToken('abc'))
     expect(hashToken('abd')).not.toBe(hashToken('abc'))
+  })
+})
+
+describe('checkedDeviceName', () => {
+  it('takes a name trimmed, up to 40 characters', () => {
+    expect(checkedDeviceName('  MacBook Air ')).toBe('MacBook Air')
+    expect(checkedDeviceName('x'.repeat(40))).toBe('x'.repeat(40))
+  })
+
+  it('refuses rather than cleans: not a string, empty, too long, or holding a control character', () => {
+    for (const value of [
+      undefined,
+      null,
+      5,
+      {},
+      '',
+      '   ',
+      'x'.repeat(41),
+      'Pad\none',
+      'Pad\u0007',
+      'Tab\there'
+    ])
+      expect(checkedDeviceName(value), JSON.stringify(value)).toBeNull()
   })
 })
 

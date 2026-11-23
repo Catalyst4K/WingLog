@@ -8,6 +8,7 @@ import type { LanDevice, LanDeviceKind, LanPairing, LanProblem, LanSettings, Lan
 import { isValidLanPort } from '../db/settings-repo'
 import { logger } from '../logging/logger'
 import { chooseAddress, type LanAddress } from './adapters'
+import { checkedDeviceName } from './pairing'
 
 /** How often the controller checks that the home-network address it listens on is still the PC's. */
 export const ADDRESS_CHECK_MS = 15_000
@@ -39,7 +40,13 @@ export interface LanControllerDeps {
   addresses(): LanAddress[]
   /** The local address of the default route (`defaultRouteAddress`), or null when the PC has no route. */
   routeAddress(): Promise<string | null>
-  devices: { list(): Omit<LanDevice, 'connected'>[]; revoke(id: number): boolean; forget(id: number): void }
+  devices: {
+    list(): Omit<LanDevice, 'connected'>[]
+    revoke(id: number): boolean
+    /** Renames a paired device; false when there is no such paired device. */
+    rename(id: number, name: string): boolean
+    forget(id: number): void
+  }
   now(): number
 }
 
@@ -171,6 +178,22 @@ export class LanController {
       this.deps.server.disconnectDevice(id)
       this.deps.devices.forget(id)
     }
+    return this.getStatus()
+  }
+
+  /**
+   * Renames a paired device.
+   *
+   * @param id The device, unchecked.
+   * @param name Its new name, unchecked: trimmed, 1 to 40 characters, no control characters.
+   * @returns The status.
+   * @throws When the id is not a paired device or the name is not a usable one.
+   */
+  renameDevice(id: unknown, name: unknown): LanStatus {
+    const checked = checkedDeviceName(name)
+    if (!checked) throw new Error('Invalid device name')
+    if (typeof id !== 'number' || !Number.isInteger(id) || !this.deps.devices.rename(id, checked))
+      throw new Error('No such paired device')
     return this.getStatus()
   }
 

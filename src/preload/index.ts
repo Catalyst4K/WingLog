@@ -486,7 +486,8 @@ const api: WingLogApi = {
     ipcRenderer.invoke(IpcChannels.lanSetSettings, settings),
   lanStartPairing: (kind?: LanDeviceKind) => ipcRenderer.invoke(IpcChannels.lanStartPairing, kind),
   lanStopPairing: (kind?: LanDeviceKind) => ipcRenderer.invoke(IpcChannels.lanStopPairing, kind),
-  lanRevokeDevice: (id: number) => ipcRenderer.invoke(IpcChannels.lanRevokeDevice, id)
+  lanRevokeDevice: (id: number) => ipcRenderer.invoke(IpcChannels.lanRevokeDevice, id),
+  lanRenameDevice: (id: number, name: string) => ipcRenderer.invoke(IpcChannels.lanRenameDevice, id, name)
 }
 
 contextBridge.exposeInMainWorld('winglog', api)

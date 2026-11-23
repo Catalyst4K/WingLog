@@ -5,6 +5,7 @@ import {
   addLanDevice,
   findActiveLanDevice,
   listLanDevices,
+  renameLanDevice,
   revokeLanDevice,
   revokeLanDevicesOfKind,
   touchLanDevice
@@ -58,6 +59,17 @@ describe('lan device repo', () => {
       ['iPad', 'screen'],
       ['WingLog on MAC', 'twin']
     ])
+  })
+
+  it('renames a paired device, keeping its token, and does not rename one that is revoked or unknown', () => {
+    const db = freshDb()
+    const id = addLanDevice(db, 'WingLog on MAC', 'hash-a', '2026-10-12T10:00:00.000Z', 'twin')
+    expect(renameLanDevice(db, id, 'MacBook Air')).toBe(true)
+    expect(listLanDevices(db).map((device) => device.name)).toEqual(['MacBook Air'])
+    expect(findActiveLanDevice(db, 'hash-a')).toEqual({ id, kind: 'twin' })
+    expect(renameLanDevice(db, 999, 'Nothing')).toBe(false)
+    revokeLanDevice(db, id, '2026-10-12T13:00:00.000Z')
+    expect(renameLanDevice(db, id, 'Gone')).toBe(false)
   })
 
   it('stops a revoked device working at once and drops it from the list', () => {

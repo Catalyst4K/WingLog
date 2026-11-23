@@ -59,6 +59,13 @@ function setup(options: { capabilities?: AppCapabilities; lan?: LanStatus; link?
       lan = { ...lan, settings: { ...lan.settings, ...patch } }
       return Promise.resolve(lan)
     }),
+    lanRenameDevice: vi.fn((id: number, name: string) => {
+      lan = {
+        ...lan,
+        devices: lan.devices.map((device) => (device.id === id ? { ...device, name } : device))
+      }
+      return Promise.resolve(lan)
+    }),
     lanRevokeDevice: vi.fn((id: number) => {
       lan = { ...lan, devices: lan.devices.filter((device) => device.id !== id) }
       return Promise.resolve(lan)
@@ -150,6 +157,59 @@ describe('DevicesPage on the sim PC', () => {
     await user.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Remove' }))
     expect(api.lanRevokeDevice).toHaveBeenCalledWith(2)
     await waitFor(() => expect(screen.queryByText('iPad')).not.toBeInTheDocument())
+  })
+
+  it('renames a device in the list: Rename, a new name, Enter', async () => {
+    const user = userEvent.setup()
+    const { api } = setup()
+    renderPage()
+    await user.click(await screen.findByRole('button', { name: 'Rename MacBook Air' }))
+    const field = screen.getByRole('textbox', { name: 'Name' })
+    expect(field).toHaveValue('MacBook Air')
+    expect(field).toHaveFocus()
+    await user.clear(field)
+    await user.type(field, '  Callum’s MacBook {Enter}')
+    expect(api.lanRenameDevice).toHaveBeenCalledWith(1, 'Callum’s MacBook')
+    expect(await screen.findByText('Callum’s MacBook')).toBeInTheDocument()
+    expect(screen.queryByRole('textbox', { name: 'Name' })).not.toBeInTheDocument()
+  })
+
+  it('saves a new name with Save too', async () => {
+    const user = userEvent.setup()
+    const { api } = setup()
+    renderPage()
+    await user.click(await screen.findByRole('button', { name: 'Rename iPad' }))
+    await user.type(screen.getByRole('textbox', { name: 'Name' }), ' mini')
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    expect(api.lanRenameDevice).toHaveBeenCalledWith(2, 'iPad mini')
+  })
+
+  it('sends nothing for Escape, Cancel, an empty name or the same name', async () => {
+    const user = userEvent.setup()
+    const { api } = setup()
+    renderPage()
+    const rename = await screen.findByRole('button', { name: 'Rename iPad' })
+    await user.click(rename)
+    await user.type(screen.getByRole('textbox', { name: 'Name' }), ' Pro{Escape}')
+    expect(screen.queryByRole('textbox', { name: 'Name' })).not.toBeInTheDocument()
+    expect(screen.getByText('iPad')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Rename iPad' }))
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+    await user.click(screen.getByRole('button', { name: 'Rename iPad' }))
+    await user.clear(screen.getByRole('textbox', { name: 'Name' }))
+    await user.type(screen.getByRole('textbox', { name: 'Name' }), '   {Enter}')
+    await user.click(screen.getByRole('button', { name: 'Rename iPad' }))
+    await user.type(screen.getByRole('textbox', { name: 'Name' }), '{Enter}')
+    expect(api.lanRenameDevice).not.toHaveBeenCalled()
+    expect(screen.getByText('iPad')).toBeInTheDocument()
+  })
+
+  it('keeps a name to 40 characters', async () => {
+    const user = userEvent.setup()
+    setup()
+    renderPage()
+    await user.click(await screen.findByRole('button', { name: 'Rename iPad' }))
+    expect(screen.getByRole('textbox', { name: 'Name' })).toHaveAttribute('maxLength', '40')
   })
 
   it('saves each switch on its own, and the port, through lanSetSettings', async () => {

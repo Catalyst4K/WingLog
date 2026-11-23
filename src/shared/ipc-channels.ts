@@ -239,5 +239,6 @@ export const IpcChannels = {
   lanSetSettings: 'lan:set-settings',
   lanStartPairing: 'lan:start-pairing',
   lanStopPairing: 'lan:stop-pairing',
-  lanRevokeDevice: 'lan:revoke-device'
+  lanRevokeDevice: 'lan:revoke-device',
+  lanRenameDevice: 'lan:rename-device'
 } as const
