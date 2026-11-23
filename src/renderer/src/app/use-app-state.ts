@@ -272,6 +272,9 @@ export interface Navigation {
   fleetResetSignal: number
   logbookResetSignal: number
   settingsResetSignal: number
+  /** Set once at start when this PC chose "Use another PC's sim" before restarting: Settings opens Devices on Connect to a sim PC. */
+  openConnectOnStart: boolean
+  clearOpenConnectOnStart: () => void
   goToTab: (page: AppPage) => void
   openFlightInLogbook: (flightId: number, fromAircraftId: number) => void
   openFleetAircraft: (aircraftId: number) => void
@@ -307,6 +310,19 @@ export function useNavigation(gsxRemoteEnabled: boolean, beyondAtcEnabled: boole
   const [fleetResetSignal, setFleetResetSignal] = useState(0)
   const [logbookResetSignal, setLogbookResetSignal] = useState(0)
   const [settingsResetSignal, setSettingsResetSignal] = useState(0)
+  const [openConnectOnStart, setOpenConnectOnStart] = useState(false)
+  useEffect(() => {
+    runAsync(
+      'useNavigation appTakeOpenConnectOnStart',
+      winglogApi()
+        .appTakeOpenConnectOnStart()
+        .then((open) => {
+          if (!open) return
+          setOpenConnectOnStart(true)
+          setPage('settings')
+        })
+    )
+  }, [])
 
   // Disabling the tab you're currently viewing (from Settings, in the same window) shouldn't
   // strand you on a now-hidden page — derived during render rather than an effect calling
@@ -346,6 +362,8 @@ export function useNavigation(gsxRemoteEnabled: boolean, beyondAtcEnabled: boole
     fleetResetSignal,
     logbookResetSignal,
     settingsResetSignal,
+    openConnectOnStart,
+    clearOpenConnectOnStart: () => setOpenConnectOnStart(false),
     goToTab,
     openFlightInLogbook: (flightId, fromAircraftId) => {
       setPendingLogbookFlight({ flightId, fromAircraftId })

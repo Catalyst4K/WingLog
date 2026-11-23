@@ -204,6 +204,8 @@ function CurrentPage(props: {
             onThemeChange={asyncHandler('App handleThemeChange', settings.onThemeChange)}
             onRunSetup={props.onRunSetup}
             resetSignal={nav.settingsResetSignal}
+            openConnect={nav.openConnectOnStart}
+            onOpenConnectConsumed={nav.clearOpenConnectOnStart}
           />
         )}
       </Suspense>

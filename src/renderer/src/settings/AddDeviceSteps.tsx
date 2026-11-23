@@ -69,10 +69,13 @@ function KindChoice(props: {
 /**
  * The sim PC's first step: a phone or tablet, or another computer.
  *
- * @param props What choosing a kind does.
+ * @param props What choosing a kind does, and what "Use another PC's sim" does where this PC offers it.
  * @returns The step.
  */
-export function ChooseStep(props: { onChoose: (kind: LanDeviceKind) => void }): React.JSX.Element {
+export function ChooseStep(props: {
+  onChoose: (kind: LanDeviceKind) => void
+  onUseAnotherSim?: () => void
+}): React.JSX.Element {
   const { t } = useTranslation()
   const stroke = { fill: 'none', stroke: 'currentColor', strokeWidth: 1.6 }
   return (
@@ -101,6 +104,19 @@ export function ChooseStep(props: { onChoose: (kind: LanDeviceKind) => void }): 
           hint={t('settingsView.addDevice.computerHint')}
           onChoose={() => props.onChoose('twin')}
         />
+        {props.onUseAnotherSim && (
+          <KindChoice
+            icon={
+              <svg width="28" height="28" viewBox="0 0 28 28" aria-hidden="true">
+                <rect x="3" y="5" width="22" height="14" rx="1.5" {...stroke} />
+                <path d="M1 23 H27 M10 12 H18 M15 9 L18 12 L15 15" {...stroke} />
+              </svg>
+            }
+            name={t('settingsView.addDevice.useAnother')}
+            hint={t('settingsView.addDevice.useAnotherHint')}
+            onChoose={props.onUseAnotherSim}
+          />
+        )}
       </div>
       <p className={`${QUIET} border-t border-border pt-3`}>{t('settingsView.addDevice.homeOnly')}</p>
     </>

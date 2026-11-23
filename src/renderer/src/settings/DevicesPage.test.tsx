@@ -346,6 +346,21 @@ describe('DevicesPage on the sim PC', () => {
 })
 
 describe('DevicesPage on a client', () => {
+  it('opens Add a device on Connect to a sim PC at once when asked (the first start after Use another PC’s sim)', async () => {
+    setup({
+      capabilities: MAC,
+      link: { state: 'unpaired', address: null, hostSim: null, sync: CONNECTED.sync }
+    })
+    render(
+      <CapabilitiesProvider>
+        <DevicesPage startAdding />
+      </CapabilitiesProvider>
+    )
+    const dialog = await screen.findByRole('dialog')
+    expect(await within(dialog).findByRole('heading', { name: 'Connect to a sim PC' })).toBeInTheDocument()
+    expect(within(dialog).getByRole('textbox', { name: 'Address' })).toBeInTheDocument()
+  })
+
   it('shows its sim PC as the one row, with its light, address and state, and Forget', async () => {
     const user = userEvent.setup()
     const { api } = setup({ capabilities: MAC })
@@ -365,8 +380,16 @@ describe('DevicesPage on a client', () => {
       )
     ).toBeInTheDocument()
     expect(within(list).queryByRole('alert')).not.toBeInTheDocument()
+    // Forget asks first: Cancel keeps the sim PC, Forget forgets it.
     await user.click(within(list).getByRole('button', { name: 'Forget' }))
-    expect(api.hostLinkForget).toHaveBeenCalled()
+    const ask = await screen.findByRole('alertdialog')
+    expect(within(ask).getByText('Forget the sim PC?')).toBeInTheDocument()
+    expect(within(ask).getByText('This computer will need to pair again.')).toBeInTheDocument()
+    await user.click(within(ask).getByRole('button', { name: 'Cancel' }))
+    expect(api.hostLinkForget).not.toHaveBeenCalled()
+    await user.click(within(list).getByRole('button', { name: 'Forget' }))
+    await user.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Forget' }))
+    expect(api.hostLinkForget).toHaveBeenCalledTimes(1)
     // A client runs no server, so it has no network section.
     expect(screen.queryByRole('heading', { name: 'On your home network' })).not.toBeInTheDocument()
     // A Mac cannot run the sim, so it has no choice of where the sim runs.

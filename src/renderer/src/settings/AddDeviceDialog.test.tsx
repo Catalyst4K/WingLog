@@ -67,6 +67,8 @@ function setup(
       return Promise.resolve(lan)
     }),
     lanRevokeDevice: vi.fn(() => Promise.resolve(lan)),
+    settingsUseAnotherPcSim: vi.fn(() => Promise.resolve()),
+    appRestartForRunMode: vi.fn(() => Promise.resolve()),
     hostLinkGetStatus: vi.fn(() => Promise.resolve(options.link ?? UNPAIRED)),
     hostLinkPair: vi.fn(() => Promise.resolve(options.link ?? UNPAIRED)),
     hostLinkForget: vi.fn(() => Promise.resolve()),
@@ -187,6 +189,8 @@ describe('Add a device on the sim PC', () => {
     pair('screen', 'iPhone')
     await act(() => vi.advanceTimersByTimeAsync(2100))
     const done = await within(dialog).findByText('iPhone is paired')
+    // The success step keeps the step's title.
+    expect(within(dialog).getByRole('heading', { name: 'Pair a phone or tablet' })).toBeInTheDocument()
     expect(done.querySelector('[data-slot="status-light"]')).toHaveAttribute('data-state', 'green')
     expect(api.lanStopPairing).toHaveBeenCalledWith('screen')
     // The used code is not replaced by a new one.
@@ -219,6 +223,51 @@ describe('Add a device on the sim PC', () => {
     await act(() => vi.advanceTimersByTimeAsync(8400))
     expect(api.lanStartPairing).toHaveBeenCalledTimes(1)
     expect(within(dialog).queryByText('Waiting for the device')).not.toBeInTheDocument()
+    // It says the code has closed, and New code opens another.
+    expect(within(dialog).getByText('This code has closed.')).toBeInTheDocument()
+    await user.click(within(dialog).getByRole('button', { name: 'New code' }))
+    expect(await within(dialog).findByLabelText('100002')).toBeInTheDocument()
+    expect(within(dialog).queryByText('This code has closed.')).not.toBeInTheDocument()
+    expect(within(dialog).getByText('Waiting for the device')).toBeInTheDocument()
+  })
+
+  it('does not renew a computer’s code: when it runs out the step says so and offers New code', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    const { api } = setup({ codeMs: 3000 })
+    renderPage()
+    const dialog = await openAdd(user)
+    await user.click(within(dialog).getByRole('button', { name: /Another computer with WingLog/ }))
+    await within(dialog).findByLabelText('100001')
+    await act(() => vi.advanceTimersByTimeAsync(6300))
+    expect(await within(dialog).findByText('This code has closed.')).toBeInTheDocument()
+    expect(api.lanStartPairing).toHaveBeenCalledTimes(1)
+    expect(within(dialog).queryByLabelText('100001')).not.toBeInTheDocument()
+    await user.click(within(dialog).getByRole('button', { name: 'New code' }))
+    expect(api.lanStartPairing).toHaveBeenLastCalledWith('twin')
+    expect(await within(dialog).findByLabelText('100002')).toBeInTheDocument()
+  })
+
+  it('closes a code that opens after the dialog was closed, so none is left open', async () => {
+    const user = userEvent.setup()
+    const { api } = setup()
+    let finish: (status: LanStatus) => void = () => {}
+    const first = api.lanStartPairing.getMockImplementation()
+    api.lanStartPairing.mockImplementationOnce(
+      (kind?: LanDeviceKind) =>
+        new Promise<LanStatus>((resolve) => {
+          finish = (status) => resolve(status)
+          void first?.(kind)
+        })
+    )
+    renderPage()
+    const dialog = await openAdd(user)
+    await user.click(within(dialog).getByRole('button', { name: /A phone or tablet/ }))
+    await waitFor(() => expect(api.lanStartPairing).toHaveBeenCalled())
+    await user.keyboard('{Escape}')
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    await act(async () => finish(await api.lanGetStatus()))
+    await waitFor(() => expect(api.lanStopPairing).toHaveBeenCalledWith('screen'))
   })
 
   it('shows another computer the address and code, turning Computers on, and says when it has paired', async () => {
@@ -281,6 +330,33 @@ describe('Add a device on the sim PC', () => {
     await user.keyboard('{Escape}')
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
     expect(api.lanStopPairing).toHaveBeenCalledWith('twin')
+  })
+
+  it('offers Use another PC’s sim on a sim PC: the next start is a client, and Restart now starts again', async () => {
+    const user = userEvent.setup()
+    const { api } = setup()
+    renderPage()
+    const dialog = await openAdd(user)
+    const choice = within(dialog).getByRole('button', { name: /Use another PC’s sim/ })
+    expect(choice).toHaveTextContent('This PC stops running the sim and works with the sim on another PC.')
+    await user.click(choice)
+    expect(api.settingsUseAnotherPcSim).toHaveBeenCalled()
+    expect(
+      await within(dialog).findByText(/^WingLog needs to restart to use another PC’s sim/)
+    ).toBeInTheDocument()
+    expect(within(dialog).getByRole('heading', { name: 'Use another PC’s sim' })).toBeInTheDocument()
+    await user.click(within(dialog).getByRole('button', { name: 'Restart now' }))
+    expect(api.appRestartForRunMode).toHaveBeenCalled()
+    expect(api.lanStartPairing).not.toHaveBeenCalled()
+  })
+
+  it('offers no Use another PC’s sim on a computer that cannot run the sim', async () => {
+    const user = userEvent.setup()
+    setup({ capabilities: { runMode: 'host', canHostSim: false, multiDevice: true } })
+    renderPage()
+    const dialog = await openAdd(user)
+    await within(dialog).findByRole('button', { name: /A phone or tablet/ })
+    expect(within(dialog).queryByRole('button', { name: /Use another PC’s sim/ })).not.toBeInTheDocument()
   })
 
   it('opens straight on the phone step in a build with phones only', async () => {

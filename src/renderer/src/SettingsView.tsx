@@ -238,6 +238,9 @@ export function SettingsView(
     /** Bumped by App.tsx when the Settings tab is clicked while already active — returns to
      *  the first category (docs/plans/navigation-tab-behaviour.md). See useResetSignal. */
     resetSignal?: number
+    /** Open Devices with Add a device on Connect to a sim PC (once, after "Use another PC's sim" and a restart). */
+    openConnect?: boolean
+    onOpenConnectConsumed?: () => void
   }
 ): React.JSX.Element {
   const { t } = useTranslation()
@@ -256,7 +259,15 @@ export function SettingsView(
   const [appVersion, setAppVersion] = useState('')
   // Purely transient UI state, not persisted — this app has no routing beyond the top tab
   // bar, no reason to add any for a sub-navigation within one of its pages.
-  const [category, setCategory] = useState<SettingsCategory>(DEFAULT_SETTINGS_CATEGORY)
+  const [category, setCategory] = useState<SettingsCategory>(
+    props.openConnect ? 'devices' : DEFAULT_SETTINGS_CATEGORY
+  )
+  // Read once when the page mounts: Devices opens its Add a device then, and the request is spent.
+  const [openConnect] = useState(props.openConnect ?? false)
+  const { onOpenConnectConsumed } = props
+  useEffect(() => {
+    if (openConnect) onOpenConnectConsumed?.()
+  }, [openConnect, onOpenConnectConsumed])
   useResetSignal(props.resetSignal, () => setCategory(DEFAULT_SETTINGS_CATEGORY))
 
   useEffect(() => {
@@ -297,7 +308,7 @@ export function SettingsView(
         </TabsContent>
 
         <TabsContent value="devices" className={PAGE}>
-          <DevicesPage />
+          <DevicesPage startAdding={openConnect} />
         </TabsContent>
 
         <TabsContent value="accounts" className={PAGE}>

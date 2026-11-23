@@ -41,14 +41,18 @@ function HostDevices(props: { multiDevice: boolean }): React.JSX.Element | null 
 /**
  * The Devices page.
  *
+ * @param props Whether to open Add a device at once (the first start after "Use another PC's sim").
  * @returns The element.
  */
-export function DevicesPage(): React.JSX.Element {
+export function DevicesPage(props: { startAdding?: boolean }): React.JSX.Element {
   const { t } = useTranslation()
-  const { runMode, multiDevice } = useCapabilities()
+  const { runMode, multiDevice, canHostSim } = useCapabilities()
   const isClient = runMode === 'client'
   const link = useHostLinkStatus(isClient)
-  const [adding, setAdding] = useState(false)
+  const [addClicked, setAddClicked] = useState(false)
+  // The request after "Use another PC's sim" is a client's: it waits until the capabilities say this run is one.
+  const [startPending, setStartPending] = useState(props.startAdding ?? false)
+  const adding = addClicked || (startPending && isClient)
   // A client adds only its one sim PC: the button shows while none is paired or the link needs pairing again.
   const canAdd = !isClient || offersPairing(link)
   const lede = isClient
@@ -63,7 +67,7 @@ export function DevicesPage(): React.JSX.Element {
         lede={lede}
         action={
           canAdd && (
-            <Button type="button" onClick={() => setAdding(true)}>
+            <Button type="button" onClick={() => setAddClicked(true)}>
               {t('settingsView.devices.add')}
             </Button>
           )
@@ -74,7 +78,15 @@ export function DevicesPage(): React.JSX.Element {
         <ThisComputer />
       </div>
       {adding && (
-        <AddDeviceDialog isClient={isClient} multiDevice={multiDevice} onClose={() => setAdding(false)} />
+        <AddDeviceDialog
+          isClient={isClient}
+          multiDevice={multiDevice}
+          canUseAnotherSim={multiDevice && canHostSim && runMode === 'host'}
+          onClose={() => {
+            setAddClicked(false)
+            setStartPending(false)
+          }}
+        />
       )}
     </div>
   )

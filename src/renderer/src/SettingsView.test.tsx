@@ -189,6 +189,8 @@ function renderSettings(
         onGsxRemoteEnabledChange={props.onGsxRemoteEnabledChange ?? vi.fn()}
         onBeyondAtcEnabledChange={props.onBeyondAtcEnabledChange ?? vi.fn()}
         resetSignal={props.resetSignal}
+        openConnect={props.openConnect}
+        onOpenConnectConsumed={props.onOpenConnectConsumed}
       />
     </CapabilitiesProvider>
   )
@@ -415,6 +417,18 @@ describe('SettingsView', () => {
         }
       )
 
+      it('opens Devices with Connect to a sim PC when asked at start, and says the request was used', async () => {
+        setWinglog({ appGetCapabilities: vi.fn().mockResolvedValue(CLIENT) })
+        const consumed = vi.fn()
+        renderSettings({ openConnect: true, onOpenConnectConsumed: consumed })
+        expect(await screen.findByRole('heading', { name: 'Devices' })).toBeInTheDocument()
+        const dialog = await screen.findByRole('dialog')
+        expect(
+          await within(dialog).findByRole('heading', { name: 'Connect to a sim PC' })
+        ).toBeInTheDocument()
+        expect(consumed).toHaveBeenCalledTimes(1)
+      })
+
       it('lights the Devices page red on a client when the link is not connected, whatever the sim last said', async () => {
         setWinglog({
           appGetCapabilities: vi.fn().mockResolvedValue(CLIENT),
@@ -591,7 +605,7 @@ describe('SettingsView', () => {
       expect(tab.querySelector('[data-state="green"]')).not.toBeNull()
     })
 
-    it('leaves the Devices light off, with no words, while paired devices are not connected', async () => {
+    it('shows no light and no words beside Devices while paired devices are not connected', async () => {
       setWinglog({
         lanGetStatus: vi.fn().mockResolvedValue({
           settings: { enabled: true, port: 8765, twinEnabled: false },
@@ -608,8 +622,9 @@ describe('SettingsView', () => {
         })
       })
       renderSettings()
+      await waitFor(() => expect(window.winglog.lanGetStatus).toHaveBeenCalled())
       const tab = screen.getByRole('tab', { name: /Devices/ })
-      await waitFor(() => expect(tab.querySelector('[data-state="off"]')).not.toBeNull())
+      expect(tab.querySelector('[data-slot="status-light"]')).toBeNull()
       expect(tab).toHaveTextContent(/^Devices$/)
     })
 

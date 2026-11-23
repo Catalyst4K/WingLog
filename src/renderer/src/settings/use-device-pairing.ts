@@ -3,7 +3,7 @@
  * on first if it was off), keep a phone's code fresh until Close, notice the new device when it appears, and close the code again.
  */
 
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { LanDeviceKind, LanStatus } from '@shared/ipc'
 import { winglogApi } from '../data/winglog-api'
 import { runAsync } from '../report-error'
@@ -63,59 +63,84 @@ function renewPairing(
 }
 
 /**
- * Runs one opening of Add a device on the sim PC.
+ * Runs one opening of Add a device on the sim PC. A phone's code renews itself when it runs out; a computer's does not (decided
+ * 2026-11-23). A code that closes without a pairing (a computer's at 5 minutes, or one the PC cancelled after wrong guesses) is reported
+ * as `closed`, for the step's New code.
  *
- * @param onPaired Called once with the new device's name when a device of the open kind appears.
- * @returns The status, the pairing open now (null before one is chosen), and the functions that open and close it.
+ * @param onPaired Called once with the new device's name and kind when a device of the open kind appears.
+ * @returns The status, the pairing open now (null before one is chosen), whether its code has closed, and the functions that open and
+ *   close it.
  */
-export function useDevicePairing(onPaired: (name: string) => void): {
+export function useDevicePairing(onPaired: (name: string, kind: LanDeviceKind) => void): {
   status: LanStatus | null
   open: OpenPairing | null
+  closed: boolean
   start: (kind: LanDeviceKind) => Promise<void>
   stop: () => void
 } {
   const [open, setOpen] = useState<OpenPairing | null>(null)
+  const [closed, setClosed] = useState(false)
   /** The devices paired when the code opened: one that is not among them is the new one. */
   const known = useRef<Set<number>>(new Set())
   const renewal = useRef<PhoneRenewal>({ on: false, expiresAt: 0, devices: 0 })
+  /** Set by Close and by the dialog going away: a code that opens after it is closed again at once. */
+  const cancelled = useRef(false)
+  useEffect(
+    () => () => {
+      cancelled.current = true
+    },
+    []
+  )
 
-  /** Closes the code that is open, if one is. */
+  /** Closes the code that is open, if one is, and any code still being opened. */
   function stop(): void {
-    if (!open) return
+    cancelled.current = true
     renewal.current.on = false
+    if (!open) return
     runAsync('AddDeviceDialog lanStopPairing', winglogApi().lanStopPairing(open.kind))
     setOpen(null)
   }
 
   function read(next: LanStatus, show: (status: LanStatus) => void): void {
-    if (!open) return
+    if (!open || closed) return
     const paired = next.devices.find((device) => device.kind === open.kind && !known.current.has(device.id))
     if (paired) {
       stop()
-      onPaired(paired.name)
-    } else if (open.kind === 'screen') {
-      renewPairing(screensOnly(next), renewal.current, show)
+      onPaired(paired.name, open.kind)
+      return
     }
+    if (open.kind === 'screen') renewPairing(screensOnly(next), renewal.current, show)
+    const code = open.kind === 'twin' ? next.twinPairing : next.pairing
+    const renewing = open.kind === 'screen' && renewal.current.on
+    if (!code && !renewing && next.url) setClosed(true)
   }
 
   const [status, setStatus] = useLanStatus(true, read)
 
   /**
-   * Opens a kind's code. A kind that is switched off is turned on by choosing it (decided 2026-11-23, D1), and the step says so.
+   * Opens a kind's code, or a new one after it closed. A kind that is switched off is turned on by choosing it (decided 2026-11-23, D1),
+   * and the step says so.
    *
    * @param kind What is being added.
    */
   async function start(kind: LanDeviceKind): Promise<void> {
+    cancelled.current = false
     const api = winglogApi()
     const before = await api.lanGetStatus()
     const off = kind === 'twin' ? !before.settings.twinEnabled : !before.settings.enabled
     if (off) await api.lanSetSettings(kind === 'twin' ? { twinEnabled: true } : { enabled: true })
     const opened = await api.lanStartPairing(kind)
+    if (cancelled.current) {
+      // Closed while the code was being opened: close it again, so no code is left open with nobody to read it.
+      await api.lanStopPairing(kind)
+      return
+    }
     known.current = new Set(opened.devices.map((device) => device.id))
     renewal.current = { on: kind === 'screen', expiresAt: 0, devices: screensOnly(opened).devices.length }
     setStatus(opened)
-    setOpen({ kind, turnedOn: off })
+    setClosed(false)
+    setOpen((before) => ({ kind, turnedOn: off || (before?.kind === kind && before.turnedOn) }))
   }
 
-  return { status, open, start, stop }
+  return { status, open, closed, start, stop }
 }
