@@ -134,6 +134,8 @@ const api: WingLogApi = {
   settingsSetTheme: (theme: Theme) => ipcRenderer.invoke(IpcChannels.settingsSetTheme, theme),
   settingsGetRunMode: () => ipcRenderer.invoke(IpcChannels.settingsGetRunMode),
   settingsSetRunMode: (mode: RunMode) => ipcRenderer.invoke(IpcChannels.settingsSetRunMode, mode),
+  appUseAnotherPcSimAndRestart: () => ipcRenderer.invoke(IpcChannels.appUseAnotherPcSimAndRestart),
+  appTakeOpenConnectOnStart: () => ipcRenderer.invoke(IpcChannels.appTakeOpenConnectOnStart),
   trackingStart: (flightId: number) => ipcRenderer.invoke(IpcChannels.trackingStart, flightId),
   trackingStartFree: (input: StartFreeFlightInput) =>
     ipcRenderer.invoke(IpcChannels.trackingStartFree, input),
@@ -469,8 +471,8 @@ const api: WingLogApi = {
   setupComplete: () => ipcRenderer.invoke(IpcChannels.setupComplete),
   lanGetStatus: () => ipcRenderer.invoke(IpcChannels.lanGetStatus),
   hostLinkGetStatus: () => ipcRenderer.invoke(IpcChannels.hostLinkGetStatus),
-  hostLinkPair: (address: string, code: string, pin?: string | null) =>
-    ipcRenderer.invoke(IpcChannels.hostLinkPair, address, code, pin),
+  hostLinkPair: (address: string, code: string) =>
+    ipcRenderer.invoke(IpcChannels.hostLinkPair, address, code),
   hostLinkForget: () => ipcRenderer.invoke(IpcChannels.hostLinkForget),
   onDataChanged: (listener: () => void) => {
     const handler = (): void => listener()
@@ -486,7 +488,8 @@ const api: WingLogApi = {
     ipcRenderer.invoke(IpcChannels.lanSetSettings, settings),
   lanStartPairing: (kind?: LanDeviceKind) => ipcRenderer.invoke(IpcChannels.lanStartPairing, kind),
   lanStopPairing: (kind?: LanDeviceKind) => ipcRenderer.invoke(IpcChannels.lanStopPairing, kind),
-  lanRevokeDevice: (id: number) => ipcRenderer.invoke(IpcChannels.lanRevokeDevice, id)
+  lanRevokeDevice: (id: number) => ipcRenderer.invoke(IpcChannels.lanRevokeDevice, id),
+  lanRenameDevice: (id: number, name: string) => ipcRenderer.invoke(IpcChannels.lanRenameDevice, id, name)
 }
 
 contextBridge.exposeInMainWorld('winglog', api)

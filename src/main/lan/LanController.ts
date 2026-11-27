@@ -8,6 +8,7 @@ import type { LanDevice, LanDeviceKind, LanPairing, LanProblem, LanSettings, Lan
 import { isValidLanPort } from '../db/settings-repo'
 import { logger } from '../logging/logger'
 import { chooseAddress, type LanAddress } from './adapters'
+import { checkedDeviceName } from './pairing'
 
 /** How often the controller checks that the home-network address it listens on is still the PC's. */
 export const ADDRESS_CHECK_MS = 15_000
@@ -16,6 +17,8 @@ export const ADDRESS_CHECK_MS = 15_000
 export interface LanServerPort {
   readonly listening: boolean
   readonly connectionCount: number
+  /** The ids of the paired devices connected right now. */
+  readonly connectedDeviceIds: Set<number>
   /** The pin of the certificate shown to twins, or null while running without one. */
   readonly certificatePin: string | null
   /** Whether a kind's pairing window is still open (a used code is not). */
@@ -37,7 +40,13 @@ export interface LanControllerDeps {
   addresses(): LanAddress[]
   /** The local address of the default route (`defaultRouteAddress`), or null when the PC has no route. */
   routeAddress(): Promise<string | null>
-  devices: { list(): LanDevice[]; revoke(id: number): boolean; forget(id: number): void }
+  devices: {
+    list(): Omit<LanDevice, 'connected'>[]
+    revoke(id: number): boolean
+    /** Renames a paired device; false when there is no such paired device. */
+    rename(id: number, name: string): boolean
+    forget(id: number): void
+  }
   now(): number
 }
 
@@ -118,8 +127,14 @@ export class LanController {
       pairing: server.listening ? this.pairings.screen : null,
       twinPairing: server.listening ? this.pairings.twin : null,
       twinCertificate: server.certificatePin,
-      devices: this.deps.devices.list()
+      devices: this.listDevices()
     }
+  }
+
+  /** @returns The paired devices, each marked with whether it is connected now. */
+  private listDevices(): LanDevice[] {
+    const connected = this.deps.server.connectedDeviceIds
+    return this.deps.devices.list().map((device) => ({ ...device, connected: connected.has(device.id) }))
   }
 
   /**
@@ -163,6 +178,22 @@ export class LanController {
       this.deps.server.disconnectDevice(id)
       this.deps.devices.forget(id)
     }
+    return this.getStatus()
+  }
+
+  /**
+   * Renames a paired device.
+   *
+   * @param id The device, unchecked.
+   * @param name Its new name, unchecked: trimmed, 1 to 40 characters, no control characters.
+   * @returns The status.
+   * @throws When the id is not a paired device or the name is not a usable one.
+   */
+  renameDevice(id: unknown, name: unknown): LanStatus {
+    const checked = checkedDeviceName(name)
+    if (!checked) throw new Error('Invalid device name')
+    if (typeof id !== 'number' || !Number.isInteger(id) || !this.deps.devices.rename(id, checked))
+      throw new Error('No such paired device')
     return this.getStatus()
   }
 
@@ -224,8 +255,8 @@ function kindOf(value: unknown): LanDeviceKind {
 }
 
 /**
- * Reads the settings from the window. A field left out keeps its stored value, so the Second screen card and the Sim PC page can each
- * change their own switch without knowing the other's.
+ * Reads the settings from the window. A field left out keeps its stored value, so the Devices page's two switches can each change their own
+ * setting without knowing the other's.
  *
  * @param value Settings from the window.
  * @param current The stored settings.

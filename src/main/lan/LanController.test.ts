@@ -21,6 +21,7 @@ const THIS_PC = { Ethernet: [ipv4('192.168.1.136')], 'vEthernet (WSLCore)': [ipv
 class FakeServer implements LanServerPort {
   listening = false
   connectionCount = 0
+  connectedDeviceIds = new Set<number>()
   certificatePin: string | null = null
   starts: [string, number][] = []
   stops = 0
@@ -68,21 +69,30 @@ function setup(
   let network = interfaces
   let route: string | null = null
   let clock = 1_000_000
-  const devices: LanDevice[] = [{ id: 1, kind: 'screen', name: 'iPad', createdAt: 'x', lastSeenAt: null }]
+  const devices: Omit<LanDevice, 'connected'>[] = [
+    { id: 1, kind: 'screen', name: 'iPad', createdAt: 'x', lastSeenAt: null }
+  ]
   const revoke = vi.fn((id: number) => devices.some((d) => d.id === id))
+  const rename = vi.fn((id: number, name: string) => {
+    const device = devices.find((d) => d.id === id)
+    if (device) device.name = name
+    return device !== undefined
+  })
   const forget = vi.fn<(id: number) => void>()
   const controller = new LanController({
     server,
     settings: { get: () => settings, set: (s) => (settings = s) },
     addresses: () => listLanAddresses(network),
     routeAddress: () => Promise.resolve(route),
-    devices: { list: () => devices, revoke, forget },
+    devices: { list: () => devices, revoke, rename, forget },
     now: () => clock
   })
   return {
     server,
     controller,
+    devices,
     revoke,
+    rename,
     forget,
     settings: () => settings,
     setNetwork: (n: Record<string, NetworkInterfaceInfo[] | undefined>) => (network = n),
@@ -239,6 +249,41 @@ describe('LanController', () => {
   })
 
   describe('devices', () => {
+    it('renames a paired device with the name trimmed, and returns the status with it', () => {
+      const { controller, rename } = setup()
+      expect(controller.renameDevice(1, '  Kitchen iPad ').devices[0]?.name).toBe('Kitchen iPad')
+      expect(rename).toHaveBeenCalledWith(1, 'Kitchen iPad')
+    })
+
+    it('refuses a bad id, a device not paired, and an empty, too long or control-character name, renaming nothing', () => {
+      const { controller, rename } = setup()
+      for (const id of ['1', 1.5, null, undefined])
+        expect(() => controller.renameDevice(id, 'iPad'), String(id)).toThrow('No such paired device')
+      expect(() => controller.renameDevice(7, 'iPad')).toThrow('No such paired device')
+      for (const name of ['', '   ', 'x'.repeat(41), 'i\u0000Pad', 5, null])
+        expect(() => controller.renameDevice(1, name), String(name)).toThrow('Invalid device name')
+      expect(rename).toHaveBeenCalledTimes(1)
+      expect(controller.getStatus().devices[0]?.name).toBe('iPad')
+    })
+
+    it('marks each device with whether it is connected now', () => {
+      const { controller, server, devices } = setup()
+      devices.push({
+        id: 2,
+        kind: 'twin',
+        name: 'MacBook Air',
+        createdAt: 'y',
+        lastSeenAt: '2026-11-21T10:00:00Z'
+      })
+      server.connectedDeviceIds = new Set([2])
+      expect(controller.getStatus().devices.map((d) => [d.id, d.connected])).toEqual([
+        [1, false],
+        [2, true]
+      ])
+      server.connectedDeviceIds = new Set()
+      expect(controller.getStatus().devices.every((d) => !d.connected)).toBe(true)
+    })
+
     it('revokes a device and drops its connections', () => {
       const { controller, server, revoke } = setup({ enabled: true })
       controller.revokeDevice(1)

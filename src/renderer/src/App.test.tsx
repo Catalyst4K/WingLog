@@ -469,6 +469,7 @@ function createWinglog(overrides: Partial<WingLogApi> = {}): WingLogApi {
     aircraftExport: vi.fn().mockResolvedValue(false),
     appGetVersion: vi.fn().mockResolvedValue('1.0.0'),
     appGetCapabilities: vi.fn().mockResolvedValue({ runMode: 'host', canHostSim: true, multiDevice: false }),
+    appTakeOpenConnectOnStart: vi.fn().mockResolvedValue(false),
     settingsGetUpdates: vi.fn().mockResolvedValue({ checkEnabled: true }),
     settingsSetUpdates: vi.fn().mockResolvedValue(undefined),
     settingsGetWindow: vi.fn().mockResolvedValue({ minimizeToTray: false, trayAvailable: true }),
@@ -600,6 +601,13 @@ describe('App', () => {
       expect(screen.getByRole('tab', { name })).toBeInTheDocument()
     }
     expect(screen.getByText('Sim: disconnected')).toBeInTheDocument()
+  })
+
+  it('opens Settings → Devices at start when the last run chose to use another PC’s sim', async () => {
+    setWinglog({ appTakeOpenConnectOnStart: vi.fn().mockResolvedValue(true) })
+    render(<App />)
+    expect(await screen.findByRole('heading', { name: 'Devices' })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'Settings' })).toHaveAttribute('aria-selected', 'true')
   })
 
   it('hides the GSX Remote Control and BeyondATC tabs until their settings are enabled', async () => {

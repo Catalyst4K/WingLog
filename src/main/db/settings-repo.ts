@@ -280,6 +280,30 @@ export function setRunMode(db: WingLogDb, mode: RunMode): void {
   setSetting(db, RUN_MODE_KEY, mode)
 }
 
+/** Set when this PC chose "Use another PC's sim": the next launch opens Settings → Devices on Connect to a sim PC, once. */
+const OPEN_CONNECT_ON_START_KEY = 'openConnectOnStart'
+
+/**
+ * Asks the next launch to open Settings → Devices with Add a device on its address-and-code step.
+ *
+ * @param db The database.
+ */
+export function setOpenConnectOnStart(db: WingLogDb): void {
+  setSetting(db, OPEN_CONNECT_ON_START_KEY, '1')
+}
+
+/**
+ * Reads and clears the request `setOpenConnectOnStart` left, so it is acted on once.
+ *
+ * @param db The database.
+ * @returns True when this launch should open Connect to a sim PC.
+ */
+export function takeOpenConnectOnStart(db: WingLogDb): boolean {
+  const asked = getSetting(db, OPEN_CONNECT_ON_START_KEY) === '1'
+  if (asked) deleteSetting(db, OPEN_CONNECT_ON_START_KEY)
+  return asked
+}
+
 /**
  * Both default on — only an explicit '0' switches either off.
  *

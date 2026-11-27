@@ -814,6 +814,7 @@ describe('LanServer', () => {
       server.disconnectDevice(1)
       await client.message('denied')
       await client.waitFor(() => client.closed)
+      await vi.waitFor(() => expect(server.connectedDeviceIds.has(1)).toBe(false))
       const again = await connect()
       again.send({ t: 'hello', token })
       await again.message('denied')
@@ -1078,6 +1079,18 @@ describe('LanServer', () => {
       expect(server.listening).toBe(false)
       await client.waitFor(() => client.closed)
       expect(server.connectionCount).toBe(0)
+    })
+
+    it('lists a paired device as connected while its socket is open, and not a socket still pairing', async () => {
+      const { server, pair, connect } = await setup()
+      const stranger = await connect()
+      expect(server.connectedDeviceIds.size).toBe(0)
+      const { client } = await pair()
+      expect([...server.connectedDeviceIds]).toEqual([1])
+      client.ws.close()
+      await client.waitFor(() => client.closed)
+      await vi.waitFor(() => expect(server.connectedDeviceIds.size).toBe(0))
+      stranger.ws.close()
     })
 
     it('stops hearing the hub after stop', async () => {

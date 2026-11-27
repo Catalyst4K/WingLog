@@ -22,6 +22,8 @@ export interface WindowLike {
 /** A tray icon that has been created. */
 export interface TrayHandle {
   setToolTip(text: string): void
+  /** Puts a different picture on the icon, from a file. */
+  setIcon(path: string): void
   destroy(): void
 }
 
@@ -85,6 +87,15 @@ export class TrayController {
   updateToolTip(): void {
     const key = this.deps.isFlightActive() ? 'tray.tooltipTracking' : 'tray.tooltip'
     this.tray?.setToolTip(this.deps.translate(key))
+  }
+
+  /**
+   * Puts a different picture on the tray icon, if it is showing (the system changed between light and dark).
+   *
+   * @param path The picture's path.
+   */
+  setIcon(path: string): void {
+    this.tray?.setIcon(path)
   }
 
   /** Shows the window, restoring it if minimised, and gives it focus. */

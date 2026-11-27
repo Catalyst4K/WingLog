@@ -21,6 +21,15 @@ describe('StatusLight', () => {
     expect(container.querySelector('[data-slot="status-light"] > span')).toHaveClass(colour)
   })
 
+  it('draws "off" as a hollow ring when asked, and leaves the other states filled', () => {
+    const { container } = render(<StatusLight state="off" hollow />)
+    const dot = container.querySelector('[data-slot="status-light"] > span')
+    expect(dot).toHaveClass('border-light-off', 'bg-transparent')
+    expect(dot).not.toHaveClass('bg-light-off')
+    const { container: on } = render(<StatusLight state="green" hollow />)
+    expect(on.querySelector('[data-slot="status-light"] > span')).toHaveClass('bg-light-green')
+  })
+
   it('draws a row of dots for the sim connection', () => {
     const { container } = render(<StatusLight state="green" count={3} />)
     expect(container.querySelector('[data-slot="status-light"]')?.children).toHaveLength(3)

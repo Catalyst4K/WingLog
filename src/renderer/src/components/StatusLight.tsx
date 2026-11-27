@@ -16,14 +16,20 @@ const LIGHT_COLOUR: Record<LightState, string> = {
  * A state light (winglog-backend docs/plans/v2-design.md, "The design rules": lights are state, and off when normal). Decorative: put
  * the state in words beside it, since a colour alone is not read by everyone.
  *
- * @param props The state, how many dots (the sim connection uses three), and extra classes.
+ * @param props The state, how many dots (the sim connection uses three), whether "off" is a hollow ring (a device that is not connected
+ *   now, which is normal), and extra classes.
  * @returns The element.
  */
 export function StatusLight(props: {
   state: LightState
   count?: number
+  hollow?: boolean
   className?: string
 }): React.JSX.Element {
+  const colour =
+    props.hollow && props.state === 'off'
+      ? 'box-border border border-light-off bg-transparent'
+      : LIGHT_COLOUR[props.state]
   const dots = Array.from({ length: props.count ?? 1 }, (_, i) => i)
   return (
     <span
@@ -33,7 +39,7 @@ export function StatusLight(props: {
       className={cn('inline-flex shrink-0 items-center gap-1', props.className)}
     >
       {dots.map((i) => (
-        <span key={i} className={cn('size-2 rounded-full', LIGHT_COLOUR[props.state])} />
+        <span key={i} className={cn('size-2 rounded-full', colour)} />
       ))}
     </span>
   )

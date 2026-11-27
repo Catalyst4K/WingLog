@@ -77,7 +77,7 @@ describe('a device linked to the PC when its switch is turned off', () => {
       settings: { get: () => settings, set: (s) => (settings = s) },
       addresses: () => [{ adapter: 'lo', address: HOST, kind: 'physical' }],
       routeAddress: () => Promise.resolve(HOST),
-      devices: { list: () => [], revoke: () => false, forget: () => undefined },
+      devices: { list: () => [], revoke: () => false, rename: () => false, forget: () => undefined },
       now: () => Date.now()
     })
     controller = lan

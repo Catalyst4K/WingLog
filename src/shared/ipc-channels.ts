@@ -46,6 +46,8 @@ export const IpcChannels = {
   settingsSetTheme: 'settings:set-theme',
   settingsGetRunMode: 'settings:get-run-mode',
   settingsSetRunMode: 'settings:set-run-mode',
+  appUseAnotherPcSimAndRestart: 'app:use-another-pc-sim-and-restart',
+  appTakeOpenConnectOnStart: 'app:take-open-connect-on-start',
   trackingStart: 'tracking:start',
   trackingStartFree: 'tracking:start-free-flight',
   trackingGetFreeFlightPrefill: 'tracking:get-free-flight-prefill',
@@ -239,5 +241,6 @@ export const IpcChannels = {
   lanSetSettings: 'lan:set-settings',
   lanStartPairing: 'lan:start-pairing',
   lanStopPairing: 'lan:stop-pairing',
-  lanRevokeDevice: 'lan:revoke-device'
+  lanRevokeDevice: 'lan:revoke-device',
+  lanRenameDevice: 'lan:rename-device'
 } as const

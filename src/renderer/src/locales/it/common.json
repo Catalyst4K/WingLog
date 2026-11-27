@@ -34,15 +34,14 @@
     "title": "Impostazioni",
     "categories": {
       "general": "Generale",
-      "secondScreen": "Secondo schermo",
+      "devices": "Dispositivi",
       "accounts": "SimBrief e Navigraph",
       "gsx": "GSX",
       "beyondAtc": "ATC",
       "online": "Rete online",
       "navdata": "Navdata",
       "data": "Importa ed esporta",
-      "about": "Informazioni e aggiornamenti",
-      "simPc": "PC del simulatore"
+      "about": "Informazioni e aggiornamenti"
     },
     "units": {
       "cardTitle": "Unità",
@@ -264,33 +263,27 @@
     },
     "pageLede": {
       "general": "Unità, lingua, aspetto di WingLog e come registra.",
-      "secondScreen": "Mostra mappa e volo su un telefono o tablet della rete.",
       "accounts": "Il tuo nome SimBrief e Navigraph per le procedure.",
       "gsx": "Servizi a terra da WingLog e ricevute GSX sui voli.",
       "beyondAtc": "Le istruzioni di BeyondATC, lette in WingLog.",
       "online": "Vola su VATSIM o IVAO: chi è online intorno a te e il deposito del piano.",
       "navdata": "I dati di navigazione del simulatore che WingLog legge per le procedure.",
       "data": "Copia, sposta o cancella flotta e logbook.",
-      "about": "Versione, manuale e aggiornamenti.",
-      "simPc": "Quale computer esegue il simulatore e l’associazione con esso."
+      "about": "Versione, manuale e aggiornamenti."
     },
     "status": {
-      "devices_one": "{{count}} telefono",
-      "devices_other": "{{count}} telefoni",
-      "updateReady": "Aggiornamento pronto"
+      "updateReady": "Aggiornamento pronto",
+      "connected_one": "{{count}} connesso",
+      "connected_other": "{{count}} connessi"
     },
     "pagePicker": "Pagina delle impostazioni",
     "runMode": {
-      "cardTitle": "Dove gira il simulatore",
       "label": "Il simulatore gira su",
       "host": "Questo PC",
       "client": "Un altro PC",
-      "description": "Su un computer che si collega a WingLog sul PC del simulatore, scegli «Un altro PC».",
       "restart": "Si applica al prossimo avvio di WingLog."
     },
     "hostLink": {
-      "cardTitle": "PC del simulatore",
-      "description": "Collega questo computer a WingLog sul PC dove gira il simulatore. Lì apri Impostazioni → PC del simulatore, attiva «Consenti altri WingLog» e scegli «Associa un altro WingLog». Poi incolla qui il testo di associazione mostrato, oppure inserisci il suo indirizzo e il codice di associazione.",
       "states": {
         "connected": "Connesso",
         "connecting": "Connessione…",
@@ -306,34 +299,88 @@
         "certificate-changed": "Il certificato di sicurezza del PC del simulatore è cambiato da quando questo computer è stato associato. Se WingLog sul PC del simulatore è stato reinstallato o se i suoi dati sono stati azzerati, associa di nuovo. Altrimenti, qualcosa sulla tua rete potrebbe spacciarsi per il PC del simulatore.",
         "not-secure": "Il PC del simulatore non ha risposto con una connessione cifrata. Aggiorna WingLog sul PC del simulatore."
       },
-      "pairedWith": "Associato a {{address}}",
-      "forget": "Dimentica questo PC del simulatore",
-      "addressLabel": "Indirizzo",
-      "codeLabel": "Codice di associazione",
-      "connect": "Connetti",
       "badAddress": "Inserisci l’indirizzo del PC del simulatore con la porta, un indirizzo della tua rete domestica, ad esempio 192.168.1.20:5051.",
       "versionProblem": {
-        "update-this-computer": "WingLog su questo computer è più vecchio di quello sul PC del simulatore, quindi registro di volo e flotta non vengono allineati. Aggiorna WingLog su questo computer.",
-        "update-sim-pc": "WingLog sul PC del simulatore è più vecchio di quello su questo computer, quindi registro di volo e flotta non vengono allineati. Aggiorna WingLog sul PC del simulatore."
+        "update-this-computer": "WingLog su questo computer è più vecchio di quello sul PC del simulatore, quindi libretto e flotta non vengono allineati. Aggiorna WingLog su questo computer.",
+        "update-sim-pc": "WingLog sul PC del simulatore è più vecchio di quello su questo computer, quindi libretto e flotta non vengono allineati. Aggiorna WingLog sul PC del simulatore."
       }
     },
     "twin": {
-      "cardTitle": "Altri WingLog",
-      "description": "Lascia che WingLog su un altro computer della tua rete domestica funzioni come gemello di questo: registro di volo e flotta restano allineati con quelli di questo PC, e mostra il simulatore di questo PC in diretta.",
-      "enable": "Consenti altri WingLog",
-      "paired_one": "{{count}} associato",
-      "paired_other": "{{count}} associati",
       "notReachable": "Non raggiungibile sulla tua rete domestica.",
-      "noCertificate": "Gli altri WingLog non possono connettersi, perché questo PC non riesce a conservare in modo sicuro il proprio certificato di sicurezza.",
+      "noCertificate": "Gli altri computer non possono connettersi, perché questo PC non riesce a conservare in modo sicuro il proprio certificato di sicurezza."
+    },
+    "devices": {
+      "ledeHost": "Altri computer e telefoni che usano il simulatore di questo PC. Ognuno si associa una sola volta.",
+      "ledePhones": "Telefoni e tablet che mostrano il volo di questo PC. Ognuno si associa una sola volta.",
+      "ledeClient": "Questo computer usa il simulatore di un altro PC. Libretto e flotta restano allineati con quelli di quel PC.",
+      "add": "Aggiungi un dispositivo",
+      "pairedTitle": "Associati a questo PC",
+      "nothingPaired": "Ancora nulla di associato.",
+      "kind": {
+        "twin": "Computer",
+        "screen": "Telefono o tablet"
+      },
+      "connected": "Connesso",
+      "remove": "Rimuovi",
+      "removeNamed": "Rimuovi {{name}}",
+      "removeTitle": "Rimuovere {{name}}?",
+      "removeBody": "Dovrà essere associato di nuovo.",
+      "cancel": "Annulla",
+      "rename": "Rinomina",
+      "renameNamed": "Rinomina {{name}}",
+      "nameLabel": "Nome",
+      "save": "Salva",
+      "renameFailed": "Impossibile salvare il nome.",
+      "networkTitle": "Sulla tua rete domestica",
+      "computers": "Computer",
+      "computersHint": "Altri WingLog tengono libretto e flotta allineati con questo PC e mostrano il simulatore di questo PC in diretta.",
+      "phones": "Telefoni e tablet",
+      "phonesHint": "La mappa in diretta in un browser. Ogni dispositivo si associa con un codice.",
+      "portHint": "Cambiala solo se un’altra app la usa.",
       "address": "Indirizzo",
-      "pairButton": "Associa un altro WingLog",
+      "addressHint": "Dove i dispositivi della tua rete domestica raggiungono questo PC.",
+      "thisComputer": "Questo computer",
+      "simPcTitle": "PC del simulatore",
+      "simPcName": "PC del simulatore",
+      "forget": "Dimentica",
+      "forgetTitle": "Dimenticare il PC del simulatore?",
+      "forgetBody": "Questo computer dovrà essere associato di nuovo.",
+      "phonesPairWithSimPc": "Telefoni e tablet si associano al PC del simulatore, non a questo computer: sul PC del simulatore apri Impostazioni → Dispositivi → Aggiungi un dispositivo."
+    },
+    "addDevice": {
+      "title": "Aggiungi un dispositivo",
+      "question": "Cosa vuoi aggiungere?",
+      "phone": "Un telefono o un tablet",
+      "phoneHint": "Mostra la mappa in diretta nel suo browser. Niente da installare.",
+      "computer": "Un altro computer con WingLog",
+      "computerHint": "Libretto e flotta restano allineati con quelli di questo PC, e mostra il simulatore di questo PC in diretta.",
+      "useAnother": "Usa il simulatore di un altro PC",
+      "useAnotherHint": "Questo PC smette di far girare il simulatore e lavora con il simulatore di un altro PC.",
+      "restartNeeded": "WingLog deve riavviarsi per usare il simulatore di un altro PC. Dopo il riavvio, digita l’indirizzo e il codice di quel PC.",
+      "restartNow": "Riavvia ora",
+      "homeOnly": "Solo sulla tua rete domestica.",
+      "phonesOn": "Telefoni e tablet ora sono consentiti.",
+      "computersOn": "I computer ora sono consentiti.",
+      "phoneTitle": "Associa un telefono o un tablet",
+      "scanOrOpen": "Inquadralo, oppure apri questo indirizzo sul dispositivo:",
+      "typeCode": "Poi digita lì questo codice:",
+      "once": "Vale una sola volta e scade dopo 5 minuti.",
+      "codeClosed": "Questo codice non è più valido.",
+      "newCode": "Nuovo codice",
+      "waitingDevice": "In attesa del dispositivo",
+      "computerTitle": "Associa un altro computer",
+      "computerStep1": "Sull’altro computer apri WingLog, poi Impostazioni → Dispositivi, e scegli «Aggiungi un dispositivo». Su un PC Windows scegli prima «Usa il simulatore di un altro PC»: WingLog lì si riavvia e chiede indirizzo e codice.",
+      "computerStep2": "Poi digita:",
       "pairingCode": "Codice di associazione",
-      "pairingNote": "Sull’altro WingLog apri Impostazioni → PC del simulatore e incolla il testo di associazione, oppure inserisci l’indirizzo e questo codice.",
-      "copy": "Copia il testo di associazione",
-      "copied": "Copiato",
+      "waitingComputer": "In attesa del computer",
+      "connectTitle": "Connetti a un PC del simulatore",
+      "connectHint": "Sul PC del simulatore scegli «Aggiungi un dispositivo», poi «Un altro computer con WingLog».",
+      "connect": "Connetti",
+      "paired": "{{name}} è associato",
+      "connectedToSimPc": "Connesso al PC del simulatore",
+      "done": "Fatto",
       "close": "Chiudi",
-      "devices": "WingLog associati",
-      "noDevices": "Nessun altro WingLog associato."
+      "flightActive": "Prima termina o interrompi il volo: riavviare ora lo chiuderebbe."
     }
   },
   "app": {
@@ -396,7 +443,7 @@
       "update": "Aggiorna",
       "dismiss": "Ignora"
     },
-    "whatsNew": "Novità di WingLog 1.5: un secondo schermo per telefono o tablet, aggiornamenti con un clic, un avviso di poco spazio su disco e una linea di rullaggio più precisa. Attiva il secondo schermo in Impostazioni → Secondo schermo."
+    "whatsNew": "Novità di WingLog 1.5: un secondo schermo per telefono o tablet, aggiornamenti con un clic, un avviso di poco spazio su disco e una linea di rullaggio più precisa. Attiva il secondo schermo in Impostazioni → Dispositivi."
   },
   "fleetView": {
     "atStand": "piazzola {{stand}}",
@@ -1315,7 +1362,7 @@
   "lanPage": {
     "connecting": "Connessione a WingLog…",
     "pairTitle": "Associa con WingLog",
-    "pairHelp": "Sul PC apri Impostazioni, poi Secondo schermo, poi Associa un dispositivo. Digita il codice a 6 cifre mostrato.",
+    "pairHelp": "Sul PC apri Impostazioni → Dispositivi, scegli «Aggiungi un dispositivo», poi «Un telefono o un tablet». Digita il codice a 6 cifre mostrato.",
     "codeLabel": "Codice di associazione",
     "pair": "Associa",
     "wrongCode": "Quel codice non ha funzionato. Controlla che il PC mostri un codice e riprova.",
@@ -1327,32 +1374,18 @@
   },
   "lan": {
     "settings": {
-      "title": "Secondo schermo",
-      "description": "Mostra la mappa in tempo reale su un telefono o tablet della tua rete domestica. Spento finché non lo attivi; ogni dispositivo si abbina con un codice.",
-      "enable": "Secondo schermo",
       "on": "Sì",
       "off": "No",
       "port": "Porta",
-      "open": "Apri questo indirizzo sullo smartphone o sul tablet:",
-      "connected_one": "{{count}} dispositivo connesso ora",
-      "connected_other": "{{count}} dispositivi connessi ora",
-      "pairButton": "Associa un dispositivo",
-      "pairingCode": "Sul dispositivo, digita questo codice:",
-      "pairingNote": "Il codice vale una sola volta e scade dopo 5 minuti.",
-      "pairingClose": "Chiudi",
-      "devices": "Dispositivi associati",
-      "noDevices": "Nessun dispositivo associato.",
       "lastSeen": "Ultimo accesso {{when}}",
       "neverSeen": "Mai connesso",
-      "revoke": "Revoca",
-      "help": "Non si connette? Il telefono e questo PC devono essere sullo stesso Wi-Fi (non ospiti), la rete del PC impostata su Privata e WingLog consentito dal firewall.",
+      "help": "Non si connette? Il dispositivo e questo PC devono essere sullo stesso Wi-Fi (non ospiti), la rete del PC impostata su Privata e WingLog consentito dal firewall.",
       "problem": {
         "noAdapter": "Questo PC non ha nessuna connessione alla rete domestica su cui ascoltare.",
         "portInUse": "Quella porta è già in uso. Scegline un’altra.",
-        "failed": "Impossibile avviare il secondo schermo."
+        "failed": "I dispositivi non possono connettersi in questo momento. Riavvia WingLog o scegli un’altra porta."
       },
-      "qrLabel": "Codice QR dell’indirizzo del secondo schermo",
-      "qrHintPairing": "Inquadralo con lo smartphone per aprire la pagina e associare. Il codice cambia ogni 5 minuti."
+      "qrLabel": "Codice QR dell’indirizzo del secondo schermo"
     }
   },
   "online": {

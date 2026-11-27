@@ -183,6 +183,11 @@ export class LanServer {
     return this.clients.size
   }
 
+  /** @returns The ids of the paired devices with an open, authenticated connection right now. */
+  get connectedDeviceIds(): Set<number> {
+    return new Set([...this.clients].flatMap((client) => (client.deviceId === null ? [] : [client.deviceId])))
+  }
+
   /**
    * Starts listening on one address. Never `0.0.0.0`: the caller passes an address from `adapters.ts`.
    *
@@ -315,11 +320,9 @@ export class LanServer {
    * @param deviceId The device.
    */
   disconnectDevice(deviceId: number): void {
-    for (const client of this.clients) {
-      if (client.deviceId === deviceId) {
-        this.send(client, { t: 'denied' })
-        client.socket.close()
-      }
+    for (const client of [...this.clients].filter((open) => open.deviceId === deviceId)) {
+      this.send(client, { t: 'denied' })
+      client.socket.close()
     }
   }
 

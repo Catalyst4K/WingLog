@@ -30,9 +30,17 @@ extraResources:
   # The user manual, built by `npm run manual:build` (package:win runs it first).
   - from: release/manual/WingLog Manual.pdf
     to: WingLog Manual.pdf
-  # The tray icon's picture (src/main/window/tray-icon-path.ts).
+  # The tray, taskbar and Dock icons' pictures (src/main/window/app-icon-path.ts).
   - from: build/icon.png
     to: tray-icon.png
+  # The dark mark, for the tray and the running window when the system is dark.
+  - from: build/icon-dark.png
+    to: tray-icon-dark.png
+  # Windows takes the tray and taskbar icons from these, which hold every size drawn by hand (src/main/window/app-icon-path.ts).
+  - from: build/icon.ico
+    to: app-icon.ico
+  - from: build/icon-dark.ico
+    to: app-icon-dark.ico
 
 # Windows is the primary target — MSFS (and therefore this app's real usage) is
 # Windows-only. macOS is built for development convenience; there is no plan to

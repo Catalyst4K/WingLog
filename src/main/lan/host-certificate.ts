@@ -142,7 +142,7 @@ export function makeHostCertificate(): HostCertificate {
 
 /**
  * @param certificateDer A certificate, DER (a `getPeerCertificate().raw`).
- * @returns Its pin: SHA-256 over the DER, base64url, 43 characters. It is public: it goes in the pairing text and the twin's stored link.
+ * @returns Its pin: SHA-256 over the DER, base64url, 43 characters. It is public: it is in the status Settings reads and in the twin's stored link.
  */
 export function certificatePin(certificateDer: Buffer): string {
   return createHash('sha256').update(certificateDer).digest('base64url')

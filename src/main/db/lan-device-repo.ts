@@ -82,6 +82,24 @@ export function listLanDevices(db: WingLogDb): LanDeviceSummary[] {
 }
 
 /**
+ * Renames a paired device (Settings → Devices). The name is checked by the caller.
+ *
+ * @param db The database.
+ * @param id The device.
+ * @param name Its new name.
+ * @returns True when a paired (not revoked) device was renamed.
+ */
+export function renameLanDevice(db: WingLogDb, id: number, name: string): boolean {
+  return (
+    db
+      .update(lanDevice)
+      .set({ name })
+      .where(and(eq(lanDevice.id, id), isNull(lanDevice.revokedAt)))
+      .run().changes > 0
+  )
+}
+
+/**
  * Revokes a device: its token stops working at once. The row is kept.
  *
  * @param db The database.

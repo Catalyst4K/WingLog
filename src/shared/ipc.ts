@@ -143,6 +143,9 @@ export const RENDERER_INFO_TAGS = ['atc-prompt'] as const
 /** One of `RENDERER_INFO_TAGS`. */
 export type RendererInfoTag = (typeof RENDERER_INFO_TAGS)[number]
 
+/** What "Use another PC's sim" → Restart now did: restarting now, or nothing because a flight is being tracked. */
+export type UseAnotherPcSimResult = 'restarting' | 'flight-active'
+
 export interface WingLogApi {
   aircraftList: () => Promise<Aircraft[]>
   aircraftCreate: (aircraft: NewAircraft) => Promise<Aircraft>
@@ -280,6 +283,13 @@ export interface WingLogApi {
   settingsGetRunMode: () => Promise<RunMode | null>
   /** Chooses the run mode for the next launch. Refused when multi-device is not built in. */
   settingsSetRunMode: (mode: RunMode) => Promise<void>
+  /**
+   * A sim PC uses another PC's sim: the run mode becomes client, the next launch opens Connect to a sim PC, and WingLog restarts now.
+   * Nothing changes, and `'flight-active'` comes back, while a flight is being tracked.
+   */
+  appUseAnotherPcSimAndRestart: () => Promise<UseAnotherPcSimResult>
+  /** Whether this launch should open Settings → Devices on Connect to a sim PC; true once, then false. */
+  appTakeOpenConnectOnStart: () => Promise<boolean>
   /** Begins tracking a planned flight. Throws if the sim isn't connected or another flight is already tracked. */
   trackingStart: (flightId: number) => Promise<void>
   /** Creates and starts tracking a free flight (free-flight-tracking.md) — no planned
@@ -509,11 +519,10 @@ export interface WingLogApi {
   /** A client's link to the sim PC's WingLog: where it stands (multi-device builds, client mode). */
   hostLinkGetStatus: () => Promise<HostLinkStatus>
   /**
-   * Pairs with the sim PC at `address` (`host:port`, a home-network address) using the code its Second screen card shows. `pin` is the pin
-   * of its certificate from pasted pairing text, which the connection checks; left out for a typed address and code, which take the
-   * certificate the sim PC shows on this one connection and pin it from then on. Rejects a pin that is not one.
+   * Pairs with the sim PC at `address` (`host:port`, a home-network address) using the code its Add a device step shows. The connection
+   * takes the certificate the sim PC shows on this one pairing and pins it from then on.
    */
-  hostLinkPair: (address: string, code: string, pin?: string | null) => Promise<HostLinkStatus>
+  hostLinkPair: (address: string, code: string) => Promise<HostLinkStatus>
   /** Forgets the sim PC: closes the link and deletes the stored token. */
   hostLinkForget: () => Promise<void>
   /** Called after a sync with the sim PC changed this computer's fleet or logbook, so a screen showing a list can read it again. */
@@ -727,7 +736,7 @@ export interface WingLogApi {
   setupGetContext: () => Promise<SetupContext>
   /** Finished or closed: never shown again unless reopened from Settings → About. */
   setupComplete: () => Promise<void>
-  /** The second-screen server (Settings → Second screen). Each call returns the new status. */
+  /** The device server (Settings → Devices). Each call returns the new status. */
   lanGetStatus: () => Promise<LanStatus>
   /** Changes the server's settings; a field left out keeps its stored value, so each card changes only its own switch. */
   lanSetSettings: (settings: Partial<LanSettings>) => Promise<LanStatus>
@@ -735,4 +744,6 @@ export interface WingLogApi {
   lanStartPairing: (kind?: LanDeviceKind) => Promise<LanStatus>
   lanStopPairing: (kind?: LanDeviceKind) => Promise<LanStatus>
   lanRevokeDevice: (id: number) => Promise<LanStatus>
+  /** Renames a paired device (trimmed, 1 to 40 characters, no control characters; refused otherwise). */
+  lanRenameDevice: (id: number, name: string) => Promise<LanStatus>
 }
