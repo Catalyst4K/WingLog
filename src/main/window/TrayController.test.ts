@@ -176,4 +176,19 @@ describe('TrayController', () => {
     controller.dispose()
     expect(destroyTray).toHaveBeenCalledTimes(1)
   })
+
+  it('passes a new icon picture to the tray while it shows, and does nothing before it shows or after it is removed', () => {
+    const controller = build(fakeWindow())
+    controller.setIcon('dark.png')
+    expect(setIcon).not.toHaveBeenCalled()
+
+    setting = true
+    controller.sync()
+    controller.setIcon('dark.png')
+    expect(setIcon).toHaveBeenCalledWith('dark.png')
+
+    controller.dispose()
+    controller.setIcon('light.png')
+    expect(setIcon).toHaveBeenCalledTimes(1)
+  })
 })
