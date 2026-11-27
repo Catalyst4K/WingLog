@@ -9,10 +9,8 @@ import {
   setTrafficSwitches
 } from './online-settings'
 
-// Closing the app from outside (Playwright's app.close(), a debugger) runs `app.quit()` as a V8 interrupt, which can land inside a statement
-// the main thread is in the middle of: `before-quit` then runs while the database connection is busy, and any read of it throws "This
-// database connection is busy executing a query" (seen in an e2e run, 2026-11-23: a twin was syncing from the sim PC as it closed).
-// A custom SQL function runs the same JS inside a statement, deterministically.
+// A quit can land inside a database statement (an outside close is a V8 interrupt), and a read made there throws; a custom SQL function
+// runs JS inside a statement the same way, deterministically.
 describe('NetworkFeedService when the app quits during a statement', () => {
   let handle: WingLogDbHandle
   let service: NetworkFeedService
@@ -84,6 +82,8 @@ describe('NetworkFeedService when the app quits during a statement', () => {
     })
     const waiting = service.atisAt([{ icao: 'EGLL', slot: 'departure' }])
     expect(runInsideStatement(() => service.stop())).toBeUndefined()
-    expect((await waiting).airports[0]).toMatchObject({ icao: 'EGLL', state: 'unavailable', atis: [] })
+    const answer = await waiting
+    expect(answer.network).toBe('vatsim')
+    expect(answer.airports[0]).toMatchObject({ icao: 'EGLL', state: 'unavailable', atis: [] })
   })
 })

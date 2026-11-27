@@ -235,18 +235,21 @@ export class NetworkFeedService {
   }
 
   /**
-   * Answers every waiting ATIS request from the feed held (or as unavailable when the read failed) and forgets them. It reads no setting: stop() calls it at quit, which can
-   * come in the middle of a database statement (a V8 interrupt, as Playwright's app.close() is), when the database refuses every read.
+   * Answers every waiting ATIS request from the feed held (or as unavailable when the read failed) and forgets them. It reads the settings
+   * only after a successful read: stop() and a failed read never do, since a quit can land inside a database statement (a V8 interrupt, as
+   * Playwright's app.close() is), when the database refuses every read.
    *
    * @param readOk Whether the read that ended gave a feed.
    */
   private answerWaiters(readOk: boolean): void {
     const waiters = this.atisWaiters
     this.atisWaiters = []
+    const current = readOk ? this.atisNetwork() : null
     for (const waiter of waiters) {
       this.deps.timers.clear(waiter.timer)
-      const held = readOk ? this.heldSnapshot(waiter.network) : null
-      waiter.resolve(answerAtis(held, waiter.network, waiter.requests))
+      const network = readOk ? current : waiter.network
+      const held = readOk ? this.heldSnapshot(network) : null
+      waiter.resolve(answerAtis(held, network, waiter.requests))
     }
   }
 
