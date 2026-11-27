@@ -3,6 +3,8 @@ import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import { IpcChannels } from '@shared/ipc'
 import { appCapabilities } from '@shared/run-mode'
 import { createDb, type WingLogDb } from '../db/client'
+import { createAircraft } from '../db/aircraft-repo'
+import { createFlight } from '../db/flight-repo'
 import { getRunMode, getSetting, setOpenConnectOnStart, setRunMode } from '../db/settings-repo'
 import { registerRunModeHandlers } from './run-mode-handlers'
 import { fakeIpc } from './fake-ipc'
@@ -75,6 +77,14 @@ describe('run mode IPC handlers', () => {
       expect(register(true, true)(IpcChannels.appUseAnotherPcSimAndRestart)).toBe('flight-active')
       expect(getRunMode(db)).toBeNull()
       expect(getSetting(db, 'openConnectOnStart')).toBeUndefined()
+      expect(relaunch).not.toHaveBeenCalled()
+    })
+
+    it('changes nothing and does not restart while a flight is loaded with Fly but not yet tracked', () => {
+      const aircraftId = createAircraft(db, { registration: 'G-ABCD', icaoType: 'A320' }).id
+      createFlight(db, { aircraftId, depIcao: 'EGLL', arrIcao: 'VHHH' })
+      expect(register(true, true)(IpcChannels.appUseAnotherPcSimAndRestart)).toBe('flight-active')
+      expect(getRunMode(db)).toBeNull()
       expect(relaunch).not.toHaveBeenCalled()
     })
 

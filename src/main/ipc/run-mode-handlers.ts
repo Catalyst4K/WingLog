@@ -7,6 +7,7 @@ import { IpcChannels } from '@shared/ipc'
 import { parseRunMode, type AppCapabilities } from '@shared/run-mode'
 import type { WingLogDb } from '../db/client'
 import type { UseAnotherPcSimResult } from '@shared/ipc'
+import { getInProgressFlight } from '../db/flight-repo'
 import { getRunMode, setOpenConnectOnStart, setRunMode, takeOpenConnectOnStart } from '../db/settings-repo'
 
 /**
@@ -15,7 +16,8 @@ import { getRunMode, setOpenConnectOnStart, setRunMode, takeOpenConnectOnStart }
  * @param ipcMain Electron's IPC.
  * @param deps The database, what this run was started as, whether a flight is being tracked, and how to start the app again.
  * @param deps.capabilities What this run is, decided at startup (see `appCapabilities`).
- * @param deps.flightActive Whether a flight is being tracked now: a restart would end it, so it is refused.
+ * @param deps.flightActive Whether a flight is being tracked now. A restart is refused then, and also while a flight is loaded (planned
+ *   with Fly, not yet tracking), the same check the close question makes: otherwise that question could cancel the quit half way.
  * @param deps.relaunch Starts the app again through a normal quit (`app.relaunch()` then `app.quit()`), so every quit step runs.
  */
 export function registerRunModeHandlers(
@@ -43,7 +45,7 @@ export function registerRunModeHandlers(
   ipcMain.handle(IpcChannels.appUseAnotherPcSimAndRestart, (): UseAnotherPcSimResult => {
     if (!capabilities.multiDevice || capabilities.runMode !== 'host')
       throw new Error('Only a sim PC in a multi-device build can switch to another PC’s sim')
-    if (flightActive()) return 'flight-active'
+    if (flightActive() || getInProgressFlight(db) !== undefined) return 'flight-active'
     setRunMode(db, 'client')
     setOpenConnectOnStart(db)
     relaunch()
