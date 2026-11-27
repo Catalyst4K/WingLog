@@ -58,6 +58,7 @@ describe('DiskSpaceMonitor', () => {
     await vi.advanceTimersByTimeAsync(0)
     m.stop()
     expect(() => m.stop()).not.toThrow()
+    expect(vi.getTimerCount()).toBe(0)
     await vi.advanceTimersByTimeAsync(CHECK_INTERVAL_MS * 2)
     expect(seen).toEqual([])
   })
