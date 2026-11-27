@@ -58,6 +58,8 @@ const MAX_BODY_BYTES = 30_000_000
 /** An ATIS request waiting for a read. */
 interface AtisWaiter {
   requests: AtisRequest[]
+  /** The network that was asked for, so answering never reads the settings (see answerWaiters). */
+  network: OnlineNetwork
   resolve: (answer: AtisAnswer) => void
   timer: unknown
 }
@@ -205,7 +207,7 @@ export class NetworkFeedService {
       return Promise.resolve(answerAtis(held, network, requests))
     }
     return new Promise<AtisAnswer>((resolve) => {
-      const waiter: AtisWaiter = { requests, resolve, timer: null }
+      const waiter: AtisWaiter = { requests, network, resolve, timer: null }
       waiter.timer = this.deps.timers.set(() => {
         this.atisWaiters = this.atisWaiters.filter((w) => w !== waiter)
         resolve(answerAtis(this.heldSnapshot(network), this.atisNetwork(), requests))
@@ -233,17 +235,20 @@ export class NetworkFeedService {
   }
 
   /**
-   * Answers every waiting ATIS request from the feed held (or as unavailable when the read failed) and forgets them.
+   * Answers every waiting ATIS request from the feed held (or as unavailable when the read failed) and forgets them. It reads the settings
+   * only after a successful read: stop() and a failed read never do, since a quit can land inside a database statement (a V8 interrupt, as
+   * Playwright's app.close() is), when the database refuses every read.
    *
    * @param readOk Whether the read that ended gave a feed.
    */
   private answerWaiters(readOk: boolean): void {
     const waiters = this.atisWaiters
     this.atisWaiters = []
-    const network = this.atisNetwork()
-    const held = readOk ? this.heldSnapshot(network) : null
+    const current = readOk ? this.atisNetwork() : null
     for (const waiter of waiters) {
       this.deps.timers.clear(waiter.timer)
+      const network = readOk ? current : waiter.network
+      const held = readOk ? this.heldSnapshot(network) : null
       waiter.resolve(answerAtis(held, network, waiter.requests))
     }
   }

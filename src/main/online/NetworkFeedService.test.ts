@@ -1107,6 +1107,24 @@ describe('NetworkFeedService', () => {
       expect(answer.airports.map((a) => a.atis.map((x) => x.callsign))).toEqual([['TSTA_TWR'], ['TSTA_APP']])
     })
 
+    it("answers a request that waited on VATSIM with IVAO's ATIS when the pilot switches network meanwhile", async () => {
+      let releaseVatsim: (response: Response) => void = () => undefined
+      fetchMock.mockImplementationOnce(() => new Promise<Response>((resolve) => (releaseVatsim = resolve)))
+      fetchMock.mockImplementation(() => Promise.resolve(okResponse(fixtureText('ivao-synthetic.json'))))
+      const waiting = ask({ icao: 'TSTA', slot: 'departure' })
+      await settle()
+      settings = { ...settings, network: 'ivao', ivaoVid: '900001' }
+      service.refresh()
+      // The VATSIM read lands late and is dropped; the 15 s floor then lets the IVAO read through.
+      releaseVatsim(okResponse(fixtureText('vatsim-busy.json')))
+      await settle()
+      await clock.advance(15_000)
+      const answer = await waiting
+      expect(answer.network).toBe('ivao')
+      expect(answer.airports[0]).toMatchObject({ icao: 'TSTA', state: 'shown' })
+      expect(answer.airports[0]?.atis.map((x) => x.callsign)).toEqual(['TSTA_TWR'])
+    })
+
     it('says unavailable when the read fails, and holds to the back-off for the next request', async () => {
       fetchMock.mockImplementation(() => Promise.reject(new Error('network down')))
       const failed = ask({ icao: 'EGLL', slot: 'departure' })
