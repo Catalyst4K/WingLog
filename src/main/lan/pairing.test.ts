@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  checkedDeviceName,
   cleanDeviceName,
   hashToken,
   MAX_WRONG_CODES,
@@ -59,6 +60,42 @@ describe('device tokens', () => {
   })
 })
 
+describe('checkedDeviceName', () => {
+  it('takes a name trimmed, up to 40 characters, accents and emoji included', () => {
+    expect(checkedDeviceName('  MacBook Air ')).toBe('MacBook Air')
+    expect(checkedDeviceName('Zoë’s iPad ✈️')).toBe('Zoë’s iPad ✈️')
+    expect(checkedDeviceName('x'.repeat(40))).toBe('x'.repeat(40))
+  })
+
+  it('refuses rather than cleans: not a string, empty, too long, or holding a control, separator or bidi character', () => {
+    for (const value of [
+      undefined,
+      null,
+      5,
+      {},
+      '',
+      '   ',
+      'x'.repeat(41),
+      'Pad\none',
+      'Pad\u0007',
+      'Tab\there',
+      'Del\u007f',
+      'C1\u0085',
+      'C1\u009f',
+      'Line\u2028two',
+      'Para\u2029two',
+      'evil\u202egnp.exe',
+      'LRE\u202a',
+      'Isolate\u2066',
+      'PDI\u2069',
+      'ALM\u061c',
+      'LRM\u200e',
+      'RLM\u200f'
+    ])
+      expect(checkedDeviceName(value), JSON.stringify(value)).toBeNull()
+  })
+})
+
 describe('cleanDeviceName', () => {
   it('keeps a normal name, trimmed', () => {
     expect(cleanDeviceName("  Callum's iPad ")).toBe("Callum's iPad")
@@ -67,6 +104,7 @@ describe('cleanDeviceName', () => {
   it('removes control characters and cuts to 40 characters', () => {
     expect(cleanDeviceName('Pad\n\u0007one')).toBe('Padone')
     expect(cleanDeviceName('x'.repeat(100))).toHaveLength(40)
+    expect(cleanDeviceName('i\u202ePad\u2069\u0085')).toBe('iPad')
   })
 
   it('falls back to "Device" for nothing usable', () => {

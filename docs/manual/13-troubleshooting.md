@@ -44,7 +44,7 @@ it. Nothing recorded before it closed is lost.
 
 ## The phone can't open the second screen
 
-- **Settings → Second screen** must be **On**, with no red message under it.
+- **Settings → Devices → Phones and tablets** must be **On**, with no red message under it.
 - The phone must be on the same Wi-Fi as this PC, not a guest network, and not on mobile data.
 - When Windows asked whether to let WingLog through its firewall, **Allow** is needed. If you pressed
   Cancel, the phone just times out. Allow WingLog under Windows Security → Firewall & network
@@ -53,7 +53,7 @@ it. Nothing recorded before it closed is lost.
 - Another firewall or security suite may have its own firewall that needs the same permission.
 - The page says "Can't reach the PC. Trying again…" when WingLog is closed or the second screen is
   off. It connects again by itself when WingLog is back.
-- A scanned QR code that does nothing has run out. Press **Pair a device** for a new one.
+- A scanned QR code that does nothing has run out. Press **Add a device** for a new one.
 
 ## The taxi chart is empty
 

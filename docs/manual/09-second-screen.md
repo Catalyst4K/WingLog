@@ -6,7 +6,7 @@ install on the phone. It's **off** until you turn it on.
 
 ## Turning it on
 
-1. Open **Settings → Second screen** and press **On**.
+1. Open **Settings → Devices** and, under **On your home network**, set **Phones and tablets** to **On**.
 2. Windows will ask whether to let WingLog through its firewall the first time. Choose **Allow**.
    If your home network is set to **Public** in Windows, allow Public networks too (or set the
    network to Private in Windows' network settings).
@@ -18,18 +18,20 @@ WingLog listens on one address on your home network only, never on anything else
 
 Every device has to be paired once, with a code only this PC shows.
 
-1. In the Second screen card, press **Pair a device**. The QR code sharpens and a six-digit code
-   and the page's address appear.
+1. On **Settings → Devices**, press **Add a device**. It shows a QR code, the page's address and a
+   six-digit code. (If phones and tablets were off, choosing to add one turns them on.)
 2. On the phone, **scan the QR code** with the camera: the page opens and pairs by itself. Or open
    the address by hand and type the six-digit code.
-3. The phone remembers the pairing, so next time it opens straight to your flight.
+3. When the phone has paired, WingLog says so: press **Done**. The phone remembers the pairing, so
+   next time it opens straight to your flight.
 
-The code works once and closes after 5 minutes. While the card is open WingLog replaces a used or
-expired code with a new one, so you can pair a second device straight after the first. Press
-**Close** to hide the QR code again.
+The code works once and closes after 5 minutes. While the window is open WingLog replaces an
+expired code with a new one. Press **Close** to stop pairing. To pair another device, press **Add a
+device** again.
 
-**Paired devices** lists every phone and tablet, when it last connected, and a **Revoke** button.
-A revoked device is sent back to the pairing screen straight away.
+**Paired with this PC** lists every phone and tablet, with a green light while it is connected, or
+when it last connected. **Rename** gives a device a name you'll recognise. **Remove** asks first, then
+sends the device back to the pairing screen straight away: it will need to pair again.
 
 ## What the phone shows
 
@@ -54,14 +56,14 @@ procedures. Nothing else: no changes to your fleet, logbook or settings.
 
 The page works two ways, on an iPhone, iPad or Android phone or tablet. Pair it first (see above), then pick either:
 
-**In the browser.** Scanning the QR code opens the page in the phone's browser and pairs it. To come back to it later, open the same address again, or bookmark the page while it is open. WingLog shows the address only while a pairing code is open, so bookmark it then.
+**In the browser.** Scanning the QR code opens the page in the phone's browser and pairs it. To come back to it later, open the same address again, or bookmark the page while it is open. **Settings → Devices** shows the address under **On your home network**.
 
 **As an app on the Home Screen.** It then opens full screen, with no browser bars, and with WingLog's icon and name.
 
 *iPhone and iPad (Safari):*
 1. Open the page in **Safari**.
 2. Tap the **Share** button, then **Add to Home Screen**, then **Add**.
-3. Open **WingLog** from the Home Screen. If it shows the pairing screen, press **Pair a device** on the PC and type the six-digit code: an iPhone keeps a Home Screen app's pairing apart from Safari's.
+3. Open **WingLog** from the Home Screen. If it shows the pairing screen, press **Add a device** on the PC and type the six-digit code: an iPhone keeps a Home Screen app's pairing apart from Safari's.
 
 *Android (Chrome):*
 1. Open the page in **Chrome**.
@@ -70,7 +72,7 @@ The page works two ways, on an iPhone, iPad or Android phone or tablet. Pair it 
 
 The page is plain HTTP on your home network, so some Android browsers add a shortcut that opens in a browser tab rather than a full-screen app. It works the same either way.
 
-If you change Wi-Fi or your router gives the PC a different address, the saved page won't open. Press **Pair a device** to see the new address, and save the page again.
+If you change Wi-Fi or your router gives the PC a different address, the saved page won't open. **Settings → Devices** shows the new address; open it and save the page again.
 
 ## Privacy and safety
 
@@ -79,7 +81,7 @@ If you change Wi-Fi or your router gives the PC a different address, the saved p
   fingerprint of it is kept here).
 - The connection isn't encrypted: it's plain HTTP on your home network, like most home devices.
   Anyone who can already watch your home network's traffic could read the live data. If you lose a
-  phone, **Revoke** it.
+  phone, **Remove** it.
 - The phone loads map tiles from OpenFreeMap, so it needs an internet connection for the map.
 - The page doesn't carry your data: it's sent only to a paired device, when it connects.
 

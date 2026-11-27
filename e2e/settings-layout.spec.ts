@@ -8,7 +8,7 @@ import { launchApp } from './launch-app'
 
 const CATEGORIES = [
   'General',
-  'Second screen',
+  'Devices',
   'SimBrief and Navigraph',
   'GSX',
   'ATC',

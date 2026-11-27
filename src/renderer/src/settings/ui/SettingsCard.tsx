@@ -14,6 +14,30 @@ import { StatusLight, type LightState } from '@/components/StatusLight'
 import { cn } from '@/lib/utils'
 
 /**
+ * A Settings page's title and one-line lede, with the page's one primary action on the right of the title where it has one.
+ *
+ * @param props The title, the lede, and an optional action (a button).
+ * @returns The element.
+ */
+export function SettingsPageHeader(props: {
+  title: string
+  lede: string
+  action?: ReactNode
+}): React.JSX.Element {
+  return (
+    <header className="max-w-[760px]">
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2.5">
+        <h2 className="m-0 font-display text-[34px] leading-[1.1] font-bold tracking-[-0.02em]">
+          {props.title}
+        </h2>
+        {props.action}
+      </div>
+      <p className="m-0 mt-1 text-sm text-muted-foreground">{props.lede}</p>
+    </header>
+  )
+}
+
+/**
  * A Settings section. Its width is fixed here and nowhere else: the page decides how wide sections are, a section never does.
  *
  * @param props The title, an optional status light and description, the body, and an optional footer of actions.

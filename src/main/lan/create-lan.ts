@@ -7,6 +7,7 @@ import {
   addLanDevice,
   findActiveLanDevice,
   listLanDevices,
+  renameLanDevice,
   revokeLanDevice,
   revokeLanDevicesOfKind,
   touchLanDevice
@@ -391,6 +392,7 @@ export function createLan({
     devices: {
       list: () => listLanDevices(db),
       revoke: (id) => revokeLanDevice(db, id, new Date().toISOString()),
+      rename: (id, name) => renameLanDevice(db, id, name),
       forget: (id) => forgetDevice(db, id)
     },
     now: () => Date.now()

@@ -1,8 +1,7 @@
 /**
  * A client's link to the sim PC's WingLog (winglog-backend's docs/plans/multi-device.md, Part 2). It pairs with the host's second-screen
- * server the way a phone does, but over TLS with the sim PC's own certificate pinned (docs/plans/security-audit-v2.md, step 22: a typed
- * pairing takes the certificate the sim PC shows and pins it, a pasted one checks the pin it carries, and a stored link checks the pin it
- * keeps). It keeps the host's address, device token and pin, follows the host's live topics into this computer's own
+ * server the way a phone does, but over TLS with the sim PC's own certificate pinned (docs/plans/security-audit-v2.md, step 22: a pairing
+ * by address and code takes the certificate the sim PC shows and pins it, and a stored link checks the pin it keeps). It keeps the host's address, device token and pin, follows the host's live topics into this computer's own
  * `LiveHub` so the screens and `LiveClient` do not change, and sends the host the commands a phone may send. Reconnecting, lookups and
  * retries are the shared `LanConnection`'s, the same code the phone's page runs.
  */
@@ -66,9 +65,7 @@ export class HostLink {
   private pin: string | null = null
   /** Whether the connection being made is a pairing one, which is the only kind that may take a certificate it has not been told. */
   private pairing = false
-  /** The pin from pasted pairing text, or null when the address and code were typed (trust the certificate the sim PC shows, once). */
-  private pairPin: string | null = null
-  /** The pin of the certificate the sim PC showed on a typed pairing. */
+  /** The pin of the certificate the sim PC showed on the pairing connection. */
   private seenPin: string | null = null
   /** Why the last connection was refused, until a connection succeeds or the pilot pairs again or forgets the sim PC. */
   private refusal: SocketRefusal | null = null
@@ -131,19 +128,17 @@ export class HostLink {
    * Pairs with a sim PC.
    *
    * @param rawAddress The host's address as typed.
-   * @param code The 6-digit code the host's Second screen card shows.
-   * @param pin The pin of the host's certificate from pasted pairing text, or null for a typed address and code, which take the certificate
-   *   the sim PC shows on this one connection and pin it from then on.
+   * @param code The 6-digit code the host's Add a device step shows. The certificate the sim PC shows on this one connection is pinned from
+   *   then on.
    * @throws When the address is not a home-network `host:port`.
    */
-  pair(rawAddress: string, code: string, pin: string | null): void {
+  pair(rawAddress: string, code: string): void {
     const address = parseHostAddress(rawAddress)
     if (!address) throw new Error('Enter the sim PC’s address with its port, such as 192.168.1.20:5051')
     this.close()
     this.address = address
     this.token = null
     this.pin = null
-    this.pairPin = pin
     this.seenPin = null
     this.pairing = true
     this.refusal = null
@@ -161,7 +156,6 @@ export class HostLink {
     this.address = null
     this.token = null
     this.pin = null
-    this.pairPin = null
     this.seenPin = null
     this.pairing = false
     this.refusal = null
@@ -252,8 +246,8 @@ export class HostLink {
       get: () => this.token,
       set: (token) => {
         this.token = token
-        // A pairing takes the pasted pin or the one the sim PC showed. Any other `paired` is not a pairing and leaves the pin as it was.
-        if (this.pairing) this.pin = this.pairPin ?? this.seenPin
+        // A pairing takes the pin the sim PC showed. Any other `paired` is not a pairing and leaves the pin as it was.
+        if (this.pairing) this.pin = this.seenPin
         this.pairing = false
         if (this.pin === null) {
           logger.warn('[host-link] paired without a certificate pin, so nothing was stored')
@@ -302,7 +296,7 @@ export class HostLink {
    */
   private socketPin(): SocketPin {
     return {
-      expected: this.pairing ? this.pairPin : (this.pin ?? ''),
+      expected: this.pairing ? null : (this.pin ?? ''),
       onCertificate: (seen) => {
         this.seenPin = seen
       },

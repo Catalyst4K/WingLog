@@ -18,6 +18,7 @@ import { WebSocket } from 'ws'
 import { electronBinary } from './electron-binary'
 import { FakeGsxRemoteServer, VHHH_BOOT_SNAPSHOT } from './gsx-remote-server'
 import { launchApp } from './launch-app'
+import { openPhoneCode, switchPhonesOn } from './lan-device'
 import { thisMachinesUserDataDirectory } from '../src/main/platform/this-machine'
 
 const OUT = join(process.cwd(), 'release', 'sim', 'second-screen')
@@ -106,22 +107,13 @@ test('the second screen follows a replayed flight, in portrait and landscape', a
     )
       await keep.click()
 
-    await page.getByRole('tab', { name: 'Settings' }).click()
-    await page.getByRole('tab', { name: 'Second screen' }).click()
-    const card = page.locator('[data-slot="card"]').filter({ hasText: 'Second screen' })
-    await card.getByRole('button', { name: 'On', exact: true }).click()
-    const portBox = card.getByRole('textbox', { name: 'Port' })
-    await portBox.fill(String(port))
-    await portBox.blur()
-    await card.getByRole('button', { name: 'Pair a device' }).waitFor()
+    await switchPhonesOn(page, port, address)
     await page.setViewportSize({ width: 1100, height: 900 }).catch(() => undefined)
-    await card.screenshot({ path: join(OUT, '0-settings-card.png'), animations: 'disabled' })
-    await card.getByRole('button', { name: 'Pair a device' }).click()
-    const code =
-      (await card
-        .locator('[aria-label]')
-        .filter({ hasText: /^\d{6}$/ })
-        .textContent()) ?? ''
+    await page
+      .getByRole('tabpanel')
+      .screenshot({ path: join(OUT, '0-settings-devices.png'), animations: 'disabled' })
+    // The Add a device dialog: its QR code and code are what the phone is given.
+    const { dialog: card, code } = await openPhoneCode(page)
 
     const open = async (width: number, height: number): Promise<Page> => {
       const before = app.windows().length
@@ -214,12 +206,10 @@ test('the second screen follows a replayed flight, in portrait and landscape', a
       // What a second device is sent through the whole replay, and what the page shows every 25 s.
       const log = join(OUT, 'messages.ndjson')
       writeFileSync(log, '')
-      await card.getByRole('button', { name: 'Pair a device' }).click()
-      const diagCode =
-        (await card
-          .locator('[aria-label]')
-          .filter({ hasText: /^\d{6}$/ })
-          .textContent()) ?? ''
+      // A new code straight through the app's IPC: the dialog has moved on to its success step once the first phone paired.
+      const diagCode = await page.evaluate(
+        async () => (await (globalThis as unknown as Window).winglog.lanStartPairing()).pairing?.code ?? ''
+      )
       const raw = new WebSocket(`ws://${address}:${port}/live`)
       raw.on('message', (data) => {
         const m = JSON.parse(data.toString())

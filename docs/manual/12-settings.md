@@ -1,6 +1,6 @@
 # Settings
 
-Settings has nine pages down the left, in three groups: **App** (General, Second screen), **Accounts and add-ons** (SimBrief and Navigraph, GSX, ATC, Online network, Navdata) and **Your data** (Import and export, About and updates).
+Settings has nine pages down the left, in three groups: **App** (General, Devices), **Accounts and add-ons** (SimBrief and Navigraph, GSX, ATC, Online network, Navdata) and **Your data** (Import and export, About and updates).
 
 ## General
 
@@ -19,9 +19,11 @@ Settings has nine pages down the left, in three groups: **App** (General, Second
 
 ![Settings, General](images/settings-ui.png)
 
-## Second screen
+## Devices
 
-- **Second screen**: on/off and port, and a button that shows a QR code and pairing code for a phone or tablet. Lists the devices that have paired, each with **Revoke** (see [Second screen](09-second-screen.md)).
+- **Add a device**: shows a QR code and pairing code for a phone or tablet.
+- **Paired with this PC**: every phone and tablet that has paired, with a green light while it is connected, **Rename** and **Remove**.
+- **On your home network**: **Phones and tablets** on or off, the port, and the address devices open (see [Second screen](09-second-screen.md)).
 
 ## SimBrief and Navigraph
 

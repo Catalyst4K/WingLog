@@ -1,41 +1,28 @@
-/** The second screen's and the update's state, for Settings' list of pages. */
+/** The Devices page's and the update's state, for Settings' list of pages. */
 
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { winglogApi } from '../data/winglog-api'
-import { runAsync } from '../report-error'
 import type { SettingsNavStatus } from './SettingsNav'
+import { useLanStatus } from './use-lan-status'
 
 /**
- * The second screen's and the update's state, for the list: how many phones are paired, and whether a new version is waiting.
+ * The sim PC's Devices entry and the update's state, for the list: how many paired devices (computers and phones) are connected now
+ * (green, and no light at all when none is), and whether a new version is waiting.
  *
+ * @param isHost Whether this computer runs the device server (not a client, whose Devices light is its link to the sim PC).
  * @returns The two pages' light and words, as far as they are known.
  */
-export function useSettingsNavStatus(): Pick<SettingsNavStatus, 'secondScreen' | 'about'> {
+export function useSettingsNavStatus(isHost: boolean): Pick<SettingsNavStatus, 'devices' | 'about'> {
   const { t } = useTranslation()
-  const [devices, setDevices] = useState<{ count: number; connected: boolean } | null>(null)
+  const [lan] = useLanStatus(isHost)
   const [updateReady, setUpdateReady] = useState(false)
-  useEffect(() => {
-    runAsync(
-      'SettingsNav lanGetStatus',
-      winglogApi()
-        .lanGetStatus()
-        // A client runs no second screen, and its answer is nothing.
-        .then((s) => {
-          // The Second screen page counts phones and tablets; the other WingLogs are on the Sim PC page.
-          const screens = s?.devices.filter((device) => device.kind === 'screen')
-          if (s && screens) setDevices({ count: screens.length, connected: s.connections > 0 })
-        })
-    )
-    return winglogApi().onUpdateStatus((s) => setUpdateReady(s.state === 'available'))
-  }, [])
+  useEffect(() => winglogApi().onUpdateStatus((s) => setUpdateReady(s.state === 'available')), [])
+  const connected = lan?.devices.filter((device) => device.connected).length ?? 0
   return {
-    secondScreen:
-      devices && devices.count > 0
-        ? {
-            light: devices.connected ? 'green' : undefined,
-            status: t('settingsView.status.devices', { count: devices.count })
-          }
+    devices:
+      connected > 0
+        ? { light: 'green', status: t('settingsView.status.connected', { count: connected }) }
         : {},
     about: updateReady ? { light: 'amber', status: t('settingsView.status.updateReady') } : {}
   }

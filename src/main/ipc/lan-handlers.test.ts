@@ -11,7 +11,8 @@ describe('registerLanHandlers', () => {
       applySettings: vi.fn(() => Promise.resolve('applied')),
       startPairing: vi.fn(() => 'pairing'),
       stopPairing: vi.fn(() => 'stopped'),
-      revokeDevice: vi.fn(() => 'revoked')
+      revokeDevice: vi.fn(() => 'revoked'),
+      renameDevice: vi.fn(() => 'renamed')
     }
     const ipc = fakeIpc()
     registerLanHandlers(ipc.ipcMain, { lan: lan as unknown as LanController })
@@ -22,5 +23,7 @@ describe('registerLanHandlers', () => {
     expect(ipc.invoke(IpcChannels.lanStopPairing)).toBe('stopped')
     expect(ipc.invoke(IpcChannels.lanRevokeDevice, 3)).toBe('revoked')
     expect(lan.revokeDevice).toHaveBeenCalledWith(3)
+    expect(ipc.invoke(IpcChannels.lanRenameDevice, 3, 'MacBook Air')).toBe('renamed')
+    expect(lan.renameDevice).toHaveBeenCalledWith(3, 'MacBook Air')
   })
 })

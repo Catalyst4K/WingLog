@@ -1,5 +1,5 @@
 /**
- * The address of the sim PC's WingLog, as a person types it or copies it from the host's Second screen card (winglog-backend's
+ * The address of the sim PC's WingLog, as a person types it from the host's Add a device step (winglog-backend's
  * docs/plans/multi-device.md, Part 2). A client only ever connects to a computer on the home network: a private IPv4 address, this
  * computer, or a local name, never an address on the internet. Pure so each case is tested without a network.
  */
@@ -53,54 +53,6 @@ export function parseHostAddress(text: string): string | null {
   const port = Number(match[2])
   if (port < 1 || port > 65535) return null
   return isPrivateIpv4(host) || isLocalName(host) ? `${host}:${port}` : null
-}
-
-/** The scheme of the pairing text the host offers to copy. */
-const PAIRING_SCHEME = 'winglog-pair://'
-
-/** A certificate pin: SHA-256 of the certificate, base64url without padding (43 characters). */
-const CERTIFICATE_PIN = /^[A-Za-z0-9_-]{43}$/
-
-/**
- * @param value Anything.
- * @returns True when it is a certificate pin (`certificatePin` in the main process makes them).
- */
-export function isCertificatePin(value: unknown): value is string {
-  return typeof value === 'string' && CERTIFICATE_PIN.test(value)
-}
-
-/**
- * The text the host offers to copy so another WingLog can pair with one paste: its address, the pairing code and the pin of its
- * certificate, which the other WingLog then checks (winglog-backend's docs/plans/security-audit-v2.md, step 22).
- *
- * @param address The host's `host:port`.
- * @param code The 6-digit pairing code.
- * @param pin The pin of the host's certificate.
- * @returns For example `winglog-pair://192.168.1.20:5051/123456/` followed by the 43-character pin.
- */
-export function formatPairingText(address: string, code: string, pin: string): string {
-  return `${PAIRING_SCHEME}${address}/${code}/${pin}`
-}
-
-/**
- * Reads what was pasted into the address field: the pairing text, or an address with the code after it (a space, a comma or a slash) and
- * then the certificate's pin, or only an address. Text from before the pin existed has none, and then the pairing trusts the certificate
- * it is shown. A pin that is not a pin is not dropped: the whole text is refused, so a damaged paste cannot turn into one that checks nothing.
- *
- * @param text What was pasted or typed.
- * @returns The home-network address, the code and the pin if there were any, or null when there is no usable address.
- */
-export function parsePairingText(
-  text: string
-): { address: string; code: string | null; pin: string | null } | null {
-  const trimmed = text.trim()
-  const body = trimmed.toLowerCase().startsWith(PAIRING_SCHEME)
-    ? trimmed.slice(PAIRING_SCHEME.length)
-    : trimmed
-  const match = /^(\S+?)(?:[\s,/]+(\d{6})(?:[\s,/]+([A-Za-z0-9_-]{43}))?)?\/?$/.exec(body)
-  if (!match) return null
-  const address = parseHostAddress(match[1] as string)
-  return address ? { address, code: match[2] ?? null, pin: match[3] ?? null } : null
 }
 
 /**

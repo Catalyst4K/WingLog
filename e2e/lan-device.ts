@@ -1,8 +1,8 @@
 import { createServer } from 'node:net'
-import { expect, type ElectronApplication, type Page } from '@playwright/test'
+import { expect, type ElectronApplication, type Locator, type Page } from '@playwright/test'
 import { WebSocket } from 'ws'
 
-/** What the second-screen specs share: a free loopback port, and a device that talks to the PC the way the phone page does. */
+/** What the device specs share: a free loopback port, a device that talks to the PC the way the phone page does, and the Devices page's steps. */
 
 /** A port nothing listens on. */
 export function freePort(): Promise<number> {
@@ -84,4 +84,43 @@ export async function openPhone(app: ElectronApplication, url: string): Promise<
   await expect.poll(() => app.windows().length).toBeGreaterThan(known)
   const origin = new URL(url).origin
   return app.windows().find((w) => w.url().startsWith(origin))!
+}
+
+/**
+ * Opens Settings → Devices and switches phones and tablets on, on the port given.
+ *
+ * @param page The app window.
+ * @param port The port to listen on.
+ * @param host The address the server listens on (loopback in the specs).
+ */
+export async function switchPhonesOn(page: Page, port: number, host = '127.0.0.1'): Promise<void> {
+  await page.getByRole('tab', { name: 'Settings' }).click()
+  await page.getByRole('tab', { name: /^Devices/ }).click()
+  await page
+    .getByRole('group', { name: 'Phones and tablets' })
+    .getByRole('button', { name: 'On', exact: true })
+    .click()
+  const portBox = page.getByRole('textbox', { name: 'Port' })
+  await portBox.fill(String(port))
+  await portBox.blur()
+  await expect(page.getByText(`http://${host}:${port}/`)).toBeVisible()
+}
+
+/**
+ * On Settings → Devices, opens Add a device for a phone or tablet and reads the code it shows.
+ *
+ * @param page The app window.
+ * @returns The dialog, and the 6-digit code.
+ */
+export async function openPhoneCode(page: Page): Promise<{ dialog: Locator; code: string }> {
+  await page.getByRole('button', { name: 'Add a device' }).click()
+  const dialog = page.getByRole('dialog')
+  // A multi-device build asks which kind first; one without opens on the phone's code.
+  const choice = dialog.getByRole('button', { name: /A phone or tablet/ })
+  const phoneStep = dialog.getByRole('heading', { name: 'Pair a phone or tablet' })
+  await choice.or(phoneStep).first().waitFor()
+  if (await choice.isVisible()) await choice.click()
+  const codeLocator = dialog.locator('[aria-label]').filter({ hasText: /^\d{6}$/ })
+  await codeLocator.waitFor()
+  return { dialog, code: (await codeLocator.textContent()) ?? '' }
 }

@@ -1,6 +1,6 @@
 /**
- * Second-screen IPC (Settings → Second screen; winglog-backend's docs/plans/lan-web-viewer.md): switching the server on, choosing its
- * adapter and port, pairing a device and revoking one. All of it is local to this machine: a paired device can never reach these
+ * Device server IPC (Settings → Devices; winglog-backend's docs/plans/lan-web-viewer.md and devices-page.md): switching the server on,
+ * choosing its port, pairing a device, renaming one and revoking one. All of it is local to this machine: a paired device can never reach these
  * channels, which are not in the remote command tables (`live/commands.ts`).
  */
 import type { IpcMain } from 'electron'
@@ -19,4 +19,7 @@ export function registerLanHandlers(ipcMain: IpcMain, { lan }: { lan: LanControl
   ipcMain.handle(IpcChannels.lanStartPairing, (_event, kind?: unknown) => lan.startPairing(kind))
   ipcMain.handle(IpcChannels.lanStopPairing, (_event, kind?: unknown) => lan.stopPairing(kind))
   ipcMain.handle(IpcChannels.lanRevokeDevice, (_event, id: unknown) => lan.revokeDevice(id))
+  ipcMain.handle(IpcChannels.lanRenameDevice, (_event, id: unknown, name: unknown) =>
+    lan.renameDevice(id, name)
+  )
 }
