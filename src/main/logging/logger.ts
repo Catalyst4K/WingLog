@@ -22,8 +22,10 @@ export function initLogger(): void {
   // Routes uncaught exceptions and unhandled promise rejections in the main process to the
   // same file transport (electron-log's default logFn) — on top of the dialog.showErrorBox
   // path in index.ts's app.whenReady().catch(), which only covers startup failures before a
-  // window exists. This covers everything after that.
-  log.errorHandler.startCatching()
+  // window exists. This covers everything after that. showDialog is off: electron-log's default
+  // error box blocks the main process until someone presses OK; process-guards.ts keeps the app
+  // running after the error is logged.
+  log.errorHandler.startCatching({ showDialog: false })
 
   // Replaces the global console with electron-log's, so existing console.log/warn/error
   // call sites throughout src/main (e.g. index.ts's legacy-userdata migration notice)

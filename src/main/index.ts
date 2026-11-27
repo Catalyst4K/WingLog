@@ -4,6 +4,7 @@
  * area's IPC to its `register<Area>Handlers` module in src/main/ipc/. Behaviour lives in those
  * modules and the services, not here.
  */
+import { onQuit } from './logging/on-quit'
 import { runLogged } from './logging/run-logged'
 import { backfillAircraftPhotos } from './aircraft-lookup/photo-backfill'
 import { planespottersUserAgent } from './aircraft-lookup/planespotters-client'
@@ -251,7 +252,7 @@ function startGsxRemote(deps: {
       return (id === undefined ? undefined : getLiveFlight(db, id))?.zfwKg ?? null
     }
   })
-  app.on('before-quit', () => gsxRemote.stop())
+  onQuit(app, 'GSX remote stop', () => gsxRemote.stop())
   return gsxRemote
 }
 
@@ -267,7 +268,7 @@ function startDiskSpaceWarning(liveHub: LiveHub, trackingController: TrackingCon
   registerStorageHandlers(ipcMain, { monitor: diskSpace, liveHub })
   trackingController.on('storageProblem', (failing) => diskSpace.setSaveFailing(failing))
   diskSpace.start()
-  app.on('before-quit', () => diskSpace.stop())
+  onQuit(app, 'disk space stop', () => diskSpace.stop())
 }
 
 /**
@@ -334,10 +335,8 @@ function startOnlineNetwork(
     urls: resolveFeedUrls(app.isPackaged, process.env),
     atcAreas: areas.current
   })
-  app.on('before-quit', () => {
-    online.stop()
-    areas.stop()
-  })
+  onQuit(app, 'online stop', () => online.stop())
+  onQuit(app, 'ATC areas stop', () => areas.stop())
   registerPrefileHandlers(ipcMain, { db: deps.db, openExternal: (url) => shell.openExternal(url) })
   return { commands: online.commands, atisAt: online.atisAt }
 }
@@ -363,7 +362,7 @@ function startSecondScreen(
   })
   registerLanHandlers(ipcMain, { lan })
   runLogged('second screen at launch', lan.init())
-  app.on('before-quit', () => runLogged('second screen stop', lan.stop()))
+  onQuit(app, 'second screen stop', () => lan.stop())
 }
 
 /**
@@ -470,7 +469,7 @@ function startApp(cloudSession: StoredSession | null): void {
   const { sim, replayStreams } = connectSim()
   registerSimHandlers(ipcMain, { sim, liveHub })
   sim.start()
-  app.on('before-quit', () => sim.stop())
+  onQuit(app, 'sim stop', () => sim.stop())
 
   const trackingController = createTracking(db, sim)
   // Dev build only: diag.log and the full flight capture (src/main/diagnostics/).
@@ -495,7 +494,7 @@ function startApp(cloudSession: StoredSession | null): void {
     navdata: navdataProvider,
     traceWorker: createTraceWorkerRunner()
   })
-  app.on('before-quit', flightServices.stop)
+  onQuit(app, 'flight services stop', flightServices.stop)
 
   const trackingDeps = {
     db,
@@ -526,7 +525,7 @@ function startApp(cloudSession: StoredSession | null): void {
     socketCtor: replayStreams?.beyondAtc.socketCtor,
     port: e2eBeyondAtcPort(process.env.WINGLOG_E2E_BEYONDATC_PORT)
   })
-  app.on('before-quit', () => beyondAtc.stop())
+  onQuit(app, 'BeyondATC stop', () => beyondAtc.stop())
   const onlineNetwork = startOnlineNetwork({ db, liveHub, sim, trackingController, beyondAtc })
   startSecondScreen({
     db,
@@ -543,7 +542,7 @@ function startApp(cloudSession: StoredSession | null): void {
   startDiskSpaceWarning(liveHub, trackingController)
 
   const updateService = startUpdates(db, window, () => trackingController.getActive() !== undefined)
-  app.on('before-quit', () => updateService.stop())
+  onQuit(app, 'update service stop', () => updateService.stop())
   const trayController = startWindowBehaviour(db, window, trackingController)
   registerSettingsHandlers(ipcMain, { db, trackingController, trayController })
   registerAppHandlers(ipcMain, { updateService })
@@ -589,7 +588,7 @@ function startWindowBehaviour(
   for (const event of ['started', 'stopped', 'completed'] as const) {
     trackingController.on(event, () => controller.updateToolTip())
   }
-  app.on('before-quit', () => controller.dispose())
+  onQuit(app, 'window keeper dispose', () => controller.dispose())
   const closeQuestion = new CloseQuestion({
     send: () => window.webContents.send(IpcChannels.closeConfirmRequested),
     isRendererReady: () => !window.isDestroyed() && !window.webContents.isLoading(),
