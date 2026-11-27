@@ -6,6 +6,7 @@
  */
 
 import { keepsWindowWhenClosed, type Platform } from '../platform/platform'
+import { onQuit } from '../logging/on-quit'
 
 /** The close event, which can be cancelled. */
 export interface KeeperCloseEvent {
@@ -67,6 +68,6 @@ export function keepWindowWhenClosed(app: KeeperApp, window: KeptWindow, platfor
   if (!keepsWindowWhenClosed(platform)) return
   const keeper = new WindowKeeper(window)
   keeper.start()
-  app.on('before-quit', () => keeper.markQuitting())
+  onQuit(app, 'window keeper marks quitting', () => keeper.markQuitting())
   app.on('activate', () => keeper.reopen())
 }

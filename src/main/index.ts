@@ -5,6 +5,7 @@
  * modules and the services, not here.
  */
 import { runLogged } from './logging/run-logged'
+import { onQuit } from './logging/on-quit'
 import { backfillAircraftPhotos } from './aircraft-lookup/photo-backfill'
 import { planespottersUserAgent } from './aircraft-lookup/planespotters-client'
 import { join } from 'node:path'
@@ -153,7 +154,7 @@ function startDiskSpaceWarning(liveHub: LiveHub, trackingController: TrackingCon
   registerStorageHandlers(ipcMain, { monitor: diskSpace, liveHub })
   trackingController.on('storageProblem', (failing) => diskSpace.setSaveFailing(failing))
   diskSpace.start()
-  app.on('before-quit', () => diskSpace.stop())
+  onQuit(app, 'disk space stop', () => diskSpace.stop())
 }
 
 /**
@@ -237,7 +238,7 @@ function registerAppAreas(deps: {
   const refreshWindowEdges = keepWindowEdgesInStep(() => getTheme(db))
   refreshWindowEdges()
   const updateService = startUpdates(db, window, () => trackingController.getActive() !== undefined)
-  app.on('before-quit', () => updateService.stop())
+  onQuit(app, 'update service stop', () => updateService.stop())
   const offer = backgroundOfferFor(capabilities)
   const trayController = startWindowBehaviour(db, window, trackingController, offer)
   registerSettingsHandlers(ipcMain, {
@@ -400,7 +401,7 @@ function startApp(cloudSession: StoredSession | null): void {
       : undefined
   })
   if (!isClient) sim.start()
-  app.on('before-quit', () => sim.stop())
+  onQuit(app, 'sim stop', () => sim.stop())
 
   // Dev build only: diag.log and the full flight capture (src/main/diagnostics/).
   const { trackingController, devDiagnostics, autoStartDetector } = startTracking(
@@ -422,7 +423,7 @@ function startApp(cloudSession: StoredSession | null): void {
     client: isClient ? { hostFlying: () => flightMirror.hostTracking() } : undefined,
     traceWorker: isClient ? undefined : createTraceWorkerRunner()
   })
-  app.on('before-quit', flightServices.stop)
+  onQuit(app, 'flight services stop', flightServices.stop)
 
   const flightControl = registerTrackingAreas({
     db,
@@ -529,7 +530,7 @@ function startWindowBehaviour(
   for (const event of ['started', 'stopped', 'completed'] as const) {
     trackingController.on(event, () => controller.updateToolTip())
   }
-  app.on('before-quit', () => controller.dispose())
+  onQuit(app, 'window keeper dispose', () => controller.dispose())
   const closeQuestion = new CloseQuestion({
     send: () => window.webContents.send(IpcChannels.closeConfirmRequested),
     isRendererReady: () => !window.isDestroyed() && !window.webContents.isLoading(),

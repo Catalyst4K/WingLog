@@ -1149,6 +1149,19 @@ describe('NetworkFeedService', () => {
       expect(clock.pendingCount).toBe(0)
     })
 
+    it('can be stopped twice (a cancelled quit fires before-quit again)', async () => {
+      let release: (response: Response) => void = () => undefined
+      fetchMock.mockImplementation(() => new Promise<Response>((resolve) => (release = resolve)))
+      const waiting = ask({ icao: 'EGLL', slot: 'departure' })
+      await settle()
+      service.stop()
+      expect(() => service.stop()).not.toThrow()
+      release(okResponse(fixtureText('vatsim-busy.json')))
+      await settle()
+      expect((await waiting).airports[0]?.state).toBe('unavailable')
+      expect(clock.pendingCount).toBe(0)
+    })
+
     it('answers nothing after the service has stopped, without waiting', async () => {
       service.stop()
       expect(await ask({ icao: 'EGLL', slot: 'departure' })).toEqual({ network: null, airports: [] })

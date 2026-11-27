@@ -183,6 +183,15 @@ describe('WorkerTraceRunner', () => {
     await expect(runner.run(job())).rejects.toThrow('no trace worker')
   })
 
+  it('can be stopped twice (a cancelled quit fires before-quit again)', async () => {
+    const { runner, workers } = setup()
+    const waiting = runner.run(job())
+    runner.stop()
+    await expect(waiting).rejects.toThrow('stopped')
+    expect(() => runner.stop()).not.toThrow()
+    expect(workers[0].terminated).toBe(true)
+  })
+
   it('re-routes on the same worker, naming a network a trace already sent by its key, and sends it again when dropped', async () => {
     const { runner, workers } = setup()
     void runner.run(job()).catch(() => undefined)

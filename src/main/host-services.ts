@@ -3,6 +3,7 @@
  * (winglog-backend's docs/plans/multi-device.md, Part 1). A client starts none of them, so startApp calls this only on a host.
  */
 import { runLogged } from './logging/run-logged'
+import { onQuit } from './logging/on-quit'
 import { join } from 'node:path'
 import { app, ipcMain, shell } from 'electron'
 import type { FlightControl } from './lan/twin-flight'
@@ -57,7 +58,7 @@ function startGsxRemote(deps: {
       return (id === undefined ? undefined : getLiveFlight(db, id))?.zfwKg ?? null
     }
   })
-  app.on('before-quit', () => gsxRemote.stop())
+  onQuit(app, 'GSX remote stop', () => gsxRemote.stop())
   return gsxRemote
 }
 
@@ -89,10 +90,8 @@ function startOnlineNetwork(
     urls: resolveFeedUrls(app.isPackaged, process.env),
     atcAreas: areas.current
   })
-  app.on('before-quit', () => {
-    online.stop()
-    areas.stop()
-  })
+  onQuit(app, 'online stop', () => online.stop())
+  onQuit(app, 'ATC areas stop', () => areas.stop())
   registerPrefileHandlers(ipcMain, { db: deps.db, openExternal: (url) => shell.openExternal(url) })
   return { commands: online.commands, atisAt: online.atisAt, trafficWhole: online.trafficWhole }
 }
@@ -130,7 +129,7 @@ function startSecondScreen(
   })
   registerLanHandlers(ipcMain, { lan })
   runLogged('second screen at launch', lan.init())
-  app.on('before-quit', () => runLogged('second screen stop', lan.stop()))
+  onQuit(app, 'second screen stop', () => lan.stop())
 }
 
 /**
@@ -168,7 +167,7 @@ export function startHostServices(deps: {
     socketCtor: replayStreams?.beyondAtc.socketCtor,
     port: e2eBeyondAtcPort(process.env.WINGLOG_E2E_BEYONDATC_PORT)
   })
-  app.on('before-quit', () => beyondAtc.stop())
+  onQuit(app, 'BeyondATC stop', () => beyondAtc.stop())
   const onlineNetwork = startOnlineNetwork({
     db,
     liveHub,

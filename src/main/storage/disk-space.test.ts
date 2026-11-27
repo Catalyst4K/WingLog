@@ -52,6 +52,17 @@ describe('DiskSpaceMonitor', () => {
     m.stop()
   })
 
+  it('can be stopped twice (a cancelled quit fires before-quit again)', async () => {
+    const { monitor: m, seen } = monitor({ bytes: 50 * GIB })
+    m.start()
+    await vi.advanceTimersByTimeAsync(0)
+    m.stop()
+    expect(() => m.stop()).not.toThrow()
+    expect(vi.getTimerCount()).toBe(0)
+    await vi.advanceTimersByTimeAsync(CHECK_INTERVAL_MS * 2)
+    expect(seen).toEqual([])
+  })
+
   it('does not repeat a warning whose figure has not changed, but does when it has (tenths of a GB)', async () => {
     const free = { bytes: 3 * GIB }
     const { monitor: m, seen } = monitor(free)

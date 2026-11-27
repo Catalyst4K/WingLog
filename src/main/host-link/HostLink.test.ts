@@ -406,6 +406,19 @@ describe('HostLink', () => {
     expect(sockets[0]?.sent.at(-1)).toEqual({ t: 'cmd', name: 'gsx.startRoutine', args: ['my-routine'] })
   })
 
+  it('can be stopped twice, while connected (a cancelled quit fires before-quit again)', () => {
+    vi.useFakeTimers()
+    const link = make(memoryStore())
+    link.pair('192.168.1.20:5051', '123456')
+    sockets[0]?.open()
+    sockets[0]?.hear({ t: 'paired', token: 't' })
+    sockets[0]?.hear(SNAPSHOT)
+    link.stop()
+    expect(() => link.stop()).not.toThrow()
+    vi.advanceTimersByTime(60_000)
+    expect(sockets).toHaveLength(1)
+  })
+
   it('marks the host sim disconnected when the link drops, so stale telemetry is not shown as live', () => {
     vi.useFakeTimers()
     const link = make(memoryStore())

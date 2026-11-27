@@ -196,6 +196,14 @@ describe('SimTrafficService', () => {
     expect(handlers).toHaveLength(1)
   })
 
+  it('can be stopped twice (a cancelled quit fires before-quit again)', async () => {
+    service.start()
+    service.setWanted(true)
+    await flush()
+    service.stop()
+    expect(() => service.stop()).not.toThrow()
+  })
+
   it('survives a link that throws on close', async () => {
     service.start()
     service.setWanted(true)

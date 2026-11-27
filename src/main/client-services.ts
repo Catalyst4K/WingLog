@@ -9,6 +9,7 @@ import { IpcChannels } from '@shared/ipc'
 import type { WingLogDb } from './db/client'
 import { ownEpoch } from './db/sync-change-repo'
 import { runLogged } from './logging/run-logged'
+import { onQuit } from './logging/on-quit'
 import type { LiveHub } from './live/LiveHub'
 import { HostLink } from './host-link/HostLink'
 import { followHostFlight, onSyncLanded, showHeldRoute } from './host-link/client-follow'
@@ -102,8 +103,6 @@ export function startClientServices(deps: {
   // A change made here reaches the sim PC soon after.
   onLocalWrite(() => sync.syncSoon(SYNC_AFTER_WRITE_MS))
   runLogged('host link at launch', link.start())
-  app.on('before-quit', () => {
-    sync.stop()
-    link.stop()
-  })
+  onQuit(app, 'cloud sync stop', () => sync.stop())
+  onQuit(app, 'host link stop', () => link.stop())
 }

@@ -662,6 +662,12 @@ describe('TaxiRouteService: failures stay inside it', () => {
     expect(w.last()).toMatchObject({ clearance: { taxiways: ['D', 'A3', 'A'] }, kind: 'exact' })
   })
 
+  it('can be stopped twice (a cancelled quit fires before-quit again)', () => {
+    const w = setup()
+    w.stop()
+    expect(() => w.stop()).not.toThrow()
+  })
+
   it('stops following the hub when stopped', () => {
     const w = setup()
     w.telemetry(ON_D)

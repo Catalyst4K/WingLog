@@ -535,6 +535,17 @@ describe('TwinSync', () => {
       }
     })
   })
+  it('can be stopped twice (a cancelled quit fires before-quit again)', async () => {
+    vi.useFakeTimers()
+    const { twin, ask, cleanup } = sync()
+    twin.syncSoon(2000)
+    twin.stop()
+    expect(() => twin.stop()).not.toThrow()
+    await vi.advanceTimersByTimeAsync(5000)
+    expect(ask).not.toHaveBeenCalled()
+    vi.useRealTimers()
+    cleanup()
+  })
   it('stops a sync that is waiting to start', async () => {
     vi.useFakeTimers()
     const { twin, ask, cleanup } = sync()

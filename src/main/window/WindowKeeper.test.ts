@@ -44,6 +44,15 @@ describe('WindowKeeper', () => {
     expect(window.hide).not.toHaveBeenCalled()
   })
 
+  it('can be told it is quitting twice (a cancelled quit fires before-quit again)', () => {
+    const window = fakeWindow()
+    const keeper = new WindowKeeper(window)
+    keeper.start()
+    keeper.markQuitting()
+    expect(() => keeper.markQuitting()).not.toThrow()
+    expect(window.close().prevented).toBe(false)
+  })
+
   it('shows and focuses the same window again for the Dock icon, restoring it first when minimised', () => {
     const window = fakeWindow(true)
     new WindowKeeper(window).reopen()
