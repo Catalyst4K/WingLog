@@ -58,7 +58,9 @@ export function DevicesPage(props: {
   const [startPending, setStartPending] = useState(props.startAdding ?? false)
   // A client adds only its one sim PC: the button shows while none is paired or the link needs pairing again.
   const canAdd = !isClient || offersPairing(link)
-  const adding = addClicked || (startPending && isClient && canAdd)
+  // Not gated on canAdd: the start-up dialog must stay open through its own success step, when the link has just paired. It can't
+  // reopen over a paired link, because SettingsView spends the request when the dialog closes.
+  const adding = addClicked || (startPending && isClient)
   const lede = isClient
     ? t('settingsView.devices.ledeClient')
     : multiDevice
