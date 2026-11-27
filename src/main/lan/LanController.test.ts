@@ -96,6 +96,13 @@ describe('LanController', () => {
     expect(server.starts).toEqual([['192.168.1.136', 8765]])
   })
 
+  it('can be stopped twice (a cancelled quit fires before-quit again)', async () => {
+    const { controller } = setup({ enabled: true })
+    await controller.init()
+    await controller.stop()
+    await expect(controller.stop()).resolves.toBeUndefined()
+  })
+
   it('reports the URL a device opens', async () => {
     const { controller } = setup({ enabled: true, port: 9000 })
     await controller.sync()

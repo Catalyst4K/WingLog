@@ -447,6 +447,18 @@ describe('GsxRemoteService', () => {
     expect(instances).toHaveLength(1)
   })
 
+  it('can be stopped twice (a cancelled quit fires before-quit again)', () => {
+    const { ctor, instances } = makeCtor()
+    const service = new GsxRemoteService('localhost', 8744, ctor)
+    service.start()
+    instances[0].simulateOpen()
+
+    service.stop()
+    expect(() => service.stop()).not.toThrow()
+    vi.advanceTimersByTime(5_000)
+    expect(instances).toHaveLength(1)
+  })
+
   it('reconfigure() against a new host/port drops old state and reconnects', () => {
     const { ctor, instances } = makeCtor()
     const service = new GsxRemoteService('localhost', 8744, ctor)
