@@ -172,6 +172,16 @@ describe('UpdateService', () => {
     expect(makeService({ skipped: '1.4.0' }).service.getStatus().skippedVersion).toBe('1.4.0')
   })
 
+  it('can be stopped twice (a cancelled quit fires before-quit again)', async () => {
+    vi.useFakeTimers()
+    const { service, fetchImpl } = makeService()
+    service.start()
+    service.stop()
+    expect(() => service.stop()).not.toThrow()
+    await vi.advanceTimersByTimeAsync(CHECK_INTERVAL_MS)
+    expect(fetchImpl).not.toHaveBeenCalled()
+  })
+
   it('checks 30 s after launch and every 6 hours, and not at all while switched off', async () => {
     vi.useFakeTimers()
     const on = makeService()

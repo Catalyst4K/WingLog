@@ -1047,6 +1047,12 @@ describe('NetworkFeedService', () => {
       expect(clock.pendingCount).toBe(0)
     })
 
+    it('can be stopped twice (a cancelled quit fires before-quit again)', async () => {
+      service.stop()
+      expect(() => service.stop()).not.toThrow()
+      expect(clock.pendingCount).toBe(0)
+    })
+
     it('answers nothing after the service has stopped, without waiting', async () => {
       service.stop()
       expect(await ask({ icao: 'EGLL', slot: 'departure' })).toEqual({ network: null, airports: [] })

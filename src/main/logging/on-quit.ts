@@ -1,6 +1,7 @@
 /** Shutdown steps that each run even when an earlier one fails (coding-standards.md §6). */
 
 import { logger } from './logger'
+import { runLogged } from './run-logged'
 
 /** The part of Electron's `app` that `onQuit` needs. */
 export interface QuitEmitter {
@@ -18,12 +19,11 @@ export interface QuitEmitter {
  * @param step The work. May return a promise nobody waits for.
  */
 export function onQuit(app: QuitEmitter, name: string, step: () => unknown): void {
+  // eslint-disable-next-line no-restricted-syntax -- the one place a 'before-quit' listener is registered
   app.on('before-quit', () => {
     try {
       const result = step()
-      if (result instanceof Promise) {
-        result.catch((error: unknown) => logger.warn(`[quit: ${name}] failed: ${String(error)}`))
-      }
+      if (result instanceof Promise) runLogged(`quit: ${name}`, result)
     } catch (error) {
       logger.warn(`[quit: ${name}] failed: ${String(error)}`)
     }

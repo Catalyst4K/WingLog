@@ -189,6 +189,19 @@ describe('SimConnectService', () => {
     expect(openSimConnect).toHaveBeenCalledTimes(2)
   })
 
+  it('can be stopped twice, with the sim connected (a cancelled quit fires before-quit again)', async () => {
+    const handle = fakeHandle()
+    const openSimConnect = vi.fn(async () => ({ recvOpen: {}, handle }))
+    const service = new SimConnectService(openSimConnect as unknown as OpenSimConnect)
+    service.start()
+    await vi.waitFor(() => expect(openSimConnect).toHaveBeenCalledTimes(1))
+
+    service.stop()
+    expect(() => service.stop()).not.toThrow()
+    await vi.advanceTimersByTimeAsync(60_000)
+    expect(openSimConnect).toHaveBeenCalledTimes(1)
+  })
+
   it('reconnects automatically if the sim quits', async () => {
     const firstHandle = fakeHandle()
     const secondHandle = fakeHandle()
