@@ -43,5 +43,7 @@ export function createElectronTray(iconPath: string, actions: TrayActions): Tray
  * @returns The picture, at the tray's size.
  */
 function trayImage(path: string): Electron.NativeImage {
-  return nativeImage.createFromPath(path).resize({ width: TRAY_ICON_SIZE_PX })
+  const image = nativeImage.createFromPath(path)
+  // An .ico holds the tray's own sizes already, so it is not scaled.
+  return path.endsWith('.ico') ? image : image.resize({ width: TRAY_ICON_SIZE_PX })
 }

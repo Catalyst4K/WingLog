@@ -29,7 +29,7 @@
     "spike:simconnect": "tsx scripts/spike-simconnect.ts",
     "spike:landing": "tsx scripts/spike-landing.ts",
     "spike:altitude": "tsx scripts/spike-altitude.ts",
-    "make-icons": "electron scripts/make-icons.ts",
+    "make-icons": "node scripts/run-make-icons.mjs",
     "logo-health": "cross-env ELECTRON_RUN_AS_NODE=1 electron ./node_modules/tsx/dist/cli.mjs --tsconfig tsconfig.node.json scripts/logo-health.ts",
     "spike:runway-thresholds": "cross-env ELECTRON_RUN_AS_NODE=1 electron ./node_modules/tsx/dist/cli.mjs --tsconfig tsconfig.node.json scripts/spike-runway-thresholds.ts",
     "spike:airac": "cross-env ELECTRON_RUN_AS_NODE=1 electron ./node_modules/tsx/dist/cli.mjs --tsconfig tsconfig.node.json scripts/spike-airac-refresh.ts",

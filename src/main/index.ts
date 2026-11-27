@@ -496,20 +496,26 @@ function startWindowBehaviour(
   trackingController: TrackingController,
   offer: BackgroundOffer
 ): TrayController {
-  const iconPath = (): string =>
-    appIconPath(app.isPackaged, process.resourcesPath, app.getAppPath(), nativeTheme.shouldUseDarkColors)
+  const currentIconPath = (): string =>
+    appIconPath(
+      app.isPackaged,
+      process.resourcesPath,
+      app.getAppPath(),
+      nativeTheme.shouldUseDarkColors,
+      currentPlatform()
+    )
   const controller = new TrayController({
     window,
     isTrayAvailable: canShowTray(),
     // Running in the background keeps the tray icon up, so the window can always be got back.
     isMinimizeToTray: () => getMinimizeToTray(db) || startsHidden(offer, getHostOnly(db)),
     isFlightActive: () => trackingController.getActive() !== undefined,
-    createTray: (actions) => createElectronTray(iconPath(), actions),
+    createTray: (actions) => createElectronTray(currentIconPath(), actions),
     quit: () => app.quit(),
     translate: t
   })
   controller.start()
-  keepAppIconsInStep(window, controller)
+  keepAppIconsInStep(window, controller, currentIconPath)
   for (const event of ['started', 'stopped', 'completed'] as const) {
     trackingController.on(event, () => controller.updateToolTip())
   }
@@ -537,12 +543,16 @@ function startWindowBehaviour(
  *
  * @param window The main window.
  * @param trayController Owns the tray icon.
+ * @param currentIconPath The picture for the system's setting right now.
  */
-function keepAppIconsInStep(window: BrowserWindow, trayController: TrayController): void {
+function keepAppIconsInStep(
+  window: BrowserWindow,
+  trayController: TrayController,
+  currentIconPath: () => string
+): void {
   const switcher = new AppIconSwitcher({
     platform: currentPlatform(),
-    currentIconPath: () =>
-      appIconPath(app.isPackaged, process.resourcesPath, app.getAppPath(), nativeTheme.shouldUseDarkColors),
+    currentIconPath,
     setTrayIcon: (path) => trayController.setIcon(path),
     setWindowIcon: (path) => {
       if (!window.isDestroyed()) window.setIcon(nativeImage.createFromPath(path))

@@ -6,10 +6,10 @@
  * crisp as the mark can be) with the app's bundled Golos Text 700. MSFS must not be running while it does: it opens a
  * hidden Electron window.
  *
- * Writes: build/icon.png, build/icon-dark.png, build/icon.ico, and the phone's three icons in src/lan-client/public.
+ * Writes: build/icon.png, build/icon-dark.png, build/icon.ico, build/icon-dark.ico, and the phone's three icons in src/lan-client/public.
  */
 import { randomUUID } from 'node:crypto'
-import { mkdirSync, writeFileSync } from 'node:fs'
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -51,7 +51,24 @@ const APPLE_TOUCH_PX = 180
  */
 async function render(window: BrowserWindow, svg: string, sizePx: number): Promise<Buffer> {
   const pagePath = join(tmpdir(), `winglog-mark-${randomUUID()}.html`)
-  writeFileSync(pagePath, markPage(svg, pathToFileURL(FONT_FILE).href, sizePx))
+  try {
+    writeFileSync(pagePath, markPage(svg, pathToFileURL(FONT_FILE).href, sizePx))
+    return await capture(window, pagePath, sizePx)
+  } finally {
+    rmSync(pagePath, { force: true })
+  }
+}
+
+/**
+ * Loads a page in the window and captures its top-left corner once the font has loaded.
+ *
+ * @param window The hidden window.
+ * @param pagePath The page to load.
+ * @param sizePx The picture's edge in pixels.
+ * @returns The picture as PNG bytes.
+ * @throws When the font did not load or the capture is not the size asked for.
+ */
+async function capture(window: BrowserWindow, pagePath: string, sizePx: number): Promise<Buffer> {
   await window.loadFile(pagePath)
   const family = `700 58px '${LOGO_FONT_FAMILY}'`
   const loaded = (await window.webContents.executeJavaScript(
@@ -68,6 +85,19 @@ async function render(window: BrowserWindow, svg: string, sizePx: number): Promi
   return image.toPNG()
 }
 
+/**
+ * Draws a mark at every .ico size and joins them into one .ico file.
+ *
+ * @param draw Draws a mark at a size.
+ * @param svg The mark.
+ * @returns The .ico file's bytes.
+ */
+async function drawIco(draw: (svg: string, sizePx: number) => Promise<Buffer>, svg: string): Promise<Buffer> {
+  const images: IcoImage[] = []
+  for (const sizePx of ICO_SIZES_PX) images.push({ sizePx, png: await draw(svg, sizePx) })
+  return buildIco(images)
+}
+
 /** Writes every logo file. */
 async function makeIcons(): Promise<void> {
   const window = new BrowserWindow({
@@ -79,17 +109,17 @@ async function makeIcons(): Promise<void> {
     transparent: true
   })
   const draw = (svg: string, sizePx: number): Promise<Buffer> => render(window, svg, sizePx)
+  // Everything is drawn first and written after, so a failure part way leaves the old files, never a mix of old and new.
+  const files = new Map<string, Buffer>()
+  files.set(join(BUILD_DIR, 'icon.png'), await draw(LOGO_LIGHT_SVG, SOURCE_SIZE_PX))
+  files.set(join(BUILD_DIR, 'icon-dark.png'), await draw(LOGO_DARK_SVG, SOURCE_SIZE_PX))
+  files.set(join(BUILD_DIR, 'icon.ico'), await drawIco(draw, LOGO_LIGHT_SVG))
+  files.set(join(BUILD_DIR, 'icon-dark.ico'), await drawIco(draw, LOGO_DARK_SVG))
+  files.set(join(PHONE_DIR, 'icon-192.png'), await draw(LOGO_LIGHT_SVG, MANIFEST_SMALL_PX))
+  files.set(join(PHONE_DIR, 'icon-512.png'), await draw(LOGO_LIGHT_SVG, MANIFEST_LARGE_PX))
+  files.set(join(PHONE_DIR, 'apple-touch-icon.png'), await draw(LOGO_FULL_BLEED_SVG, APPLE_TOUCH_PX))
   mkdirSync(BUILD_DIR, { recursive: true })
-  writeFileSync(join(BUILD_DIR, 'icon.png'), await draw(LOGO_LIGHT_SVG, SOURCE_SIZE_PX))
-  writeFileSync(join(BUILD_DIR, 'icon-dark.png'), await draw(LOGO_DARK_SVG, SOURCE_SIZE_PX))
-
-  const images: IcoImage[] = []
-  for (const sizePx of ICO_SIZES_PX) images.push({ sizePx, png: await draw(LOGO_LIGHT_SVG, sizePx) })
-  writeFileSync(join(BUILD_DIR, 'icon.ico'), buildIco(images))
-
-  writeFileSync(join(PHONE_DIR, 'icon-192.png'), await draw(LOGO_LIGHT_SVG, MANIFEST_SMALL_PX))
-  writeFileSync(join(PHONE_DIR, 'icon-512.png'), await draw(LOGO_LIGHT_SVG, MANIFEST_LARGE_PX))
-  writeFileSync(join(PHONE_DIR, 'apple-touch-icon.png'), await draw(LOGO_FULL_BLEED_SVG, APPLE_TOUCH_PX))
+  for (const [path, bytes] of files) writeFileSync(path, bytes)
 }
 
 // Scale factor 1 whatever the display's scaling, so a capture is exactly the size asked for.
