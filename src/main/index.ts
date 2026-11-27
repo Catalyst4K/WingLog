@@ -24,9 +24,10 @@ import { CloseQuestion } from './window/CloseQuestion'
 import { registerWindowHandlers } from './ipc/window-handlers'
 import { TrayController } from './window/TrayController'
 import { createElectronTray } from './window/electron-tray'
-import { trayIconPath } from './window/tray-icon-path'
+import { appIconPath } from './window/app-icon-path'
+import { AppIconSwitcher } from './window/AppIconSwitcher'
 import { E2E_DISPLAY_ENV, E2E_WINDOW_ENV, chooseDisplay, windowShow } from './e2e-window'
-import { app, BrowserWindow, dialog, ipcMain, Menu, screen, shell } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, nativeTheme, screen, shell } from 'electron'
 import { IpcChannels } from '@shared/ipc'
 import { initLogger, logger } from './logging/logger'
 import { installProcessGuards } from './logging/process-guards'
@@ -495,18 +496,26 @@ function startWindowBehaviour(
   trackingController: TrackingController,
   offer: BackgroundOffer
 ): TrayController {
-  const iconPath = trayIconPath(app.isPackaged, process.resourcesPath, app.getAppPath())
+  const currentIconPath = (): string =>
+    appIconPath(
+      app.isPackaged,
+      process.resourcesPath,
+      app.getAppPath(),
+      nativeTheme.shouldUseDarkColors,
+      currentPlatform()
+    )
   const controller = new TrayController({
     window,
     isTrayAvailable: canShowTray(),
     // Running in the background keeps the tray icon up, so the window can always be got back.
     isMinimizeToTray: () => getMinimizeToTray(db) || startsHidden(offer, getHostOnly(db)),
     isFlightActive: () => trackingController.getActive() !== undefined,
-    createTray: (actions) => createElectronTray(iconPath, actions),
+    createTray: (actions) => createElectronTray(currentIconPath(), actions),
     quit: () => app.quit(),
     translate: t
   })
   controller.start()
+  keepAppIconsInStep(window, controller, currentIconPath)
   for (const event of ['started', 'stopped', 'completed'] as const) {
     trackingController.on(event, () => controller.updateToolTip())
   }
@@ -526,6 +535,32 @@ function startWindowBehaviour(
     onError: (error) => logger.warn('close confirmation failed:', error)
   }).start()
   return controller
+}
+
+/**
+ * Keeps the tray icon, the window's taskbar icon and the Dock icon on the mark that suits the system's light or dark setting,
+ * now and whenever it changes (winglog-backend's docs/plans/logo-v2.md). The icon the system draws before WingLog runs stays the light mark.
+ *
+ * @param window The main window.
+ * @param trayController Owns the tray icon.
+ * @param currentIconPath The picture for the system's setting right now.
+ */
+function keepAppIconsInStep(
+  window: BrowserWindow,
+  trayController: TrayController,
+  currentIconPath: () => string
+): void {
+  const switcher = new AppIconSwitcher({
+    platform: currentPlatform(),
+    currentIconPath,
+    setTrayIcon: (path) => trayController.setIcon(path),
+    setWindowIcon: (path) => {
+      if (!window.isDestroyed()) window.setIcon(nativeImage.createFromPath(path))
+    },
+    setDockIcon: (path) => app.dock?.setIcon(nativeImage.createFromPath(path))
+  })
+  switcher.apply()
+  nativeTheme.on('updated', () => switcher.apply())
 }
 
 /**

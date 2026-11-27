@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { decodePng } from '../../../scripts/decode-png'
 
 // The page saved to a phone's Home Screen: the icon, name and full-screen mode come from these files, which nothing else exercises.
 const folder = join(__dirname, '..', '..', 'lan-client')
@@ -12,9 +13,10 @@ const manifest = JSON.parse(readFileSync(join(folder, 'public', 'manifest.webman
   icons: { src: string; sizes: string }[]
 }
 
+// Decoding checks it is a real PNG, not just a file of the right name.
 function pngSize(path: string): { width: number; height: number } {
-  const bytes = readFileSync(path)
-  return { width: bytes.readUInt32BE(16), height: bytes.readUInt32BE(20) }
+  const { width, height } = decodePng(readFileSync(path))
+  return { width, height }
 }
 
 describe('Home Screen web app', () => {
@@ -33,6 +35,19 @@ describe('Home Screen web app', () => {
       const [width] = icon.sizes.split('x').map(Number)
       expect(pngSize(path)).toEqual({ width, height: width })
     }
+  })
+
+  it('shows the v2 logo: the plan-magenta bar and an opaque paper touch icon, which the old icons fail', () => {
+    // The bar sits at 24.5% down the middle of the mark, drawn the same way at every size.
+    for (const name of ['icon-192.png', 'icon-512.png']) {
+      const icon = decodePng(readFileSync(join(folder, 'public', name)))
+      expect(icon.pixel(icon.width / 2, Math.floor(icon.height * 0.245)).hex, name).toBe('#B3146F')
+      expect(icon.pixel(0, 0).alpha, name).toBe(0)
+    }
+    const touch = decodePng(readFileSync(join(folder, 'public', 'apple-touch-icon.png')))
+    expect(touch.pixel(touch.width / 2, Math.floor(touch.height * 0.245)).hex).toBe('#B3146F')
+    // iOS fills transparent pixels black and rounds the corners itself, so the corner must be opaque paper.
+    expect(touch.pixel(0, 0)).toEqual({ hex: '#EBE8DE', alpha: 255 })
   })
 
   it('lets the page extend under the status bar, and pads for it with extra room below the blurred band iOS draws there', () => {
