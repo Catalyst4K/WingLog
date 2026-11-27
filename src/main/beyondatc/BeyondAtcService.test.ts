@@ -635,6 +635,18 @@ describe('BeyondAtcService', () => {
     expect(instances).toHaveLength(1)
   })
 
+  it('can be stopped twice (a cancelled quit fires before-quit again)', () => {
+    const { ctor, instances } = makeCtor()
+    const service = new BeyondAtcService('localhost', BEYONDATC_PORT, ctor)
+    service.start()
+    instances[0].simulateOpen()
+
+    service.stop()
+    expect(() => service.stop()).not.toThrow()
+    vi.advanceTimersByTime(5_000)
+    expect(instances).toHaveLength(1)
+  })
+
   it('tells listeners the link is gone when stopped, since the socket’s own close is ignored then', () => {
     const { ctor, instances } = makeCtor()
     const service = new BeyondAtcService('localhost', BEYONDATC_PORT, ctor)

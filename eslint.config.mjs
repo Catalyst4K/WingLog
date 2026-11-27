@@ -98,6 +98,12 @@ export default tseslint.config(
         {
           selector: "TSAsExpression > TSAsExpression.expression[typeAnnotation.type='TSUnknownKeyword']",
           message: 'No `as unknown as` outside tests: narrow with a type guard (coding-standards.md §7).'
+        },
+        {
+          selector:
+            "CallExpression[callee.property.name=/^(on|once|addListener|prependListener|prependOnceListener)$/][arguments.0.value='before-quit']",
+          message:
+            "Register quit steps with onQuit() (logging/on-quit.ts): a bare 'before-quit' listener that throws skips the steps after it (quit-guards.md)."
         }
       ],
       // §5 size and shape

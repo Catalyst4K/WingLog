@@ -37,10 +37,10 @@ describe('initLogger', () => {
     expect(transports.console.level).toBe('info')
   })
 
-  it('starts catching uncaught exceptions/rejections', async () => {
+  it('starts catching uncaught exceptions/rejections without a blocking error dialog', async () => {
     const { initLogger } = await import('./logger')
     initLogger()
-    expect(startCatching).toHaveBeenCalled()
+    expect(startCatching).toHaveBeenCalledWith({ showDialog: false })
   })
 
   it('replaces the global console with electron-log functions', async () => {
