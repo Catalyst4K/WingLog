@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { winglogApi } from '../data/winglog-api'
 import { useConfirm } from '../hooks/use-confirm'
-import { asyncHandler, runAsync } from '../report-error'
+import { asyncHandler, reportError, runAsync } from '../report-error'
 import { SettingsCard } from './ui/SettingsCard'
 
 /**
@@ -179,7 +179,10 @@ export function DeviceList(props: {
         props.onStatus(status)
         return true
       })
-      .catch(() => false)
+      .catch((error: unknown) => {
+        reportError('DeviceList lanRenameDevice', error)
+        return false
+      })
   const { devices } = props.status
   return (
     <>

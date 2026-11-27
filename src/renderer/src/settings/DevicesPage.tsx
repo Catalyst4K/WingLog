@@ -41,10 +41,14 @@ function HostDevices(props: { multiDevice: boolean }): React.JSX.Element | null 
 /**
  * The Devices page.
  *
- * @param props Whether to open Add a device at once (the first start after "Use another PC's sim").
+ * @param props Whether to open Add a device at once (the first start after "Use another PC's sim"), and what to call once that dialog
+ *   has closed, so the request is spent.
  * @returns The element.
  */
-export function DevicesPage(props: { startAdding?: boolean }): React.JSX.Element {
+export function DevicesPage(props: {
+  startAdding?: boolean
+  onStartAddingDone?: () => void
+}): React.JSX.Element {
   const { t } = useTranslation()
   const { runMode, multiDevice, canHostSim } = useCapabilities()
   const isClient = runMode === 'client'
@@ -52,9 +56,9 @@ export function DevicesPage(props: { startAdding?: boolean }): React.JSX.Element
   const [addClicked, setAddClicked] = useState(false)
   // The request after "Use another PC's sim" is a client's: it waits until the capabilities say this run is one.
   const [startPending, setStartPending] = useState(props.startAdding ?? false)
-  const adding = addClicked || (startPending && isClient)
   // A client adds only its one sim PC: the button shows while none is paired or the link needs pairing again.
   const canAdd = !isClient || offersPairing(link)
+  const adding = addClicked || (startPending && isClient && canAdd)
   const lede = isClient
     ? t('settingsView.devices.ledeClient')
     : multiDevice
@@ -84,6 +88,7 @@ export function DevicesPage(props: { startAdding?: boolean }): React.JSX.Element
           canUseAnotherSim={multiDevice && canHostSim && runMode === 'host'}
           onClose={() => {
             setAddClicked(false)
+            if (startPending) props.onStartAddingDone?.()
             setStartPending(false)
           }}
         />

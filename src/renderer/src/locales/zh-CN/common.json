@@ -289,7 +289,7 @@
       },
       "refused": {
         "pair-again": "与模拟器电脑的连接现已加密。请重新配对这台电脑。",
-        "certificate-changed": "自这台电脑配对以来，模拟器电脑的安全证书已发生变化。如果模拟器电脑上的 WingLog 已重新安装或数据已重置，请重新配对。否则，您网络中的某个设备可能在冒充模拟器电脑。",
+        "certificate-changed": "自这台电脑配对以来，模拟器电脑的安全证书已发生变化。如果模拟器电脑上的 WingLog 已重新安装或数据已重置，请重新配对。否则，你网络中的某个设备可能在冒充模拟器电脑。",
         "not-secure": "模拟器电脑未通过加密连接响应。请更新模拟器电脑上的 WingLog。"
       },
       "badAddress": "请输入模拟器电脑的地址和端口，需为家庭网络中的地址，例如 192.168.1.20:5051。",
@@ -299,7 +299,7 @@
       }
     },
     "twin": {
-      "notReachable": "在您的家庭网络中无法访问。",
+      "notReachable": "在你的家庭网络中无法访问。",
       "noCertificate": "其他电脑无法连接，因为这台电脑无法安全保存其证书。"
     },
     "devices": {
@@ -323,7 +323,7 @@
       "renameNamed": "重命名 {{name}}",
       "nameLabel": "名称",
       "save": "保存",
-      "renameFailed": "无法保存该名称。最多使用 40 个字母、数字和符号。",
+      "renameFailed": "无法保存该名称。",
       "networkTitle": "在你的家庭网络中",
       "computers": "电脑",
       "computersHint": "其他 WingLog 的飞行日志和机队与这台电脑保持同步，并实时显示它的模拟器。",
@@ -362,7 +362,7 @@
       "newCode": "新代码",
       "waitingDevice": "正在等待设备",
       "computerTitle": "配对另一台电脑",
-      "computerStep1": "在另一台电脑上打开 WingLog，然后打开“设置 → 设备”，选择“添加设备”。如果是 Windows 电脑，先选择“使用另一台电脑的模拟器”：WingLog 会在那台电脑上重启并询问地址和代码。",
+      "computerStep1": "在另一台电脑上打开 WingLog，然后打开“设置 → 设备”，选择“添加设备”。如果是 Windows 电脑，先选择“使用另一台电脑的模拟器”：WingLog 会在那台电脑上重启，并提示输入地址和代码。",
       "computerStep2": "然后输入：",
       "pairingCode": "配对码",
       "waitingComputer": "正在等待电脑",
@@ -372,7 +372,8 @@
       "paired": "{{name}} 已配对",
       "connectedToSimPc": "已连接到模拟器电脑",
       "done": "完成",
-      "close": "关闭"
+      "close": "关闭",
+      "flightActive": "请先完成或停止航班：现在重启会结束它。"
     }
   },
   "app": {

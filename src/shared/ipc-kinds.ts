@@ -129,7 +129,7 @@ const NOT_QUERIES = {
     'lanStopPairing',
     'lanRevokeDevice',
     'lanRenameDevice',
-    'appRestartForRunMode',
+    'appUseAnotherPcSimAndRestart',
     'onlinePrefileFromOfp',
     'onlinePrefileForFlight'
   ]

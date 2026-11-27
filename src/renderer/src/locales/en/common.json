@@ -328,7 +328,7 @@
       "renameNamed": "Rename {{name}}",
       "nameLabel": "Name",
       "save": "Save",
-      "renameFailed": "That name couldn’t be saved. Use up to 40 letters, numbers and symbols.",
+      "renameFailed": "That name couldn’t be saved.",
       "networkTitle": "On your home network",
       "computers": "Computers",
       "computersHint": "Other WingLogs keep their logbook and fleet in step with this PC and show its sim live.",
@@ -377,7 +377,8 @@
       "paired": "{{name}} is paired",
       "connectedToSimPc": "Connected to the sim PC",
       "done": "Done",
-      "close": "Close"
+      "close": "Close",
+      "flightActive": "Finish or stop the flight first: restarting now would end it."
     }
   },
   "app": {

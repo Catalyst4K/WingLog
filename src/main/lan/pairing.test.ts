@@ -87,7 +87,10 @@ describe('checkedDeviceName', () => {
       'evil\u202egnp.exe',
       'LRE\u202a',
       'Isolate\u2066',
-      'PDI\u2069'
+      'PDI\u2069',
+      'ALM\u061c',
+      'LRM\u200e',
+      'RLM\u200f'
     ])
       expect(checkedDeviceName(value), JSON.stringify(value)).toBeNull()
   })

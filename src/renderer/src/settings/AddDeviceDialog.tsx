@@ -124,24 +124,33 @@ function PairStep(props: {
 }
 
 /**
- * "Use another PC's sim": this PC becomes a client from the next start, and Restart now starts it again.
+ * "Use another PC's sim": nothing changes until Restart now, which switches this PC to a client and starts it again in one step
+ * (refused, and said so, while a flight is being tracked). Close changes nothing.
  *
  * @param props What Close does.
  * @returns The step.
  */
 function UseAnotherSimStep(props: { onClose: () => void }): React.JSX.Element {
   const { t } = useTranslation()
+  const [flightActive, setFlightActive] = useState(false)
+  const restart = (): void =>
+    runAsync(
+      'AddDeviceDialog appUseAnotherPcSimAndRestart',
+      winglogApi()
+        .appUseAnotherPcSimAndRestart()
+        .then((result) => setFlightActive(result === 'flight-active'))
+    )
   return (
     <>
       <p className="m-0 text-sm">{t('settingsView.addDevice.restartNeeded')}</p>
+      {flightActive && (
+        <p role="alert" className="m-0 text-sm">
+          {t('settingsView.addDevice.flightActive')}
+        </p>
+      )}
       <StepFooter>
         <span className="flex gap-2">
-          <Button
-            type="button"
-            onClick={() =>
-              runAsync('AddDeviceDialog appRestartForRunMode', winglogApi().appRestartForRunMode())
-            }
-          >
+          <Button type="button" onClick={restart}>
             {t('settingsView.addDevice.restartNow')}
           </Button>
           <Button type="button" variant="outline" onClick={props.onClose}>
@@ -186,13 +195,9 @@ function HostAddDevice(props: {
     props.onClose()
   }
 
-  function useAnotherSim(): void {
-    runAsync(
-      'AddDeviceDialog settingsUseAnotherPcSim',
-      winglogApi()
-        .settingsUseAnotherPcSim()
-        .then(() => setUsingAnother(true))
-    )
+  // Only shows the step: the switch happens on Restart now (decided 2026-11-27).
+  function chooseAnotherSim(): void {
+    setUsingAnother(true)
   }
 
   // The success step keeps the title of the step it follows.
@@ -220,7 +225,7 @@ function HostAddDevice(props: {
         props.multiDevice && (
           <ChooseStep
             onChoose={choose}
-            onUseAnotherSim={props.canUseAnotherSim ? useAnotherSim : undefined}
+            onUseAnotherSim={props.canUseAnotherSim ? chooseAnotherSim : undefined}
           />
         )
       )}

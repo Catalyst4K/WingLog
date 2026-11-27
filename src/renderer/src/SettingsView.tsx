@@ -262,8 +262,9 @@ export function SettingsView(
   const [category, setCategory] = useState<SettingsCategory>(
     props.openConnect ? 'devices' : DEFAULT_SETTINGS_CATEGORY
   )
-  // Read once when the page mounts: Devices opens its Add a device then, and the request is spent.
-  const [openConnect] = useState(props.openConnect ?? false)
+  // Read once when the page mounts: Devices opens its Add a device then, and the request is spent. Cleared when that dialog closes, so
+  // coming back to Devices (the tab mounts again) doesn't open it again.
+  const [openConnect, setOpenConnect] = useState(props.openConnect ?? false)
   const { onOpenConnectConsumed } = props
   useEffect(() => {
     if (openConnect) onOpenConnectConsumed?.()
@@ -308,7 +309,7 @@ export function SettingsView(
         </TabsContent>
 
         <TabsContent value="devices" className={PAGE}>
-          <DevicesPage startAdding={openConnect} />
+          <DevicesPage startAdding={openConnect} onStartAddingDone={() => setOpenConnect(false)} />
         </TabsContent>
 
         <TabsContent value="accounts" className={PAGE}>

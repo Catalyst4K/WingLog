@@ -330,7 +330,7 @@
       "renameNamed": "Renommer {{name}}",
       "nameLabel": "Nom",
       "save": "Enregistrer",
-      "renameFailed": "Ce nom n’a pas pu être enregistré. Utilisez jusqu’à 40 lettres, chiffres et symboles.",
+      "renameFailed": "Ce nom n’a pas pu être enregistré.",
       "networkTitle": "Sur votre réseau domestique",
       "computers": "Ordinateurs",
       "computersHint": "Les autres WingLog gardent leur carnet de vol et leur flotte synchronisés avec ce PC et affichent son simulateur en direct.",
@@ -356,7 +356,7 @@
       "computerHint": "Son carnet de vol et sa flotte restent synchronisés avec ceux de ce PC, et il affiche en direct le simulateur de ce PC.",
       "useAnother": "Utiliser le simulateur d’un autre PC",
       "useAnotherHint": "Ce PC n’exécute plus le simulateur et fonctionne avec celui d’un autre PC.",
-      "restartNeeded": "WingLog doit redémarrer pour utiliser le simulateur d’un autre PC. Après le redémarrage, saisissez l’adresse et le code de ce PC.",
+      "restartNeeded": "WingLog doit redémarrer pour utiliser le simulateur d’un autre PC. Après le redémarrage, saisissez l’adresse et le code de l’autre PC.",
       "restartNow": "Redémarrer maintenant",
       "homeOnly": "Uniquement sur votre réseau domestique.",
       "phonesOn": "Les téléphones et tablettes sont maintenant activés.",
@@ -379,7 +379,8 @@
       "paired": "{{name}} est appairé",
       "connectedToSimPc": "Connecté au PC du simulateur",
       "done": "Terminé",
-      "close": "Fermer"
+      "close": "Fermer",
+      "flightActive": "Terminez ou arrêtez d’abord le vol : redémarrer maintenant y mettrait fin."
     }
   },
   "app": {

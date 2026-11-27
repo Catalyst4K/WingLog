@@ -328,7 +328,7 @@
       "renameNamed": "{{name}} umbenennen",
       "nameLabel": "Name",
       "save": "Speichern",
-      "renameFailed": "Der Name konnte nicht gespeichert werden. Verwende bis zu 40 Buchstaben, Ziffern und Zeichen.",
+      "renameFailed": "Der Name konnte nicht gespeichert werden.",
       "networkTitle": "In deinem Heimnetz",
       "computers": "Computer",
       "computersHint": "Andere WingLogs gleichen Logbuch und Flotte mit diesem PC ab und zeigen seinen Simulator live.",
@@ -354,7 +354,7 @@
       "computerHint": "Logbuch und Flotte werden mit diesem PC abgeglichen, und er zeigt den Simulator dieses PCs live.",
       "useAnother": "Den Simulator eines anderen PCs nutzen",
       "useAnotherHint": "Dieser PC betreibt den Simulator nicht mehr und arbeitet mit dem Simulator eines anderen PCs.",
-      "restartNeeded": "WingLog muss neu starten, um den Simulator eines anderen PCs zu nutzen. Gib nach dem Neustart Adresse und Code dieses PCs ein.",
+      "restartNeeded": "WingLog muss neu starten, um den Simulator eines anderen PCs zu nutzen. Gib nach dem Neustart Adresse und Code des anderen PCs ein.",
       "restartNow": "Jetzt neu starten",
       "homeOnly": "Nur in deinem Heimnetz.",
       "phonesOn": "Handys und Tablets sind jetzt zugelassen.",
@@ -363,7 +363,7 @@
       "scanOrOpen": "Scanne ihn oder öffne diese Adresse auf dem Gerät:",
       "typeCode": "Gib dann dort diesen Code ein:",
       "once": "Er gilt nur einmal und läuft nach 5 Minuten ab.",
-      "codeClosed": "Dieser Code ist abgelaufen.",
+      "codeClosed": "Dieser Code gilt nicht mehr.",
       "newCode": "Neuer Code",
       "waitingDevice": "Warte auf das Gerät",
       "computerTitle": "Anderen Computer koppeln",
@@ -377,7 +377,8 @@
       "paired": "{{name}} ist gekoppelt",
       "connectedToSimPc": "Mit dem Sim-PC verbunden",
       "done": "Fertig",
-      "close": "Schließen"
+      "close": "Schließen",
+      "flightActive": "Beende oder stoppe zuerst den Flug: Ein Neustart würde ihn jetzt beenden."
     }
   },
   "app": {

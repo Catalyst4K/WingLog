@@ -67,8 +67,7 @@ function setup(
       return Promise.resolve(lan)
     }),
     lanRevokeDevice: vi.fn(() => Promise.resolve(lan)),
-    settingsUseAnotherPcSim: vi.fn(() => Promise.resolve()),
-    appRestartForRunMode: vi.fn(() => Promise.resolve()),
+    appUseAnotherPcSimAndRestart: vi.fn(() => Promise.resolve('restarting')),
     hostLinkGetStatus: vi.fn(() => Promise.resolve(options.link ?? UNPAIRED)),
     hostLinkPair: vi.fn(() => Promise.resolve(options.link ?? UNPAIRED)),
     hostLinkForget: vi.fn(() => Promise.resolve()),
@@ -307,6 +306,9 @@ describe('Add a device on the sim PC', () => {
     await user.click(within(dialog).getByRole('button', { name: /Another computer with WingLog/ }))
     expect(await within(dialog).findByRole('alert')).toHaveTextContent(/security certificate/)
     expect(within(dialog).queryByText('Waiting for the computer')).not.toBeInTheDocument()
+    // New code couldn't help, so the step doesn't offer it.
+    expect(within(dialog).queryByText('This code has closed.')).not.toBeInTheDocument()
+    expect(within(dialog).queryByRole('button', { name: 'New code' })).not.toBeInTheDocument()
   })
 
   it.each([
@@ -334,7 +336,7 @@ describe('Add a device on the sim PC', () => {
     expect(api.lanStopPairing).toHaveBeenCalledWith('twin')
   })
 
-  it('offers Use another PC’s sim on a sim PC: the next start is a client, and Restart now starts again', async () => {
+  it('offers Use another PC’s sim on a sim PC: choosing it changes nothing until Restart now, which switches and restarts', async () => {
     const user = userEvent.setup()
     const { api } = setup()
     renderPage()
@@ -342,14 +344,40 @@ describe('Add a device on the sim PC', () => {
     const choice = within(dialog).getByRole('button', { name: /Use another PC’s sim/ })
     expect(choice).toHaveTextContent('This PC stops running the sim and works with the sim on another PC.')
     await user.click(choice)
-    expect(api.settingsUseAnotherPcSim).toHaveBeenCalled()
     expect(
       await within(dialog).findByText(/^WingLog needs to restart to use another PC’s sim/)
     ).toBeInTheDocument()
     expect(within(dialog).getByRole('heading', { name: 'Use another PC’s sim' })).toBeInTheDocument()
+    expect(api.appUseAnotherPcSimAndRestart).not.toHaveBeenCalled()
     await user.click(within(dialog).getByRole('button', { name: 'Restart now' }))
-    expect(api.appRestartForRunMode).toHaveBeenCalled()
+    expect(api.appUseAnotherPcSimAndRestart).toHaveBeenCalledTimes(1)
     expect(api.lanStartPairing).not.toHaveBeenCalled()
+  })
+
+  it('closing Use another PC’s sim without Restart now sends nothing', async () => {
+    const user = userEvent.setup()
+    const { api } = setup()
+    renderPage()
+    const dialog = await openAdd(user)
+    await user.click(within(dialog).getByRole('button', { name: /Use another PC’s sim/ }))
+    await within(dialog).findByRole('button', { name: 'Restart now' })
+    const closes = within(dialog).getAllByRole('button', { name: 'Close' })
+    await user.click(closes[closes.length - 1] as HTMLElement)
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(api.appUseAnotherPcSimAndRestart).not.toHaveBeenCalled()
+  })
+
+  it('says to finish the flight first when Restart now is refused during a tracked flight', async () => {
+    const user = userEvent.setup()
+    const { api } = setup()
+    api.appUseAnotherPcSimAndRestart.mockResolvedValue('flight-active')
+    renderPage()
+    const dialog = await openAdd(user)
+    await user.click(within(dialog).getByRole('button', { name: /Use another PC’s sim/ }))
+    await user.click(await within(dialog).findByRole('button', { name: 'Restart now' }))
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent(
+      'Finish or stop the flight first: restarting now would end it.'
+    )
   })
 
   it('offers no Use another PC’s sim on a computer that cannot run the sim', async () => {

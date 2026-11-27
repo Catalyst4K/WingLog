@@ -429,6 +429,20 @@ describe('SettingsView', () => {
         expect(consumed).toHaveBeenCalledTimes(1)
       })
 
+      it('does not open Connect to a sim PC again when the pilot comes back to Devices', async () => {
+        const user = userEvent.setup()
+        setWinglog({ appGetCapabilities: vi.fn().mockResolvedValue(CLIENT) })
+        renderSettings({ openConnect: true, onOpenConnectConsumed: vi.fn() })
+        const dialog = await screen.findByRole('dialog')
+        await within(dialog).findByRole('heading', { name: 'Connect to a sim PC' })
+        await user.keyboard('{Escape}')
+        await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+        await user.click(screen.getByRole('tab', { name: /General/ }))
+        await user.click(screen.getByRole('tab', { name: /Devices/ }))
+        expect(await screen.findByRole('heading', { name: 'Devices' })).toBeInTheDocument()
+        expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+      })
+
       it('lights the Devices page red on a client when the link is not connected, whatever the sim last said', async () => {
         setWinglog({
           appGetCapabilities: vi.fn().mockResolvedValue(CLIENT),

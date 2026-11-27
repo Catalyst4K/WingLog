@@ -12,6 +12,7 @@ import { canHostSim, canShowTray, currentPlatform, quitsWhenAllWindowsClose } fr
 import { appCapabilities, type AppCapabilities } from '@shared/run-mode'
 import { registerInertHandlers, trackHandledChannels } from './client-mode'
 import { registerRunModeHandlers } from './ipc/run-mode-handlers'
+import { E2E_NO_RELAUNCH_ENV, shouldRelaunch } from './e2e-relaunch'
 import { startHostServices } from './host-services'
 import { startClientServices } from './client-services'
 import { flightMirrorFor } from './host-link/flight-mirror'
@@ -253,9 +254,11 @@ function registerAppAreas(deps: {
   registerRunModeHandlers(ipcMain, {
     db,
     capabilities,
+    flightActive: () => trackingController.getActive() !== undefined,
+    // A normal quit, so every before-quit step runs, then the new run starts.
     relaunch: () => {
-      app.relaunch()
-      app.exit(0)
+      if (shouldRelaunch(app.isPackaged, process.env[E2E_NO_RELAUNCH_ENV])) app.relaunch()
+      app.quit()
     }
   })
 }

@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { LanDeviceKind, LanStatus } from '@shared/ipc'
 import { winglogApi } from '../data/winglog-api'
 import { runAsync } from '../report-error'
+import { pairingProblemKey } from './lan-problem'
 import { useLanStatus } from './use-lan-status'
 
 /** Pairing mode for a phone: on until Close, when the code on screen runs out, and how many phones were paired when it opened. */
@@ -112,7 +113,8 @@ export function useDevicePairing(onPaired: (name: string, kind: LanDeviceKind) =
     if (open.kind === 'screen') renewPairing(screensOnly(next), renewal.current, show)
     const code = open.kind === 'twin' ? next.twinPairing : next.pairing
     const renewing = open.kind === 'screen' && renewal.current.on
-    if (!code && !renewing && next.url) setClosed(true)
+    // A code gone for a problem the step already shows (no certificate) is not "closed": New code couldn't help.
+    if (!code && !renewing && next.url && !pairingProblemKey(next, open.kind)) setClosed(true)
   }
 
   const [status, setStatus] = useLanStatus(true, read)

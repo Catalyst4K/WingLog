@@ -143,6 +143,9 @@ export const RENDERER_INFO_TAGS = ['atc-prompt'] as const
 /** One of `RENDERER_INFO_TAGS`. */
 export type RendererInfoTag = (typeof RENDERER_INFO_TAGS)[number]
 
+/** What "Use another PC's sim" → Restart now did: restarting now, or nothing because a flight is being tracked. */
+export type UseAnotherPcSimResult = 'restarting' | 'flight-active'
+
 export interface WingLogApi {
   aircraftList: () => Promise<Aircraft[]>
   aircraftCreate: (aircraft: NewAircraft) => Promise<Aircraft>
@@ -280,10 +283,11 @@ export interface WingLogApi {
   settingsGetRunMode: () => Promise<RunMode | null>
   /** Chooses the run mode for the next launch. Refused when multi-device is not built in. */
   settingsSetRunMode: (mode: RunMode) => Promise<void>
-  /** A sim PC chooses to use another PC's sim: the run mode becomes client, and the next launch opens Connect to a sim PC. */
-  settingsUseAnotherPcSim: () => Promise<void>
-  /** Starts WingLog again so a run mode chosen for the next launch applies. Refused when no change is waiting. */
-  appRestartForRunMode: () => Promise<void>
+  /**
+   * A sim PC uses another PC's sim: the run mode becomes client, the next launch opens Connect to a sim PC, and WingLog restarts now.
+   * Nothing changes, and `'flight-active'` comes back, while a flight is being tracked.
+   */
+  appUseAnotherPcSimAndRestart: () => Promise<UseAnotherPcSimResult>
   /** Whether this launch should open Settings → Devices on Connect to a sim PC; true once, then false. */
   appTakeOpenConnectOnStart: () => Promise<boolean>
   /** Begins tracking a planned flight. Throws if the sim isn't connected or another flight is already tracked. */

@@ -86,8 +86,8 @@ test('a client pins the sim PC’s certificate when it pairs by address and code
 })
 
 // Settings → Devices on both computers (winglog-backend's docs/plans/devices-page.md): a Windows PC that is a sim PC chooses Add a device →
-// Use another PC's sim, and its next start opens Connect to a sim PC; it types the address and code the real sim PC's Add a device →
-// Another computer with WingLog shows, and both say it paired. Restart now itself is a unit test (it relaunches outside Playwright).
+// Use another PC's sim → Restart now (in a test it only quits, WINGLOG_E2E_NO_RELAUNCH), and its next start opens Connect to a sim PC; it
+// types the address and code the real sim PC's Add a device → Another computer with WingLog shows, and both say it paired.
 test('a computer pairs with the sim PC through Add a device on both sides, after Use another PC’s sim', async () => {
   test.setTimeout(120_000)
   const clientDir = mkdtempSync(join(tmpdir(), 'winglog-e2e-client-'))
@@ -102,8 +102,11 @@ test('a computer pairs with the sim PC through Add a device on both sides, after
       await first.window.getByRole('button', { name: 'Add a device' }).click()
       const dialog = first.window.getByRole('dialog')
       await dialog.getByRole('button', { name: /Use another PC’s sim/ }).click()
-      await expect(dialog.getByRole('button', { name: 'Restart now' })).toBeVisible()
-      expect(await first.window.evaluate(() => window.winglog.settingsGetRunMode())).toBe('client')
+      // Nothing changes until Restart now.
+      expect(await first.window.evaluate(() => window.winglog.settingsGetRunMode())).not.toBe('client')
+      const quit = first.app.waitForEvent('close')
+      await dialog.getByRole('button', { name: 'Restart now' }).click()
+      await quit
     } finally {
       await first.cleanup()
     }
@@ -146,7 +149,7 @@ test('a computer pairs with the sim PC through Add a device on both sides, after
         })
         await expect(list.getByText('Computer', { exact: true })).toBeVisible()
         await expect(list.getByText('Connected', { exact: true })).toBeVisible()
-        // Started again, the client goes to Fleet as usual: the request was used once.
+        // The request was used once: asked again, this run says no.
         expect(await client.window.evaluate(() => window.winglog.appTakeOpenConnectOnStart())).toBe(false)
       } finally {
         await client.cleanup()

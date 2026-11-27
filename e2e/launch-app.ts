@@ -103,6 +103,8 @@ export async function launchApp(options: LaunchAppOptions = {}): Promise<Launche
   // closed local port so no e2e run ever reaches the real API; updates.spec.ts overrides
   // this with its own fake release server. Only honoured by an unpackaged build.
   env.WINGLOG_UPDATE_URL = 'http://127.0.0.1:9/releases/latest'
+  // Restart now (Settings → Devices) only quits in a test: a relaunch would leave a WingLog outside Playwright (src/main/e2e-relaunch.ts).
+  env.WINGLOG_E2E_NO_RELAUNCH = '1'
   // A test run never reaches the real sim or BeyondATC on this machine, whether or not they are running: each is pointed at a port of
   // its own that nothing listens on, which a test's fake server (FakeBeyondAtcServer's env) or replay replaces.
   env.WINGLOG_E2E_SIMCONNECT_PORT = String(await unusedPort())

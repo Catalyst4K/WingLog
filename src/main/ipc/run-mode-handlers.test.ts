@@ -3,7 +3,7 @@ import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import { IpcChannels } from '@shared/ipc'
 import { appCapabilities } from '@shared/run-mode'
 import { createDb, type WingLogDb } from '../db/client'
-import { getRunMode, getSetting, setRunMode } from '../db/settings-repo'
+import { getRunMode, getSetting, setOpenConnectOnStart, setRunMode } from '../db/settings-repo'
 import { registerRunModeHandlers } from './run-mode-handlers'
 import { fakeIpc } from './fake-ipc'
 
@@ -16,6 +16,7 @@ describe('run mode IPC handlers', () => {
   })
 
   const relaunch = vi.fn()
+  let tracking = false
 
   function register(multiDevice: boolean, canHost: boolean): ReturnType<typeof fakeIpc>['invoke'] {
     relaunch.mockClear()
@@ -23,6 +24,7 @@ describe('run mode IPC handlers', () => {
     registerRunModeHandlers(ipc.ipcMain, {
       db,
       capabilities: appCapabilities(getRunMode(db), multiDevice, canHost),
+      flightActive: () => tracking,
       relaunch
     })
     return ipc.invoke
@@ -51,41 +53,43 @@ describe('run mode IPC handlers', () => {
     expect(getRunMode(db)).toBeNull()
   })
 
-  describe('Use another PC’s sim (Add a device on a sim PC)', () => {
-    it('makes the next launch a client that opens Connect to a sim PC, once', () => {
+  describe('Use another PC’s sim and Restart now (Add a device on a sim PC)', () => {
+    beforeEach(() => {
+      tracking = false
+    })
+
+    it('switches to a client, asks the next launch to open Connect to a sim PC, and restarts, in one step', () => {
       const invoke = register(true, true)
-      expect(invoke(IpcChannels.appTakeOpenConnectOnStart)).toBe(false)
-      invoke(IpcChannels.settingsUseAnotherPcSim)
+      expect(invoke(IpcChannels.appUseAnotherPcSimAndRestart)).toBe('restarting')
       expect(getRunMode(db)).toBe('client')
-      // The next launch reads the request and clears it.
+      expect(relaunch).toHaveBeenCalledTimes(1)
+      // The next launch is a client: it reads the request once, and clears it.
       const next = register(true, true)
       expect(next(IpcChannels.appTakeOpenConnectOnStart)).toBe(true)
       expect(next(IpcChannels.appTakeOpenConnectOnStart)).toBe(false)
       expect(getSetting(db, 'openConnectOnStart')).toBeUndefined()
     })
 
-    it('is refused in a release build and on a computer that is already a client', () => {
-      expect(() => register(false, true)(IpcChannels.settingsUseAnotherPcSim)).toThrow('Only a sim PC')
-      setRunMode(db, 'client')
-      expect(() => register(true, true)(IpcChannels.settingsUseAnotherPcSim)).toThrow('Only a sim PC')
+    it('changes nothing and does not restart while a flight is being tracked', () => {
+      tracking = true
+      expect(register(true, true)(IpcChannels.appUseAnotherPcSimAndRestart)).toBe('flight-active')
+      expect(getRunMode(db)).toBeNull()
       expect(getSetting(db, 'openConnectOnStart')).toBeUndefined()
-    })
-
-    it('restarts only when the run mode chosen for the next launch differs from this run’s', () => {
-      const invoke = register(true, true)
-      expect(() => invoke(IpcChannels.appRestartForRunMode)).toThrow('No run mode change')
-      invoke(IpcChannels.settingsSetRunMode, 'host')
-      expect(() => invoke(IpcChannels.appRestartForRunMode)).toThrow('No run mode change')
       expect(relaunch).not.toHaveBeenCalled()
-      invoke(IpcChannels.settingsUseAnotherPcSim)
-      invoke(IpcChannels.appRestartForRunMode)
-      expect(relaunch).toHaveBeenCalledTimes(1)
     })
 
-    it('never restarts a release build', () => {
+    it('is refused in a release build and on a computer that is already a client', () => {
+      expect(() => register(false, true)(IpcChannels.appUseAnotherPcSimAndRestart)).toThrow('Only a sim PC')
       setRunMode(db, 'client')
-      expect(() => register(false, true)(IpcChannels.appRestartForRunMode)).toThrow('No run mode change')
+      expect(() => register(true, true)(IpcChannels.appUseAnotherPcSimAndRestart)).toThrow('Only a sim PC')
+      expect(getSetting(db, 'openConnectOnStart')).toBeUndefined()
       expect(relaunch).not.toHaveBeenCalled()
+    })
+
+    it('never sends a sim PC to Devices from a request left behind, and clears it', () => {
+      setOpenConnectOnStart(db)
+      expect(register(true, true)(IpcChannels.appTakeOpenConnectOnStart)).toBe(false)
+      expect(getSetting(db, 'openConnectOnStart')).toBeUndefined()
     })
   })
 

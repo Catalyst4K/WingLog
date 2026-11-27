@@ -330,7 +330,7 @@
       "renameNamed": "Rinomina {{name}}",
       "nameLabel": "Nome",
       "save": "Salva",
-      "renameFailed": "Impossibile salvare il nome. Usa fino a 40 lettere, numeri e simboli.",
+      "renameFailed": "Impossibile salvare il nome.",
       "networkTitle": "Sulla tua rete domestica",
       "computers": "Computer",
       "computersHint": "Altri WingLog tengono libretto e flotta allineati con questo PC e mostrano il simulatore di questo PC in diretta.",
@@ -379,7 +379,8 @@
       "paired": "{{name}} è associato",
       "connectedToSimPc": "Connesso al PC del simulatore",
       "done": "Fatto",
-      "close": "Chiudi"
+      "close": "Chiudi",
+      "flightActive": "Prima termina o interrompi il volo: riavviare ora lo chiuderebbe."
     }
   },
   "app": {
